@@ -1,0 +1,49 @@
+{
+  "hlk_enabled": true,
+  "version": "2.0.0",
+  "ruflo_version_tested": "3.34.0",
+  "description": "Harness & Logic Knowledge Layer config for Ruflo Workspace",
+  "features": {
+    "knowledge_protection": true,
+    "data_sanitization": true,
+    "secret_vault_override": true,
+    "telemetry_blocker": true,
+    "custom_hooks_injection": true,
+    "post_merge_verify": true
+  },
+  "upstream": {
+    "repository": "https://github.com/ruvnet/ruflo.git",
+    "remote_name": "upstream",
+    "target_branch": "main"
+  },
+  "upgrade_policy": {
+    "auto_merge": false,
+    "verify_hlk_after_merge": true,
+    "backup_config_before_merge": true,
+    "log_upgrades": true
+  },
+  "security_rules": {
+    "redact_patterns": [
+      "sk-[a-zA-Z0-9]{32,}",
+      "ghp_[a-zA-Z0-9]{36}",
+      "(?i)password\\s*=\\s*['\"]?[^'\"\\s]+",
+      "(?i)api[_-]?key\\s*=\\s*['\"]?[^'\"\\s]+",
+      "(?i)secret\\s*[:=]\\s*['\"]?[^'\"\\s]+",
+      "(?i)token\\s*[:=]\\s*['\"]?[^'\"\\s]+",
+      "(?i)(mongodb\\+srv|postgresql|mysql)://[^\\s]+",
+      "-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----"
+    ],
+    "redact_replacement": "[REDACTED]",
+    "scan_paths": ["src/**", "config/**", ".env*"],
+    "exclude_paths": ["node_modules/**", "dist/**", "HLK/logs/**"]
+  },
+  "telemetry_overrides": {
+    "CLAUDE_CODE_ENABLE_TELEMETRY": "0",
+    "DISABLE_TELEMETRY": "1",
+    "OTEL_TRACES_EXPORTER": "none",
+    "OTEL_METRICS_EXPORTER": "file",
+    "OTEL_LOGS_EXPORTER": "file",
+    "LANGSMITH_TRACING": "false",
+    "LANGFUSE_TRACING": "false"
+  }
+}

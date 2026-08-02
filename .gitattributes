@@ -1,0 +1,19 @@
+# Git Attributes — Merge strategies for HLK layer
+#
+# HLK files use "ours" merge strategy so upstream ruflo merges
+# never overwrite local HLK customizations.
+
+# HLK config — always keep our version on merge conflicts
+HLK/config/hlk.config.json merge=ours
+
+# HLK wrappers — keep ours
+HLK/wrappers/** merge=ours
+
+# HLK security — keep ours
+HLK/security/** merge=ours
+
+# HLK prompts — keep ours
+HLK/prompts/** merge=ours
+
+# HLK docs — keep ours
+HLK/README.md merge=ours
