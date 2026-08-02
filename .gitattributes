@@ -17,3 +17,9 @@ HLK/prompts/** merge=ours
 
 # HLK docs — keep ours
 HLK/README.md merge=ours
+
+# HLK loop — keep ours
+HLK/loop/** merge=ours
+
+# HLK reports — keep ours
+HLK/reports/** merge=ours

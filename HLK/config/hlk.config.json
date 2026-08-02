@@ -1,6 +1,6 @@
 {
   "hlk_enabled": true,
-  "version": "2.0.0",
+  "version": "3.0.0",
   "ruflo_version_tested": "3.34.0",
   "description": "Harness & Logic Knowledge Layer config for Ruflo Workspace",
   "features": {
@@ -26,12 +26,14 @@
     "redact_patterns": [
       "sk-[a-zA-Z0-9]{32,}",
       "ghp_[a-zA-Z0-9]{36}",
+      "\\b(sk-|pk-|api[_-]?key[_-]?)[a-zA-Z0-9]{20,}\\b",
+      "\\beyJ[a-zA-Z0-9_-]*\\.eyJ[a-zA-Z0-9_-]*\\.[a-zA-Z0-9_-]*\\b",
       "(?i)password\\s*=\\s*['\"]?[^'\"\\s]+",
       "(?i)api[_-]?key\\s*=\\s*['\"]?[^'\"\\s]+",
       "(?i)secret\\s*[:=]\\s*['\"]?[^'\"\\s]+",
       "(?i)token\\s*[:=]\\s*['\"]?[^'\"\\s]+",
       "(?i)(mongodb\\+srv|postgresql|mysql)://[^\\s]+",
-      "-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----"
+      "(?i)-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----[\\s\\S]*?-----END (RSA |EC |OPENSSH )?PRIVATE KEY-----"
     ],
     "redact_replacement": "[REDACTED]",
     "scan_paths": ["src/**", "config/**", ".env*"],

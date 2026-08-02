@@ -1,0 +1,87 @@
+{
+  "$schema_note": "Cấu hình pipeline vòng lặp tự học HLK — định nghĩa các bước (step), phụ thuộc (depends_on) để runner tự tính wave chạy song song",
+  "version": "1.0.0",
+  "loop": {
+    "max_iterations": 3,
+    "state_file": "HLK/logs/loop-state.json",
+    "learnings_file": "HLK/reports/learnings.md",
+    "memory_namespace": "patterns",
+    "store_learnings_to_memory": true
+  },
+  "runner": {
+    "mode": "command",
+    "comment": "mode=command: tự spawn session agent độc lập cho mỗi step; mode=manual: chỉ in hướng dẫn để người dùng/agent ngoài tự chạy",
+    "command": "npx",
+    "args_template": [
+      "claude-flow",
+      "swarm",
+      "run",
+      "--objective",
+      "Thực thi prompt {promptFile} trên repo này, ghi báo cáo tiếng Việt vào {reportFile}, kết thúc bằng mục '## Learnings' 3-7 gạch đầu dòng",
+      "--strategy",
+      "specialized",
+      "--max-agents",
+      "3"
+    ],
+    "timeout_ms": 1800000
+  },
+  "steps": [
+    {
+      "id": "01",
+      "name": "codebase_analysis",
+      "prompt": "HLK/prompts/01_codebase_analysis.prompt.md",
+      "report": "HLK/reports/01_codebase_analysis.md",
+      "depends_on": [],
+      "writes_code": false
+    },
+    {
+      "id": "05",
+      "name": "data_leak_hardening_guide",
+      "prompt": "HLK/prompts/05_data_leak_hardening_guide.prompt.md",
+      "report": "HLK/reports/05_data_leak_hardening_guide.md",
+      "depends_on": [],
+      "writes_code": false
+    },
+    {
+      "id": "02",
+      "name": "redteam_security",
+      "prompt": "HLK/prompts/02_redteam_security.prompt.md",
+      "report": "HLK/reports/02_redteam_security.md",
+      "depends_on": ["01"],
+      "writes_code": false
+    },
+    {
+      "id": "06",
+      "name": "harness_deepdive_hardening",
+      "prompt": "HLK/prompts/06_harness_deepdive_hardening.prompt.md",
+      "report": "HLK/reports/06_harness_deepdive.md",
+      "depends_on": ["01", "02"],
+      "writes_code": false
+    },
+    {
+      "id": "03",
+      "name": "solution_architect",
+      "prompt": "HLK/prompts/03_solution_architect.prompt.md",
+      "report": "HLK/reports/03_solution_architecture.md",
+      "depends_on": ["01", "02"],
+      "writes_code": false
+    },
+    {
+      "id": "04",
+      "name": "upstream_update_plan",
+      "prompt": "HLK/prompts/04_upstream_update_plan.prompt.md",
+      "report": "HLK/reports/04_upstream_update_plan.md",
+      "depends_on": ["03"],
+      "writes_code": false
+    },
+    {
+      "id": "07",
+      "name": "ruflo_hardening_implementation",
+      "prompt": "HLK/prompts/07_ruflo_hardening_implementation.prompt.md",
+      "report": "HLK/reports/07_hardening_implementation.md",
+      "depends_on": ["01", "05", "06"],
+      "writes_code": true,
+      "serial_only": true
+    }
+  ]
+}

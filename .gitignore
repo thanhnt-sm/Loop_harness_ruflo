@@ -183,3 +183,9 @@ HLK/config/secrets.*
 HLK/config/*.local.json
 HLK/logs/
 
+# AgentDB / RuVector binary files (must never be committed)
+agentdb.rvf
+agentdb.rvf.lock
+*.rvf
+*.rvf.lock
+

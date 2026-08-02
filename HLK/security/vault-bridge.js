@@ -1,80 +1,107 @@
 /**
  * HLK Vault Bridge
- * Manages secrets/API keys independently from ruflo core.
+ * =================
+ * Mục đích tổng thể:
+ *   Quản lý secrets/API keys một cách độc lập với ruflo core.
  *
- * Strategy:
- *   1. Reads from process.env first (OS-level secrets)
- *   2. Falls back to HLK/config/secrets.env (gitignored local file)
- *   3. Never stores secrets in hlk.config.json or any tracked file
+ * Thứ tự ưu tiên khi tìm một secret:
+ *   1. process.env — biến môi trường hệ điều hành
+ *   2. HLK/config/secrets.env — file local (đã được .gitignore)
+ *   3. defaultValue (nếu truyền vào) hoặc undefined
  *
- * Usage:
- *   import { getSecret, hasSecret, listSecretKeys } from './vault-bridge.js';
- *   const apiKey = getSecret('OPENAI_API_KEY');
+ * Tuyệt đối không lưu secrets vào bất kỳ file tracked nào.
  */
 
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const SECRETS_PATH = path.join(__dirname, '../config/secrets.env');
 
+// File secrets local, được .gitignore bảo vệ
+const SECRETS_PATH = path.resolve(__dirname, '../config/secrets.env');
+
+// Cache để tránh đọc file nhiều lần
 /** @type {Map<string, string>} */
 const secretsCache = new Map();
 let loaded = false;
 
+// ---------------------------------------------------------------------------
+// Bước 1: Parse file .env đơn giản
+// ---------------------------------------------------------------------------
+
 /**
- * Parse a simple .env file (KEY=VALUE per line, # comments, no interpolation).
+ * Parse file .env theo định dạng đơn giản:
+ *   KEY=VALUE
+ *   # comment
+ *
+ * Hỗ trợ value có dấu ngoặc đơn/kép.
+ * Không hỗ trợ interpolation hay multi-line.
+ *
  * @param {string} filePath
  * @returns {Map<string, string>}
  */
 function parseDotEnv(filePath) {
   const map = new Map();
+
   try {
     if (!fs.existsSync(filePath)) return map;
+
     const lines = fs.readFileSync(filePath, 'utf8').split('\n');
     for (const raw of lines) {
       const line = raw.trim();
       if (!line || line.startsWith('#')) continue;
+
       const eqIdx = line.indexOf('=');
       if (eqIdx < 1) continue;
+
       const key = line.slice(0, eqIdx).trim();
       let value = line.slice(eqIdx + 1).trim();
-      // Strip surrounding quotes
+
+      // Bỏ dấu ngoặc bao quanh value
       if ((value.startsWith('"') && value.endsWith('"')) ||
           (value.startsWith("'") && value.endsWith("'"))) {
         value = value.slice(1, -1);
       }
+
       map.set(key, value);
     }
   } catch (err) {
-    console.warn('[HLK Vault] Could not read secrets.env:', err.message);
+    process.stderr.write(`[HLK Vault] Không đọc được secrets.env: ${err.message}\n`);
   }
+
   return map;
 }
 
-/**
- * Load secrets from the local secrets.env file into cache.
- * Only loads once; call reload() to force refresh.
- */
+// ---------------------------------------------------------------------------
+// Bước 2: Đảm bảo secrets đã load vào cache
+// ---------------------------------------------------------------------------
+
 function ensureLoaded() {
   if (loaded) return;
+
   const fileSecrets = parseDotEnv(SECRETS_PATH);
   for (const [k, v] of fileSecrets) {
     secretsCache.set(k, v);
   }
+
   loaded = true;
 }
 
+// ---------------------------------------------------------------------------
+// Bước 3: Public API
+// ---------------------------------------------------------------------------
+
 /**
- * Get a secret value. Checks process.env first, then local secrets file.
- * @param {string} key - The secret key name.
- * @param {string} [defaultValue] - Fallback if not found.
- * @returns {string | undefined}
+ * Lấy giá trị secret.
+ *
+ * Thứ tự ưu tiên:
+ *   1. process.env
+ *   2. HLK/config/secrets.env
+ *   3. defaultValue
  */
 export function getSecret(key, defaultValue) {
-  // Process env always takes precedence
   if (process.env[key] !== undefined) {
     return process.env[key];
   }
@@ -83,9 +110,7 @@ export function getSecret(key, defaultValue) {
 }
 
 /**
- * Check if a secret exists (in env or local file).
- * @param {string} key
- * @returns {boolean}
+ * Kiểm tra secret có tồn tại không.
  */
 export function hasSecret(key) {
   if (process.env[key] !== undefined) return true;
@@ -94,8 +119,7 @@ export function hasSecret(key) {
 }
 
 /**
- * List all known secret key names (from local file only — env vars are not enumerable safely).
- * @returns {string[]}
+ * Liệt kê tất cả key trong file secrets.env (KHÔNG liệt kê process.env).
  */
 export function listSecretKeys() {
   ensureLoaded();
@@ -103,7 +127,7 @@ export function listSecretKeys() {
 }
 
 /**
- * Force reload secrets from disk.
+ * Force reload secrets từ disk.
  */
 export function reload() {
   secretsCache.clear();
@@ -112,8 +136,7 @@ export function reload() {
 }
 
 /**
- * Get the path to the secrets file (for diagnostics).
- * @returns {string}
+ * Trả về đường dẫn đến file secrets.env (dùng cho diagnostics).
  */
 export function getSecretsPath() {
   return SECRETS_PATH;

@@ -1,98 +1,147 @@
 /**
  * HLK Data Sanitizer
- * Scrubs sensitive data (API keys, passwords, tokens, connection strings)
- * from text before it is sent to memory, logs, or external APIs.
+ * ==================
+ * Mục đích tổng thể:
+ *   Thay thế (redact) các chuỗi nhạy cảm (API keys, tokens, passwords,
+ *   connection strings, private keys) bằng chuỗi `[REDACTED]` hoặc giá trị
+ *   cấu hình khác trước khi dữ liệu được ghi vào memory, log, hoặc gửi đi.
  *
- * Usage:
- *   import { sanitize, createSanitizer } from './sanitizer.js';
- *   const clean = sanitize("my key is sk-abc123def456...");
- *   // → "my key is [REDACTED]"
+ * Nguồn pattern:
+ *   1. HLK/config/hlk.config.json → security_rules.redact_patterns
+ *   2. Nếu config lỗi → fallback về danh sách mặc định
  */
 
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const CONFIG_PATH = path.join(__dirname, '../config/hlk.config.json');
+
+// Đường dẫn đến file cấu hình HLK
+const CONFIG_PATH = path.resolve(__dirname, '../config/hlk.config.json');
+
+// Danh sách pattern mặc định nếu không đọc được config
+const DEFAULT_PATTERNS = [
+  'sk-[a-zA-Z0-9]{32,}',
+  'ghp_[a-zA-Z0-9]{36}',
+  '(?i)password\\s*=\\s*[\'"]?[^\'"\\s]+',
+  '(?i)api[_-]?key\\s*=\\s*[\'"]?[^\'"\\s]+',
+  '-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----',
+];
+
+// ---------------------------------------------------------------------------
+// Bước 1: Đọc pattern từ config
+// ---------------------------------------------------------------------------
 
 /**
- * Load redact patterns from HLK config.
- * Falls back to built-in defaults if config is unreadable.
+ * Đọc các regex pattern redact từ `hlk.config.json`.
+ *
+ * Cú pháp hỗ trợ trong JSON:
+ *   "(?i)api_key\\s*=\\s*[^\\s]+"  → flag case-insensitive
+ *
+ * Chuỗi `(?i)` trong regex JavaScript không hỗ trợ trực tiếp,
+ * nên hàm `compilePattern` sẽ chuyển thành flag `gi`.
  */
-function loadPatterns() {
-  const DEFAULTS = [
-    'sk-[a-zA-Z0-9]{32,}',
-    'ghp_[a-zA-Z0-9]{36}',
-    '(?i)password\\s*=\\s*[\'"]?[^\'"\\s]+',
-    '(?i)api[_-]?key\\s*=\\s*[\'"]?[^\'"\\s]+',
-    '-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----',
-  ];
-
+function loadConfigRules() {
   try {
-    const raw = fs.readFileSync(CONFIG_PATH, 'utf8');
-    const cfg = JSON.parse(raw);
-    const patterns = cfg?.security_rules?.redact_patterns;
-    const replacement = cfg?.security_rules?.redact_replacement || '[REDACTED]';
-    if (Array.isArray(patterns) && patterns.length > 0) {
-      return { patterns, replacement };
+    if (fs.existsSync(CONFIG_PATH)) {
+      const raw = fs.readFileSync(CONFIG_PATH, 'utf8');
+      const cfg = JSON.parse(raw);
+      const patterns = cfg?.security_rules?.redact_patterns;
+      const replacement = cfg?.security_rules?.redact_replacement || '[REDACTED]';
+
+      if (Array.isArray(patterns) && patterns.length > 0) {
+        return { patterns, replacement };
+      }
     }
-  } catch {
-    // Config unreadable — use defaults
+  } catch (err) {
+    // Config lỗi → dùng mặc định, không throw
   }
-  return { patterns: DEFAULTS, replacement: '[REDACTED]' };
+
+  return { patterns: DEFAULT_PATTERNS, replacement: '[REDACTED]' };
 }
 
+// ---------------------------------------------------------------------------
+// Bước 2: Biên dịch pattern thành RegExp
+// ---------------------------------------------------------------------------
+
 /**
- * Create a reusable sanitizer function with compiled regex patterns.
- * @returns {{ sanitize: (text: string) => string, patterns: RegExp[] }}
+ * Biên dịch một chuỗi pattern thành RegExp.
+ *
+ * Quy tắc:
+ *   - Nếu pattern chứa `(?i)` ở đầu → loại bỏ `(?i)` và thêm flag `i`.
+ *   - Nếu không có `(?i)` → flag `g` để thay thế tất cả lần xuất hiện.
+ *
+ * Nếu pattern sai cú pháp → bỏ qua pattern đó.
+ */
+function compilePattern(pattern) {
+  const hasCaseInsensitive = pattern.startsWith('(?i)');
+  const cleaned = hasCaseInsensitive ? pattern.replace(/^\(\?i\)/, '') : pattern;
+  const flags = hasCaseInsensitive ? 'gi' : 'g';
+
+  try {
+    return new RegExp(cleaned, flags);
+  } catch (err) {
+    process.stderr.write(`[HLK Sanitizer] Bỏ qua pattern lỗi: ${pattern} — ${err.message}\n`);
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Bước 3: Tạo sanitizer
+// ---------------------------------------------------------------------------
+
+/**
+ * Tạo một sanitizer với pattern đã biên dịch.
+ *
+ * @returns {{ sanitize: Function, patterns: RegExp[], replacement: string }}
  */
 export function createSanitizer() {
-  const { patterns, replacement } = loadPatterns();
-  const compiled = patterns.map((p) => {
-    try {
-      // Convert (?i) flag to RegExp 'gi' flags
-      const cleaned = p.replace(/\(\?i\)/g, '');
-      const flags = p.includes('(?i)') ? 'gi' : 'g';
-      return new RegExp(cleaned, flags);
-    } catch {
-      console.warn(`[HLK Sanitizer] Invalid regex pattern skipped: ${p}`);
-      return null;
-    }
-  }).filter(Boolean);
+  const { patterns, replacement } = loadConfigRules();
 
+  const compiledPatterns = patterns
+    .map(compilePattern)
+    .filter(Boolean);
+
+  /**
+   * Thay thế các chuỗi khớp pattern bằng `replacement`.
+   *
+   * @param {string} text - chuỗi cần redact
+   * @returns {string} - chuỗi đã redact
+   */
   function sanitize(text) {
     if (typeof text !== 'string') return text;
+
     let result = text;
-    for (const re of compiled) {
+    for (const re of compiledPatterns) {
       result = result.replace(re, replacement);
     }
     return result;
   }
 
-  return { sanitize, patterns: compiled };
+  return { sanitize, patterns: compiledPatterns, replacement };
 }
 
-// Default singleton instance
+// ---------------------------------------------------------------------------
+// Bước 4: Singleton mặc định
+// ---------------------------------------------------------------------------
+
 const defaultSanitizer = createSanitizer();
 
 /**
- * Sanitize a string using the default HLK patterns.
- * @param {string} text - The text to sanitize.
- * @returns {string} Sanitized text with sensitive data replaced.
+ * Sanitize một chuỗi dùng sanitizer mặc định.
  */
 export function sanitize(text) {
   return defaultSanitizer.sanitize(text);
 }
 
 /**
- * Sanitize all string values in a plain object (shallow).
- * @param {Record<string, any>} obj
- * @returns {Record<string, any>}
+ * Sanitize tất cả các giá trị string trong một object (shallow).
  */
 export function sanitizeObject(obj) {
   if (!obj || typeof obj !== 'object') return obj;
+
   const result = {};
   for (const [key, value] of Object.entries(obj)) {
     result[key] = typeof value === 'string' ? sanitize(value) : value;
