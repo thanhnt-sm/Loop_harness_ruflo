@@ -167,8 +167,8 @@
     ]
   },
   "attribution": {
-    "commit": "Co-Authored-By: RuFlo <ruv@ruv.net>",
-    "pr": "\ud83e\udd16 Generated with [RuFlo](https://github.com/ruvnet/ruflo)"
+    "commit": "Co-Authored-By: thanhnt-sm",
+    "pr": "\ud83e\udd16 Generated with [claude-flow](https://github.com/thanhnt-sm/Loop_harness_ruflo)"
   },
   "claudeFlow": {
     "version": "3.34.0",
