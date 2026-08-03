@@ -1,0 +1,44 @@
+{
+  "name": "hlk-ruflo",
+  "version": "3.0.0",
+  "description": "Harness & Logic Knowledge Layer (HLK) — bộ cài đặt và cập nhật cho Ruflo / Claude Flow",
+  "type": "module",
+  "main": "bin/hlk-status.mjs",
+  "bin": {
+    "hlk-install": "bin/hlk-install.mjs",
+    "hlk-update": "bin/hlk-update.mjs",
+    "hlk-pack": "bin/hlk-pack.mjs",
+    "hlk-status": "bin/hlk-status.mjs"
+  },
+  "files": [
+    "bin/",
+    "config/",
+    "wrappers/",
+    "security/",
+    "custom-hooks/",
+    "docs/",
+    "prompts/",
+    "reports/",
+    "loop/",
+    "README.md",
+    "INSTALL.md"
+  ],
+  "scripts": {
+    "pack": "node bin/hlk-pack.mjs",
+    "test": "node bin/hlk-status.mjs --self-test"
+  },
+  "keywords": [
+    "ruflo",
+    "claude-flow",
+    "agent-harness",
+    "security",
+    "secrets-redaction",
+    "mcp",
+    "ai-agent"
+  ],
+  "author": "thanhnt-sm",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

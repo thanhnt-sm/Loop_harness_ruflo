@@ -189,3 +189,7 @@ agentdb.rvf.lock
 *.rvf
 *.rvf.lock
 
+
+# HLK packaging
+HLK/dist/*.tgz
+HLK/dist/

@@ -1,0 +1,368 @@
+#!/usr/bin/env node
+/**
+ * hlk-update.mjs
+ * ==============
+ * Cập nhật HLK trong một workspace Ruflo đã cài.
+ *
+ * Cách dùng:
+ *   npx hlk-update
+ *   # hoặc
+ *   node HLK/bin/hlk-update.mjs
+ *
+ * Logic:
+ *   - Backup HLK cũ.
+ *   - Copy code mới từ package HLK vào workspace/HLK.
+ *   - Giữ nguyên HLK/config/hlk.config.json và HLK/config/secrets.env của user.
+ *   - Merge các trường mới từ package default vào user config.
+ *   - Re-apply patch .claude/settings.json và .gitattributes.
+ *   - Run verify.
+ */
+
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const HLK_PACKAGE_ROOT = path.resolve(__dirname, '..');
+const WORKSPACE_ROOT = process.cwd();
+const HLK_TARGET_DIR = path.join(WORKSPACE_ROOT, 'HLK');
+
+const HLK_CONTENT_DIRS = ['wrappers', 'security', 'custom-hooks', 'docs', 'prompts', 'reports', 'loop'];
+const CONFIG_DIRS = ['config']; // xử lý riêng
+const HLK_CONTENT_FILES = ['README.md', 'INSTALL.md'];
+
+// ---------------------------------------------------------------------------
+// Tiện ích
+// ---------------------------------------------------------------------------
+
+function log(level, msg) {
+  const prefix = level === 'error' ? '❌' : level === 'warn' ? '⚠️' : level === 'success' ? '✅' : 'ℹ️';
+  process.stderr.write(`${prefix} ${msg}\n`);
+}
+
+function readJsonSafe(p) {
+  try {
+    return JSON.parse(fs.readFileSync(p, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function writeJson(p, data) {
+  fs.writeFileSync(p, JSON.stringify(data, null, 2) + '\n', 'utf8');
+}
+
+// ---------------------------------------------------------------------------
+// Bước 1: Xác định workspace và HLK đã cài
+// ---------------------------------------------------------------------------
+
+function detectWorkspace() {
+  if (!fs.existsSync(HLK_TARGET_DIR)) {
+    log('error', `Không tìm thấy HLK/ trong workspace. Hãy chạy 'npx hlk-install' trước.`);
+    process.exit(1);
+  }
+  if (!fs.existsSync(path.join(WORKSPACE_ROOT, '.claude', 'settings.json'))) {
+    log('error', 'Không tìm thấy .claude/settings.json.');
+    process.exit(1);
+  }
+  log('info', `Workspace: ${WORKSPACE_ROOT}`);
+}
+
+// ---------------------------------------------------------------------------
+// Bước 2: Backup
+// ---------------------------------------------------------------------------
+
+function backupHlk() {
+  const ts = Date.now();
+  const backupDir = path.join(WORKSPACE_ROOT, `HLK.backup.${ts}`);
+  fs.cpSync(HLK_TARGET_DIR, backupDir, { recursive: true, force: true });
+  log('success', `Đã sao lưu HLK hiện tại sang: ${backupDir}`);
+  return backupDir;
+}
+
+// ---------------------------------------------------------------------------
+// Bước 3: Copy code mới
+// ---------------------------------------------------------------------------
+
+function copyCodeFiles() {
+  for (const dir of HLK_CONTENT_DIRS) {
+    const src = path.join(HLK_PACKAGE_ROOT, dir);
+    const dst = path.join(HLK_TARGET_DIR, dir);
+    if (!fs.existsSync(src)) {
+      log('warn', `Thiếu ${dir}/ trong package — bỏ qua.`);
+      continue;
+    }
+    fs.cpSync(src, dst, { recursive: true, force: true });
+    log('success', `Đã cập nhật ${dir}/`);
+  }
+
+  for (const file of HLK_CONTENT_FILES) {
+    const src = path.join(HLK_PACKAGE_ROOT, file);
+    const dst = path.join(HLK_TARGET_DIR, file);
+    if (!fs.existsSync(src)) continue;
+    fs.copyFileSync(src, dst);
+    log('success', `Đã cập nhật ${file}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Bước 4: Xử lý config/ (giữ user config, merge trường mới)
+// ---------------------------------------------------------------------------
+
+function isPlainObject(v) {
+  return typeof v === 'object' && v !== null && !Array.isArray(v) && !(v instanceof Date);
+}
+
+function mergeConfig(defaults, user) {
+  const out = structuredClone(defaults);
+
+  for (const key of Object.keys(user)) {
+    if (isPlainObject(out[key]) && isPlainObject(user[key])) {
+      out[key] = mergeConfig(out[key], user[key]);
+    } else if (Array.isArray(out[key]) && Array.isArray(user[key])) {
+      // Giữ array của user, nhưng nếu defaults có phần tử mới thì append (cho redact_patterns)
+      const userSet = new Set(user[key]);
+      for (const item of out[key]) {
+        if (!userSet.has(item)) {
+          out[key].push(item);
+        }
+      }
+      out[key] = user[key];
+    } else {
+      out[key] = user[key];
+    }
+  }
+
+  return out;
+}
+
+function updateConfig() {
+  const packageConfigPath = path.join(HLK_PACKAGE_ROOT, 'config', 'hlk.config.json');
+  const userConfigPath = path.join(HLK_TARGET_DIR, 'config', 'hlk.config.json');
+
+  const packageDefaults = readJsonSafe(packageConfigPath);
+  const userConfig = readJsonSafe(userConfigPath);
+
+  if (!packageDefaults) {
+    log('warn', 'Không đọc được package hlk.config.json — bỏ qua merge.');
+    return;
+  }
+
+  if (!userConfig) {
+    log('warn', 'Không đọc được user hlk.config.json — copy defaults.');
+    fs.mkdirSync(path.dirname(userConfigPath), { recursive: true });
+    writeJson(userConfigPath, packageDefaults);
+    return;
+  }
+
+  const merged = mergeConfig(packageDefaults, userConfig);
+
+  // Đảm bảo version mới nhất
+  if (packageDefaults.version) {
+    merged.version = packageDefaults.version;
+  }
+  if (packageDefaults.ruflo_version_tested) {
+    merged.ruflo_version_tested = packageDefaults.ruflo_version_tested;
+  }
+
+  // Backup trước khi ghi
+  const backupPath = path.join(HLK_TARGET_DIR, 'logs', `hlk.config.json.user-backup.${Date.now()}.json`);
+  fs.mkdirSync(path.dirname(backupPath), { recursive: true });
+  writeJson(backupPath, userConfig);
+  log('info', `Đã backup user config sang: ${backupPath}`);
+
+  writeJson(userConfigPath, merged);
+  log('success', 'Đã cập nhật hlk.config.json (giữ user config, merge trường mới).');
+}
+
+function updateSecretsEnv(backupDir) {
+  const userSecrets = path.join(HLK_TARGET_DIR, 'config', 'secrets.env');
+  const backupSecrets = path.join(backupDir, 'config', 'secrets.env');
+
+  if (fs.existsSync(backupSecrets)) {
+    fs.copyFileSync(backupSecrets, userSecrets);
+    log('success', 'Đã giữ nguyên HLK/config/secrets.env của user.');
+  } else {
+    log('info', 'Không tìm thấy secrets.env cũ để restore.');
+  }
+}
+
+function ensureSecretsExample() {
+  const examplePath = path.join(HLK_PACKAGE_ROOT, 'config', 'secrets.env.example');
+  const targetExamplePath = path.join(HLK_TARGET_DIR, 'config', 'secrets.env.example');
+  if (fs.existsSync(examplePath)) {
+    fs.copyFileSync(examplePath, targetExamplePath);
+    log('success', 'Đã cập nhật secrets.env.example');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Bước 5: Re-apply patch .claude/settings.json và .gitattributes
+// ---------------------------------------------------------------------------
+
+function reapplyClaudeSettings() {
+  const settingsPath = path.join(WORKSPACE_ROOT, '.claude', 'settings.json');
+  if (!fs.existsSync(settingsPath)) return;
+
+  const raw = fs.readFileSync(settingsPath, 'utf8');
+  let settings;
+  try {
+    settings = JSON.parse(raw);
+  } catch (err) {
+    log('error', `.claude/settings.json lỗi parse: ${err.message}`);
+    process.exit(1);
+  }
+
+  const hlkHook = {
+    hooks: [
+      {
+        type: 'command',
+        command: 'node "$CLAUDE_PROJECT_DIR/HLK/wrappers/hlk-hook-bridge.mjs"',
+        timeout: 5000,
+      },
+    ],
+  };
+
+  if (!settings.hooks) settings.hooks = {};
+  if (!Array.isArray(settings.hooks.PreToolUse)) settings.hooks.PreToolUse = [];
+
+  const existingIdx = settings.hooks.PreToolUse.findIndex((entry) =>
+    entry.hooks?.some((h) => h.command?.includes('hlk-hook-bridge.mjs'))
+  );
+
+  if (existingIdx >= 0) {
+    settings.hooks.PreToolUse[existingIdx] = hlkHook;
+    log('info', 'Đã cập nhật HLK PreToolUse hook.');
+  } else {
+    settings.hooks.PreToolUse.unshift(hlkHook);
+    log('success', 'Đã thêm HLK PreToolUse hook.');
+  }
+
+  settings.mcpServers = settings.mcpServers || {};
+  settings.mcpServers['claude-flow'] = {
+    command: 'node',
+    args: ['HLK/wrappers/ruflo-hlk-mcp.mjs', 'mcp', 'start'],
+  };
+  log('success', 'Đã cập nhật mcpServers.claude-flow.');
+
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(WORKSPACE_ROOT, 'package.json'), 'utf8'));
+    if (pkg?.version && settings.claudeFlow) {
+      settings.claudeFlow.version = pkg.version;
+      log('success', `Đồng bộ claudeFlow.version = ${pkg.version}`);
+    }
+  } catch { /* ignore */ }
+
+  writeJson(settingsPath, settings);
+  log('success', 'Đã ghi .claude/settings.json');
+}
+
+function reapplyGitAttributes() {
+  const gitattributesPath = path.join(WORKSPACE_ROOT, '.gitattributes');
+  let content = fs.existsSync(gitattributesPath) ? fs.readFileSync(gitattributesPath, 'utf8') : '';
+
+  const lines = [
+    'HLK/docs/** merge=ours',
+    '.claude/settings.json merge=ours',
+  ];
+
+  let modified = false;
+  for (const line of lines) {
+    const pattern = line.split(' ')[0];
+    if (!content.includes(pattern)) {
+      content += (content.endsWith('\n') ? '' : '\n') + line + '\n';
+      modified = true;
+    }
+  }
+
+  if (modified) {
+    fs.writeFileSync(gitattributesPath, content, 'utf8');
+    log('success', 'Đã cập nhật .gitattributes.');
+  }
+}
+
+function reapplyGitIgnore() {
+  const gitignorePath = path.join(WORKSPACE_ROOT, '.gitignore');
+  let content = fs.existsSync(gitignorePath) ? fs.readFileSync(gitignorePath, 'utf8') : '';
+
+  const patterns = ['HLK/config/secrets.*', 'HLK/logs/', '*.rvf', 'agentdb.rvf', '.env'];
+  let modified = false;
+  for (const pattern of patterns) {
+    const exists = content.split('\n').some((l) => l.trim() === pattern);
+    if (!exists) {
+      content += (content.endsWith('\n') ? '' : '\n') + pattern + '\n';
+      modified = true;
+    }
+  }
+
+  if (modified) {
+    fs.writeFileSync(gitignorePath, content, 'utf8');
+    log('success', 'Đã cập nhật .gitignore.');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Bước 6: Verify
+// ---------------------------------------------------------------------------
+
+function runVerify() {
+  const script = path.join(HLK_TARGET_DIR, 'wrappers', 'hlk-verify-integrity.js');
+  if (!fs.existsSync(script)) {
+    log('warn', 'Không tìm thấy hlk-verify-integrity.js');
+    return;
+  }
+
+  log('info', 'Đang chạy HLK verify...');
+  const r = spawnSync(process.execPath, [script], { cwd: WORKSPACE_ROOT, stdio: 'inherit' });
+  if (r.status !== 0) {
+    log('error', 'HLK verify thất bại.');
+    process.exit(r.status ?? 1);
+  }
+  log('success', 'HLK verify PASSED.');
+}
+
+function runLoopStatus() {
+  const script = path.join(HLK_TARGET_DIR, 'loop', 'hlk-loop.mjs');
+  if (!fs.existsSync(script)) return;
+
+  log('info', 'Đang chạy HLK loop status...');
+  const r = spawnSync(process.execPath, [script, '--status'], { cwd: WORKSPACE_ROOT, stdio: 'inherit' });
+  if (r.status === 0) {
+    log('success', 'HLK loop status OK.');
+  } else {
+    log('warn', 'HLK loop status chưa hoàn thành.');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
+
+function main() {
+  log('info', '=== HLK Updater for Ruflo ===');
+
+  detectWorkspace();
+  const backupDir = backupHlk();
+  copyCodeFiles();
+  updateConfig();
+  ensureSecretsExample();
+  updateSecretsEnv(backupDir);
+  reapplyClaudeSettings();
+  reapplyGitAttributes();
+  reapplyGitIgnore();
+  runVerify();
+  runLoopStatus();
+
+  log('info', '');
+  log('success', 'HLK đã cập nhật xong.');
+  log('info', '');
+  log('info', 'Lưu ý:');
+  log('info', '  - User config đã được merge, secrets.env được giữ nguyên.');
+  log('info', `  - Backup cũ nằm tại: ${backupDir}`);
+  log('info', '  - Kiểm tra hlk.config.json nếu có tính năng mới cần bật.');
+}
+
+main();
