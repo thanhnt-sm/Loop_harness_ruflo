@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Exec(devin)",
+      "Exec(git status)"
+    ]
+  }
+}

@@ -1,15 +1,13 @@
-# Devin CLI — Lightning Orchestrator + Ruflo MCP Hybrid
+# Devin CLI — Lightning Orchestrator
 
-## Kiến trúc thực tế
+## Kiến trúc
 
-Workspace này dùng **2 layer tách bạch** cho Devin CLI:
+Workspace dùng **lightning-orchestrator** (dabit3/lightning-orchestrator) — skill tách 2 role:
 
-| Layer | Vai trò | Cơ chế |
-|-------|---------|--------|
-| **Execution** | Code, test, refactor nhanh | `/lightning` skill + `lightning-executor` subagent (SWE-1.7 Lightning, 1000 tok/s) |
-| **Learning** | Nhớ pattern, lưu bài học | Ruflo MCP server (`claude-flow`) qua `.devin/mcp_config.json` |
-
-**Không có swarm 15 agents tự động**. Mặc định dùng **1 executor** (nhanh, rẻ, đúng). Fan-out song song chỉ khi user yêu cầu rõ và write sets disjoint.
+| Role | Model | Trách nhiệm |
+|------|-------|-------------|
+| **Orchestrator** | Active Devin model | Hiểu request, ra quyết định, tạo work order, review diff |
+| **lightning-executor** | SWE-1.7 Lightning (1000 tok/s) | Inspect code, implement, chạy checks, báo cáo evidence |
 
 ## Cách dùng
 
@@ -18,7 +16,7 @@ Workspace này dùng **2 layer tách bạch** cho Devin CLI:
 cd .
 devin
 
-# Non-interactive với task cụ thể
+# Non-interactive
 devin -p -- "mô tả công việc"
 
 # Gọi skill lightning trực tiếp
@@ -35,41 +33,50 @@ devin -p -- "mô tả công việc"
 
 ## Luồng công việc `/lightning`
 
-1. **Pattern recall** — `memory_search` (Ruflo MCP, namespace `patterns`). Nếu hit score > 0.7, fold vào work order.
-2. **Frame task** — trích objective, acceptance criteria, constraints.
-3. **Dispatch** — `run_subagent(profile: lightning-executor, is_background: false)` với work order tự chứa.
-4. **Review** — inspect diff độc lập, treat report as evidence not proof.
-5. **Correct** — trivial fix trực tiếp; lớn hơn thì `resume` cùng executor (giữ cache ấm). Sau 2 resume không tiến triển → stop, hỏi user.
-6. **Verify** — `npm run build` + `npm test` + `npm run typecheck` trong package bị thay đổi.
-7. **Persist pattern** — `memory_store` (chỉ khi verify pass). Không lưu pattern lỗi.
-8. **Report** — what changed, key files, verification outcome, pattern stored?, residual risks.
+1. **Frame task** — trích objective, acceptance criteria, constraints, validation needs
+2. **Preflight** — parallel reads: working-tree status, repo instructions, build scripts
+3. **Dispatch** — `run_subagent(profile: lightning-executor, is_background: false)` với work order tự chứa
+4. **Review** — inspect diff độc lập, treat report as evidence not proof
+5. **Correct** — trivial fix trực tiếp; lớn hơn thì `resume` cùng executor (giữ cache ấm). Sau 2 resume không tiến triển → stop, hỏi user
+6. **Report** — what changed, key files, verification outcome, residual risks
 
 ## Guardrails (luôn áp dụng)
 
-- Smallest coherent diff — không scope creep.
-- Preserve pre-existing user changes — không revert/overwrite.
-- No destructive ops (`rm -rf`, `git push --force`, `git reset --hard`) — chặn bởi `.devin/hooks.v1.json`.
-- No weakening tests/security/typing/lint để pass check.
-- Trivial edits (vài dòng rõ ràng) sửa thẳng, skip delegation.
-- Fan-out chỉ khi write sets disjoint + user yêu cầu.
-- Background executor không thể prompt approval → resume foreground nếu denied.
+- Smallest coherent diff — không scope creep
+- Preserve pre-existing user changes — không revert/overwrite
+- No destructive ops, push, publish, external side effects without explicit approval
+- No unrelated refactors, dependencies, generated files, documentation
+- No weakening tests/security/typing/lint để pass check
+- Trivial edits (vài dòng rõ ràng) sửa thẳng, skip delegation
+- Fan-out chỉ khi write sets disjoint + user yêu cầu
+- Background executor không thể prompt approval → resume foreground nếu denied
+- Nếu `lightning-executor` unavailable → stop, report missing profile (không substitute model khác)
 
-## MCP server
+## MCP servers (qua plugins + Ruflo)
 
-Ruflo MCP server (`claude-flow`) chạy qua HLK wrapper:
+| MCP server | Nguồn | Mục đích |
+|------------|-------|----------|
+| `claude-flow` | Ruflo MCP (local) | memory_search, memory_store, swarm tools |
+| `spark-memory` | spark-mcp plugin | Shared memory cộng đồng cross-agent |
+| `deepwiki` | yellow-devin plugin | Query documentation GitHub repos (free) |
+| `devin` | yellow-devin plugin | Devin V3 API: session management, playbooks |
 
-- `.devin/mcp_config.json` — cấu hình MCP
-- Tools available: `memory_search`, `memory_store`, `swarm_init`, `agent_spawn`, `hooks_route`, `agent_execute`, `agent_status`, v.v.
-- Lightning chỉ dùng `memory_search` (đầu) + `memory_store` (cuối, sau verify). Các MCP tool khác dùng cho orchestration thủ công khi cần.
+## Plugins đã cài
+
+| Plugin | Version | Cung cấp |
+|--------|---------|----------|
+| `yellow-devin` | v2.3.7 | 9 commands `/devin:*`, devin-orchestrator agent, DeepWiki + Devin MCP |
+| `spark-mcp` | v0.4.0 | Spark shared memory MCP |
 
 ## Skills có sẵn trong `.devin/skills/`
 
 | Skill | Mục đích |
 |-------|----------|
-| `lightning` | Execution chính — planner + executor hybrid |
+| `lightning` | Execution chính — planner + executor (dabit3/lightning-orchestrator) |
 | `hlk-git-tools` | Commit/push an toàn qua HLK layer |
 | `hlk-integrity-check` | Kiểm tra HLK layer sau upstream merge |
 | `hlk-upstream-pull` | Pull upstream ruflo + reinstall HLK |
+| `ruflo-autopilot` | [DEPRECATED] Legacy Ruflo MCP-only orchestration |
 
 ## Custom subagents trong `.devin/agents/`
 

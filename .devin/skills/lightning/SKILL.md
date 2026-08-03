@@ -1,6 +1,6 @@
 ---
 name: lightning
-description: Use the active model as a lean planner and reviewer while SWE-1.7 Lightning executes concrete software-engineering work. Hybrid with Ruflo MCP memory for pattern recall and persistence.
+description: Use the active model as a lean planner and reviewer while SWE-1.7 Lightning executes concrete software-engineering work.
 argument-hint: "<software-engineering task>"
 triggers:
   - user
@@ -9,8 +9,6 @@ permissions:
     - Exec(git status)
     - Exec(git diff)
     - Exec(git log)
-    - mcp__claude-flow__memory_search
-    - mcp__claude-flow__memory_store
 ---
 
 # Mission
@@ -26,10 +24,6 @@ Optimize in this order:
 5. Minimal change scope
 
 Do not trade correctness for token savings, but do not duplicate work between orchestrator and executor.
-
-# Pattern recall (Ruflo MCP hybrid)
-
-Before framing the task, attempt one `memory_search` call against the Ruflo MCP `patterns` namespace with the task keywords. If a pattern returns with score > 0.7, fold its summary into the work order's KNOWN CONTEXT section as a starting hypothesis (not a guarantee — the executor must verify it still applies). If `memory_search` is unavailable or returns nothing, proceed without it; never block on memory.
 
 # When to delegate
 
@@ -65,8 +59,6 @@ Extract:
 
 Run the preflight as parallel reads in a single round: working-tree status, applicable repository instructions, and the project manifest or build scripts when validation commands matter. Record pre-existing modified files so they are preserved. Leave routine discovery, such as locating adjacent tests and local implementation patterns, to the executor. On the clear and low-risk path, issue the preflight reads in the same round as the dispatch: the executor independently discovers working-tree state and repository instructions, and the captured results serve as the review baseline. On any other path, run the preflight before dispatch and pass everything it established into the work order so it is not rediscovered. Resolve product semantics, API compatibility, cross-system boundaries, and migration or safety decisions before dispatch when they affect the work order.
 
-If a pattern was recalled in the "Pattern recall" step, include its key and summary in KNOWN CONTEXT.
-
 ## 2. Create a self-contained work order
 
 The executor has no access to this conversation. Send a concise work order containing all context it needs, using this structure:
@@ -87,7 +79,6 @@ CONSTRAINTS / NON-GOALS
 KNOWN CONTEXT
 - <relevant paths, symbols, conventions, existing failures, or decisions>
 - <pre-existing modified files to leave untouched, when captured before dispatch>
-- <recalled pattern key + summary, when memory_search returned a hit>
 
 EXECUTION
 - Inspect the relevant code and repository instructions.
@@ -148,30 +139,13 @@ For any larger issue, call `run_subagent` with `resume: <captured-agent-id>` to 
 
 Do not spawn a fresh executor for follow-up work that benefits from the existing context. After two corrective resumes without clear progress, stop, explain the blocker, and ask for the minimum needed decision or access.
 
-## 6. Verify and persist pattern (Ruflo MCP hybrid)
-
-Before reporting success, run the project's verification gates for the changed package(s):
-
-- build: `npm run build` in the affected package
-- test: `npm test` (or the targeted test file)
-- typecheck: `npm run typecheck` if the package defines it
-
-If all three pass (or failures are clearly pre-existing and reported), attempt one `memory_store` call against the Ruflo MCP `patterns` namespace with:
-
-- `key`: a short, descriptive pattern name (kebab-case)
-- `value`: what worked — the approach, key files touched, verification commands, and any non-obvious gotcha
-- `namespace`: `patterns`
-
-If `memory_store` is unavailable, skip it silently; never block the report on memory persistence. Do not store a pattern when verification failed — that would teach the wrong lesson to future sessions.
-
-## 7. Report concisely
+## 6. Report concisely
 
 Finish with:
 
 - what changed
 - key files
 - verification and outcome
-- whether a pattern was stored (yes / skipped / unavailable)
 - residual risks or blockers, if any
 
 Do not expose internal orchestration chatter or repeat the executor's full report. Do not claim success unless the acceptance criteria are met and verification supports the claim.
