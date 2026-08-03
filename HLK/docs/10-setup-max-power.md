@@ -851,3 +851,99 @@ flowchart TD
 | `hlk-ruflo-setup.mjs` | `hlk-lifecycle.mjs` | Tránh trùng tên "setup" với `hlk-setup-max-power.mjs` — lifecycle không phải setup MAX POWER |
 | `scripts/setup-max-power.mjs` | `HLK/bin/hlk-setup-max-power.mjs` | Di chuyển vào HLK/bin để an toàn khi ruflo update |
 | `scripts/update-max-power.mjs` | `HLK/bin/hlk-update-max-power.mjs` | Tương tự |
+
+---
+
+## 14. Node portable — Cài Node 22 cục bộ cho workspace (không ảnh hưởng hệ thống)
+
+> Ruflo 3.34.0 yêu cầu Node 20+. Nếu máy có Node 18 mặc định, `npx ruflo` sẽ lỗi
+> `crypto is not defined`. Giải pháp: cài Node 22 portable vào `.tools/node/`
+> trong workspace, kích hoạt bằng `activate` — không cần admin, không ảnh hưởng
+> Node version ở thư mục khác.
+
+### 14.1 Tại sao cần Node portable?
+
+| Tình huống | Vấn đề | Giải pháp |
+|------------|--------|-----------|
+| Máy có Node 18 mặc định | `npx ruflo` lỗi `crypto is not defined` | Cài Node 22 portable |
+| Không có admin quyền | Không sửa được Machine PATH | Node portable + `activate` |
+| Muốn Node version khác cho mỗi workspace | Conflict nếu sửa PATH hệ thống | Mỗi workspace có `.tools/node/` riêng |
+
+### 14.2 Cài đặt Node portable
+
+**Bước 1: Tải Node 22 portable Windows**
+
+```powershell
+# Trong workspace
+$ws = "D:\path\to\workspace"
+New-Item -ItemType Directory -Path "$ws\.tools\node" -Force
+$zip = "$ws\.tools\node-v22.22.3-win-x64.zip"
+Invoke-WebRequest -Uri "https://nodejs.org/dist/v22.22.3/node-v22.22.3-win-x64.zip" -OutFile $zip
+Expand-Archive -Path $zip -DestinationPath "$ws\.tools" -Force
+Move-Item "$ws\.tools\node-v22.22.3-win-x64\*" "$ws\.tools\node\" -Force
+Remove-Item "$ws\.tools\node-v22.22.3-win-x64" -Recurse -Force
+Remove-Item $zip
+```
+
+**Bước 2: Tạo script `activate.ps1` và `activate.cmd`** (xem mẫu trong workspace đã cài).
+
+**Bước 3: Thêm `.tools/node/` vào `.gitignore`**
+
+```gitignore
+# Node portable (không commit binary)
+.tools/node/
+.tools/*.zip
+```
+
+### 14.3 Cách sử dụng
+
+**PowerShell:**
+```powershell
+cd D:\path\to\workspace
+. .\activate.ps1
+# Sau khi activate:
+#   node --version        → v22.22.3
+#   npx ruflo swarm init  → chạy tự nhiên, không cần wrapper
+
+# Thoát (trả về Node hệ thống):
+deactivate
+```
+
+**CMD:**
+```cmd
+cd D:\path\to\workspace
+activate
+:: Sau khi activate:
+::   node --version        -> v22.22.3
+::   npx ruflo swarm init  -> chay tu nhien
+
+:: Thoát: mở terminal mới (CMD không lưu state như PowerShell)
+```
+
+### 14.4 Ưu điểm so với wrapper Volta
+
+| Tiêu chí | Wrapper Volta (`volta run --node 22`) | Node portable + `activate` |
+|----------|--------------------------------------|----------------------------|
+| Cần Volta cài | ✓ | ✗ |
+| Cần `volta run` mỗi lệnh | ✓ | ✗ (chỉ activate 1 lần) |
+| Ảnh hưởng PATH hệ thống | ✗ | ✗ |
+| Ảnh hưởng Node version ở thư mục khác | ✗ | ✗ |
+| Chạy `npx ruflo` tự nhiên | ✗ (phải qua wrapper) | ✓ |
+| Hoạt động offline | ✗ (cần Volta) | ✓ (Node portable local) |
+
+### 14.5 Cấu trúc thư mục sau khi cài
+
+```
+workspace/
+├── .tools/
+│   └── node/                    ← Node 22.22.3 portable
+│       ├── node.exe
+│       ├── npm.cmd
+│       ├── npx.cmd
+│       └── ...
+├── activate.ps1                 ← Kích hoạt cho PowerShell
+├── activate.cmd                 ← Kích hoạt cho CMD
+├── deactivate.cmd               ← Hướng dẫn thoát (CMD)
+├── .gitignore                   ← Có .tools/node/
+└── package.json                 ← scripts dùng npx ruflo trực tiếp
+```

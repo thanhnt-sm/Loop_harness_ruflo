@@ -679,14 +679,108 @@ function buildMaxPowerSettings(pkgVersion) {
 // CÁC BƯỚC THIẾT LẬP
 // ============================================================================
 
+// Cài Node 22 portable vào .tools/node/ (Windows only)
+// Tự động tải + giải nén + tạo activate scripts
+function installNodePortable(ws) {
+  const toolsDir = path.join(ws, '.tools');
+  const nodeDir = path.join(toolsDir, 'node');
+  const nodeVer = '22.22.3';
+  const zipName = `node-v${nodeVer}-win-x64.zip`;
+  const zipPath = path.join(toolsDir, zipName);
+  const url = `https://nodejs.org/dist/v${nodeVer}/${zipName}`;
+
+  if (!fs.existsSync(toolsDir)) fs.mkdirSync(toolsDir, { recursive: true });
+  if (fs.existsSync(nodeDir)) fs.rmSync(nodeDir, { recursive: true, force: true });
+  fs.mkdirSync(nodeDir, { recursive: true });
+
+  // Tải zip bằng curl (có sẵn Windows 10+)
+  log.info(`  Tải ${url}...`);
+  const dl = spawnSync('curl', ['-L', '-o', zipPath, url], { stdio: 'pipe' });
+  if (dl.status !== 0) throw new Error(`curl thất bại: ${dl.stderr?.toString() || ''}`);
+  if (!fs.existsSync(zipPath)) throw new Error('Tải zip thất bại');
+
+  // Giải nén bằng PowerShell
+  const ex = spawnSync('powershell', ['-NoProfile', '-Command',
+    `Expand-Archive -Path '${zipPath}' -DestinationPath '${toolsDir}' -Force`], { stdio: 'pipe' });
+  if (ex.status !== 0) throw new Error(`Expand-Archive thất bại: ${ex.stderr?.toString() || ''}`);
+  const extracted = path.join(toolsDir, `node-v${nodeVer}-win-x64`);
+  if (!fs.existsSync(extracted)) throw new Error('Giải nén thất bại');
+
+  // Di chuyển nội dung vào .tools/node/
+  for (const item of fs.readdirSync(extracted)) {
+    fs.renameSync(path.join(extracted, item), path.join(nodeDir, item));
+  }
+  fs.rmSync(extracted, { recursive: true, force: true });
+  fs.unlinkSync(zipPath);
+
+  // Tạo activate.ps1
+  const activatePs1 = path.join(ws, 'activate.ps1');
+  fs.writeFileSync(activatePs1, [
+    '# activate.ps1 - Kich hoat Node portable cho workspace nay',
+    '$wsRoot = Split-Path -Parent $MyInvocation.MyCommand.Path',
+    '$nodeDir = Join-Path $wsRoot ".tools\\node"',
+    'if (-not (Test-Path (Join-Path $nodeDir "node.exe"))) { Write-Host "LOI: Khong tim thay Node portable" -ForegroundColor Red; return }',
+    '$global:_OldPath = $env:PATH',
+    '$env:PATH = "$nodeDir;$env:PATH"',
+    '$env:NODE_PATH = Join-Path $wsRoot "node_modules"',
+    'function global:deactivate { if ($global:_OldPath) { $env:PATH = $global:_OldPath; Remove-Variable -Name _OldPath -Scope Global -EA SilentlyContinue } }',
+    '$v = & (Join-Path $nodeDir "node.exe") --version',
+    'Write-Host "Node portable: $v" -ForegroundColor Green',
+  ].join('\n') + '\n');
+
+  // Tạo activate.cmd
+  const activateCmd = path.join(ws, 'activate.cmd');
+  fs.writeFileSync(activateCmd, [
+    '@echo off',
+    'set "WS_ROOT=%~dp0"',
+    'if "%WS_ROOT:~-1%"=="\\" set "WS_ROOT=%WS_ROOT:~0,-1%"',
+    'set "NODE_DIR=%WS_ROOT%\\.tools\\node"',
+    'if not exist "%NODE_DIR%\\node.exe" (echo LOI: Khong tim thay Node portable & exit /b 1)',
+    'set "PATH=%NODE_DIR%;%PATH%"',
+    'set "NODE_PATH=%WS_ROOT%\\node_modules"',
+    'echo Node portable da kich hoat',
+    'endlocal & set "PATH=%NODE_DIR%;%PATH%" & set "NODE_PATH=%WS_ROOT%\\node_modules"',
+  ].join('\r\n') + '\r\n');
+
+  // Thêm .tools/node/ vào .gitignore
+  const giPath = path.join(ws, '.gitignore');
+  if (fs.existsSync(giPath)) {
+    const gi = fs.readFileSync(giPath, 'utf8');
+    if (!gi.includes('.tools/node/')) {
+      fs.appendFileSync(giPath, '\n# Node portable\n.tools/node/\n.tools/*.zip\n');
+    }
+  }
+
+  log.ok(`  Node v${nodeVer} portable cài tại .tools/node/`);
+  log.ok('  Đã tạo activate.ps1 + activate.cmd');
+}
+
 // Bước 0: Kiểm tra prerequisites
 function checkPrerequisites(ws) {
   log.head('Bước 0: Kiểm tra prerequisites');
 
-  // Node >= 20
+  // Node >= 20 — nếu thiếu, thử cài Node portable vào .tools/node/
   const nodeMajor = parseInt(process.versions.node.split('.')[0], 10);
   if (nodeMajor < 20) {
-    log.err(`Node >= 20 yêu cầu. Hiện tại: ${process.version}`);
+    log.warn(`Node >= 20 yêu cầu. Hiện tại: ${process.version}`);
+    const portableNode = path.join(ws, '.tools', 'node', 'node.exe');
+    if (fs.existsSync(portableNode)) {
+      log.ok(`Đã có Node portable tại .tools/node/ — chạy: . .\\activate.ps1 (PS) hoặc activate (CMD)`);
+      log.info('  Sau khi activate, chạy lại script này bằng Node 22.');
+    } else {
+      log.info('Thử cài Node 22 portable vào .tools/node/...');
+      try {
+        installNodePortable(ws);
+        log.ok('Đã cài Node 22 portable. Bật activate rồi chạy lại script.');
+        log.info('  PowerShell: . .\\activate.ps1');
+        log.info('  CMD:        activate');
+        process.exit(0);
+      } catch (e) {
+        log.err(`Không cài được Node portable: ${e.message}`);
+        log.info('Cài thủ công: tải node-v22-win-x64.zip từ https://nodejs.org/dist/v22.22.3/');
+        process.exit(1);
+      }
+    }
     process.exit(1);
   }
   log.ok(`Node ${process.version}`);
