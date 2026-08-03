@@ -1,6 +1,6 @@
 # 10 — Setup MAX POWER: Cài đặt & Cấu hình tự động
 
-> Hướng dẫn dùng script `setup-max-power.mjs` và `update-max-power.mjs` để cài đặt, cấu hình Ruflo ở mức mạnh nhất ("MAX POWER") cho workspace bất kỳ — hỗ trợ 3 CLI (Claude Code, Devin CLI, Antigravity CLI) và tinh chỉnh cho từng AI provider.
+> Hướng dẫn dùng script `hlk-setup-max-power.mjs` và `hlk-update-max-power.mjs` để cài đặt, cấu hình Ruflo ở mức mạnh nhất ("MAX POWER") cho workspace bất kỳ — hỗ trợ 3 CLI (Claude Code, Devin CLI, Antigravity CLI) và tinh chỉnh cho từng AI provider.
 
 ---
 
@@ -35,28 +35,28 @@
 
 ---
 
-## 3. Script `setup-max-power.mjs` — Cài mới
+## 3. Script `hlk-setup-max-power.mjs` — Cài mới
 
 ### 3.1 Vị trí script
 
 ```
-<repo>/scripts/setup-max-power.mjs
+HLK/bin/hlk-setup-max-power.mjs
 ```
 
 ### 3.2 Cách chạy
 
 ```bash
 # Cách 1: Tương tác đầy đủ — hỏi từng tham số, có đề xuất mặc định
-node scripts/setup-max-power.mjs
+node HLK/bin/hlk-setup-max-power.mjs
 
 # Cách 2: Headless — dùng toàn bộ mặc định (local + claude + mọi tính năng bật)
-node scripts/setup-max-power.mjs --yes
+node HLK/bin/hlk-setup-max-power.mjs --yes
 
 # Cách 3: Headless + ghi đè một số tham số
-node scripts/setup-max-power.mjs --path D:/projects/my-app --provider codex --yes
+node HLK/bin/hlk-setup-max-power.mjs --path D:/projects/my-app --provider codex --yes
 
 # Cách 4: Tương tác nhưng đã chỉ định sẵn path
-node scripts/setup-max-power.mjs --path D:/test-ws
+node HLK/bin/hlk-setup-max-power.mjs --path D:/test-ws
 ```
 
 ### 3.3 Các câu hỏi khi chạy tương tác
@@ -116,7 +116,7 @@ Khi chạy không có flag nào, script hỏi lần lượt:
 
 ---
 
-## 4. Script `update-max-power.mjs` — Cập nhật
+## 4. Script `hlk-update-max-power.mjs` — Cập nhật
 
 ### 4.1 Khi nào dùng?
 
@@ -129,19 +129,19 @@ Khi chạy không có flag nào, script hỏi lần lượt:
 
 ```bash
 # Tương tác đầy đủ
-node scripts/update-max-power.mjs
+node HLK/bin/hlk-update-max-power.mjs
 
 # Headless — dùng mặc định (local, không upgrade, giữ provider hiện có)
-node scripts/update-max-power.mjs --yes
+node HLK/bin/hlk-update-max-power.mjs --yes
 
 # Upgrade ruflo lên version mới
-node scripts/update-max-power.mjs --upgrade --yes
+node HLK/bin/hlk-update-max-power.mjs --upgrade --yes
 
 # Đổi provider
-node scripts/update-max-power.mjs --provider gemini --yes
+node HLK/bin/hlk-update-max-power.mjs --provider gemini --yes
 
 # Upgrade + đổi provider + path cụ thể
-node scripts/update-max-power.mjs --path D:/my-app --upgrade --provider codex --yes
+node HLK/bin/hlk-update-max-power.mjs --path D:/my-app --upgrade --provider codex --yes
 ```
 
 ### 4.3 Khác biệt so với setup
@@ -240,13 +240,13 @@ fallback        → openrouter
 
 ```bash
 # Đổi sang codex
-node scripts/update-max-power.mjs --provider codex --yes
+node HLK/bin/hlk-update-max-power.mjs --provider codex --yes
 
 # Đổi sang gemini
-node scripts/update-max-power.mjs --provider gemini --yes
+node HLK/bin/hlk-update-max-power.mjs --provider gemini --yes
 
 # Giữ nguyên provider hiện tại (mặc định)
-node scripts/update-max-power.mjs --yes
+node HLK/bin/hlk-update-max-power.mjs --yes
 ```
 
 ---
@@ -255,7 +255,7 @@ node scripts/update-max-power.mjs --yes
 
 ```mermaid
 flowchart TD
-    A[Chạy setup-max-power.mjs] --> B{Chế độ?}
+    A[Chạy hlk-setup-max-power.mjs] --> B{Chế độ?}
     B -->|Local| C[npm install --save-dev ruflo@latest]
     B -->|Global| D[npx -y ruflo@latest]
     C --> E[ruflo init --yes]
@@ -320,7 +320,7 @@ npx ruflo daemon status
 3. **Khởi động lại** Claude Code / Devin CLI / agy để MCP server load cấu hình mới.
 4. **Test** swarm, memory, daemon (xem mục 8).
 5. **Đọc** `AGENTS.md` / `CLAUDE.md` để hiểu workflow full chain.
-6. **Update** định kỳ: `node scripts/update-max-power.mjs` (hoặc `npm run update:max-power`).
+6. **Update** định kỳ: `node HLK/bin/hlk-update-max-power.mjs` (hoặc `npm run update:max-power`).
 
 ---
 
@@ -375,7 +375,7 @@ OPENROUTER_API_KEY=sk-or-...
 
 **Khắc phục:** Chạy update để re-patch:
 ```bash
-node scripts/update-max-power.mjs --yes
+node HLK/bin/hlk-update-max-power.mjs --yes
 ```
 
 ---
@@ -388,21 +388,21 @@ node scripts/update-max-power.mjs --yes
 # Cài mới
 npm run setup:max-power
 # hoặc
-node scripts/setup-max-power.mjs
+node HLK/bin/hlk-setup-max-power.mjs
 
 # Update
 npm run update:max-power
 # hoặc
-node scripts/update-max-power.mjs
+node HLK/bin/hlk-update-max-power.mjs
 
 # Update + upgrade ruflo
-node scripts/update-max-power.mjs --upgrade --yes
+node HLK/bin/hlk-update-max-power.mjs --upgrade --yes
 
 # Headless (không hỏi)
-node scripts/setup-max-power.mjs --yes
+node HLK/bin/hlk-setup-max-power.mjs --yes
 
 # Chỉ định path + provider
-node scripts/setup-max-power.mjs --path D:/my-app --provider gemini --yes
+node HLK/bin/hlk-setup-max-power.mjs --path D:/my-app --provider gemini --yes
 ```
 
 ### 11.2 File config quan trọng
@@ -432,7 +432,7 @@ node scripts/setup-max-power.mjs --path D:/my-app --provider gemini --yes
 
 ## 12. Hướng dẫn thực hiện thủ công (manual)
 
-> Phần này hướng dẫn **tự làm từng bước** mà không dùng script `setup-max-power.mjs` — dành cho trường hợp script lỗi, muốn hiểu rõ từng bước, hoặc muốn tùy chỉnh tinh.
+> Phần này hướng dẫn **tự làm từng bước** mà không dùng script `hlk-setup-max-power.mjs` — dành cho trường hợp script lỗi, muốn hiểu rõ từng bước, hoặc muốn tùy chỉnh tinh.
 
 ### 12.1 Điều kiện trước
 
@@ -534,7 +534,7 @@ Tạo file `.claude/settings.json` với nội dung sau (đây là cấu hình M
 }
 ```
 
-> **Lưu ý:** Đây là phiên bản rút gọn. Phiên bản đầy đủ (8 hooks, statusline, skills/commands/agents all) xem trong script `setup-max-power.mjs` hàm `buildMaxPowerSettings()`.
+> **Lưu ý:** Đây là phiên bản rút gọn. Phiên bản đầy đủ (8 hooks, statusline, skills/commands/agents all) xem trong script `hlk-setup-max-power.mjs` hàm `buildMaxPowerSettings()`.
 
 ### 12.4 Bước 3 — Tạo `.claude-flow/runtime.json`
 
@@ -692,7 +692,7 @@ git config core.hooksPath .githooks
 
 ### 12.11 Bước 10 — Provider tuning (`.claude-flow/providers.json`)
 
-Tạo file `.claude-flow/providers.json` — xem nội dung đầy đủ trong script `setupProviders()` của `setup-max-power.mjs`. Bản rút gọn:
+Tạo file `.claude-flow/providers.json` — xem nội dung đầy đủ trong script `setupProviders()` của `hlk-setup-max-power.mjs`. Bản rút gọn:
 
 ```json
 {
@@ -751,7 +751,7 @@ cp HLK/config/secrets.env.example HLK/config/secrets.env
 
 ### 12.14 Tóm tắt thủ công vs script
 
-| Tiêu chí | Thủ công | Script `setup-max-power.mjs` |
+| Tiêu chí | Thủ công | Script `hlk-setup-max-power.mjs` |
 |----------|----------|------------------------------|
 | Tốc độ | Chậm (12 bước) | Nhanh (1 lệnh) |
 | Kiểm soát | Tối đa | Vừa (có flag ghi đè) |

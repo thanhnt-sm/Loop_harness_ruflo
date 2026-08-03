@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ============================================================================
-// scripts/update-max-power.mjs
+// HLK/bin/hlk-update-max-power.mjs
 // ----------------------------------------------------------------------------
 // Script UPDATE workspace đã setup MAX POWER.
 // Khác với setup (cài mới), update:
@@ -12,10 +12,10 @@
 //   - Verify lại.
 //
 // Cách dùng:
-//   node scripts/update-max-power.mjs                          # hỏi path
-//   node scripts/update-max-power.mjs --path D:/projects/my-ws --yes
-//   node scripts/update-max-power.mjs --path <ws> --upgrade    # upgrade ruflo version
-//   node scripts/update-max-power.mjs --path <ws> --local      # update ruflo cục bộ
+//   node HLK/bin/hlk-update-max-power.mjs                          # hỏi path
+//   node HLK/bin/hlk-update-max-power.mjs --path D:/projects/my-ws --yes
+//   node HLK/bin/hlk-update-max-power.mjs --path <ws> --upgrade    # upgrade ruflo version
+//   node HLK/bin/hlk-update-max-power.mjs --path <ws> --local      # update ruflo cục bộ
 //
 // Options:
 //   --path <dir>   Đường dẫn workspace (bỏ qua bước hỏi).
@@ -69,15 +69,15 @@ for (let i = 0; i < rawArgs.length; i++) {
   else if (a === '--ruflo-version' && rawArgs[i + 1]) { RUFLO_VERSION = rawArgs[i + 1]; CLI_SET.add('ruflo-version'); i++; }
   else if (a === '--help' || a === '-h') {
     process.stderr.write([
-      'update-max-power.mjs — UPDATE workspace đã setup MAX POWER',
+      'hlk-update-max-power.mjs — UPDATE workspace đã setup MAX POWER',
       '',
       'Mặc định: update CỤC BỘ (--local), hỏi tất cả tham số có đề xuất mặc định.',
       'Dùng --yes để chạy headless (không hỏi, dùng mặc định).',
       '',
       'Cách dùng:',
-      '  node scripts/update-max-power.mjs                    # hỏi tương tác đầy đủ',
-      '  node scripts/update-max-power.mjs --yes              # headless, dùng mặc định',
-      '  node scripts/update-max-power.mjs --path D:/ws --upgrade --yes',
+      '  node HLK/bin/hlk-update-max-power.mjs                    # hỏi tương tác đầy đủ',
+      '  node HLK/bin/hlk-update-max-power.mjs --yes              # headless, dùng mặc định',
+      '  node HLK/bin/hlk-update-max-power.mjs --path D:/ws --upgrade --yes',
       '',
       'Options (ghi đè mặc định, bỏ qua câu hỏi tương ứng):',
       '  --path <dir>           Đường dẫn workspace',
@@ -265,9 +265,9 @@ function readCurrentProvider(ws) {
 
 // --- Gọi setup-max-power.mjs với --skip-ruflo (re-patch tất cả) ---
 function rePatchViaSetup(ws) {
-  log.head('Re-patch tất cả config qua setup-max-power.mjs');
+  log.head('Re-patch tất cả config qua hlk-setup-max-power.mjs');
 
-  const setupScript = path.join(__dirname, 'setup-max-power.mjs');
+  const setupScript = path.join(__dirname, 'hlk-setup-max-power.mjs');
   if (!fs.existsSync(setupScript)) {
     log.err(`Không tìm thấy ${setupScript}`);
     process.exit(1);
@@ -289,7 +289,7 @@ function rePatchViaSetup(ws) {
   log.info(`Chạy: node setup-max-power.mjs ${setupArgs.join(' ')}`);
   const r = run(process.execPath, [setupScript, ...setupArgs], { cwd: ws });
   if (r.status !== 0) {
-    log.err('setup-max-power.mjs thất bại trong quá trình re-patch.');
+    log.err('hlk-setup-max-power.mjs thất bại trong quá trình re-patch.');
     process.exit(r.status ?? 1);
   }
   log.ok('Re-patch xong.');
@@ -332,8 +332,8 @@ function updateHlkLayer(ws) {
   }
 
   // Re-install HLK qua setup script (đã handle ở rePatchViaSetup với --skip-ruflo)
-  // HLK install sẽ chạy trong setup-max-power.mjs
-  log.ok('HLK layer sẽ được re-install qua setup-max-power.mjs.');
+  // HLK install sẽ chạy trong hlk-setup-max-power.mjs
+  log.ok('HLK layer sẽ được re-install qua hlk-setup-max-power.mjs.');
 }
 
 // --- Verify ---
@@ -379,7 +379,7 @@ async function main() {
 
   if (!fs.existsSync(ws)) {
     log.err(`Workspace không tồn tại: ${ws}`);
-    log.info('Dùng setup-max-power.mjs để tạo mới trước.');
+    log.info('Dùng hlk-setup-max-power.mjs để tạo mới trước.');
     process.exit(1);
   }
 
@@ -388,7 +388,7 @@ async function main() {
   const runtimePath = path.join(ws, '.claude-flow', 'runtime.json');
   if (!fs.existsSync(settingsPath) && !fs.existsSync(runtimePath)) {
     log.warn('Workspace có vẻ chưa setup MAX POWER (thiếu .claude/settings.json + .claude-flow/runtime.json).');
-    log.info('Khuyến nghị: chạy setup-max-power.mjs trước. Tiếp tục update (sẽ tạo config mới)...');
+    log.info('Khuyến nghị: chạy hlk-setup-max-power.mjs trước. Tiếp tục update (sẽ tạo config mới)...');
   } else {
     log.ok('Workspace đã có cấu hình MAX POWER — tiến hành update.');
   }
@@ -399,7 +399,7 @@ async function main() {
   // 2. Update HLK layer (nếu không --skip-hlk)
   updateHlkLayer(ws);
 
-  // 3. Re-patch tất cả config qua setup-max-power.mjs (--skip-ruflo)
+  // 3. Re-patch tất cả config qua hlk-setup-max-power.mjs (--skip-ruflo)
   rePatchViaSetup(ws);
 
   // 4. Verify

@@ -63,8 +63,8 @@
     "v3:domains": "npm run build:domains",
     "v3:swarm": "npm run start:swarm",
     "v3:security": "npm run security:audit && npm run security:test",
-    "setup:max-power": "node scripts/setup-max-power.mjs",
-    "update:max-power": "node scripts/update-max-power.mjs"
+    "setup:max-power": "node HLK/bin/hlk-setup-max-power.mjs",
+    "update:max-power": "node HLK/bin/hlk-update-max-power.mjs"
   },
   "dependencies": {
     "@claude-flow/cli-core": "3.7.0-alpha.5",

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ============================================================================
-// scripts/setup-max-power.mjs
+// HLK/bin/hlk-setup-max-power.mjs
 // ----------------------------------------------------------------------------
 // Script thiết lập Ruflo ở mức "MAX POWER" cho một workspace bất kỳ.
 //
@@ -13,9 +13,9 @@
 //   - Tinh chỉnh cấu hình cho từng AI provider (Claude, Codex, Gemini, OpenAI).
 //
 // Cách dùng:
-//   node scripts/setup-max-power.mjs                          # hỏi path + global
-//   node scripts/setup-max-power.mjs --local                  # cài ruflo cục bộ workspace
-//   node scripts/setup-max-power.mjs --path D:/projects/my-ws --yes --local
+//   node HLK/bin/hlk-setup-max-power.mjs                          # hỏi path + global
+//   node HLK/bin/hlk-setup-max-power.mjs --local                  # cài ruflo cục bộ workspace
+//   node HLK/bin/hlk-setup-max-power.mjs --path D:/projects/my-ws --yes --local
 //
 // Options:
 //   --path <dir>   Đường dẫn workspace (bỏ qua bước hỏi).
@@ -72,15 +72,15 @@ for (let i = 0; i < rawArgs.length; i++) {
   else if (a === '--ruflo-version' && rawArgs[i + 1]) { RUFLO_VERSION = rawArgs[i + 1]; CLI_SET.add('ruflo-version'); i++; }
   else if (a === '--help' || a === '-h') {
     process.stderr.write([
-      'setup-max-power.mjs — Thiết lập Ruflo MAX POWER cho workspace',
+      'hlk-setup-max-power.mjs — Thiết lập Ruflo MAX POWER cho workspace',
       '',
       'Mặc định: cài CỤC BỘ (--local), hỏi tất cả tham số có đề xuất mặc định.',
       'Dùng --yes để chạy headless (không hỏi, dùng mặc định).',
       '',
       'Cách dùng:',
-      '  node scripts/setup-max-power.mjs                    # hỏi tương tác đầy đủ',
-      '  node scripts/setup-max-power.mjs --yes              # headless, dùng mặc định',
-      '  node scripts/setup-max-power.mjs --path D:/ws --provider codex --yes',
+      '  node HLK/bin/hlk-setup-max-power.mjs                    # hỏi tương tác đầy đủ',
+      '  node HLK/bin/hlk-setup-max-power.mjs --yes              # headless, dùng mặc định',
+      '  node HLK/bin/hlk-setup-max-power.mjs --path D:/ws --provider codex --yes',
       '',
       'Options (ghi đè mặc định, bỏ qua câu hỏi tương ứng):',
       '  --path <dir>           Đường dẫn workspace',
@@ -689,7 +689,7 @@ function checkPrerequisites(ws) {
     if (!rufloInstalled()) {
       log.warn('Ruflo chưa cài global. Hai lựa chọn:');
       log.info('  1. Cài global: npm install -g ruflo@latest');
-      log.info('  2. Dùng --local: node scripts/setup-max-power.mjs --local --path <ws>');
+      log.info('  2. Dùng --local: node HLK/bin/hlk-setup-max-power.mjs --local --path <ws>');
       log.info('     (script sẽ cài ruflo cục bộ trong workspace để test)');
       // Không exit — cho phép tiếp tục nếu user muốn (sẽ fallback npx -y)
       log.warn('Tiếp tục với npx -y (chậm hơn nhưng vẫn hoạt động).');
@@ -1129,7 +1129,7 @@ function setupAntigravityCli(ws) {
   if (!fs.existsSync(agyTomlPath)) {
     const toml = [
       '# Antigravity CLI (agy) + Codex CLI config — MAX POWER',
-      '# Tự sinh bởi setup-max-power.mjs',
+      '# Tự sinh bởi hlk-setup-max-power.mjs',
       '',
       'model = "gemini-2.5-pro"',
       'approval_policy = "on-request"',
@@ -1213,7 +1213,7 @@ function setupAntigravityCli(ws) {
     fs.writeFileSync(agentsMd, [
       '# Project Agent Guide',
       '',
-      '> Tự sinh bởi setup-max-power.mjs — điều chỉnh cho phù hợp dự án.',
+      '> Tự sinh bởi hlk-setup-max-power.mjs — điều chỉnh cho phù hợp dự án.',
       '',
       '## Workflow',
       '- Dùng ruflo cho orchestration: `npx ruflo swarm init --topology hierarchical-mesh --max-agents 15`',
@@ -1255,7 +1255,7 @@ function setupProviders(ws) {
   fs.mkdirSync(cfDir, { recursive: true });
 
   const providers = {
-    _comment: 'Provider routing config — tự sinh bởi setup-max-power.mjs',
+    _comment: 'Provider routing config — Tự sinh bởi hlk-setup-max-power.mjs',
     _updatedAt: new Date().toISOString(),
     default: PROVIDER,
 

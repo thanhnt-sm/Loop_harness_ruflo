@@ -24,13 +24,13 @@ node HLK/bin/hlk-ruflo-setup.mjs --update --yes
 
 ```bash
 # Cài mới — hỏi tương tác, mỗi câu có đề xuất mặc định
-node scripts/setup-max-power.mjs
+node HLK/bin/hlk-setup-max-power.mjs
 
 # Headless (không hỏi, dùng mặc định: local + claude + mọi tính năng bật)
-node scripts/setup-max-power.mjs --yes
+node HLK/bin/hlk-setup-max-power.mjs --yes
 
 # Cập nhật / re-patch / upgrade
-node scripts/update-max-power.mjs --yes
+node HLK/bin/hlk-update-max-power.mjs --yes
 ```
 
 **Mặc định:** cài CỤC BỘ (không cần global), provider `claude`, mọi tính năng bật MAX POWER.

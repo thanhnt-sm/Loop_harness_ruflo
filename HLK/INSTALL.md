@@ -25,13 +25,13 @@ flowchart LR
 
 ## 1B. Cách nhanh nhất: Setup MAX POWER tự động
 
-> **Khuyến nghị cho người mới**: Dùng script `setup-max-power.mjs` để cài đặt + cấu hình Ruflo + HLK + 3 CLI (Claude Code, Devin CLI, Antigravity CLI) + tinh chỉnh provider — tất cả trong một lệnh.
+> **Khuyến nghị cho người mới**: Dùng script `hlk-setup-max-power.mjs` để cài đặt + cấu hình Ruflo + HLK + 3 CLI (Claude Code, Devin CLI, Antigravity CLI) + tinh chỉnh provider — tất cả trong một lệnh.
 
 ### 1B.1 Cài mới (setup)
 
 ```bash
 # Trong repo Loop_harness_ruflo
-node scripts/setup-max-power.mjs
+node HLK/bin/hlk-setup-max-power.mjs
 ```
 
 Script sẽ **hỏi từng tham số** (đường dẫn workspace, chế độ cài, provider, tính năng bật/tắt) — mỗi câu đều có **đề xuất mặc định**, bấm Enter để chấp nhận.
@@ -40,23 +40,23 @@ Script sẽ **hỏi từng tham số** (đường dẫn workspace, chế độ c
 
 ```bash
 # Mặc định: cài CỤC BỘ, provider claude, mọi tính năng bật
-node scripts/setup-max-power.mjs --yes
+node HLK/bin/hlk-setup-max-power.mjs --yes
 
 # Chỉ định path + provider
-node scripts/setup-max-power.mjs --path D:/my-app --provider codex --yes
+node HLK/bin/hlk-setup-max-power.mjs --path D:/my-app --provider codex --yes
 ```
 
 ### 1B.2 Cập nhật (update)
 
 ```bash
 # Re-patch config (không upgrade ruflo)
-node scripts/update-max-power.mjs
+node HLK/bin/hlk-update-max-power.mjs
 
 # Upgrade ruflo lên version mới
-node scripts/update-max-power.mjs --upgrade --yes
+node HLK/bin/hlk-update-max-power.mjs --upgrade --yes
 
 # Đổi provider
-node scripts/update-max-power.mjs --provider gemini --yes
+node HLK/bin/hlk-update-max-power.mjs --provider gemini --yes
 ```
 
 ### 1B.3 Hai chế độ cài
