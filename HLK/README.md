@@ -12,14 +12,8 @@ node HLK/wrappers/hlk-verify-integrity.js
 
 # Bật/Tắt HLK → sửa HLK/config/hlk.config.json → "hlk_enabled": true/false
 
-# Sync upstream ruflo (Windows)
-powershell -File HLK/wrappers/git-upstream-sync.ps1
-
-# Sync upstream ruflo (Linux/Mac)
-bash HLK/wrappers/git-upstream-sync.sh
-
-# Dry-run (xem trước thay đổi, không merge)
-powershell -File HLK/wrappers/git-upstream-sync.ps1 -DryRun
+# Cập nhật HLK
+node HLK/bin/hlk-ruflo-setup.mjs --update --yes
 ```
 
 ---
@@ -34,17 +28,14 @@ HLK/
 │   └── secrets.env            ← [GITIGNORED] Secrets thực tế
 ├── wrappers/
 │   ├── hlk-loader.js          ← Interceptor: bind sanitizer, telemetry blocker, vault
-│   ├── hlk-verify-integrity.js ← Post-merge HLK integrity checker
-│   ├── git-upstream-sync.sh   ← Upstream sync script (Bash)
-│   └── git-upstream-sync.ps1  ← Upstream sync script (PowerShell)
+│   └── hlk-verify-integrity.js ← Post-update HLK integrity checker
 ├── security/
 │   ├── sanitizer.js           ← Redact API keys, tokens, passwords từ text
 │   └── vault-bridge.js        ← Quản lý secrets qua env vars / local .env
-├── prompts/                   ← 7 prompts phân tích & hardening
+├── prompts/                   ← 6 prompts phân tích & hardening
 │   ├── 01_codebase_analysis.prompt.md
 │   ├── 02_redteam_security.prompt.md
 │   ├── 03_solution_architect.prompt.md
-│   ├── 04_upstream_update_plan.prompt.md
 │   ├── 05_data_leak_hardening_guide.prompt.md
 │   ├── 06_harness_deepdive_hardening.prompt.md
 │   └── 07_ruflo_hardening_implementation.prompt.md
@@ -75,37 +66,21 @@ Tệp [`HLK/config/hlk.config.json`](config/hlk.config.json):
 
 ---
 
-## Quy Trình Cập Nhật Upstream Ruflo
+## Quy Trình Cập Nhật HLK
 
 ### Tự động (khuyến nghị):
 
-```powershell
-# Windows
-powershell -File HLK/wrappers/git-upstream-sync.ps1
-
-# Script tự động:
-# 1. Kiểm tra git remote, thêm upstream nếu chưa có
-# 2. Fetch upstream
-# 3. Backup hlk.config.json trước merge
-# 4. Merge upstream/main --no-ff
-# 5. Verify HLK integrity sau merge
-# 6. Tự restore config nếu bị corrupt
+```bash
+node HLK/bin/hlk-ruflo-setup.mjs --update --yes
 ```
 
 ### Thủ công:
 
 ```bash
-git fetch upstream
-git merge upstream/main --no-ff -m "chore: merge upstream ruflo updates"
+npm install -g /path/to/hlk-ruflo-x.y.z.tgz
+npx hlk-update
 node HLK/wrappers/hlk-verify-integrity.js
 ```
-
-### Tại sao không xung đột?
-
-1. **`HLK/`** hoàn toàn nằm ngoài ruflo source tree — upstream không có folder này
-2. **`.gitattributes`** đặt merge strategy `ours` cho tất cả `HLK/**` files
-3. **Config backup** được tạo trước mỗi merge trong `HLK/logs/`
-4. **Auto-restore** nếu config bị corrupt sau merge
 
 ---
 
@@ -140,7 +115,6 @@ const key = getSecret('OPENAI_API_KEY');
 | 01 | `codebase_analysis` | Quét & đánh giá kiến trúc ruflo |
 | 02 | `redteam_security` | Kiểm tra rò rỉ dữ liệu & tri thức |
 | 03 | `solution_architect` | Thiết kế HLK middleware |
-| 04 | `upstream_update_plan` | Kế hoạch cập nhật ruflo an toàn |
-| 05 | `data_leak_hardening` | Khóa chặt chống rò rỉ dữ liệu |
-| 06 | `harness_deepdive` | Hardening telemetry & AgentDB |
-| 07 | `ruflo_hardening` | Tắt telemetry, config AIDefence |
+| 04 | `data_leak_hardening` | Khóa chặt chống rò rỉ dữ liệu |
+| 05 | `harness_deepdive` | Hardening telemetry & AgentDB |
+| 06 | `ruflo_hardening` | Tắt telemetry, config AIDefence |

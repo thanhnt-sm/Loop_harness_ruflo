@@ -11,11 +11,6 @@
     "custom_hooks_injection": true,
     "post_merge_verify": true
   },
-  "upstream": {
-    "repository": "https://github.com/ruvnet/ruflo.git",
-    "remote_name": "upstream",
-    "target_branch": "main"
-  },
   "upgrade_policy": {
     "auto_merge": false,
     "verify_hlk_after_merge": true,

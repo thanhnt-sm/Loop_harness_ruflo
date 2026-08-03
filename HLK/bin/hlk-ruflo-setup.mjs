@@ -18,7 +18,6 @@
  *   --hlk-tgz <path>          Đường dẫn tarball HLK.
  *   --hlk-global              HLK đã global install, dùng npx hlk-install.
  *   --hlk-npm                 Dùng npm registry (npm install -g hlk-ruflo).
- *   --upstream-sync           Cập nhật ruflo bằng git-upstream-sync thay vì npx.
  *   --yes                     Không hỏi xác nhận.
  */
 
@@ -39,7 +38,6 @@ let RUFLO_VERSION = '3.34.0';
 let HLK_TGZ = null;
 let HLK_GLOBAL = false;
 let HLK_NPM = false;
-let UPSTREAM_SYNC = false;
 let SKIP_RUFLO = false;
 let YES = false;
 
@@ -50,7 +48,6 @@ for (let i = 0; i < args.length; i++) {
   else if (args[i] === '--hlk-tgz' && args[i + 1]) { HLK_TGZ = args[i + 1]; i++; }
   else if (args[i] === '--hlk-global') HLK_GLOBAL = true;
   else if (args[i] === '--hlk-npm') HLK_NPM = true;
-  else if (args[i] === '--upstream-sync') UPSTREAM_SYNC = true;
   else if (args[i] === '--skip-ruflo') SKIP_RUFLO = true;
   else if (args[i] === '--yes') YES = true;
 }
@@ -255,27 +252,10 @@ async function updateWorkspace() {
     log('info', '--skip-ruflo: Bỏ qua cập nhật Ruflo.');
   } else {
     log('info', 'Bước 1: Cập nhật Ruflo...');
-    if (UPSTREAM_SYNC) {
-      const syncScript = process.platform === 'win32'
-        ? path.join(cwd, 'HLK', 'wrappers', 'git-upstream-sync.ps1')
-        : path.join(cwd, 'HLK', 'wrappers', 'git-upstream-sync.sh');
-
-      if (!fs.existsSync(syncScript)) {
-        log('error', 'Không tìm thấy git-upstream-sync script.');
-        process.exit(1);
-      }
-
-      if (process.platform === 'win32') {
-        run('powershell', ['-File', syncScript], { cwd });
-      } else {
-        run('bash', [syncScript], { cwd });
-      }
-    } else {
-      const r = run('npx', ['-y', `ruflo@${RUFLO_VERSION}`, 'init', 'upgrade', '--add-missing'], { cwd });
-      if (r.status !== 0) {
-        log('error', 'Ruflo upgrade thất bại.');
-        process.exit(1);
-      }
+    const r = run('npx', ['-y', `ruflo@${RUFLO_VERSION}`, 'init', 'upgrade', '--add-missing'], { cwd });
+    if (r.status !== 0) {
+      log('error', 'Ruflo upgrade thất bại.');
+      process.exit(1);
     }
     log('success', 'Ruflo cập nhật thành công.');
   }

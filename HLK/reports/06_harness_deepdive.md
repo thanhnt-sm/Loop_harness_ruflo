@@ -149,7 +149,7 @@ $ grep -c "rvf\|agentdb" .gitignore
 
 - Root `.gitignore` **có** exclude `.swarm/` (dòng 79–81, 136) — tức `agentdb-memory.db`/`memory.db` (bảng dữ liệu chính, chứa `content` thô — BC02 V1/V2) **được** loại khỏi git.
 - Nhưng root `.gitignore` **KHÔNG có bất kỳ pattern nào** cho `agentdb.rvf`/`agentdb.rvf.lock` — và 2 file này **đã bị commit thật** vào lần commit khởi tạo repo HLK (`c29eab8`).
-- **Đây chính là "đồng bộ ngầm ra ngoài" cụ thể và có thật nhất tìm được trong toàn bộ audit**: nếu file `agentdb.rvf` (do native `ruvector` ghi vector embedding của code/nội dung đã xử lý) từng có dữ liệu thật tại thời điểm `git add`/`git commit`, nó đã đi thẳng vào lịch sử git — và sẽ **push đi cùng mọi lần `git push`** tới bất kỳ remote nào (kể cả remote `upstream: ruvnet/ruflo` mà HLK cấu hình sẵn ở `HLK/config/hlk.config.json` dòng 14–17). Đây là kênh rò rỉ **git-based**, khác hẳn "federation plugin" mà prompt gốc ngờ vực.
+- **Đây chính là "đồng bộ ngầm ra ngoài" cụ thể và có thật nhất tìm được trong toàn bộ audit**: nếu file `agentdb.rvf` từng có dữ liệu thật tại thời điểm `git add`/`git commit`, nó đã đi thẳng vào lịch sử git — và sẽ **push đi cùng mọi lần `git push`** tới bất kỳ remote. Đây là kênh rò rỉ **git-based**, khác hẳn "federation plugin" mà prompt gốc ngờ vực.
 
 ### 3.4. "Federation" — plugin CÓ THẬT, nhưng KHÔNG cài mặc định trong repo này; không phải cơ chế đồng bộ AgentDB tự động
 

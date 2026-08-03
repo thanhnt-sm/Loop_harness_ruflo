@@ -97,19 +97,7 @@ PowerShell:
 node HLK\bin\hlk-ruflo-setup.mjs --update --hlk-tgz C:\path\to\hlk-ruflo-3.0.1.tgz --yes
 ```
 
-### Cách 2: Với upstream sync
-
-```bash
-node HLK/bin/hlk-ruflo-setup.mjs --update --upstream-sync --hlk-tgz /path/to/hlk-ruflo-3.0.1.tgz --yes
-```
-
-PowerShell:
-
-```powershell
-node HLK\bin\hlk-ruflo-setup.mjs --update --upstream-sync --hlk-tgz C:\path\to\hlk-ruflo-3.0.1.tgz --yes
-```
-
-### Cách 3: Chỉ cập nhật HLK (bỏ qua Ruflo)
+### Cách 2: Chỉ cập nhật HLK (bỏ qua Ruflo)
 
 ```bash
 node HLK/bin/hlk-ruflo-setup.mjs --update --skip-ruflo --hlk-tgz /path/to/hlk-ruflo-3.0.1.tgz --yes
@@ -121,7 +109,7 @@ PowerShell:
 node HLK\bin\hlk-ruflo-setup.mjs --update --skip-ruflo --hlk-tgz C:\path\to\hlk-ruflo-3.0.1.tgz --yes
 ```
 
-### Cách 4: Từng bước
+### Cách 3: Từng bước
 
 ```bash
 # 1. Cập nhật Ruflo

@@ -131,10 +131,7 @@ node HLK/wrappers/hlk-verify-integrity.js
 ### 5.1 Cập nhật Ruflo
 
 ```bash
-# Tùy cách bạn cài Ruflo
 npx ruflo@3.34.0 init upgrade --add-missing
-# hoặc
-bash HLK/wrappers/git-upstream-sync.sh
 ```
 
 ### 5.2 Cập nhật HLK
@@ -225,9 +222,7 @@ hlk-ruflo/
 │   ├── ruflo-hlk.mjs
 │   ├── ruflo-hlk-mcp.mjs
 │   ├── ruflo-hlk.ps1
-│   ├── ruflo-hlk.cmd
-│   ├── git-upstream-sync.sh
-│   └── git-upstream-sync.ps1
+│   └── ruflo-hlk.cmd
 ├── security/
 │   ├── sanitizer.js
 │   └── vault-bridge.js
@@ -241,7 +236,6 @@ hlk-ruflo/
 │   ├── 01-tong-quan-va-kien-truc.md
 │   ├── 02-thanh-phan-va-luong-hoat-dong.md
 │   ├── 03-cau-hinh-best-practice.md
-│   ├── 04-nang-cap-va-dong-bo-upstream.md
 │   ├── 05-van-hanh-runbook-va-playbook.md
 │   └── 06-checklist-va-khac-phuc-su-co.md
 ├── prompts/

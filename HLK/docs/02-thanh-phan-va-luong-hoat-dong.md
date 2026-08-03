@@ -52,9 +52,7 @@ HLK/
 │   ├── ruflo-hlk.mjs           # Launcher local CLI với HLK
 │   ├── ruflo-hlk-mcp.mjs       # Launcher MCP server với HLK
 │   ├── ruflo-hlk.ps1           # PowerShell launcher
-│   ├── ruflo-hlk.cmd           # CMD launcher
-│   ├── git-upstream-sync.sh    # Linux/macOS upstream sync
-│   └── git-upstream-sync.ps1   # Windows upstream sync
+│   └── ruflo-hlk.cmd           # CMD launcher
 ├── security/
 │   ├── sanitizer.js            # Redact sensitive strings
 │   └── vault-bridge.js         # Quản lý secrets
@@ -78,7 +76,6 @@ File cấu hình trung tâm. Các nhóm:
 - `version`: phiên bản HLK.
 - `ruflo_version_tested`: phiên bản Ruflo đã test với HLK.
 - `features`: bật/tắt từng tính năng.
-- `upstream`: remote/branch của upstream.
 - `upgrade_policy`: chính sách merge/verify/backup.
 - `security_rules`: regex patterns redact.
 - `telemetry_overrides`: env vars để tắt telemetry.
@@ -147,7 +144,7 @@ MONGO_INITDB_ROOT_PASSWORD=...
 
 ### 2.6 `hlk-verify-integrity.js`
 
-Kiểm tra sau mỗi merge upstream:
+Kiểm tra sau khi cập nhật HLK:
 
 - Các file HLK bắt buộc tồn tại.
 - `hlk.config.json` hợp lệ.
@@ -357,20 +354,4 @@ Thứ tự PreToolUse hiện tại:
 
 ---
 
-## 8. Luồng nâng cấp upstream
 
-```mermaid
-flowchart LR
-    A[Mở terminal] --> B[git-upstream-sync.ps1]
-    B --> C[Backup hlk.config.json]
-    C --> D[git fetch upstream]
-    D --> E[git merge upstream/main]
-    E --> F{Có conflict?}
-    F -->|No| G[hlk-verify-integrity.js]
-    F -->|Yes| H[Resolve conflict<br/>ours cho HLK]
-    H --> G
-    G --> I[hlk-loop --status]
-    I --> J[Xong]
-```
-
-Chi tiết xem [04-nang-cap-va-dong-bo-upstream.md](./04-nang-cap-va-dong-bo-upstream.md).

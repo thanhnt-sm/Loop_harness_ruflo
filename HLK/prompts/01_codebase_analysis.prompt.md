@@ -1,7 +1,7 @@
 # PROMPT 01: CODEBASE SCANNING & ARCHITECTURE MAPPING
 
 ## Context
-Bạn là AI Systems & Software Architect. Bạn đang phân tích toàn bộ codebase của dự án Ruflo (harness & agentic framework tại `https://github.com/ruvnet/ruflo`).
+Bạn là AI Systems & Software Architect. Bạn đang phân tích toàn bộ codebase của dự án Loop_harness_ruflo (harness & agentic framework tại `https://github.com/thanhnt-sm/Loop_harness_ruflo`).
 
 ## Task Instructions
 1. **Quét toàn bộ cấu trúc codebase hiện tại**:

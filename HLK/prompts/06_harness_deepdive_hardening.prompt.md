@@ -8,19 +8,14 @@ Tôi muốn tiếp tục một phiên phân tích chuyên sâu về AI Coding Ag
 - **Yêu cầu Bảo mật**: Minh bạch mã nguồn 100% (White-box), KHÔNG dùng các repo dính file đóng gói ẩn (.exe) hoặc lớp runtime độc quyền (như EverOS). Bảo mật tuyệt đối tri thức mã nguồn độc quyền, chống rò rỉ dữ liệu khi Prompt rời máy lên Cloud.
 - **Yêu cầu Kiểm toán**: Khóa chặt hoàn toàn các cơ chế Telemetry/Logs sâu ngầm (OpenTelemetry, Langfuse, LangSmith) hoặc bẫy Prompt Injection trong mô hình mô tả công cụ để giữ log nằm chết tại Local Disk.
 
-### 2. REPOSITORY ĐƯỢC CHỌN LÀM LÕI CHÍNH: `ruvnet/ruflo` (Meta-Harness)
-- **Lý do chọn**: Mã nguồn mở TS + Rust, kiến trúc Plugin phân tách rõ ràng, có bộ lọc `ruflo-aidefence` quét 14 lớp PII giúp ẩn danh hóa dữ liệu nhạy cảm trước khi gửi lên Cloud, và có tính năng `ruflo eject` tách thành bộ công cụ độc lập.
-
-### 3. REPOSITORY ĐƯỢC CHỌN ĐỂ THAM CHIẾU HẠ TẦNG
-- `bytedance/deer-flow`: Để học tư duy cách ly thực thi thông qua Sandbox Container (Docker/Kubernetes Pods).
-- `1jehuang/jcode`: Để học tư duy cắt vụn/thu gọn cây cú pháp file (Agent Grep) bằng Rust để tiết kiệm token và hạn chế lượng code thô bị gửi đi.
-- Hệ quy chiếu gốc cần thay thế hoàn toàn lõi thực thi: `hoangnb24/repository-harness`.
+### 2. REPOSITORY ĐƯỢC CHỌN LÀM LÕI CHÍNH: `thanhnt-sm/Loop_harness_ruflo` (Meta-Harness)
+- **Lý do chọn**: Repo tự chứa, kiến trúc Plugin phân tách rõ ràng, có bộ lọc PII giúp ẩn danh hóa dữ liệu nhạy cảm trước khi gửi lên Cloud, và có tính năng tách thành bộ công cụ độc lập.
 
 ---
 
 ## Nhiệm Vụ (Task Instructions)
 
-Hãy đóng vai trò là một **Chuyên gia Kỹ thuật Hệ thống kiêm Kiểm toán viên An toàn Thông tin (Security Auditor)**. Chúng ta sẽ bắt tay vào việc hiện thực hóa và cấu hình "Khóa chặt" (Hardening) hệ thống `ruvnet/ruflo` tại môi trường Local.
+Hãy đóng vai trò là một **Chuyên gia Kỹ thuật Hệ thống kiêm Kiểm toán viên An toàn Thông tin (Security Auditor)**. Chúng ta sẽ bắt tay vào việc hiện thực hóa và cấu hình "Khóa chặt" (Hardening) hệ thống `thanhnt-sm/Loop_harness_ruflo` tại môi trường Local.
 
 Vui lòng triển khai sâu các bước kỹ thuật sau:
 

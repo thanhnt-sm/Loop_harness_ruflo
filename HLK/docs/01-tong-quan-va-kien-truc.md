@@ -39,7 +39,7 @@ Mục tiêu:
 2. **Chặn telemetry** — tắt OpenTelemetry, LangSmith, Langfuse nếu cần.
 3. **Quản lý secrets riêng** — tách biệt với source code, dùng `HLK/config/secrets.env`.
 4. **Can thiệp runtime** — PreToolUse hook + custom hooks.
-5. **Không xung đột với upstream** — HLK tồn tại trong thư mục riêng, dùng `merge=ours`.
+5. **Không xung đột khi cập nhật** — HLK tồn tại trong thư mục riêng, dùng `merge=ours`.
 
 ---
 
@@ -221,7 +221,7 @@ flowchart LR
 | `secret_vault_override` | Quản lý secrets qua `process.env` + `HLK/config/secrets.env` | ✅ Bật |
 | `telemetry_blocker` | Tắt OpenTelemetry, LangSmith, Langfuse | ✅ Bật |
 | `custom_hooks_injection` | Cho phép chèn custom hooks vào runtime | ✅ Bật |
-| `post_merge_verify` | Kiểm tra HLK sau khi merge upstream | ✅ Bật |
+| `post_merge_verify` | Kiểm tra HLK sau khi merge | ✅ Bật |
 
 ---
 
@@ -232,13 +232,13 @@ flowchart LR
 | **Developer** | Dùng Claude Code + Ruflo để code. Cần biết cách gọi `memory store/search`, swarm. |
 | **Ops / DevOps** | Triển khai `ruflo/docker-compose.yml`, quản lý secrets, firewall. |
 | **Security** | Giám sát `hlk.config.json`, custom hooks, audit log, CVE. |
-| **Maintainer** | Nâng cấp upstream, giải quyết xung đột, maintain HLK. |
+| **Maintainer** | Nâng cấp Ruflo/HLK, giải quyết xung đột, maintain HLK. |
 
 ---
 
 ## 9. Nguyên tắc thiết kế
 
-1. **Tách biệt HLK và upstream**: HLK không nằm trong `v3/` hay `ruflo/`, nên không bị ghi đè khi cập nhật.
+1. **Tách biệt HLK và Ruflo core**: HLK không nằm trong `v3/` hay `ruflo/`, nên không bị ghi đè khi cập nhật.
 2. **Fail-open an toàn**: Nếu HLK gặp lỗi, hành vi mặc định là cho phép tiếp tục (trừ khi custom hook chủ động `block: true`).
 3. **Tôn trọng env**: HLK chỉ set env var nếu nó chưa tồn tại.
 4. **Không log secret**: Mọi log phải ghi ra `stderr`, không bao giờ in secret.

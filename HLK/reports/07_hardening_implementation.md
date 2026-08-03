@@ -39,7 +39,6 @@ Ngoài ra đã:
 | `HLK/custom-hooks/post-sanitize/.gitkeep` | Giữ thư mục trong git |
 | `HLK/custom-hooks/agent-tool/.gitkeep` | Giữ thư mục trong git |
 | `HLK/config/secrets.env.example` | Template cho file secrets local |
-| `HLK/reports/04_upstream_update_plan.md` | Báo cáo Prompt 04 (kế hoạch upstream) |
 | `HLK/reports/07_hardening_implementation.md` | Báo cáo này |
 
 ### 2.2. File sửa đổi
@@ -48,8 +47,6 @@ Ngoài ra đã:
 |---|---|
 | `HLK/wrappers/hlk-loader.js` | Viết lại v3.0.0: no-op khi tắt, top-level await, sanitize `process.argv`, nạp custom hooks, log ra stderr |
 | `HLK/wrappers/hlk-verify-integrity.js` | Thêm kiểm tra file mới, `.gitignore`, git tracking `*.rvf` |
-| `HLK/wrappers/git-upstream-sync.sh` | Thêm backup, dry-run, log |
-| `HLK/wrappers/git-upstream-sync.ps1` | Tương đương PowerShell |
 | `HLK/security/sanitizer.js` | Comment tiếng Việt, hỗ trợ `(?i)`, pattern rõ ràng |
 | `HLK/security/vault-bridge.js` | Comment tiếng Việt, cache, ưu tiên process.env |
 | `HLK/config/hlk.config.json` | Version 3.0.0, thêm pattern API key/JWT/private key |

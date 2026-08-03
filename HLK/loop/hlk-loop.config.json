@@ -66,14 +66,7 @@
       "depends_on": ["01", "02"],
       "writes_code": false
     },
-    {
-      "id": "04",
-      "name": "upstream_update_plan",
-      "prompt": "HLK/prompts/04_upstream_update_plan.prompt.md",
-      "report": "HLK/reports/04_upstream_update_plan.md",
-      "depends_on": ["03"],
-      "writes_code": false
-    },
+
     {
       "id": "07",
       "name": "ruflo_hardening_implementation",

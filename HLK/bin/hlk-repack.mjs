@@ -208,8 +208,6 @@ function publishStep(version) {
   log('info', 'Lệnh để publish lên registry:');
   log('info', `  cd HLK`);
   log('info', `  npm publish --access private`);
-  log('info', 'Hoặc GitHub Packages:');
-  log('info', `  npm publish --registry=https://npm.pkg.github.com`);
 }
 
 // ---------------------------------------------------------------------------

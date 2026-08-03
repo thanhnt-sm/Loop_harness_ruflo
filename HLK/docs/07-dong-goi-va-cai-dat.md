@@ -255,18 +255,6 @@ node HLK/bin/hlk-ruflo-setup.mjs --init my-project --hlk-global --yes
 npx ruflo@3.34.0 init upgrade --add-missing
 ```
 
-Hoặc bằng git upstream sync:
-
-```bash
-bash HLK/wrappers/git-upstream-sync.sh
-```
-
-PowerShell:
-
-```powershell
-powershell -File HLK\wrappers\git-upstream-sync.ps1
-```
-
 #### Bước 2: Cập nhật HLK
 
 ```bash
@@ -291,18 +279,6 @@ PowerShell:
 
 ```powershell
 node HLK\bin\hlk-ruflo-setup.mjs --update --hlk-tgz C:\path\to\hlk-ruflo-3.0.1.tgz --yes
-```
-
-Với upstream sync:
-
-```bash
-node HLK/bin/hlk-ruflo-setup.mjs --update --upstream-sync --hlk-tgz /path/to/hlk-ruflo-3.0.1.tgz --yes
-```
-
-PowerShell:
-
-```powershell
-node HLK\bin\hlk-ruflo-setup.mjs --update --upstream-sync --hlk-tgz C:\path\to\hlk-ruflo-3.0.1.tgz --yes
 ```
 
 Nếu Ruflo đã được cài thủ công hoặc không dùng `npx ruflo`:
@@ -342,11 +318,11 @@ cd HLK
 npm publish --access private
 ```
 
-Hoặc GitHub Packages:
+Hoặc publish lên npm registry tương thích:
 
 ```bash
 cd HLK
-npm publish --registry=https://npm.pkg.github.com
+npm publish
 ```
 
 > Đảm bảo không publish `secrets.env` — `.gitignore` và `files` field đã loại trừ.

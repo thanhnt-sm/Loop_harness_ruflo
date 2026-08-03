@@ -162,7 +162,8 @@ export function listTrackedSensitiveFiles(cwd = process.cwd()) {
 }
 
 export function listStagedSensitiveFiles(cwd = process.cwd()) {
-  const r = runGit(['diff', '--cached', '--name-only'], { cwd });
+  // Chỉ kiểm tra file đang được thêm (A) hoặc sửa (M); bỏ qua file đang xóa (D)
+  const r = runGit(['diff', '--cached', '--diff-filter=AM', '--name-only'], { cwd });
   if (r.status !== 0) return [];
 
   const files = r.stdout.split('\n').filter(Boolean);
@@ -182,31 +183,43 @@ export function listStagedSensitiveFiles(cwd = process.cwd()) {
 }
 
 export function scanFilesForSecrets(filePaths, cwd = process.cwd()) {
+  // Chỉ quét nội dung được thêm mới trong staged diff, không quét toàn bộ file cũ
+  const args = ['diff', '--cached', '--no-color', '--no-ext-diff'];
+  if (filePaths && filePaths.length > 0) {
+    args.push('--');
+    args.push(...filePaths);
+  }
+  const r = runGit(args, { cwd });
+  if (r.status !== 0) return [];
+
   const findings = [];
-  for (const f of filePaths) {
-    const p = path.resolve(cwd, f);
-    if (!fs.existsSync(p)) continue;
-    if (fs.lstatSync(p).isDirectory()) continue;
+  let currentFile = null;
 
-    // Bỏ qua binary / file quá lớn
-    const size = fs.lstatSync(p).size;
-    if (size > 1024 * 1024) continue;
-
-    let content;
-    try {
-      content = fs.readFileSync(p, 'utf8');
-    } catch {
+  for (const line of r.stdout.split('\n')) {
+    if (line.startsWith('diff --git ')) {
+      const m = line.match(/^diff --git a\/(.+?) b\/.+$/);
+      currentFile = m ? m[1] : null;
       continue;
     }
+    if (line.startsWith('+++') || line.startsWith('---') || line.startsWith('@@') || line.startsWith(' ')) {
+      continue;
+    }
+    if (!line.startsWith('+') || line.startsWith('++')) continue;
 
+    const added = line.slice(1);
     for (const pattern of SECRET_PATTERNS) {
-      const matches = content.match(pattern);
+      const matches = added.match(pattern);
       if (matches) {
-        findings.push({ file: f, pattern: pattern.toString(), sample: matches[0].slice(0, 60) + (matches[0].length > 60 ? '...' : '') });
+        findings.push({
+          file: currentFile ?? 'unknown',
+          pattern: pattern.toString(),
+          sample: matches[0].slice(0, 60) + (matches[0].length > 60 ? '...' : ''),
+        });
         break;
       }
     }
   }
+
   return findings;
 }
 

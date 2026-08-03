@@ -11,7 +11,7 @@ Dùng khi clone repo lần đầu hoặc setup máy mới.
 | # | Hạng mục | Lệnh / Kiểm tra | Đạt |
 |---|----------|-----------------|-----|
 | 1 | Node.js >= 20 | `node --version` | ☐ |
-| 2 | Git remote upstream | `git remote -v` | ☐ |
+| 2 | Git remote origin trỏ thanhnt-sm/Loop_harness_ruflo | `git remote -v` | ☐ |
 | 3 | `hlk.config.json` tồn tại | `cat HLK/config/hlk.config.json` | ☐ |
 | 4 | `hlk_enabled: true` | `jq '.hlk_enabled' HLK/config/hlk.config.json` | ☐ |
 | 5 | All features = true | `jq '.features' HLK/config/hlk.config.json` | ☐ |
@@ -40,32 +40,13 @@ Dùng khi clone repo lần đầu hoặc setup máy mới.
 
 ---
 
-## 3. Checklist nâng cấp upstream
-
-Xem chi tiết tại [04-nang-cap-va-dong-bo-upstream.md](./04-nang-cap-va-dong-bo-upstream.md).
-
-| # | Hạng mục | Lệnh / Kiểm tra | Đạt |
-|---|----------|-----------------|-----|
-| 1 | Backup `hlk.config.json` | `cp HLK/config/hlk.config.json HLK/logs/...` | ☐ |
-| 2 | Fetch upstream | `git fetch upstream` | ☐ |
-| 3 | Merge upstream | `git merge --no-ff upstream/main` | ☐ |
-| 4 | Resolve conflict ours cho HLK | `git checkout --ours HLK/** .claude/settings.json` | ☐ |
-| 5 | Verify integrity | `node HLK/wrappers/hlk-verify-integrity.js` | ☐ |
-| 6 | Kiểm tra version | `npx ruflo@latest --version` | ☐ |
-| 7 | Test HLK loader | `node HLK/wrappers/ruflo-hlk.mjs --version` | ☐ |
-| 8 | Test MCP server | `node HLK/wrappers/ruflo-hlk-mcp.mjs mcp start` | ☐ |
-| 9 | Kiểm tra loop | `node HLK/loop/hlk-loop.mjs --status` | ☐ |
-| 10 | Commit + push | `git commit && git push` | ☐ |
-
----
-
-## 4. Checklist bảo mật (security hardening)
+## 3. Checklist bảo mật (security hardening)
 
 | # | Hạng mục | Lệnh / Kiểm tra | Đạt |
 |---|----------|-----------------|-----|
 | 1 | Repo GitHub private | `gh repo view --json visibility` | ☐ |
-| 2 | AI training opt-out user | https://github.com/settings/copilot | ☐ |
-| 3 | AI training opt-out repo | https://github.com/<user>/Loop_harness_ruflo/settings | ☐ |
+| 2 | AI training opt-out user | Vào settings Copilot của tài khoản GitHub | ☐ |
+| 3 | AI training opt-out repo | Vào settings của repo `thanhnt-sm/Loop_harness_ruflo` | ☐ |
 | 4 | Copilot content exclusion | Repo settings → Copilot → Content exclusion | ☐ |
 | 5 | `MCP_BIND_HOST=127.0.0.1` | `grep 'MCP_BIND_HOST' ruflo/docker-compose.yml` | ☐ |
 | 6 | `MCP_ENABLE_TERMINAL=false` | `grep 'MCP_ENABLE_TERMINAL' ruflo/docker-compose.yml` | ☐ |
@@ -274,7 +255,7 @@ jq '.security_rules.redact_patterns' HLK/config/hlk.config.json
 
 ---
 
-### 8.6 Lỗi 6: Merge upstream xung đột
+### 8.6 Lỗi 6: Merge xung đột nội bộ
 
 **Dấu hiệu:**
 - `git merge` báo conflict.
@@ -283,14 +264,14 @@ jq '.security_rules.redact_patterns' HLK/config/hlk.config.json
 **Khắc phục:**
 
 ```bash
-# Giữ local cho HLG và .claude/settings.json
+# Giữ local cho HLK và .claude/settings.json
 git checkout --ours HLK/config/hlk.config.json .claude/settings.json
 git add HLK/config/hlk.config.json .claude/settings.json
 
 # Với file khác, resolve bình thường
 # ...
 
-git commit -m "chore: resolve upstream merge conflicts"
+git commit -m "chore: resolve merge conflicts"
 
 # Verify
 node HLK/wrappers/hlk-verify-integrity.js

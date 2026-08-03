@@ -30,8 +30,6 @@ const REQUIRED_FILES = [
   'wrappers/hlk-loader.js',
   'wrappers/hlk-hook-bridge.mjs',
   'wrappers/hlk-verify-integrity.js',
-  'wrappers/git-upstream-sync.sh',
-  'wrappers/git-upstream-sync.ps1',
   'wrappers/ruflo-hlk.mjs',
   'wrappers/ruflo-hlk.cmd',
   'wrappers/ruflo-hlk.ps1',
@@ -84,8 +82,6 @@ try {
   check('Trường hlk_enabled tồn tại', 'hlk_enabled' in config);
   check('Trường version tồn tại', 'version' in config);
   check('security_rules.redact_patterns là mảng', Array.isArray(config?.security_rules?.redact_patterns));
-  check('upstream.repository và upstream.remote_name có giá trị',
-    !!(config?.upstream?.repository && config?.upstream?.remote_name));
 } catch (err) {
   check(`hlk.config.json lỗi parse: ${err.message}`, false);
 }

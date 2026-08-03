@@ -111,7 +111,6 @@ mongosh "mongodb://ruflo:<password>@127.0.0.1:27017" --eval "show dbs"
 
 # 6. Cập nhật lên bản patched
 npx ruflo@latest init upgrade
-git-upstream-sync
 
 # 7. Rebuild container
 docker compose up -d --build
@@ -295,14 +294,14 @@ gh repo edit thanhnt-sm/Loop_harness_ruflo --visibility private --accept-visibil
 
 ### 7.2 Tắt AI training ở user level
 
-1. Truy cập: https://github.com/settings/copilot
+1. Vào phần cài đặt Copilot của tài khoản GitHub.
 2. Tìm **"Allow GitHub to use my data for AI model training"**.
 3. Chọn **Disabled**.
 4. Save.
 
 ### 7.3 Tắt AI training ở repo level
 
-1. Truy cập: `https://github.com/<user>/Loop_harness_ruflo/settings`
+1. Vào phần settings của repo `thanhnt-sm/Loop_harness_ruflo`.
 2. Tìm **"Data use for product and service research and improvements, including AI model training"**.
 3. Bỏ chọn.
 4. Save.

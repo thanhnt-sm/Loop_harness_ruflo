@@ -7,7 +7,7 @@
 ## 1. Nguyên tắc cấu hình
 
 1. **Không commit secrets**: API key, token, password, private key chỉ tồn tại trong `HLK/config/secrets.env` (gitignored) hoặc env var.
-2. **Tách biệt HLK và upstream**: Mọi tùy chỉnh local đặt trong `HLK/`, không sửa trực tiếp `v3/` nếu không cần.
+2. **Tách biệt HLK và Ruflo core**: Mọi tùy chỉnh local đặt trong `HLK/`, không sửa trực tiếp `v3/` nếu không cần.
 3. **Pin version khi cần**: Tránh `ruflo@latest` cho môi trường production; dùng version cụ thể.
 4. **MCP bridge local-only**: Không bind `0.0.0.0` nếu chưa set `MCP_AUTH_TOKEN`.
 5. **Telemetry tắt mặc định**: Nếu không cần, HLK sẽ set các env tắt telemetry.
@@ -31,11 +31,6 @@ Vị trí: `HLK/config/hlk.config.json`
     "telemetry_blocker": true,
     "custom_hooks_injection": true,
     "post_merge_verify": true
-  },
-  "upstream": {
-    "repository": "https://github.com/ruvnet/ruflo.git",
-    "remote_name": "upstream",
-    "target_branch": "main"
   },
   "upgrade_policy": {
     "auto_merge": false,
@@ -465,7 +460,7 @@ HLK/** merge=ours
 .claude/settings.json merge=ours
 ```
 
-> `merge=ours` đảm bảo khi merge upstream, file này giữ phiên bản local, không bị ghi đè.
+> `merge=ours` đảm bảo khi merge, file này giữ phiên bản local, không bị ghi đè.
 
 ---
 
