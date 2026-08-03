@@ -38,12 +38,13 @@ function getArg(name) {
 }
 
 const WS_PATH = getArg('path') || process.cwd();
-const YES = CLI_SET.has('yes');
+const YES = CLI_SET.has('--yes') || CLI_SET.has('yes');
 
 function log(msg) { console.log(`[hlk-devin-autopilot] ${msg}`); }
 function ok(msg) { console.log(`  ✓ ${msg}`); }
 function warn(msg) { console.log(`  ⚠ ${msg}`); }
 function err(msg) { console.error(`  ✗ ${msg}`); }
+log.info = (msg) => console.log(`[hlk-devin-autopilot] ℹ ${msg}`);
 
 // ---------------------------------------------------------------------------
 // Main
@@ -52,10 +53,54 @@ function main() {
   log('=== Devin CLI + Ruflo Autopilot Setup ===');
   log(`Workspace: ${WS_PATH}`);
 
-  // 1. Kiểm tra Node portable
+  // 1. Kiểm tra Node portable — tự cài nếu chưa có
   const portableNode = path.join(WS_PATH, '.tools', 'node', 'node.exe');
-  const nodeExe = fs.existsSync(portableNode) ? portableNode : 'node';
-  const nodeVer = spawnSync(nodeExe, ['--version'], { encoding: 'utf8' }).stdout?.trim();
+  let nodeExe = fs.existsSync(portableNode) ? portableNode : 'node';
+  let nodeVer = spawnSync(nodeExe, ['--version'], { encoding: 'utf8' }).stdout?.trim();
+
+  // Nếu không có portable, thử cài (delegates sang installNodePortable logic đơn giản)
+  if (!fs.existsSync(portableNode) && YES) {
+    log.info('Chưa có Node portable — cài Node 22.22.3 vào .tools/node/...');
+    try {
+      const toolsDir = path.join(WS_PATH, '.tools');
+      const nodeDir = path.join(toolsDir, 'node');
+      if (!fs.existsSync(toolsDir)) fs.mkdirSync(toolsDir, { recursive: true });
+      const zipPath = path.join(toolsDir, 'node-v22.22.3-win-x64.zip');
+      const url = 'https://nodejs.org/dist/v22.22.3/node-v22.22.3-win-x64.zip';
+      const dl = spawnSync('curl', ['-L', '-o', zipPath, url], { stdio: 'pipe' });
+      if (dl.status !== 0) throw new Error('curl thất bại');
+      const ex = spawnSync('powershell', ['-NoProfile', '-Command',
+        `Expand-Archive -Path '${zipPath}' -DestinationPath '${toolsDir}' -Force`], { stdio: 'pipe' });
+      if (ex.status !== 0) throw new Error('Expand-Archive thất bại');
+      const extracted = path.join(toolsDir, 'node-v22.22.3-win-x64');
+      if (!fs.existsSync(extracted)) throw new Error('Giải nén thất bại');
+      if (fs.existsSync(nodeDir)) fs.rmSync(nodeDir, { recursive: true, force: true });
+      fs.mkdirSync(nodeDir, { recursive: true });
+      for (const item of fs.readdirSync(extracted)) {
+        fs.renameSync(path.join(extracted, item), path.join(nodeDir, item));
+      }
+      fs.rmSync(extracted, { recursive: true, force: true });
+      fs.unlinkSync(zipPath);
+      // Tạo activate scripts
+      fs.writeFileSync(path.join(WS_PATH, 'activate.ps1'),
+        '# activate.ps1\n$wsRoot = Split-Path -Parent $MyInvocation.MyCommand.Path\n$nodeDir = Join-Path $wsRoot ".tools\\node"\nif (-not (Test-Path "$nodeDir\\node.exe")) { return }\n$global:_OldPath = $env:PATH\n$env:PATH = "$nodeDir;$env:PATH"\nfunction global:deactivate { if ($global:_OldPath) { $env:PATH = $global:_OldPath } }\nWrite-Host "Node portable: $(& "$nodeDir\\node.exe" --version)"\n');
+      fs.writeFileSync(path.join(WS_PATH, 'activate.cmd'),
+        '@echo off\nset "WS=%~dp0"\nif "%WS:~-1%"=="\\" set "WS=%WS:~0,-1%"\nset "PATH=%WS%\\.tools\\node;%PATH%"\necho Node portable activated\n');
+      // .gitignore
+      const gi = path.join(WS_PATH, '.gitignore');
+      if (fs.existsSync(gi)) {
+        const c = fs.readFileSync(gi, 'utf8');
+        if (!c.includes('.tools/node/')) fs.appendFileSync(gi, '\n.tools/node/\n.tools/*.zip\n');
+      }
+      nodeExe = portableNode;
+      nodeVer = spawnSync(nodeExe, ['--version'], { encoding: 'utf8' }).stdout?.trim();
+      ok(`Đã cài Node portable: ${nodeVer}`);
+    } catch (e) {
+      warn(`Không cài được Node portable: ${e.message}`);
+      warn('  Chạy thủ công: node HLK/bin/hlk-setup-max-power.mjs --install-node-portable --path <ws>');
+    }
+  }
+
   if (nodeVer) ok(`Node: ${nodeVer} (${nodeExe})`);
   else { err('Node không tìm thấy'); process.exit(1); }
 

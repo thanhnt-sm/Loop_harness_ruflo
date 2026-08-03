@@ -18,18 +18,20 @@
 | 8 | [08-git-tools.md](./08-git-tools.md) | Git tools: doctor, commit, push, safe-sync |
 | 9 | [09-ruflo-hlk-lifecycle.md](./09-ruflo-hlk-lifecycle.md) | Vòng đời Ruflo + HLK copy-paste đầy đủ |
 | 10 | [10-setup-max-power.md](./10-setup-max-power.md) | **Setup MAX POWER** — script `setup-max-power.mjs` / `update-max-power.mjs`, 3 CLI, provider tuning |
+| 15 | [15-full-setup-guide.md](./15-full-setup-guide.md) | **Hướng dẫn đầy đủ** — 2 lệnh cài, sẵn sàng gửi task cho AI (Ruflo + Devin CLI autopilot) |
 
 ---
 
 ## Bắt đầu nhanh
 
-1. **Cài đặt tự động MAX POWER**: xem [10-setup-max-power.md](./10-setup-max-power.md).
-2. **Cách làm việc với Ruflo**: xem [04-workflow-ruflo-best-practice.md](./04-workflow-ruflo-best-practice.md).
-3. **Kích hoạt HLK**: xem [03-cau-hinh-best-practice.md](./03-cau-hinh-best-practice.md).
-4. **Giải quyết lỗi**: xem [06-checklist-va-khac-phuc-su-co.md](./06-checklist-va-khac-phuc-su-co.md).
-5. **Đóng gói / cài mới / cập nhật**: xem [07-dong-goi-va-cai-dat.md](./07-dong-goi-va-cai-dat.md).
-6. **Git tools**: xem [08-git-tools.md](./08-git-tools.md).
-7. **Vòng đời copy-paste**: xem [09-ruflo-hlk-lifecycle.md](./09-ruflo-hlk-lifecycle.md).
+1. **Cài đặt đầy đủ (2 lệnh, xong gửi task cho AI)**: xem [15-full-setup-guide.md](./15-full-setup-guide.md).
+2. **Cài đặt tự động MAX POWER**: xem [10-setup-max-power.md](./10-setup-max-power.md).
+3. **Cách làm việc với Ruflo**: xem [04-workflow-ruflo-best-practice.md](./04-workflow-ruflo-best-practice.md).
+4. **Kích hoạt HLK**: xem [03-cau-hinh-best-practice.md](./03-cau-hinh-best-practice.md).
+5. **Giải quyết lỗi**: xem [06-checklist-va-khac-phuc-su-co.md](./06-checklist-va-khac-phuc-su-co.md).
+6. **Đóng gói / cài mới / cập nhật**: xem [07-dong-goi-va-cai-dat.md](./07-dong-goi-va-cai-dat.md).
+7. **Git tools**: xem [08-git-tools.md](./08-git-tools.md).
+8. **Vòng đời copy-paste**: xem [09-ruflo-hlk-lifecycle.md](./09-ruflo-hlk-lifecycle.md).
 
 ---
 

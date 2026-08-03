@@ -785,6 +785,22 @@ function checkPrerequisites(ws) {
   }
   log.ok(`Node ${process.version}`);
 
+  // --install-node-portable: luôn cài Node 22 portable vào workspace
+  // (dù Node hiện tại đã >= 20) để MCP server dùng được độc lập
+  if (CLI_SET.has('install-node-portable') || YES) {
+    const portableNode = path.join(ws, '.tools', 'node', 'node.exe');
+    if (!fs.existsSync(portableNode)) {
+      log.info('Cài Node 22 portable vào .tools/node/ (cho MCP server độc lập)...');
+      try {
+        installNodePortable(ws);
+      } catch (e) {
+        log.warn(`Không cài được Node portable: ${e.message} — tiếp tục với Node hiện tại.`);
+      }
+    } else {
+      log.ok('Node portable đã có tại .tools/node/');
+    }
+  }
+
   // npm
   if (!hasCmd('npm')) { log.err('Không tìm thấy npm.'); process.exit(1); }
   log.ok('npm sẵn sàng');
