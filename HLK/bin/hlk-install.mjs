@@ -38,6 +38,7 @@ const HLK_CONTENT_DIRS = [
   'prompts',
   'reports',
   'loop',
+  'git-tools',
 ];
 
 // File riêng lẻ cần copy

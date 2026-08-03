@@ -30,7 +30,7 @@ const HLK_PACKAGE_ROOT = path.resolve(__dirname, '..');
 const WORKSPACE_ROOT = process.cwd();
 const HLK_TARGET_DIR = path.join(WORKSPACE_ROOT, 'HLK');
 
-const HLK_CONTENT_DIRS = ['wrappers', 'security', 'custom-hooks', 'docs', 'prompts', 'reports', 'loop'];
+const HLK_CONTENT_DIRS = ['wrappers', 'security', 'custom-hooks', 'docs', 'prompts', 'reports', 'loop', 'git-tools'];
 const CONFIG_DIRS = ['config']; // xử lý riêng
 const HLK_CONTENT_FILES = ['README.md', 'INSTALL.md'];
 

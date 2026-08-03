@@ -8,10 +8,15 @@
     "hlk-install": "bin/hlk-install.mjs",
     "hlk-update": "bin/hlk-update.mjs",
     "hlk-pack": "bin/hlk-pack.mjs",
-    "hlk-status": "bin/hlk-status.mjs"
+    "hlk-status": "bin/hlk-status.mjs",
+    "hlk-git-doctor": "git-tools/hlk-git-doctor.mjs",
+    "hlk-git-commit": "git-tools/hlk-git-commit.mjs",
+    "hlk-git-push": "git-tools/hlk-git-push.mjs",
+    "hlk-git-safe-sync": "git-tools/hlk-git-safe-sync.mjs"
   },
   "files": [
     "bin/",
+    "git-tools/",
     "config/",
     "wrappers/",
     "security/",
