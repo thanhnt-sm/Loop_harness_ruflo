@@ -78,6 +78,7 @@ const REQUIRED_FILES = [
   'bin/hlk-repack.mjs',
   'bin/hlk-status.mjs',
   'bin/hlk-ruflo-setup.mjs',
+  'upstream/hlk-upstream-pull.mjs',
   'git-tools/hlk-git-doctor.mjs',
   'git-tools/hlk-git-commit.mjs',
   'git-tools/hlk-git-push.mjs',
@@ -91,6 +92,12 @@ const REQUIRED_FILES = [
   'wrappers/hlk-verify-integrity.js',
   'security/sanitizer.js',
   'security/vault-bridge.js',
+  'skills/README.md',
+  'skills/post-merge.template',
+  'setup/install.sh',
+  'setup/install.ps1',
+  'setup/install.mjs',
+  'setup/README.md',
 ];
 
 function validateContents() {

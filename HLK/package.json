@@ -11,6 +11,7 @@
     "hlk-repack": "bin/hlk-repack.mjs",
     "hlk-status": "bin/hlk-status.mjs",
     "hlk-ruflo-setup": "bin/hlk-ruflo-setup.mjs",
+    "hlk-upstream-pull": "upstream/hlk-upstream-pull.mjs",
     "hlk-git-doctor": "git-tools/hlk-git-doctor.mjs",
     "hlk-git-commit": "git-tools/hlk-git-commit.mjs",
     "hlk-git-push": "git-tools/hlk-git-push.mjs",
@@ -18,7 +19,10 @@
   },
   "files": [
     "bin/",
+    "upstream/",
+    "setup/",
     "git-tools/",
+    "skills/",
     "config/",
     "wrappers/",
     "security/",
@@ -32,7 +36,8 @@
   ],
   "scripts": {
     "pack": "node bin/hlk-pack.mjs",
-    "test": "node bin/hlk-status.mjs --self-test"
+    "test": "node bin/hlk-status.mjs --self-test",
+    "upstream-pull": "node upstream/hlk-upstream-pull.mjs --yes"
   },
   "keywords": [
     "ruflo",

@@ -1,0 +1,26 @@
+#!/bin/bash
+# HLK post-merge hook — tự chạy integrity check sau git pull/merge
+# Được cài bởi hlk-install.mjs vào .githooks/post-merge
+#
+# Kích hoạt: git config core.hooksPath .githooks
+
+echo "ℹ️ [HLK] Running integrity check after merge/pull..."
+
+if [ -f "HLK/wrappers/hlk-verify-integrity.js" ]; then
+  node HLK/wrappers/hlk-verify-integrity.js
+  exit_code=$?
+  if [ $exit_code -ne 0 ]; then
+    echo ""
+    echo "⚠️  [HLK] Integrity check FAILED sau merge/pull."
+    echo "⚠️  [HLK] Upstream có thể đã ghi đè cấu hình HLK."
+    echo "⚠️  [HLK] Chạy: node HLK/upstream/hlk-upstream-pull.mjs --yes"
+    echo ""
+    # Không block merge — chỉ cảnh báo
+    exit 0
+  fi
+  echo "✅ [HLK] Integrity check PASSED."
+else
+  echo "⚠️  [HLK] Không tìm thấy HLK/wrappers/hlk-verify-integrity.js — bỏ qua."
+fi
+
+exit 0

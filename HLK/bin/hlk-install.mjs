@@ -406,6 +406,108 @@ function runHlkLoopStatus() {
 }
 
 // ---------------------------------------------------------------------------
+// Bước 8: Copy skills vào .claude/skills/ và .devin/skills/
+// ---------------------------------------------------------------------------
+
+/**
+ * Copy tất cả thư mục skill template từ HLK/skills/hlk-* sang
+ * .claude/skills/ và .devin/skills/ của workspace.
+ *
+ * Claude Code và Devin CLI tự scan các thư mục này để nhận skills,
+ * không cần khai báo trong settings.json.
+ */
+function copyHlkSkills() {
+  const srcSkillsDir = path.join(HLK_PACKAGE_ROOT, 'skills');
+  if (!fs.existsSync(srcSkillsDir)) {
+    log('warn', 'Không tìm thấy HLK/skills/ trong package — bỏ qua.');
+    return;
+  }
+
+  const skillDirs = fs.readdirSync(srcSkillsDir, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && e.name.startsWith('hlk-'))
+    .map((e) => e.name);
+
+  if (skillDirs.length === 0) {
+    log('info', 'Không có skill template nào trong HLK/skills/.');
+    return;
+  }
+
+  // Copy sang .claude/skills/
+  const claudeSkillsDir = path.join(WORKSPACE_ROOT, '.claude', 'skills');
+  fs.mkdirSync(claudeSkillsDir, { recursive: true });
+
+  // Copy sang .devin/skills/
+  const devinSkillsDir = path.join(WORKSPACE_ROOT, '.devin', 'skills');
+  fs.mkdirSync(devinSkillsDir, { recursive: true });
+
+  for (const skillDir of skillDirs) {
+    const src = path.join(srcSkillsDir, skillDir);
+
+    // Copy sang .claude/skills/
+    const dstClaude = path.join(claudeSkillsDir, skillDir);
+    if (typeof fs.cpSync === 'function') {
+      fs.cpSync(src, dstClaude, { recursive: true, force: true });
+    } else {
+      copyRecursive(src, dstClaude);
+    }
+
+    // Copy sang .devin/skills/
+    const dstDevin = path.join(devinSkillsDir, skillDir);
+    if (typeof fs.cpSync === 'function') {
+      fs.cpSync(src, dstDevin, { recursive: true, force: true });
+    } else {
+      copyRecursive(src, dstDevin);
+    }
+
+    log('success', `Đã copy skill ${skillDir} sang .claude/skills/ và .devin/skills/`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Bước 9: Cài .githooks/post-merge để tự verify HLK sau pull/merge
+// ---------------------------------------------------------------------------
+
+/**
+ * Copy template post-merge từ HLK/skills/post-merge.template sang
+ * .githooks/post-merge của workspace, rồi chmod +x (trên Unix).
+ *
+ * Git hook này tự chạy hlk-verify-integrity.js sau mỗi git pull/merge,
+ * cảnh báo nếu upstream đã ghi đè cấu hình HLK.
+ */
+function installPostMergeHook() {
+  const templatePath = path.join(HLK_PACKAGE_ROOT, 'skills', 'post-merge.template');
+  if (!fs.existsSync(templatePath)) {
+    log('warn', 'Không tìm thấy HLK/skills/post-merge.template — bỏ qua.');
+    return;
+  }
+
+  const githooksDir = path.join(WORKSPACE_ROOT, '.githooks');
+  fs.mkdirSync(githooksDir, { recursive: true });
+
+  const dstPath = path.join(githooksDir, 'post-merge');
+  fs.copyFileSync(templatePath, dstPath);
+
+  // chmod +x trên Unix (Windows không cần)
+  if (process.platform !== 'win32') {
+    try {
+      fs.chmodSync(dstPath, 0o755);
+    } catch { /* ignore */ }
+  }
+
+  log('success', 'Đã cài .githooks/post-merge — HLK verify sẽ chạy sau mỗi pull/merge.');
+
+  // Nhắc user kích hoạt core.hooksPath nếu chưa
+  const r = spawnSync('git', ['config', 'core.hooksPath'], { cwd: WORKSPACE_ROOT, encoding: 'utf8' });
+  const currentHooksPath = r.stdout?.trim();
+  if (r.status !== 0 || !currentHooksPath) {
+    log('info', 'Kích hoạt git hooks: git config core.hooksPath .githooks');
+  } else if (currentHooksPath !== '.githooks') {
+    log('warn', `core.hooksPath hiện tại = "${currentHooksPath}" (không phải .githooks).`);
+    log('warn', 'Chạy: git config core.hooksPath .githooks');
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -421,6 +523,8 @@ function main() {
   patchGitAttributes();
   ensureGitIgnore();
   createSecretsEnv();
+  copyHlkSkills();
+  installPostMergeHook();
   runHlkVerify();
   runHlkLoopStatus();
 
@@ -430,8 +534,9 @@ function main() {
   log('info', 'Các bước tiếp theo:');
   log('info', '  1. Mở HLK/config/secrets.env và điền API keys / tokens thật.');
   log('info', '  2. Khởi động lại Claude Code để MCP server dùng HLK wrapper.');
-  log('info', '  3. Test: node HLK/wrappers/hlk-hook-bridge.mjs < test-secret.json');
-  log('info', '  4. Đọc HLK/docs/01-tong-quan-va-kien-truc.md để tìm hiểu thêm.');
+  log('info', '  3. Kích hoạt git hooks: git config core.hooksPath .githooks');
+  log('info', '  4. Test: node HLK/wrappers/hlk-hook-bridge.mjs < test-secret.json');
+  log('info', '  5. Đọc HLK/docs/01-tong-quan-va-kien-truc.md để tìm hiểu thêm.');
 }
 
 main();

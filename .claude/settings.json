@@ -167,11 +167,11 @@
     ]
   },
   "attribution": {
-    "commit": "Co-Authored-By: thanhnt-sm",
-    "pr": "\ud83e\udd16 Generated with [claude-flow](https://github.com/thanhnt-sm/Loop_harness_ruflo)"
+    "commit": "Co-Authored-By: RuFlo <ruv@ruv.net>",
+    "pr": "🤖 Generated with [RuFlo](https://github.com/ruvnet/ruflo)"
   },
   "claudeFlow": {
-    "version": "3.34.0",
+    "version": "3.6.11",
     "enabled": true,
     "modelPreferences": {
       "default": "claude-sonnet-5",
@@ -208,9 +208,15 @@
     "memory": {
       "backend": "hybrid",
       "enableHNSW": true,
-      "learningBridge": { "enabled": true },
-      "memoryGraph": { "enabled": true },
-      "agentScopes": { "enabled": true }
+      "learningBridge": {
+        "enabled": true
+      },
+      "memoryGraph": {
+        "enabled": true
+      },
+      "agentScopes": {
+        "enabled": true
+      }
     },
     "neural": {
       "enabled": true
@@ -230,18 +236,40 @@
         "benchmark"
       ],
       "schedules": {
-        "audit": { "interval": "1h", "priority": "critical" },
-        "optimize": { "interval": "30m", "priority": "high" },
-        "consolidate": { "interval": "2h", "priority": "low" },
-        "document": { "interval": "1h", "priority": "normal" },
-        "deepdive": { "interval": "4h", "priority": "normal" },
-        "ultralearn": { "interval": "1h", "priority": "normal" }
+        "audit": {
+          "interval": "1h",
+          "priority": "critical"
+        },
+        "optimize": {
+          "interval": "30m",
+          "priority": "high"
+        },
+        "consolidate": {
+          "interval": "2h",
+          "priority": "low"
+        },
+        "document": {
+          "interval": "1h",
+          "priority": "normal"
+        },
+        "deepdive": {
+          "interval": "4h",
+          "priority": "normal"
+        },
+        "ultralearn": {
+          "interval": "1h",
+          "priority": "normal"
+        }
       }
     },
     "learning": {
       "enabled": true,
       "autoTrain": true,
-      "patterns": ["coordination", "optimization", "prediction"],
+      "patterns": [
+        "coordination",
+        "optimization",
+        "prediction"
+      ],
       "retention": {
         "shortTerm": "24h",
         "longTerm": "30d"
