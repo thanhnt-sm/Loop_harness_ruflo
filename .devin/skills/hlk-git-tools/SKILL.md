@@ -1,6 +1,8 @@
 ---
 name: hlk-git-tools
 description: Bộ git tools an toàn cho workspace Ruflo — doctor kiểm tra repo, commit chặn secrets, push không force, safe-sync một lệnh. Dùng khi cần commit/push an toàn, kiểm tra sức khỏe repo, hoặc sync đầy đủ doctor→commit→push.
+triggers:
+  - user
 keywords:
   - git
   - commit

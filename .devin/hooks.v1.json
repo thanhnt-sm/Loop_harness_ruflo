@@ -7,12 +7,7 @@
           "type": "command",
           "command": "D:\\100.Software\\Github\\Loop_harness_new\\Loop_harness_ruflo\\.tools\\node\\node.exe D:\\100.Software\\Github\\Loop_harness_new\\Loop_harness_ruflo\\HLK\\wrappers\\hlk-hook-launcher.mjs",
           "timeout": 5
-        }
-      ]
-    },
-    {
-      "matcher": "exec",
-      "hooks": [
+        },
         {
           "type": "prompt",
           "prompt": "Block the command if it matches any destructive pattern: rm -rf, git push --force, git push -f, git reset --hard, git clean -fd, git checkout -- ., git branch -D, drop table, truncate, delete from without where, sudo rm, format, mkfs, dd if=. Allow everything else. Return {\"permissionDecision\":\"deny\",\"reason\":\"<why>\"} when blocking, otherwise {\"permissionDecision\":\"allow\"}.",

@@ -17,7 +17,6 @@
       "Read(src/**)",
       "Read(tests/**)",
       "Read(docs/**)",
-      "Read(.claude/**)",
       "Read(.devin/**)",
       "Read(HLK/**)"
     ],

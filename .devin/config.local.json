@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Exec(devin)",
+      "Exec(devin skills list)",
+      "Exec(devin plugins list)",
+      "Exec(devin mcp list)",
+      "Exec(devin rules list)",
       "Exec(git status)"
     ]
   }

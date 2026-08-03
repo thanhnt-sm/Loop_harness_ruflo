@@ -22,9 +22,12 @@ Dùng skill này MỌI khi user yêu cầu:
 
 ## Quy trình tự động
 
+> **Lưu ý Devin CLI**: Trong Devin, MCP tools có namespace `mcp__claude-flow__<tool>`.
+> Thay `memory_search` bằng `mcp__claude-flow__memory_search`, `swarm_init` bằng `mcp__claude-flow__swarm_init`, v.v.
+
 1. **memory_search** — Tìm pattern tương tự:
    ```
-   memory_search(query="<task keywords>", namespace="patterns")
+   mcp__claude-flow__memory_search(query="<task keywords>", namespace="patterns")
    ```
    Nếu tìm thấy (score > 0.7), dùng pattern đó.
 

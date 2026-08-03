@@ -1,6 +1,8 @@
 ---
 name: hlk-integrity-check
 description: Kiểm tra tính toàn vẹn của HLK layer sau khi merge upstream hoặc pull update. Phát hiện mất PreToolUse hook, MCP wrapper, .gitignore rules, file nhạy cảm bị track. Dùng khi nghi ngờ upstream đã ghi đè cấu hình HLK, hoặc sau mỗi git pull/merge.
+triggers:
+  - user
 keywords:
   - integrity
   - verify

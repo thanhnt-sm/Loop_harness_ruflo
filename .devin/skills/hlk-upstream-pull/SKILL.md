@@ -1,6 +1,8 @@
 ---
 name: hlk-upstream-pull
 description: Pull source code mới nhất từ upstream ruflo (https://github.com/ruvnet/ruflo) vào workspace và tự động cài lại HLK layer. Dùng khi cần update Ruflo từ git upstream, đồng bộ code mới, hoặc test phản ứng của HLK khi upstream thay đổi.
+triggers:
+  - user
 keywords:
   - upstream
   - pull
