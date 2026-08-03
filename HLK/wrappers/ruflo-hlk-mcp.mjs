@@ -59,7 +59,7 @@ const child = spawn(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['-y', 'ru
   cwd: REPO_ROOT,
   env,
   stdio: 'inherit',
-  shell: false,
+  shell: true,  // Windows cần shell:true để tìm npx.cmd trong PATH
 });
 
 child.on('exit', (code) => {

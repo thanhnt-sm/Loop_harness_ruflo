@@ -126,16 +126,35 @@ node D:\100.Software\Github\Loop_harness_new\Loop_harness_ruflo\HLK\bin\hlk-devi
 - Tạo `AGENTS.md` — hướng dẫn autopilot
 - Tạo `devin-run.ps1` + `devin-run.cmd` — wrapper chạy Devin với Node 22
 
+### Bước 3b: Chạy script Antigravity Autopilot (tùy chọn, nếu dùng agy)
+
+```powershell
+node <HLK_REPO>\HLK\bin\hlk-agy-autopilot.mjs --path <WORKSPACE> --yes
+```
+
+**Ví dụ thực tế:**
+```powershell
+node D:\100.Software\Github\Loop_harness_new\Loop_harness_ruflo\HLK\bin\hlk-agy-autopilot.mjs --path D:\100.Software\TMP_Source\08_Bot --yes
+```
+
+**Script tự động làm:**
+- Tự cài Node 22 portable (nếu chưa có)
+- Cấu hình `.agents/mcp_config.json` — agy gọi ruflo MCP qua Node 22
+- Cấu hình `.agents/config.toml` — MCP server + MAX POWER settings
+- Tạo `.agents/skills/ruflo-autopilot/SKILL.md` — skill hướng agy tự gọi ruflo
+- Tạo `AGENTS.md` — hướng dẫn autopilot
+- Tạo `agy-run.ps1` + `agy-run.cmd` — wrapper chạy agy với Node 22
+
 ---
 
 ## 3. Sẵn sàng dùng — Gửi mô tả công việc
 
-### Cách 1: Interactive (chat trong terminal)
+### Cách 1A: Devin CLI — Interactive (chat trong terminal)
 
 ```powershell
 cd D:\path\to\your\workspace
 
-# Bật Node 22 portable cho workspace
+# Chạy Devin CLI với Node 22 portable
 .\devin-run.ps1
 
 # Hoặc CMD:
@@ -150,7 +169,21 @@ Viết test cho tất cả endpoints, coverage > 80%.
 
 Ruflo tự động chạy full pipeline và báo cáo.
 
-### Cách 2: Non-interactive (tự động hoàn toàn)
+### Cách 1B: Antigravity CLI — Interactive (chat trong terminal)
+
+```powershell
+cd D:\path\to\your\workspace
+
+# Chạy agy với Node 22 portable
+.\agy-run.ps1
+
+# Hoặc CMD:
+agy-run.cmd
+```
+
+Sau khi agy mở, gõ mô tả công việc (như trên). Ruflo tự động chạy full pipeline.
+
+### Cách 2A: Devin CLI — Non-interactive (tự động hoàn toàn)
 
 ```powershell
 cd D:\path\to\your\workspace
@@ -162,6 +195,30 @@ cd D:\path\to\your\workspace
 ```powershell
 .\devin-run.ps1 -p --permission-mode dangerous -- "Tạo file hello.js với nội dung console.log('Hello from ruflo autopilot!'). Dùng ruflo MCP tools: swarm_init, agent_spawn (type coder), memory_store (key hello-result, value success, namespace results). Báo cáo kết quả."
 ```
+
+### Cách 2B: Antigravity CLI — Non-interactive (tự động hoàn toàn)
+
+```powershell
+cd D:\path\to\your\workspace
+
+.\agy-run.ps1 -p --dangerously-skip-permissions -- "mô tả công việc của bạn"
+```
+
+**Ví dụ:**
+```powershell
+.\agy-run.ps1 -p --dangerously-skip-permissions -- "Tạo file hello.js với nội dung console.log('Hello from agy autopilot!'). Dùng ruflo MCP tools: swarm_init, agent_spawn (type coder), memory_store (key agy-result, value success, namespace results). Báo cáo kết quả."
+```
+
+### So sánh 3 CLI
+
+| CLI | Cấu hình | Wrapper | Non-interactive flag | Auto-approve flag |
+|-----|----------|---------|----------------------|-------------------|
+| **Claude Code** | `.claude/settings.json` | `claude` (trực tiếp) | `-p` | `--dangerously-skip-permissions` |
+| **Devin CLI** | `.devin/mcp_config.json` | `devin-run.ps1` / `.cmd` | `-p` | `--permission-mode dangerous` |
+| **Antigravity CLI** | `.agents/mcp_config.json` + `config.toml` | `agy-run.ps1` / `.cmd` | `-p` | `--dangerously-skip-permissions` |
+
+> Cả 3 CLI đều gọi **cùng 1 ruflo MCP server** (333 tools), cùng 1 swarm, cùng 1 memory.
+> Bạn có thể dùng bất kỳ CLI nào — ruflo chạy full pipeline như nhau.
 
 ---
 
@@ -456,6 +513,8 @@ node <HLK_REPO>\HLK\bin\hlk-setup-max-power.mjs --path <WORKSPACE> --yes
 | `activate.cmd && npx ruflo memory store` | ✓ Stored, 384-dim vector |
 | `activate.cmd && npx ruflo status` | ✓ Status hiển thị |
 | `devin -p -- "swarm_init + agent_spawn + memory_store"` | ✓ 3 MCP tools gọi thành công |
+| `hlk-agy-autopilot.mjs --yes` | ✓ .agents/ config OK, skill + wrapper tạo |
+| `MCP server qua Node 22 portable` | ✓ initialize + tools/list trả 333 tools |
 
 ---
 
@@ -463,22 +522,40 @@ node <HLK_REPO>\HLK\bin\hlk-setup-max-power.mjs --path <WORKSPACE> --yes
 
 ```mermaid
 flowchart LR
-    A[1. Tạo workspace + git init] --> B[2. Chạy hlk-setup-max-power.mjs --yes]
-    B --> C[3. Chạy hlk-devin-autopilot.mjs --yes]
-    C --> D[4. .\devin-run.ps1]
-    D --> E[5. Gửi mô tả công việc]
-    E --> F[Ruflo tự chạy full pipeline]
+    A[1. Tạo workspace + git init] --> B[2. hlk-setup-max-power.mjs --yes]
+    B --> C[3a. hlk-devin-autopilot.mjs --yes]
+    B --> D[3b. hlk-agy-autopilot.mjs --yes]
+    C --> E[4a. devin-run.ps1]
+    D --> F[4b. agy-run.ps1]
+    E --> G[5. Gửi mô tả công việc]
+    F --> G
+    G --> H[Ruflo tự chạy full pipeline]
 ```
 
-**2 lệnh cài đặt:**
+**3 lệnh cài đặt (chạy 1 lần):**
 ```powershell
+# Bước 1: Cài MAX POWER (Ruflo + HLK + 3 CLI configs)
 node <HLK_REPO>\HLK\bin\hlk-setup-max-power.mjs --path <WORKSPACE> --yes --provider claude
+
+# Bước 2a: Cài Devin Autopilot (nếu dùng Devin CLI)
 node <HLK_REPO>\HLK\bin\hlk-devin-autopilot.mjs --path <WORKSPACE> --yes
+
+# Bước 2b: Cài Antigravity Autopilot (nếu dùng agy)
+node <HLK_REPO>\HLK\bin\hlk-agy-autopilot.mjs --path <WORKSPACE> --yes
 ```
 
-**1 lệnh dùng hàng ngày:**
+**1 lệnh dùng hàng ngày — chọn 1 trong 3 CLI:**
 ```powershell
 cd <WORKSPACE>
+
+# Claude Code (trực tiếp):
+claude
+
+# Devin CLI:
 .\devin-run.ps1
-# Gõ mô tả công việc → ruflo tự làm
+
+# Antigravity CLI:
+.\agy-run.ps1
+
+# Gõ mô tả công việc → ruflo tự chạy full pipeline
 ```
