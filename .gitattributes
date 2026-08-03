@@ -23,3 +23,11 @@ HLK/loop/** merge=ours
 
 # HLK reports — keep ours
 HLK/reports/** merge=ours
+
+# HLK docs — keep ours
+HLK/docs/** merge=ours
+
+# .claude settings — keep ours to prevent upstream ruflo from
+# overwriting HLK PreToolUse/MCP wrapper customizations.
+# Review upstream changes manually if needed.
+.claude/settings.json merge=ours

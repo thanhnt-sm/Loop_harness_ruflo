@@ -44,6 +44,15 @@
   "hooks": {
     "PreToolUse": [
       {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/HLK/wrappers/hlk-hook-bridge.mjs\"",
+            "timeout": 5000
+          }
+        ]
+      },
+      {
         "matcher": "Bash",
         "hooks": [
           {
@@ -162,7 +171,7 @@
     "pr": "\ud83e\udd16 Generated with [RuFlo](https://github.com/ruvnet/ruflo)"
   },
   "claudeFlow": {
-    "version": "3.6.11",
+    "version": "3.34.0",
     "enabled": true,
     "modelPreferences": {
       "default": "claude-sonnet-5",
@@ -269,10 +278,9 @@
   },
   "mcpServers": {
     "claude-flow": {
-      "command": "npx",
+      "command": "node",
       "args": [
-        "-y",
-        "ruflo@latest",
+        "HLK/wrappers/ruflo-hlk-mcp.mjs",
         "mcp",
         "start"
       ]
