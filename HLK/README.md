@@ -18,6 +18,27 @@ node HLK/bin/hlk-ruflo-setup.mjs --update --yes
 
 ---
 
+## Setup MAX POWER (tự động, khuyến nghị)
+
+> Cài đặt + cấu hình Ruflo + HLK + 3 CLI (Claude Code, Devin CLI, Antigravity CLI) + tinh chỉnh provider — tất cả trong một lệnh.
+
+```bash
+# Cài mới — hỏi tương tác, mỗi câu có đề xuất mặc định
+node scripts/setup-max-power.mjs
+
+# Headless (không hỏi, dùng mặc định: local + claude + mọi tính năng bật)
+node scripts/setup-max-power.mjs --yes
+
+# Cập nhật / re-patch / upgrade
+node scripts/update-max-power.mjs --yes
+```
+
+**Mặc định:** cài CỤC BỘ (không cần global), provider `claude`, mọi tính năng bật MAX POWER.
+
+Chi tiết đầy đủ: xem [docs/10-setup-max-power.md](docs/10-setup-max-power.md).
+
+---
+
 ## Cấu Trúc Thư Mục
 
 ```
