@@ -37,7 +37,7 @@ HLK/
 │   ├── hlk-pack.mjs
 │   ├── hlk-repack.mjs
 │   ├── hlk-status.mjs
-│   └── hlk-ruflo-setup.mjs
+│   └── hlk-lifecycle.mjs
 ├── git-tools/                # Bộ công cụ git
 │   ├── hlk-git-doctor.mjs
 │   ├── hlk-git-commit.mjs
@@ -216,18 +216,18 @@ Copy-Item HLK\config\secrets.env.example HLK\config\secrets.env
 npx hlk-status
 ```
 
-### 5.2 Cách B: Dùng script full `hlk-ruflo-setup`
+### 5.2 Cách B: Dùng script full `hlk-lifecycle`
 
 Tạo workspace mới trong một lệnh:
 
 ```bash
-node HLK/bin/hlk-ruflo-setup.mjs --init my-project --hlk-tgz /path/to/hlk-ruflo-3.0.0.tgz --yes
+node HLK/bin/hlk-lifecycle.mjs --init my-project --hlk-tgz /path/to/hlk-ruflo-3.0.0.tgz --yes
 ```
 
 PowerShell:
 
 ```powershell
-node HLK\bin\hlk-ruflo-setup.mjs --init my-project --hlk-tgz C:\path\to\hlk-ruflo-3.0.0.tgz --yes
+node HLK\bin\hlk-lifecycle.mjs --init my-project --hlk-tgz C:\path\to\hlk-ruflo-3.0.0.tgz --yes
 ```
 
 Script sẽ:
@@ -240,7 +240,7 @@ Script sẽ:
 Nếu HLK đã global install:
 
 ```bash
-node HLK/bin/hlk-ruflo-setup.mjs --init my-project --hlk-global --yes
+node HLK/bin/hlk-lifecycle.mjs --init my-project --hlk-global --yes
 ```
 
 ---
@@ -269,28 +269,28 @@ npm install -g C:\path\to\hlk-ruflo-3.0.1.tgz
 npx hlk-update
 ```
 
-### 6.2 Dùng script full `hlk-ruflo-setup --update`
+### 6.2 Dùng script full `hlk-lifecycle --update`
 
 ```bash
-node HLK/bin/hlk-ruflo-setup.mjs --update --hlk-tgz /path/to/hlk-ruflo-3.0.1.tgz --yes
+node HLK/bin/hlk-lifecycle.mjs --update --hlk-tgz /path/to/hlk-ruflo-3.0.1.tgz --yes
 ```
 
 PowerShell:
 
 ```powershell
-node HLK\bin\hlk-ruflo-setup.mjs --update --hlk-tgz C:\path\to\hlk-ruflo-3.0.1.tgz --yes
+node HLK\bin\hlk-lifecycle.mjs --update --hlk-tgz C:\path\to\hlk-ruflo-3.0.1.tgz --yes
 ```
 
 Nếu Ruflo đã được cài thủ công hoặc không dùng `npx ruflo`:
 
 ```bash
-node HLK/bin/hlk-ruflo-setup.mjs --update --skip-ruflo --hlk-tgz /path/to/hlk-ruflo-3.0.1.tgz --yes
+node HLK/bin/hlk-lifecycle.mjs --update --skip-ruflo --hlk-tgz /path/to/hlk-ruflo-3.0.1.tgz --yes
 ```
 
 PowerShell:
 
 ```powershell
-node HLK\bin\hlk-ruflo-setup.mjs --update --skip-ruflo --hlk-tgz C:\path\to\hlk-ruflo-3.0.1.tgz --yes
+node HLK\bin\hlk-lifecycle.mjs --update --skip-ruflo --hlk-tgz C:\path\to\hlk-ruflo-3.0.1.tgz --yes
 ```
 
 ---
@@ -303,7 +303,7 @@ node HLK\bin\hlk-ruflo-setup.mjs --update --skip-ruflo --hlk-tgz C:\path\to\hlk-
 | `npx hlk-update` | Cập nhật HLK trong workspace hiện tại |
 | `npx hlk-pack` | Đóng gói HLK thành `.tgz` |
 | `npx hlk-repack` | Bump version, pack, và cài lại vào workspace |
-| `npx hlk-ruflo-setup` | Cài mới / cập nhật Ruflo + HLK |
+| `npx hlk-lifecycle` | Cài mới / cập nhật Ruflo + HLK |
 | `npx hlk-status` | Kiểm tra trạng thái HLK |
 | `npx hlk-status --self-test` | Self-test package |
 
@@ -366,8 +366,8 @@ npx hlk-install
 | 3 | Tarball chứa `bin/`, `config/`, `wrappers/`, `git-tools/` | `tar -tzf HLK/dist/*.tgz` |
 | 4 | Global install thành công | `npx hlk-status --self-test` |
 | 5 | `hlk-install` chạy trong workspace | `npx hlk-install` |
-| 6 | `hlk-ruflo-setup --init` tạo workspace | `node HLK/bin/hlk-ruflo-setup.mjs --init test-project --yes` |
-| 7 | `hlk-ruflo-setup --update` cập nhật | `node HLK/bin/hlk-ruflo-setup.mjs --update --yes` |
+| 6 | `hlk-lifecycle --init` tạo workspace | `node HLK/bin/hlk-lifecycle.mjs --init test-project --yes` |
+| 7 | `hlk-lifecycle --update` cập nhật | `node HLK/bin/hlk-lifecycle.mjs --update --yes` |
 | 8 | HLK verify pass | `npx hlk-status` |
 | 9 | `.claude/settings.json` đã patch | `grep hlk-hook-bridge .claude/settings.json` |
 | 10 | `.gitattributes` đã patch | `grep 'merge=ours' .gitattributes` |

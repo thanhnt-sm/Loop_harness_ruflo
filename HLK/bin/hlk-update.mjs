@@ -4,6 +4,9 @@
  * ==============
  * Cập nhật HLK trong một workspace Ruflo đã cài.
  *
+ * VAI TRÒ: Update HLK layer (backup + copy code mới + giữ config user + re-patch).
+ *           Không re-patch MAX POWER — dùng hlk-update-max-power.mjs cho việc đó.
+ *
  * Cách dùng:
  *   npx hlk-update
  *   # hoặc

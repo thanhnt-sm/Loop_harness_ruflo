@@ -10,7 +10,7 @@
     "hlk-pack": "bin/hlk-pack.mjs",
     "hlk-repack": "bin/hlk-repack.mjs",
     "hlk-status": "bin/hlk-status.mjs",
-    "hlk-ruflo-setup": "bin/hlk-ruflo-setup.mjs",
+    "hlk-lifecycle": "bin/hlk-lifecycle.mjs",
     "hlk-upstream-pull": "upstream/hlk-upstream-pull.mjs",
     "hlk-git-doctor": "git-tools/hlk-git-doctor.mjs",
     "hlk-git-commit": "git-tools/hlk-git-commit.mjs",

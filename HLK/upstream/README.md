@@ -78,13 +78,13 @@ Mặc định backup sẽ bị xóa sau khi xong. Dùng `--keep-backup` để gi
 Skill `hlk-upstream-pull` (trong `.devin/skills/hlk-upstream-pull/SKILL.md`)
 cho phép gọi từ Claude Code / Devin CLI bằng lệnh tự nhiên.
 
-## Tích hợp với hlk-ruflo-setup
+## Tích hợp với hlk-lifecycle
 
-`hlk-ruflo-setup.mjs --update` dùng `npx ruflo@<version> init upgrade` để
+`hlk-lifecycle.mjs --update` dùng `npx ruflo@<version> init upgrade` để
 update Ruflo. Trong khi đó `hlk-upstream-pull.mjs` clone trực tiếp từ git
 upstream. Hai cách dùng cho hai ngữ cảnh:
 
 | Tool | Khi nào dùng |
 |------|--------------|
-| `hlk-ruflo-setup --update` | Update qua npm registry (bản stable) |
+| `hlk-lifecycle --update` | Update qua npm registry (bản stable) |
 | `hlk-upstream-pull` | Update trực tiếp từ git upstream (bản dev mới nhất) |

@@ -13,7 +13,7 @@ node HLK/wrappers/hlk-verify-integrity.js
 # Bật/Tắt HLK → sửa HLK/config/hlk.config.json → "hlk_enabled": true/false
 
 # Cập nhật HLK
-node HLK/bin/hlk-ruflo-setup.mjs --update --yes
+node HLK/bin/hlk-lifecycle.mjs --update --yes
 ```
 
 ---
@@ -92,7 +92,7 @@ Tệp [`HLK/config/hlk.config.json`](config/hlk.config.json):
 ### Tự động (khuyến nghị):
 
 ```bash
-node HLK/bin/hlk-ruflo-setup.mjs --update --yes
+node HLK/bin/hlk-lifecycle.mjs --update --yes
 ```
 
 ### Thủ công:

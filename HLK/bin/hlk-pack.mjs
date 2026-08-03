@@ -4,6 +4,9 @@
  * ============
  * Đóng gói HLK thành file `.tgz` có thể cài đặt qua npm/npx.
  *
+ * VAI TRÒ: Build tool — chỉ dùng trong repo HLK để đóng gói package.
+ *           Không cài đặt gì vào workspace.
+ *
  * Cách dùng:
  *   npx hlk-pack
  *   # hoặc
@@ -77,7 +80,7 @@ const REQUIRED_FILES = [
   'bin/hlk-pack.mjs',
   'bin/hlk-repack.mjs',
   'bin/hlk-status.mjs',
-  'bin/hlk-ruflo-setup.mjs',
+  'bin/hlk-lifecycle.mjs',
   'upstream/hlk-upstream-pull.mjs',
   'git-tools/hlk-git-doctor.mjs',
   'git-tools/hlk-git-commit.mjs',

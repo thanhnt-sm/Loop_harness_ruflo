@@ -5,6 +5,9 @@
  * Build lại package HLK khi có cập nhật.
  * Tự động: test, bump version (tùy chọn), pack, và cài vào workspace hiện tại.
  *
+ * VAI TRÒ: Build + deploy tool — chỉ dùng trong repo HLK để build lại package
+ *           và cài ngay vào workspace hiện tại. Tiện cho development.
+ *
  * Cách dùng:
  *   node HLK/bin/hlk-repack.mjs [options]
  *

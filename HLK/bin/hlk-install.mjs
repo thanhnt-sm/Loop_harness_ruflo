@@ -2,7 +2,10 @@
 /**
  * hlk-install.mjs
  * ===============
- * Cài đặt HLK vào một workspace Ruflo / Claude Flow.
+ * Cài đặt HLK vào một workspace Ruflo / Claude Flow (từ npm package hlk-ruflo).
+ *
+ * VAI TRÒ: Cài HLK layer vào workspace đã có ruflo. Không cấu hình MAX POWER.
+ *           Dùng hlk-setup-max-power.mjs nếu muốn cài đầy đủ Ruflo + HLK + 3 CLI.
  *
  * Cách dùng:
  *   npx hlk-install

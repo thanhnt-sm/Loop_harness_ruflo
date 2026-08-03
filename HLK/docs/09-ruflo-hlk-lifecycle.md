@@ -8,8 +8,8 @@
 
 | Kịch bản | Lệnh |
 |----------|------|
-| [Cài workspace mới](#2-cài-workspace-mới) | `node HLK/bin/hlk-ruflo-setup.mjs --init ...` |
-| [Cập nhật workspace](#3-cập-nhật-workspace) | `node HLK/bin/hlk-ruflo-setup.mjs --update ...` |
+| [Cài workspace mới](#2-cài-workspace-mới) | `node HLK/bin/hlk-lifecycle.mjs --init ...` |
+| [Cập nhật workspace](#3-cập-nhật-workspace) | `node HLK/bin/hlk-lifecycle.mjs --update ...` |
 | [Build package HLK](#4-build-package-hlk) | `node HLK/bin/hlk-pack.mjs` |
 | [Repack khi sửa HLK](#5-repack-khi-sửa-hlk) | `node HLK/bin/hlk-repack.mjs --install --yes` |
 | [Kiểm tra repo](#6-kiểm-tra-repo) | `npx hlk-git-doctor` |
@@ -22,13 +22,13 @@
 ### Cách 1: Một lệnh
 
 ```bash
-node HLK/bin/hlk-ruflo-setup.mjs --init my-project --hlk-tgz /path/to/hlk-ruflo-3.0.0.tgz --yes
+node HLK/bin/hlk-lifecycle.mjs --init my-project --hlk-tgz /path/to/hlk-ruflo-3.0.0.tgz --yes
 ```
 
 PowerShell:
 
 ```powershell
-node HLK\bin\hlk-ruflo-setup.mjs --init my-project --hlk-tgz C:\path\to\hlk-ruflo-3.0.0.tgz --yes
+node HLK\bin\hlk-lifecycle.mjs --init my-project --hlk-tgz C:\path\to\hlk-ruflo-3.0.0.tgz --yes
 ```
 
 ### Cách 2: Từng bước
@@ -88,25 +88,25 @@ npx hlk-status
 ### Cách 1: Một lệnh
 
 ```bash
-node HLK/bin/hlk-ruflo-setup.mjs --update --hlk-tgz /path/to/hlk-ruflo-3.0.1.tgz --yes
+node HLK/bin/hlk-lifecycle.mjs --update --hlk-tgz /path/to/hlk-ruflo-3.0.1.tgz --yes
 ```
 
 PowerShell:
 
 ```powershell
-node HLK\bin\hlk-ruflo-setup.mjs --update --hlk-tgz C:\path\to\hlk-ruflo-3.0.1.tgz --yes
+node HLK\bin\hlk-lifecycle.mjs --update --hlk-tgz C:\path\to\hlk-ruflo-3.0.1.tgz --yes
 ```
 
 ### Cách 2: Chỉ cập nhật HLK (bỏ qua Ruflo)
 
 ```bash
-node HLK/bin/hlk-ruflo-setup.mjs --update --skip-ruflo --hlk-tgz /path/to/hlk-ruflo-3.0.1.tgz --yes
+node HLK/bin/hlk-lifecycle.mjs --update --skip-ruflo --hlk-tgz /path/to/hlk-ruflo-3.0.1.tgz --yes
 ```
 
 PowerShell:
 
 ```powershell
-node HLK\bin\hlk-ruflo-setup.mjs --update --skip-ruflo --hlk-tgz C:\path\to\hlk-ruflo-3.0.1.tgz --yes
+node HLK\bin\hlk-lifecycle.mjs --update --skip-ruflo --hlk-tgz C:\path\to\hlk-ruflo-3.0.1.tgz --yes
 ```
 
 ### Cách 3: Từng bước
@@ -314,11 +314,11 @@ node HLK/bin/hlk-pack.mjs
 node HLK/bin/hlk-repack.mjs --install --yes
 
 # --- Cài mới ---
-node HLK/bin/hlk-ruflo-setup.mjs --init my-project --hlk-tgz HLK/dist/hlk-ruflo-3.0.0.tgz --yes
+node HLK/bin/hlk-lifecycle.mjs --init my-project --hlk-tgz HLK/dist/hlk-ruflo-3.0.0.tgz --yes
 
 # --- Cập nhật ---
-node HLK/bin/hlk-ruflo-setup.mjs --update --hlk-tgz HLK/dist/hlk-ruflo-3.0.1.tgz --yes
-node HLK/bin/hlk-ruflo-setup.mjs --update --skip-ruflo --hlk-tgz HLK/dist/hlk-ruflo-3.0.1.tgz --yes
+node HLK/bin/hlk-lifecycle.mjs --update --hlk-tgz HLK/dist/hlk-ruflo-3.0.1.tgz --yes
+node HLK/bin/hlk-lifecycle.mjs --update --skip-ruflo --hlk-tgz HLK/dist/hlk-ruflo-3.0.1.tgz --yes
 
 # --- Git ---
 npx hlk-git-doctor
@@ -341,11 +341,11 @@ node HLK\bin\hlk-pack.mjs
 node HLK\bin\hlk-repack.mjs --install --yes
 
 # --- Cài mới ---
-node HLK\bin\hlk-ruflo-setup.mjs --init my-project --hlk-tgz HLK\dist\hlk-ruflo-3.0.0.tgz --yes
+node HLK\bin\hlk-lifecycle.mjs --init my-project --hlk-tgz HLK\dist\hlk-ruflo-3.0.0.tgz --yes
 
 # --- Cập nhật ---
-node HLK\bin\hlk-ruflo-setup.mjs --update --hlk-tgz HLK\dist\hlk-ruflo-3.0.1.tgz --yes
-node HLK\bin\hlk-ruflo-setup.mjs --update --skip-ruflo --hlk-tgz HLK\dist\hlk-ruflo-3.0.1.tgz --yes
+node HLK\bin\hlk-lifecycle.mjs --update --hlk-tgz HLK\dist\hlk-ruflo-3.0.1.tgz --yes
+node HLK\bin\hlk-lifecycle.mjs --update --skip-ruflo --hlk-tgz HLK\dist\hlk-ruflo-3.0.1.tgz --yes
 
 # --- Git ---
 npx hlk-git-doctor
@@ -365,7 +365,7 @@ node HLK\loop\hlk-loop.mjs --status
 ## 10. Ghi nhớ
 
 - **Build HLK**: `node HLK/bin/hlk-repack.mjs --install --yes`
-- **Cài mới**: `node HLK/bin/hlk-ruflo-setup.mjs --init <dir> --hlk-tgz <tgz> --yes`
-- **Cập nhật**: `node HLK/bin/hlk-ruflo-setup.mjs --update --hlk-tgz <tgz> --yes`
-- **Cập nhật chỉ HLK**: `node HLK/bin/hlk-ruflo-setup.mjs --update --skip-ruflo --hlk-tgz <tgz> --yes`
+- **Cài mới**: `node HLK/bin/hlk-lifecycle.mjs --init <dir> --hlk-tgz <tgz> --yes`
+- **Cập nhật**: `node HLK/bin/hlk-lifecycle.mjs --update --hlk-tgz <tgz> --yes`
+- **Cập nhật chỉ HLK**: `node HLK/bin/hlk-lifecycle.mjs --update --skip-ruflo --hlk-tgz <tgz> --yes`
 - **Sync git**: `npx hlk-git-safe-sync -m "feat: ..." --yes`

@@ -760,3 +760,94 @@ cp HLK/config/secrets.env.example HLK/config/secrets.env
 | Khi nào dùng | Script lỗi, muốn hiểu rõ | Mặc định (khuyến nghị) |
 
 > **Khuyến nghị:** Dùng script làm mặc định. Chỉ làm thủ công khi script lỗi hoặc muốn tùy chỉnh sâu.
+
+---
+
+## 13. Quy hoạch HLK/bin vs HLK/setup — Khi dùng script nào?
+
+> HLK có 2 folder chứa script: `HLK/bin/` (CLI tools) và `HLK/setup/` (bootstrap). Phần này giải thích rõ ranh giới để không bối rối.
+
+### 13.1 Hai layer rõ ràng
+
+```
+HLK/
+├── setup/              ← LỚP 1: Bootstrap (chạy 1 LẦN từ source clone)
+│   ├── install.mjs         Cài HLK từ source → workspace (cross-platform)
+│   ├── install.ps1         Tương tự (PowerShell)
+│   ├── install.sh          Tương tự (bash)
+│   └── README.md
+│
+├── bin/                ← LỚP 2: CLI tools (chạy từ workspace đã cài)
+│   ├── hlk-setup-max-power.mjs    Cài MAX POWER (orchestrator chính)
+│   ├── hlk-update-max-power.mjs   Update MAX POWER
+│   ├── hlk-lifecycle.mjs          Lifecycle đơn giản (init + install HLK)
+│   ├── hlk-install.mjs            Cài HLK từ npm package
+│   ├── hlk-update.mjs             Update HLK layer
+│   ├── hlk-status.mjs             Kiểm tra trạng thái
+│   ├── hlk-pack.mjs               Đóng gói .tgz (build tool)
+│   └── hlk-repack.mjs             Build lại + cài (dev tool)
+│
+└── (config/, wrappers/, docs/, skills/, git-tools/, ...)
+```
+
+### 13.2 Nguyên tắc phân chia
+
+| Folder | Khi nào dùng | Cách chạy | Yêu cầu |
+|--------|--------------|-----------|---------|
+| `setup/` | **Lần đầu** — clone repo xong, chưa có HLK trong workspace | `node HLK/setup/install.mjs --path <ws>` | Đã clone repo |
+| `bin/` | **Sau khi đã có HLK** — dùng lệnh `hlk-*` | `node HLK/bin/hlk-*.mjs` hoặc `npx hlk-*` | HLK đã cài hoặc đã có trong workspace |
+
+### 13.3 Bảng tra cứu nhanh — Khi dùng script nào?
+
+| Tình huống | Script dùng | Lệnh |
+|------------|-------------|------|
+| **Cài đầy đủ MAX POWER** (Ruflo + HLK + 3 CLI + provider) | `hlk-setup-max-power.mjs` | `node HLK/bin/hlk-setup-max-power.mjs` |
+| **Update/re-patch** workspace đã có MAX POWER | `hlk-update-max-power.mjs` | `node HLK/bin/hlk-update-max-power.mjs` |
+| **Lifecycle đơn giản** (init + install HLK, không MAX POWER) | `hlk-lifecycle.mjs` | `node HLK/bin/hlk-lifecycle.mjs --init <dir>` |
+| **Chỉ cài HLK** vào workspace đã có ruflo | `hlk-install.mjs` | `npx hlk-install` |
+| **Chỉ update HLK** trong workspace | `hlk-update.mjs` | `npx hlk-update` |
+| **Kiểm tra trạng thái HLK** | `hlk-status.mjs` | `npx hlk-status` |
+| **Đóng gói HLK** thành `.tgz` (dev) | `hlk-pack.mjs` | `node HLK/bin/hlk-pack.mjs` |
+| **Build lại + cài ngay** (dev) | `hlk-repack.mjs` | `node HLK/bin/hlk-repack.mjs` |
+| **Cài HLK từ source clone** (lần đầu, chưa có npm package) | `setup/install.mjs` | `node HLK/setup/install.mjs --path <ws>` |
+
+### 13.4 Guard check — Tránh cài lại không cần thiết
+
+`hlk-setup-max-power.mjs` có guard check: nếu workspace đã có `HLK/config/hlk.config.json` thì bỏ qua bước cài HLK (không ghi đè). Điều này tránh xung đột khi:
+
+- Đã cài HLK qua `npx hlk-install` rồi, giờ chạy `hlk-setup-max-power.mjs` để thêm MAX POWER config.
+- Đã cài HLK qua `setup/install.mjs` rồi, giờ chạy `hlk-setup-max-power.mjs` để nâng cấp.
+
+### 13.5 Sơ đồ quyết định
+
+```mermaid
+flowchart TD
+    Start[Bắt đầu] --> Q1{Đã có HLK trong workspace?}
+    Q1 -->|Chưa| Q2{Có npm package hlk-ruflo?}
+    Q1 -->|Rồi| Q3{Muốn MAX POWER?}
+
+    Q2 -->|Có| A1[npx hlk-install]
+    Q2 -->|Không, chỉ có source clone| A2[node HLK/setup/install.mjs --path ws]
+
+    A1 --> Q3
+    A2 --> Q3
+
+    Q3 -->|Có| B1[node HLK/bin/hlk-setup-max-power.mjs]
+    Q3 -->|Không| B2[node HLK/bin/hlk-lifecycle.mjs --init]
+
+    B1 --> Done1[Workspace MAX POWER]
+    B2 --> Done2[Workspace cơ bản]
+
+    Q1 -->|Rồi, muốn update| Q4{Update gì?}
+    Q4 -->|MAX POWER config| C1[node HLK/bin/hlk-update-max-power.mjs]
+    Q4 -->|Chỉ HLK layer| C2[npx hlk-update]
+    Q4 -->|Kiểm tra| C3[npx hlk-status]
+```
+
+### 13.6 Tránh nhầm lẫn — Tên gọi
+
+| Tên cũ (đã đổi) | Tên mới | Lý do đổi |
+|-----------------|---------|-----------|
+| `hlk-ruflo-setup.mjs` | `hlk-lifecycle.mjs` | Tránh trùng tên "setup" với `hlk-setup-max-power.mjs` — lifecycle không phải setup MAX POWER |
+| `scripts/setup-max-power.mjs` | `HLK/bin/hlk-setup-max-power.mjs` | Di chuyển vào HLK/bin để an toàn khi ruflo update |
+| `scripts/update-max-power.mjs` | `HLK/bin/hlk-update-max-power.mjs` | Tương tự |

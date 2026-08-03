@@ -212,5 +212,8 @@
   "directories": {
     "doc": "docs",
     "test": "tests"
+  },
+  "volta": {
+    "node": "22.22.3"
   }
 }

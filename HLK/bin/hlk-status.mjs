@@ -4,6 +4,8 @@
  * ==============
  * Kiểm tra trạng thái HLK trong workspace hoặc package.
  *
+ * VAI TRÒ: Diagnostic — kiểm tra HLK đã cài, config hợp lệ, wrappers hoạt động.
+ *
  * Cách dùng:
  *   npx hlk-status
  *   npx hlk-status --self-test
@@ -53,7 +55,7 @@ function selfTestPackage() {
     'bin/hlk-pack.mjs',
     'bin/hlk-repack.mjs',
     'bin/hlk-status.mjs',
-    'bin/hlk-ruflo-setup.mjs',
+    'bin/hlk-lifecycle.mjs',
     'upstream/hlk-upstream-pull.mjs',
     'setup/install.sh',
     'setup/install.ps1',

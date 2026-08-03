@@ -3,6 +3,26 @@
 // HLK/bin/hlk-update-max-power.mjs
 // ----------------------------------------------------------------------------
 // Script UPDATE workspace đã setup MAX POWER.
+//
+// VAI TRÒ: Update orchestrator — re-patch config, upgrade ruflo, đổi provider,
+//           pull HLK upstream. Gọi hlk-setup-max-power.mjs (--skip-ruflo) để re-patch.
+//
+// KHI NÀO DÙNG SCRIPT NÀO TRONG HLK/bin/:
+//   - Cài MAX POWER đầy đủ (Ruflo + HLK + 3 CLI + provider tuning):
+//       → hlk-setup-max-power.mjs
+//   - Update/re-patch/upgrade workspace đã có MAX POWER:
+//       → hlk-update-max-power.mjs (script này)
+//   - Lifecycle đơn giản (init + install HLK, không MAX POWER):
+//       → hlk-lifecycle.mjs
+//   - Chỉ cài HLK vào workspace đã có ruflo:
+//       → hlk-install.mjs
+//   - Chỉ update HLK trong workspace:
+//       → hlk-update.mjs
+//   - Kiểm tra trạng thái HLK:
+//       → hlk-status.mjs
+//   - Đóng gói HLK thành .tgz (chỉ trong repo HLK):
+//       → hlk-pack.mjs / hlk-repack.mjs
+//
 // Khác với setup (cài mới), update:
 //   - Không cài lại ruflo (giữ nguyên version đã cài).
 //   - Upgrade ruflo lên version mới (nếu --upgrade).
@@ -164,6 +184,12 @@ function askChoice(question, choices, defaultIdx) {
 
 async function askAllParams() {
   log.head('Cấu hình update MAX POWER');
+
+  // Nếu --yes: bỏ qua tất cả câu hỏi, dùng mặc định (hoặc flag đã truyền)
+  if (YES) {
+    log.info('--yes: dùng mặc định (local + giữ provider hiện có + mọi tính năng re-patch).');
+    return;
+  }
 
   // 1. Workspace path
   if (!CLI_SET.has('path')) {

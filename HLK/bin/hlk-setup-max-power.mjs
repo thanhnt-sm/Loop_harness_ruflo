@@ -4,6 +4,25 @@
 // ----------------------------------------------------------------------------
 // Script thiết lập Ruflo ở mức "MAX POWER" cho một workspace bất kỳ.
 //
+// VAI TRÒ: Orchestrator chính — cài đặt đầy đủ Ruflo + HLK + 3 CLI + provider.
+//           Đây là script KHUYẾN NGHỊ cho người mới.
+//
+// KHI NÀO DÙNG SCRIPT NÀO TRONG HLK/bin/:
+//   - Cài MAX POWER đầy đủ (Ruflo + HLK + 3 CLI + provider tuning):
+//       → hlk-setup-max-power.mjs (script này)
+//   - Update/re-patch/upgrade workspace đã có MAX POWER:
+//       → hlk-update-max-power.mjs
+//   - Lifecycle đơn giản (init + install HLK, không MAX POWER):
+//       → hlk-lifecycle.mjs
+//   - Chỉ cài HLK vào workspace đã có ruflo:
+//       → hlk-install.mjs
+//   - Chỉ update HLK trong workspace:
+//       → hlk-update.mjs
+//   - Kiểm tra trạng thái HLK:
+//       → hlk-status.mjs
+//   - Đóng gói HLK thành .tgz (chỉ trong repo HLK):
+//       → hlk-pack.mjs / hlk-repack.mjs
+//
 // Mục tiêu:
 //   - Hỗ trợ cài Ruflo CỤC BỘ trong workspace (--local) hoặc dùng global.
 //   - Hỏi đường dẫn workspace cần thiết lập.
@@ -171,6 +190,12 @@ function askChoice(question, choices, defaultIdx) {
 
 async function askAllParams() {
   log.head('Cấu hình thiết lập MAX POWER');
+
+  // Nếu --yes: bỏ qua tất cả câu hỏi, dùng mặc định (hoặc flag đã truyền)
+  if (YES) {
+    log.info('--yes: dùng mặc định (local + claude + mọi tính năng bật).');
+    return;
+  }
 
   // 1. Workspace path
   if (!CLI_SET.has('path')) {
@@ -904,8 +929,16 @@ function installHlkLayer(ws) {
   log.head('Bước 6: Cài HLK layer (Harness & Logic Knowledge)');
   if (SKIP_HLK) { log.warn('--skip-hlk: bỏ qua.'); return; }
 
-  // Tìm HLK/setup/install.mjs từ repo hiện tại (đi lên từ __dirname/scripts)
-  const repoRoot = path.resolve(__dirname, '..');
+  // Guard check: nếu HLK đã cài trong workspace rồi thì bỏ qua
+  const wsHlkConfig = path.join(ws, 'HLK', 'config', 'hlk.config.json');
+  if (fs.existsSync(wsHlkConfig)) {
+    log.ok('HLK đã cài trong workspace (có HLK/config/hlk.config.json) — bỏ qua bước cài.');
+    return;
+  }
+
+  // Tìm HLK/setup/install.mjs từ repo hiện tại (đi lên từ __dirname = HLK/bin)
+  // __dirname = <repo>/HLK/bin → đi lên 2 cấp = <repo>
+  const repoRoot = path.resolve(__dirname, '..', '..');
   const hlkSetup = path.join(repoRoot, 'HLK', 'setup', 'install.mjs');
   if (!fs.existsSync(hlkSetup)) {
     log.warn(`Không tìm thấy ${hlkSetup} — bỏ qua HLK.`);
@@ -1110,6 +1143,12 @@ function setupAntigravityCli(ws) {
 
   // --- .agents/mcp_config.json (workspace-level, agy đọc được) ---
   const agentsDir = path.join(ws, '.agents');
+  // Xử lý trường hợp .agents là file (không phải dir) — đổi tên thành .agents.bak
+  if (fs.existsSync(agentsDir) && !fs.statSync(agentsDir).isDirectory()) {
+    const bak = agentsDir + '.bak.' + Date.now();
+    log.warn(`.agents đang là file (không phải thư mục) — đổi tên thành ${path.basename(bak)}`);
+    fs.renameSync(agentsDir, bak);
+  }
   fs.mkdirSync(agentsDir, { recursive: true });
   const agyMcpPath = path.join(agentsDir, 'mcp_config.json');
   const agyMcp = {

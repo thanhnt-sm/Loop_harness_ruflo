@@ -123,9 +123,9 @@ cp HLK/backups/upstream-pull-<timestamp>/.gitattributes .gitattributes
 git checkout -- .claude/settings.json .gitignore .gitattributes
 ```
 
-## So sánh với `hlk-ruflo-setup --update`
+## So sánh với `hlk-lifecycle --update`
 
-| Tiêu chí | `hlk-ruflo-setup --update` | `hlk-upstream-pull` |
+| Tiêu chí | `hlk-lifecycle --update` | `hlk-upstream-pull` |
 |----------|---------------------------|---------------------|
 | Nguồn update | npm registry (`npx ruflo@<ver>`) | git upstream (clone) |
 | Bản update | Stable release | Bản dev mới nhất |

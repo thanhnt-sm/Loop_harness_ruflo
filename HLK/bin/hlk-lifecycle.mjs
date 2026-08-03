@@ -1,15 +1,35 @@
 #!/usr/bin/env node
 /**
- * hlk-ruflo-setup.mjs
+ * hlk-lifecycle.mjs  (đổi tên từ hlk-ruflo-setup.mjs)
  * ===================
  * Script full lifecycle: cài đặt hoặc cập nhật Ruflo + HLK.
  *
+ * VAI TRÒ: Orchestrator lifecycle đơn giản — init workspace mới hoặc update.
+ *           Gọi hlk-install.mjs / hlk-update.mjs để làm việc thực.
+ *           KHÔNG cấu hình MAX POWER — dùng hlk-setup-max-power.mjs cho việc đó.
+ *
+ * KHI NÀO DÙNG SCRIPT NÀO TRONG HLK/bin/:
+ *   - Cài MAX POWER đầy đủ (Ruflo + HLK + 3 CLI + provider tuning):
+ *       → hlk-setup-max-power.mjs
+ *   - Update/re-patch/upgrade workspace đã có MAX POWER:
+ *       → hlk-update-max-power.mjs
+ *   - Lifecycle đơn giản (init + install HLK, không MAX POWER):
+ *       → hlk-lifecycle.mjs (script này)
+ *   - Chỉ cài HLK vào workspace đã có ruflo:
+ *       → hlk-install.mjs
+ *   - Chỉ update HLK trong workspace:
+ *       → hlk-update.mjs
+ *   - Kiểm tra trạng thái HLK:
+ *       → hlk-status.mjs
+ *   - Đóng gói HLK thành .tgz (chỉ trong repo HLK):
+ *       → hlk-pack.mjs / hlk-repack.mjs
+ *
  * Cách dùng:
  *   # Cài mới
- *   node HLK/bin/hlk-ruflo-setup.mjs --init my-project
+ *   node HLK/bin/hlk-lifecycle.mjs --init my-project
  *
  *   # Cập nhật workspace hiện tại
- *   node HLK/bin/hlk-ruflo-setup.mjs --update
+ *   node HLK/bin/hlk-lifecycle.mjs --update
  *
  * Options:
  *   --init <dir>              Tạo workspace mới.
@@ -280,8 +300,8 @@ async function main() {
     log('error', 'Thiếu --init <dir> hoặc --update');
     log('info', '');
     log('info', 'Ví dụ:');
-    log('info', '  node HLK/bin/hlk-ruflo-setup.mjs --init my-project');
-    log('info', '  node HLK/bin/hlk-ruflo-setup.mjs --update --yes');
+    log('info', '  node HLK/bin/hlk-lifecycle.mjs --init my-project');
+    log('info', '  node HLK/bin/hlk-lifecycle.mjs --update --yes');
     process.exit(1);
   }
 }
