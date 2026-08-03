@@ -55,12 +55,16 @@ async function prePushChecks() {
     process.exit(1);
   }
 
-  const branch = BRANCH || getBranch(CWD);
-  if (!branch) {
+  const localBranch = getBranch(CWD);
+  const remoteBranch = BRANCH || localBranch;
+  if (!localBranch) {
     log('error', 'Không xác định được branch.');
     process.exit(1);
   }
-  log('info', `Branch: ${branch}`);
+  log('info', `Local branch: ${localBranch}`);
+  if (remoteBranch !== localBranch) {
+    log('info', `Remote branch: ${remoteBranch}`);
+  }
 
   const remotes = getRemotes(CWD);
   if (remotes.length === 0) {
@@ -82,19 +86,19 @@ async function prePushChecks() {
     }
   }
 
-  // Kiểm tra divergence
-  const tracking = getTrackingBranch(CWD) || `origin/${branch}`;
-  const r = runGit(['rev-list', '--left-right', '--count', `${tracking}...HEAD`], { cwd: CWD });
+  // Kiểm tra divergence với remote branch mục tiêu
+  const expectedUpstream = `origin/${remoteBranch}`;
+  const r = runGit(['rev-list', '--left-right', '--count', `${expectedUpstream}...HEAD`], { cwd: CWD });
   if (r.status === 0) {
     const match = r.stdout.match(/(\d+)\s+(\d+)/);
     if (match) {
       const behind = parseInt(match[1], 10);
       const ahead = parseInt(match[2], 10);
       if (behind > 0 && ahead > 0) {
-        log('error', `Branch diverged: ${behind} behind, ${ahead} ahead so với ${tracking}.`);
+        log('error', `Branch diverged: ${behind} behind, ${ahead} ahead so với ${expectedUpstream}.`);
         log('warn', 'Cần pull/merge trước khi push.');
         if (await ask('Bạn có muốn pull --rebase trước khi push?')) {
-          const pull = runGit(['pull', '--rebase', 'origin', branch], { cwd: CWD, stdio: 'inherit' });
+          const pull = runGit(['pull', '--rebase', 'origin', remoteBranch], { cwd: CWD, stdio: 'inherit' });
           if (pull.status !== 0) {
             log('error', 'Pull --rebase thất bại.');
             process.exit(1);
@@ -106,7 +110,7 @@ async function prePushChecks() {
       } else if (behind > 0) {
         log('warn', `${behind} commit behind. Nên pull trước khi push.`);
         if (await ask('Pull trước khi push?')) {
-          const pull = runGit(['pull', '--rebase', 'origin', branch], { cwd: CWD, stdio: 'inherit' });
+          const pull = runGit(['pull', '--rebase', 'origin', remoteBranch], { cwd: CWD, stdio: 'inherit' });
           if (pull.status !== 0) {
             log('error', 'Pull thất bại.');
             process.exit(1);
@@ -120,7 +124,7 @@ async function prePushChecks() {
     }
   }
 
-  return { branch };
+  return { localBranch, remoteBranch };
 }
 
 // ---------------------------------------------------------------------------
@@ -130,19 +134,20 @@ async function prePushChecks() {
 async function main() {
   log('info', '=== HLK Git Push ===');
 
-  const { branch } = await prePushChecks();
+  const { localBranch, remoteBranch } = await prePushChecks();
 
   const tracking = getTrackingBranch(CWD);
-  const expectedUpstream = `origin/${branch}`;
-  let pushArgs = ['push', 'origin', branch];
+  const expectedUpstream = `origin/${remoteBranch}`;
+  const refspec = localBranch === remoteBranch ? remoteBranch : `${localBranch}:${remoteBranch}`;
+  let pushArgs = ['push', 'origin', refspec];
 
   if (!tracking || tracking !== expectedUpstream) {
-    pushArgs = ['push', '-u', 'origin', branch];
+    pushArgs = ['push', '-u', 'origin', refspec];
     log('info', `Sẽ set upstream ${expectedUpstream}.`);
   }
 
   if (!YES) {
-    const ok = await ask(`Push branch ${branch} lên origin?`);
+    const ok = await ask(`Push ${localBranch} lên origin/${remoteBranch}?`);
     if (!ok) {
       log('info', 'Hủy push.');
       process.exit(0);
@@ -161,7 +166,7 @@ async function main() {
     process.exit(r.status ?? 1);
   }
 
-  log('success', `Push ${branch} thành công.`);
+  log('success', `Push lên origin/${remoteBranch} thành công.`);
 }
 
 main();
