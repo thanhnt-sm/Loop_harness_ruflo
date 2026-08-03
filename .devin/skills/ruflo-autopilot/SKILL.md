@@ -1,9 +1,14 @@
 ---
 name: ruflo-autopilot
-description: Auto-invoke ruflo MCP tools for any coding task. Use when user asks to build, test, review, refactor, or document code. Automatically runs swarm_init, agent_spawn, memory_search, agent_execute, memory_store.
+description: "[DEPRECATED — use /lightning instead] Legacy Ruflo MCP-only orchestration. Kept for manual swarm/memory control. For execution tasks, prefer /lightning which uses native Devin subagents + SWE-1.7 Lightning."
+triggers: []
 ---
 
-# Ruflo Autopilot Skill
+# Ruflo Autopilot Skill [DEPRECATED]
+
+> **Không tự kích hoạt.** Skill này đã tắt trigger `model` để tránh xung đột với `/lightning`.
+> Chỉ dùng thủ công qua `/ruflo-autopilot` khi cần orchestration MCP trực tiếp (swarm, cost tracking, memory CRUD).
+> Cho task coding thông thường, dùng `/lightning` — nhanh hơn, rẻ hơn, native Devin.
 
 ## Khi nào dùng
 Dùng skill này MỌI khi user yêu cầu:

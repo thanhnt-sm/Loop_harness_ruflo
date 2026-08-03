@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Exec(npx ruflo:*)",
+      "Exec(npx claude-flow:*)",
+      "Exec(npx @claude-flow/*:*)",
+      "Exec(node:*)",
+      "Exec(npm run:*)",
+      "Exec(npm test:*)",
+      "Exec(git status)",
+      "Exec(git diff:*)",
+      "Exec(git log:*)",
+      "Exec(git add:*)",
+      "Exec(git commit:*)",
+      "Exec(git push)",
+      "Exec(git config:*)",
+      "Read(src/**)",
+      "Read(tests/**)",
+      "Read(docs/**)",
+      "Read(.claude/**)",
+      "Read(.devin/**)",
+      "Read(HLK/**)"
+    ],
+    "deny": [
+      "Exec(sudo)",
+      "Exec(rm -rf /)",
+      "Read(.env)",
+      "Read(.env.*)"
+    ]
+  },
+  "read_config_from": {
+    "cursor": true,
+    "windsurf": true
+  }
+}
