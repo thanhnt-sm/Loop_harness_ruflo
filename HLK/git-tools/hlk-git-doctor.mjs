@@ -180,11 +180,12 @@ async function checkWorkingTree() {
   // Kiểm tra uncommitted
   if (hasUncommittedChanges(CWD)) {
     const stats = status.reduce((acc, s) => {
-      if (s.status.startsWith('A')) acc.staged++;
-      else if (s.status.startsWith('M') || s.status.startsWith('?')) acc.unstaged++;
-      else acc.other++;
+      const indexStatus = s.status[0];
+      const worktreeStatus = s.status[1];
+      if (indexStatus !== ' ' && indexStatus !== '?') acc.staged++;
+      if (worktreeStatus !== ' ' || indexStatus === '?') acc.unstaged++;
       return acc;
-    }, { staged: 0, unstaged: 0, other: 0 });
+    }, { staged: 0, unstaged: 0 });
     reportIssue('warn', `Có thay đổi chưa commit: staged=${stats.staged}, unstaged=${stats.unstaged}`);
   }
 }

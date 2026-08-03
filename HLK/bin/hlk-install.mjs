@@ -20,6 +20,13 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 
+// Kiểm tra Node version tối thiểu
+const NODE_MAJOR = parseInt(process.versions.node.split('.')[0], 10);
+if (NODE_MAJOR < 14) {
+  process.stderr.write('❌ Node >= 14 yêu cầu để chạy HLK installer.\n');
+  process.exit(1);
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -62,6 +69,33 @@ function log(level, msg) {
 }
 
 // ---------------------------------------------------------------------------
+// Sao chép đệ quy — tương thích Node cũ hơn fs.cpSync
+// ---------------------------------------------------------------------------
+
+function copyRecursive(src, dst, options = {}) {
+  if (typeof fs.cpSync === 'function') {
+    fs.cpSync(src, dst, { recursive: true, force: true, ...options });
+    return;
+  }
+
+  if (!fs.existsSync(dst)) {
+    fs.mkdirSync(dst, { recursive: true });
+  }
+
+  const entries = fs.readdirSync(src, { withFileTypes: true });
+  for (const entry of entries) {
+    const srcPath = path.join(src, entry.name);
+    const dstPath = path.join(dst, entry.name);
+
+    if (entry.isDirectory()) {
+      copyRecursive(srcPath, dstPath, options);
+    } else {
+      fs.copyFileSync(srcPath, dstPath);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Bước 1: Xác định workspace
 // ---------------------------------------------------------------------------
 
@@ -99,7 +133,7 @@ function backupExistingHlk() {
 
   const ts = Date.now();
   const backupDir = path.join(WORKSPACE_ROOT, `HLK.backup.${ts}`);
-  fs.cpSync(HLK_TARGET_DIR, backupDir, { recursive: true, force: true });
+  copyRecursive(HLK_TARGET_DIR, backupDir);
   log('info', `Đã sao lưu HLK cũ sang: ${backupDir}`);
 }
 
@@ -115,7 +149,7 @@ function copyContent() {
     const dst = path.join(HLK_TARGET_DIR, dir);
     if (!fs.existsSync(src)) continue;
 
-    fs.cpSync(src, dst, { recursive: true, force: true });
+    copyRecursive(src, dst);
     log('success', `Đã copy ${dir}/`);
   }
 

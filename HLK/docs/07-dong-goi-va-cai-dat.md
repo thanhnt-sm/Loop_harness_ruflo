@@ -1,6 +1,6 @@
 # 07 — Đóng gói và cài đặt HLK
 
-> Hướng dẫn đóng gói HLK thành npm package, cài đặt vào workspace Ruflo mới, và cập nhật.
+> Hướng dẫn đóng gói HLK thành npm package, cài đặt vào workspace Ruflo mới, cập nhật, và rebuild package khi HLK có thay đổi.
 
 ---
 
@@ -16,10 +16,11 @@ Giải pháp: **HLK package** (`hlk-ruflo`) chứa sẵn installer. Cài bằng 
 
 ```mermaid
 flowchart LR
-    A[Ruflo workspace] --> B[npx ruflo init]
-    B --> C[Cài hlk-ruflo]
-    C --> D[npx hlk-install]
-    D --> E[HLK sẵn sàng]
+    A[Repo HLK] --> B[node HLK/bin/hlk-pack.mjs]
+    B --> C[hlk-ruflo-x.y.z.tgz]
+    C --> D[npm install -g]
+    D --> E[npx hlk-install]
+    E --> F[Workspace Ruflo được bảo vệ]
 ```
 
 ---
@@ -29,12 +30,19 @@ flowchart LR
 ```
 HLK/
 ├── package.json              # Package hlk-ruflo
-├── INSTALL.md                # Hướng dẫn cài
-├── bin/
+├── INSTALL.md                # Hướng dẫn cài nhanh
+├── bin/                      # CLI chính
 │   ├── hlk-install.mjs
 │   ├── hlk-update.mjs
 │   ├── hlk-pack.mjs
-│   └── hlk-status.mjs
+│   ├── hlk-repack.mjs
+│   ├── hlk-status.mjs
+│   └── hlk-ruflo-setup.mjs
+├── git-tools/                # Bộ công cụ git
+│   ├── hlk-git-doctor.mjs
+│   ├── hlk-git-commit.mjs
+│   ├── hlk-git-push.mjs
+│   └── hlk-git-safe-sync.mjs
 ├── config/
 ├── wrappers/
 ├── security/
@@ -49,21 +57,24 @@ Package được tạo bằng `npm pack` trong thư mục `HLK/`.
 
 ---
 
-## 3. Đóng gói HLK
+## 3. Đóng gói HLK lần đầu
 
 ### 3.1 Yêu cầu
 
-- Node >= 20
+- Node >= 14 (khuyến nghị >= 18 để có `fs.cpSync` gốc)
 - `npm` đã cài
 
-### 3.2 Lệnh
+### 3.2 Lệnh copy-paste
 
 ```bash
 # Trong repo gốc
 node HLK/bin/hlk-pack.mjs
+```
 
-# Hoặc
-npm run pack --prefix HLK
+PowerShell:
+
+```powershell
+node HLK\bin\hlk-pack.mjs
 ```
 
 Output:
@@ -72,117 +83,257 @@ Output:
 HLK/dist/hlk-ruflo-3.0.0.tgz
 ```
 
-`hlk-pack.mjs` sẽ:
+`hlk-pack.mjs` thực hiện:
 
 - Kiểm tra `package.json` version đồng nhất với `hlk.config.json`.
-- Kiểm tra file bắt buộc.
+- Kiểm tra các file bắt buộc.
 - Syntax check các script.
 - Chạy `npm pack`.
 - Di chuyển tarball vào `HLK/dist/`.
 
 ---
 
-## 4. Cài HLK vào workspace mới
+## 4. Rebuild package khi HLK có cập nhật
 
-### 4.1 Cài Ruflo
+### 4.1 Khi nào cần repack?
+
+- Bạn sửa code trong `HLK/`.
+- Bạn thêm script mới.
+- Bạn muốn tăng version và phát hành.
+
+### 4.2 Lệnh copy-paste
+
+> Lưu ý: `hlk-repack --install` phải chạy trong **workspace Ruflo riêng**, không phải trong chính repo gốc của package.
+
+**Repack tự động bump patch version và cài vào workspace hiện tại:**
+
+```bash
+node HLK/bin/hlk-repack.mjs --install --yes
+```
+
+PowerShell:
+
+```powershell
+node HLK\bin\hlk-repack.mjs --install --yes
+```
+
+Các bước `hlk-repack.mjs` thực hiện:
+
+1. Self-test package.
+2. Bump version (patch, minor, hoặc major).
+3. Pack thành `.tgz`.
+4. Cài package mới vào workspace hiện tại:
+   - Nếu HLK chưa có → `npx hlk-install`.
+   - Nếu HLK đã có → `npx hlk-update`.
+
+### 4.3 Không tăng version
+
+```bash
+node HLK/bin/hlk-repack.mjs --no-bump --install --yes
+```
+
+### 4.4 Bump minor/major
+
+```bash
+node HLK/bin/hlk-repack.mjs --bump minor --install --yes
+node HLK/bin/hlk-repack.mjs --bump major --install --yes
+```
+
+### 4.5 Flow phát triển HLK
+
+```mermaid
+flowchart LR
+    A[Sửa code HLK/] --> B[node hlk-repack.mjs --install --yes]
+    B --> C[HLK/dist/hlk-ruflo-x.y.z.tgz]
+    B --> D[Workspace tự cập nhật HLK]
+    C --> E[Chia sẻ tarball]
+    D --> F[Test]
+```
+
+---
+
+## 5. Cài HLK vào workspace mới
+
+### 5.1 Cách A: Cài thủ công
+
+#### Bước 1: Cài Ruflo
 
 ```bash
 mkdir my-project && cd my-project
 npx ruflo@3.34.0 init
 ```
 
-### 4.2 Cài package
+PowerShell:
 
-#### Cách A: Global install (khuyến nghị)
+```powershell
+New-Item -ItemType Directory my-project; Set-Location my-project
+npx ruflo@3.34.0 init
+```
+
+#### Bước 2: Cài HLK package
+
+Global install (khuyến nghị):
 
 ```bash
 npm install -g /path/to/hlk-ruflo-3.0.0.tgz
 ```
 
-Sau đó trong bất kỳ workspace nào:
+PowerShell:
+
+```powershell
+npm install -g C:\path\to\hlk-ruflo-3.0.0.tgz
+```
+
+#### Bước 3: Áp dụng HLK
 
 ```bash
 npx hlk-install
 ```
 
-#### Cách B: Local install trong workspace
+PowerShell:
 
-```bash
-cd /my-ruflo-workspace
-npm install --save-dev /path/to/hlk-ruflo-3.0.0.tgz
+```powershell
 npx hlk-install
 ```
 
-### 4.3 Kết quả
-
-`hlk-install` thực hiện:
-
-- Copy `HLK/` vào workspace.
-- Patch `.claude/settings.json` với PreToolUse hook + MCP wrapper.
-- Patch `.gitattributes` với `merge=ours`.
-- Patch `.gitignore` bảo vệ secrets.
-- Tạo `HLK/config/secrets.env` từ example.
-- Chạy `hlk-verify-integrity.js`.
-
-### 4.4 Cấu hình secrets
+#### Bước 4: Cấu hình secrets
 
 ```bash
 cp HLK/config/secrets.env.example HLK/config/secrets.env
 # Sửa HLK/config/secrets.env
 ```
 
-### 4.5 Verify
+PowerShell:
+
+```powershell
+Copy-Item HLK\config\secrets.env.example HLK\config\secrets.env
+# Sửa HLK\config\secrets.env
+```
+
+#### Bước 5: Verify
 
 ```bash
 npx hlk-status
 ```
 
+### 5.2 Cách B: Dùng script full `hlk-ruflo-setup`
+
+Tạo workspace mới trong một lệnh:
+
+```bash
+node HLK/bin/hlk-ruflo-setup.mjs --init my-project --hlk-tgz /path/to/hlk-ruflo-3.0.0.tgz --yes
+```
+
+PowerShell:
+
+```powershell
+node HLK\bin\hlk-ruflo-setup.mjs --init my-project --hlk-tgz C:\path\to\hlk-ruflo-3.0.0.tgz --yes
+```
+
+Script sẽ:
+
+1. Tạo thư mục `my-project/`.
+2. Chạy `npx ruflo@3.34.0 init`.
+3. Cài HLK từ tarball.
+4. Chạy `npx hlk-install`.
+
+Nếu HLK đã global install:
+
+```bash
+node HLK/bin/hlk-ruflo-setup.mjs --init my-project --hlk-global --yes
+```
+
 ---
 
-## 5. Cập nhật HLK
+## 6. Cập nhật HLK
 
-### 5.1 Cập nhật Ruflo
+### 6.1 Cập nhật thủ công
 
-Dùng cách bạn chọn:
+#### Bước 1: Cập nhật Ruflo
 
 ```bash
 npx ruflo@3.34.0 init upgrade --add-missing
-# hoặc
+```
+
+Hoặc bằng git upstream sync:
+
+```bash
 bash HLK/wrappers/git-upstream-sync.sh
 ```
 
-### 5.2 Cập nhật HLK
+PowerShell:
+
+```powershell
+powershell -File HLK\wrappers\git-upstream-sync.ps1
+```
+
+#### Bước 2: Cập nhật HLK
 
 ```bash
 npm install -g /path/to/hlk-ruflo-3.0.1.tgz
-cd /my-ruflo-workspace
 npx hlk-update
 ```
 
-`hlk-update`:
+PowerShell:
 
-- Backup HLK cũ.
-- Copy code mới.
-- Giữ `hlk.config.json` và `secrets.env` của user.
-- Merge trường mới từ package default.
-- Re-apply patch.
-- Run verify.
+```powershell
+npm install -g C:\path\to\hlk-ruflo-3.0.1.tgz
+npx hlk-update
+```
+
+### 6.2 Dùng script full `hlk-ruflo-setup --update`
+
+```bash
+node HLK/bin/hlk-ruflo-setup.mjs --update --hlk-tgz /path/to/hlk-ruflo-3.0.1.tgz --yes
+```
+
+PowerShell:
+
+```powershell
+node HLK\bin\hlk-ruflo-setup.mjs --update --hlk-tgz C:\path\to\hlk-ruflo-3.0.1.tgz --yes
+```
+
+Với upstream sync:
+
+```bash
+node HLK/bin/hlk-ruflo-setup.mjs --update --upstream-sync --hlk-tgz /path/to/hlk-ruflo-3.0.1.tgz --yes
+```
+
+PowerShell:
+
+```powershell
+node HLK\bin\hlk-ruflo-setup.mjs --update --upstream-sync --hlk-tgz C:\path\to\hlk-ruflo-3.0.1.tgz --yes
+```
+
+Nếu Ruflo đã được cài thủ công hoặc không dùng `npx ruflo`:
+
+```bash
+node HLK/bin/hlk-ruflo-setup.mjs --update --skip-ruflo --hlk-tgz /path/to/hlk-ruflo-3.0.1.tgz --yes
+```
+
+PowerShell:
+
+```powershell
+node HLK\bin\hlk-ruflo-setup.mjs --update --skip-ruflo --hlk-tgz C:\path\to\hlk-ruflo-3.0.1.tgz --yes
+```
 
 ---
 
-## 6. Các lệnh CLI
+## 7. Các lệnh CLI
 
 | Lệnh | Mục đích |
 |------|----------|
 | `npx hlk-install` | Cài HLK vào workspace hiện tại |
 | `npx hlk-update` | Cập nhật HLK trong workspace hiện tại |
 | `npx hlk-pack` | Đóng gói HLK thành `.tgz` |
+| `npx hlk-repack` | Bump version, pack, và cài lại vào workspace |
+| `npx hlk-ruflo-setup` | Cài mới / cập nhật Ruflo + HLK |
 | `npx hlk-status` | Kiểm tra trạng thái HLK |
 | `npx hlk-status --self-test` | Self-test package |
 
 ---
 
-## 7. Publish lên registry (tùy chọn)
+## 8. Publish lên registry (tùy chọn)
 
 Nếu muốn cài từ npm registry:
 
@@ -191,7 +342,7 @@ cd HLK
 npm publish --access private
 ```
 
-Hoặc publish lên GitHub Packages:
+Hoặc GitHub Packages:
 
 ```bash
 cd HLK
@@ -202,30 +353,45 @@ npm publish --registry=https://npm.pkg.github.com
 
 ---
 
-## 8. Cài từ GitHub repo (không publish)
-
-Nếu không publish npm, bạn có thể tạo tarball từ repo rồi cài:
+## 9. Cài từ GitHub repo (không publish)
 
 ```bash
+# Trên máy build
 cd Loop_harness_ruflo
-node HLK/bin/hlk-pack.mjs
+node HLK/bin/hlk-repack.mjs --no-bump
 cp HLK/dist/hlk-ruflo-3.0.0.tgz /workspace/shared/
 
 # Trên máy khác
 npm install -g /workspace/shared/hlk-ruflo-3.0.0.tgz
+npx hlk-install
+```
+
+PowerShell:
+
+```powershell
+# Trên máy build
+Set-Location Loop_harness_ruflo
+node HLK\bin\hlk-repack.mjs --no-bump
+Copy-Item HLK\dist\hlk-ruflo-3.0.0.tgz C:\workspace\shared\
+
+# Trên máy khác
+npm install -g C:\workspace\shared\hlk-ruflo-3.0.0.tgz
+npx hlk-install
 ```
 
 ---
 
-## 9. Checklist triển khai package
+## 10. Checklist triển khai package
 
 | # | Hạng mục | Kiểm tra |
 |---|----------|----------|
 | 1 | `hlk-pack.mjs` tạo `.tgz` | `ls HLK/dist/` |
-| 2 | Tarball chứa `bin/`, `config/`, `wrappers/` | `tar -tzf HLK/dist/*.tgz` |
-| 3 | Global install thành công | `npx hlk-status --self-test` |
-| 4 | `hlk-install` chạy trong workspace | `npx hlk-install` |
-| 5 | HLK verify pass | `npx hlk-status` |
-| 6 | Secrets.env được tạo | `ls HLK/config/secrets.env` |
-| 7 | `.claude/settings.json` đã patch | `grep hlk-hook-bridge` |
-| 8 | `.gitattributes` đã patch | `grep 'merge=ours'` |
+| 2 | `hlk-repack.mjs` tự bump + cài | `node HLK/bin/hlk-repack.mjs --install --yes` |
+| 3 | Tarball chứa `bin/`, `config/`, `wrappers/`, `git-tools/` | `tar -tzf HLK/dist/*.tgz` |
+| 4 | Global install thành công | `npx hlk-status --self-test` |
+| 5 | `hlk-install` chạy trong workspace | `npx hlk-install` |
+| 6 | `hlk-ruflo-setup --init` tạo workspace | `node HLK/bin/hlk-ruflo-setup.mjs --init test-project --yes` |
+| 7 | `hlk-ruflo-setup --update` cập nhật | `node HLK/bin/hlk-ruflo-setup.mjs --update --yes` |
+| 8 | HLK verify pass | `npx hlk-status` |
+| 9 | `.claude/settings.json` đã patch | `grep hlk-hook-bridge .claude/settings.json` |
+| 10 | `.gitattributes` đã patch | `grep 'merge=ours' .gitattributes` |

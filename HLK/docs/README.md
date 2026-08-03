@@ -14,7 +14,9 @@
 | 4 | [04-nang-cap-va-dong-bo-upstream.md](./04-nang-cap-va-dong-bo-upstream.md) | Cập nhật Ruflo mới, đồng bộ upstream, tránh xung đột |
 | 5 | [05-van-hanh-runbook-va-playbook.md](./05-van-hanh-runbook-va-playbook.md) | Runbook thường ngày, playbook xử lý sự cố, bảo mật |
 | 6 | [06-checklist-va-khac-phuc-su-co.md](./06-checklist-va-khac-phuc-su-co.md) | Checklist, checkpoint, troubleshooting |
-| 7 | [07-dong-goi-va-cai-dat.md](./07-dong-goi-va-cai-dat.md) | Đóng gói HLK, cài đặt workspace mới, cập nhật |
+| 7 | [07-dong-goi-va-cai-dat.md](./07-dong-goi-va-cai-dat.md) | Đóng gói, cài đặt, cập nhật HLK package |
+| 8 | [08-git-tools.md](./08-git-tools.md) | Git tools: doctor, commit, push, safe-sync |
+| 9 | [09-ruflo-hlk-lifecycle.md](./09-ruflo-hlk-lifecycle.md) | Vòng đời Ruflo + HLK copy-paste đầy đủ |
 
 ---
 
@@ -23,7 +25,9 @@
 1. **Kích hoạt HLK**: xem [03-cau-hinh-best-practice.md](./03-cau-hinh-best-practice.md).
 2. **Nâng cấp an toàn**: xem [04-nang-cap-va-dong-bo-upstream.md](./04-nang-cap-va-dong-bo-upstream.md).
 3. **Giải quyết lỗi**: xem [06-checklist-va-khac-phuc-su-co.md](./06-checklist-va-khac-phuc-su-co.md).
-4. **Đóng gói / cài mới**: xem [07-dong-goi-va-cai-dat.md](./07-dong-goi-va-cai-dat.md).
+4. **Đóng gói / cài mới / cập nhật**: xem [07-dong-goi-va-cai-dat.md](./07-dong-goi-va-cai-dat.md).
+5. **Git tools**: xem [08-git-tools.md](./08-git-tools.md).
+6. **Vòng đời copy-paste**: xem [09-ruflo-hlk-lifecycle.md](./09-ruflo-hlk-lifecycle.md).
 
 ---
 

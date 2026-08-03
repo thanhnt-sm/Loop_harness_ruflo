@@ -8,7 +8,9 @@
     "hlk-install": "bin/hlk-install.mjs",
     "hlk-update": "bin/hlk-update.mjs",
     "hlk-pack": "bin/hlk-pack.mjs",
+    "hlk-repack": "bin/hlk-repack.mjs",
     "hlk-status": "bin/hlk-status.mjs",
+    "hlk-ruflo-setup": "bin/hlk-ruflo-setup.mjs",
     "hlk-git-doctor": "git-tools/hlk-git-doctor.mjs",
     "hlk-git-commit": "git-tools/hlk-git-commit.mjs",
     "hlk-git-push": "git-tools/hlk-git-push.mjs",
@@ -44,6 +46,6 @@
   "author": "thanhnt-sm",
   "license": "MIT",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=14.0.0"
   }
 }

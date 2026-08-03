@@ -133,11 +133,12 @@ async function main() {
   const { branch } = await prePushChecks();
 
   const tracking = getTrackingBranch(CWD);
+  const expectedUpstream = `origin/${branch}`;
   let pushArgs = ['push', 'origin', branch];
 
-  if (!tracking) {
+  if (!tracking || tracking !== expectedUpstream) {
     pushArgs = ['push', '-u', 'origin', branch];
-    log('info', `Sẽ set upstream origin/${branch}.`);
+    log('info', `Sẽ set upstream ${expectedUpstream}.`);
   }
 
   if (!YES) {
