@@ -19,7 +19,9 @@ import {
 
 describe('PathValidator', () => {
   let validator: PathValidator;
-  const projectRoot = '/workspaces/project';
+  // Dùng path.resolve để projectRoot tự động đúng định dạng theo platform:
+  // '/workspaces/project' trên Linux, 'D:\workspaces\project' trên Windows.
+  const projectRoot = path.resolve('/workspaces/project');
 
   beforeEach(() => {
     validator = new PathValidator({
@@ -41,7 +43,7 @@ describe('PathValidator', () => {
       });
 
       const prefixes = relativeValidator.getAllowedPrefixes();
-      expect(prefixes[0]).toMatch(/^\//);
+      expect(path.isAbsolute(prefixes[0])).toBe(true);
     });
   });
 
@@ -110,7 +112,8 @@ describe('PathValidator', () => {
 
     it('should calculate relative path correctly', async () => {
       const result = await validator.validate('/workspaces/project/src/deep/file.ts');
-      expect(result.relativePath).toBe('src/deep/file.ts');
+      // relativePath dùng path.sep của platform (\ trên Windows, / trên Linux)
+      expect(result.relativePath).toBe(['src', 'deep', 'file.ts'].join(path.sep));
     });
   });
 
@@ -220,7 +223,8 @@ describe('PathValidator', () => {
   describe('validateOrThrow', () => {
     it('should return path when valid', async () => {
       const resolved = await validator.validateOrThrow('/workspaces/project/src/file.ts');
-      expect(resolved).toBe('/workspaces/project/src/file.ts');
+      // Code dùng path.resolve nên kết quả theo định dạng platform
+      expect(resolved).toBe(path.resolve('/workspaces/project/src/file.ts'));
     });
 
     it('should throw when invalid', async () => {
@@ -233,7 +237,8 @@ describe('PathValidator', () => {
   describe('securePath', () => {
     it('should join paths securely', async () => {
       const resolved = await validator.securePath(projectRoot, 'src', 'file.ts');
-      expect(resolved).toBe('/workspaces/project/src/file.ts');
+      // securePath dùng path.resolve, kết quả theo định dạng platform
+      expect(resolved).toBe(path.resolve(projectRoot, 'src', 'file.ts'));
     });
 
     it('should block traversal in segments', async () => {
@@ -255,19 +260,20 @@ describe('PathValidator', () => {
 
   describe('Factory Functions', () => {
     it('should create project path validator', () => {
-      const projectValidator = createProjectPathValidator('/workspaces/project');
+      const projectValidator = createProjectPathValidator(projectRoot);
       const prefixes = projectValidator.getAllowedPrefixes();
 
-      expect(prefixes).toContain('/workspaces/project/src');
-      expect(prefixes).toContain('/workspaces/project/tests');
-      expect(prefixes).toContain('/workspaces/project/docs');
+      // Factory resolve prefix theo platform, dùng path.resolve để so sánh
+      expect(prefixes).toContain(path.resolve(projectRoot, 'src'));
+      expect(prefixes).toContain(path.resolve(projectRoot, 'tests'));
+      expect(prefixes).toContain(path.resolve(projectRoot, 'docs'));
     });
 
     it('should create full project path validator', () => {
-      const fullValidator = createFullProjectPathValidator('/workspaces/project');
+      const fullValidator = createFullProjectPathValidator(projectRoot);
       const prefixes = fullValidator.getAllowedPrefixes();
 
-      expect(prefixes).toContain('/workspaces/project');
+      expect(prefixes).toContain(path.resolve(projectRoot));
     });
   });
 

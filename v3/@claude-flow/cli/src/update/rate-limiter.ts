@@ -56,8 +56,22 @@ export function loadState(): RateLimitState {
 }
 
 export function saveState(state: RateLimitState): void {
+  // Bước 1: Đảm bảo thư mục ~/.claude-flow tồn tại trước khi ghi
   ensureDir();
-  fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+  // Bước 2: Ghi file trạng thái. Bọc trong try-catch để tránh crash ứng dụng
+  // khi ghi thất bại (đĩa đầy, không có quyền ghi, đường dẫn bị khóa).
+  // Giữ nguyên signature void để bám sát caller hiện tại (recordCheck);
+  // chỉ log lỗi tiếng Việt và bỏ qua việc ghi — trạng thái trong RAM vẫn còn.
+  try {
+    fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+  } catch (err) {
+    // Ghi trạng thái cập nhật thất bại — không throw lên để không làm gián đoạn
+    // luồng kiểm tra cập nhật. Lỗi chỉ nên được ghi nhận để debug.
+    console.warn(
+      `[rate-limiter] Không thể ghi file trạng thái cập nhật tại ${STATE_FILE}: ` +
+        `${err instanceof Error ? err.message : String(err)}`
+    );
+  }
 }
 
 export function shouldCheckForUpdates(
@@ -116,7 +130,16 @@ export function getCachedVersions(): Record<string, string> {
 }
 
 export function clearCache(): void {
+  // Xóa file cache trạng thái. Bọc trong try-catch cùng pattern với loadState
+  // để tránh crash khi file không thể xóa (đang bị khóa, không có quyền).
   if (fs.existsSync(STATE_FILE)) {
-    fs.unlinkSync(STATE_FILE);
+    try {
+      fs.unlinkSync(STATE_FILE);
+    } catch (err) {
+      console.warn(
+        `[rate-limiter] Không thể xóa file cache cập nhật tại ${STATE_FILE}: ` +
+          `${err instanceof Error ? err.message : String(err)}`
+      );
+    }
   }
 }
