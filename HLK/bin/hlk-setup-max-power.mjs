@@ -71,6 +71,7 @@ let SKIP_AGY = false;
 let SKIP_PROVIDERS = false;
 let PROVIDER = 'claude';
 let RUFLO_VERSION = 'latest';
+let CLI_CHOICE = null;     // 'claude' | 'devin' | 'agy' | 'all' — truyền cho install.mjs
 
 // Các flag đã được set qua CLI args (để biết cái nào cần hỏi, cái nào đã có)
 const CLI_SET = new Set();
@@ -88,6 +89,7 @@ for (let i = 0; i < rawArgs.length; i++) {
   else if (a === '--skip-agy') { SKIP_AGY = true; CLI_SET.add('skip-agy'); }
   else if (a === '--skip-providers') { SKIP_PROVIDERS = true; CLI_SET.add('skip-providers'); }
   else if (a === '--provider' && rawArgs[i + 1]) { PROVIDER = rawArgs[i + 1]; CLI_SET.add('provider'); i++; }
+  else if (a === '--cli' && rawArgs[i + 1]) { CLI_CHOICE = rawArgs[i + 1]; CLI_SET.add('cli'); i++; }
   else if (a === '--ruflo-version' && rawArgs[i + 1]) { RUFLO_VERSION = rawArgs[i + 1]; CLI_SET.add('ruflo-version'); i++; }
   else if (a === '--help' || a === '-h') {
     process.stderr.write([
@@ -402,12 +404,15 @@ function buildMaxPowerSettings(pkgVersion) {
 
     // --- Hooks đầy đủ: PreToolUse, PostToolUse, UserPromptSubmit, ---
     // --- SessionStart, SessionEnd, Stop, PreCompact, SubagentStop ---
+    // Lưu ý: HLK hook dùng launcher trung tính (path tương đối) để work với
+    //         Claude Code, Devin CLI, Antigravity. Các hook helper khác vẫn
+    //         dùng $CLAUDE_PROJECT_DIR vì là helper riêng của Claude Code.
     hooks: {
       PreToolUse: [
         {
           hooks: [{
             type: 'command',
-            command: 'node "$CLAUDE_PROJECT_DIR/HLK/wrappers/hlk-hook-bridge.mjs"',
+            command: 'node HLK/wrappers/hlk-hook-launcher.mjs',
             timeout: 5000,
           }],
         },
@@ -767,6 +772,7 @@ function checkPrerequisites(ws) {
     if (fs.existsSync(portableNode)) {
       log.ok(`Đã có Node portable tại .tools/node/ — chạy: . .\\activate.ps1 (PS) hoặc activate (CMD)`);
       log.info('  Sau khi activate, chạy lại script này bằng Node 22.');
+      log.warn('Force mode: tiếp tục với Node hiện tại (có thể gặp lỗi compatibility).');
     } else {
       log.info('Thử cài Node 22 portable vào .tools/node/...');
       try {
@@ -778,10 +784,10 @@ function checkPrerequisites(ws) {
       } catch (e) {
         log.err(`Không cài được Node portable: ${e.message}`);
         log.info('Cài thủ công: tải node-v22-win-x64.zip từ https://nodejs.org/dist/v22.22.3/');
-        process.exit(1);
+        return;
       }
     }
-    process.exit(1);
+    // Force mode: đã có Node portable hoặc không cài được — tiếp tục với Node hiện tại
   }
   log.ok(`Node ${process.version}`);
 
@@ -1057,8 +1063,13 @@ function installHlkLayer(ws) {
   }
 
   log.info(`Chạy HLK installer cho workspace: ${ws}`);
-  // HLK/setup/install.mjs hỗ trợ --path <dir> --yes
-  const r = run(process.execPath, [hlkSetup, '--path', ws, '--yes'], { cwd: ws });
+  // HLK/setup/install.mjs hỗ trợ --path <dir> --yes --cli <claude|devin|agy|all>
+  const installArgs = [hlkSetup, '--path', ws, '--yes'];
+  if (CLI_CHOICE) {
+    installArgs.push('--cli', CLI_CHOICE);
+    log.info(`  Truyền --cli ${CLI_CHOICE} cho install.mjs`);
+  }
+  const r = run(process.execPath, installArgs, { cwd: ws });
   if (r.status !== 0) {
     log.warn('HLK install gặp lỗi — tiếp tục (HLK là tùy chọn).');
   } else {
@@ -1175,7 +1186,7 @@ function setupDevinCli(ws) {
         matcher: 'exec',
         hooks: [{
           type: 'command',
-          command: 'node "$CLAUDE_PROJECT_DIR/HLK/wrappers/hlk-hook-bridge.mjs"',
+          command: 'node HLK/wrappers/hlk-hook-launcher.mjs',
           timeout: 5,
         }],
       },
@@ -1627,14 +1638,15 @@ async function main() {
   process.stderr.write('║  Ruflo MAX POWER Setup — Full Chain / Full Flow / Max Cfg  ║\n');
   process.stderr.write('╚═══════════════════════════════════════════════════════════╝\n\n');
 
-  // Bước 0: prerequisites (kiểm tra Node/npm/git, không exit nếu thiếu ruflo)
-  checkPrerequisites();
-
   // Bước 1: Hỏi tất cả tham số (workspace, local/global, provider, version, tính năng, xác nhận)
   // Nếu --yes: bỏ qua hỏi, dùng mặc định
   await askAllParams();
 
   const ws = path.resolve(USER_PATH);
+
+  // Bước 0: prerequisites (kiểm tra Node/npm/git, không exit nếu thiếu ruflo)
+  // Chạy sau askAllParams để có ws (cần ws để tìm Node portable)
+  checkPrerequisites(ws);
 
   // Bước 2-11: thực thi thiết lập
   installRuflo(ws);

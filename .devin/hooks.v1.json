@@ -1,0 +1,14 @@
+{
+  "PreToolUse": [
+    {
+      "matcher": "exec",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "node HLK/wrappers/hlk-hook-launcher.mjs",
+          "timeout": 5
+        }
+      ]
+    }
+  ]
+}

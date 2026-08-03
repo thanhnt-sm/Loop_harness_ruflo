@@ -228,6 +228,148 @@ export function listUntrackedFiles(cwd = process.cwd()) {
   return r.status === 0 ? r.stdout.split('\n').filter(Boolean) : [];
 }
 
+// ---------------------------------------------------------------------------
+// Quét unstaged/untracked files (trước khi add)
+// ---------------------------------------------------------------------------
+
+// Liệt kê untracked files có vẻ nhạy cảm (không staged, không ignored)
+export function listUntrackedSensitiveFiles(cwd = process.cwd()) {
+  const untracked = listUntrackedFiles(cwd);
+  return untracked.filter((f) => {
+    const lower = f.toLowerCase();
+    // Bỏ qua template/example
+    if (lower.endsWith('.example') || lower.endsWith('.example.env')) return false;
+    return (
+      lower.includes('secrets.env') ||
+      (lower.includes('.env') && !lower.includes('.env.example')) ||
+      lower.endsWith('.rvf') ||
+      lower.endsWith('.rvf.lock') ||
+      lower.endsWith('.pem') ||
+      lower.endsWith('.key') ||
+      lower.includes('id_rsa') ||
+      lower.includes('id_ed25519')
+    );
+  });
+}
+
+// Liệt kê modified (chưa staged) files có vẻ nhạy cảm
+export function listModifiedSensitiveFiles(cwd = process.cwd()) {
+  const r = runGit(['diff', '--name-only'], { cwd });
+  if (r.status !== 0) return [];
+  return r.stdout.split('\n').filter(Boolean).filter((f) => {
+    const lower = f.toLowerCase();
+    return (
+      lower.includes('secrets.env') ||
+      lower.includes('.env') ||
+      lower.endsWith('.rvf') ||
+      lower.endsWith('.rvf.lock') ||
+      lower.endsWith('.pem') ||
+      lower.endsWith('.key') ||
+      lower.includes('id_rsa') ||
+      lower.includes('id_ed25519')
+    );
+  });
+}
+
+// Quét secrets trong unstaged diff (file đã track nhưng modified, chưa add)
+export function scanUnstagedForSecrets(cwd = process.cwd()) {
+  const r = runGit(['diff', '--no-color', '--no-ext-diff'], { cwd });
+  if (r.status !== 0) return [];
+
+  const findings = [];
+  let currentFile = null;
+
+  for (const line of r.stdout.split('\n')) {
+    if (line.startsWith('diff --git ')) {
+      const m = line.match(/^diff --git a\/(.+?) b\/.+$/);
+      currentFile = m ? m[1] : null;
+      continue;
+    }
+    if (line.startsWith('+++') || line.startsWith('---') || line.startsWith('@@') || line.startsWith(' ')) continue;
+    if (!line.startsWith('+') || line.startsWith('++')) continue;
+
+    const added = line.slice(1);
+    for (const pattern of SECRET_PATTERNS) {
+      const matches = added.match(pattern);
+      if (matches) {
+        findings.push({
+          file: currentFile ?? 'unknown',
+          pattern: pattern.toString(),
+          sample: matches[0].slice(0, 60) + (matches[0].length > 60 ? '...' : ''),
+        });
+        break;
+      }
+    }
+  }
+
+  return findings;
+}
+
+// Quét secrets trong untracked files (đọc nội dung file trực tiếp)
+export function scanUntrackedForSecrets(cwd = process.cwd()) {
+  const untracked = listUntrackedFiles(cwd);
+  const findings = [];
+
+  for (const f of untracked) {
+    const p = path.join(cwd, f);
+    try {
+      // Bỏ qua binary file hoặc file quá lớn
+      const stat = fs.lstatSync(p);
+      if (!stat.isFile() || stat.size > 1024 * 1024) continue; // skip > 1MB
+
+      const content = fs.readFileSync(p, 'utf8');
+      for (const pattern of SECRET_PATTERNS) {
+        const matches = content.match(pattern);
+        if (matches) {
+          findings.push({
+            file: f,
+            pattern: pattern.toString(),
+            sample: matches[0].slice(0, 60) + (matches[0].length > 60 ? '...' : ''),
+          });
+          break;
+        }
+      }
+    } catch { /* ignore binary/permission errors */ }
+  }
+
+  return findings;
+}
+
+// Git add an toàn: add tất cả file trừ sensitive files, trả về danh sách file đã add
+export function addAllSafe(cwd = process.cwd()) {
+  const status = gitStatus(cwd);
+  const toAdd = [];
+  const skipped = [];
+
+  for (const s of status) {
+    const lower = s.filePath.toLowerCase();
+    const isSensitive =
+      lower.includes('secrets.env') ||
+      (lower.includes('.env') && !lower.includes('.env.example')) ||
+      lower.endsWith('.rvf') ||
+      lower.endsWith('.rvf.lock') ||
+      lower.endsWith('.pem') ||
+      lower.endsWith('.key') ||
+      lower.includes('id_rsa') ||
+      lower.includes('id_ed25519');
+
+    if (isSensitive) {
+      skipped.push(s.filePath);
+      continue;
+    }
+    toAdd.push(s.filePath);
+  }
+
+  if (toAdd.length > 0) {
+    const r = runGit(['add', '--', ...toAdd], { cwd });
+    if (r.status !== 0) {
+      return { added: [], skipped, error: r.stderr };
+    }
+  }
+
+  return { added: toAdd, skipped, error: null };
+}
+
 export function findLargeFiles(cwd = process.cwd(), maxBytes = 100 * 1024 * 1024) {
   const r = runGit(['ls-files'], { cwd });
   if (r.status !== 0) return [];

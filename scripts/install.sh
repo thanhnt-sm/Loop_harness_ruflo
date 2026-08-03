@@ -40,6 +40,8 @@ GLOBAL="${CLAUDE_FLOW_GLOBAL:-0}"
 SETUP_MCP="${CLAUDE_FLOW_SETUP_MCP:-0}"
 RUN_DOCTOR="${CLAUDE_FLOW_DOCTOR:-0}"
 RUN_INIT="${CLAUDE_FLOW_INIT:-1}"
+# CLI đang dùng: 'claude' | 'devin' | 'agy' | 'all' (trống → hỏi)
+CLI_CHOICE="${CLAUDE_FLOW_CLI:-}"
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -79,6 +81,14 @@ while [[ $# -gt 0 ]]; do
             VERSION="${1#*=}"
             shift
             ;;
+        --cli=*)
+            CLI_CHOICE="${1#*=}"
+            shift
+            ;;
+        --cli)
+            CLI_CHOICE="$2"
+            shift 2
+            ;;
         --help|-h)
             echo "Ruflo Installer"
             echo ""
@@ -92,6 +102,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --no-init        Skip project initialization (enabled by default)"
             echo "  --full, -f       Full setup (global + mcp + doctor + init)"
             echo "  --version=X.X.X  Install specific version (default: alpha)"
+            echo "  --cli=NAME       CLI đang dùng: claude | devin | agy | all (default: hỏi)"
             echo "  --help, -h       Show this help"
             exit 0
             ;;
@@ -316,29 +327,142 @@ setup_mcp_server() {
 
     print_step "Setting up MCP server..."
 
-    if ! command -v claude &> /dev/null; then
-        print_warning "Claude CLI not found, skipping MCP setup"
-        return 0
-    fi
-
-    # Check if already configured
-    if claude mcp list 2>/dev/null | grep -q "ruflo\|claude-flow"; then
-        print_substep "MCP server already configured ✓"
-        return 0
-    fi
-
-    # Add MCP server (pass CLAUDE_FLOW_CWD so tools resolve paths correctly
-    # even when the MCP server is spawned with cwd='/')
-    if [ "$GLOBAL" = "1" ]; then
-        claude mcp add ruflo -e CLAUDE_FLOW_CWD="$HOME" -- ruflo mcp start 2>/dev/null && \
-            print_substep "MCP server configured ✓" || \
-            print_warning "MCP setup failed - run manually: claude mcp add ruflo -e CLAUDE_FLOW_CWD=\"\$HOME\" -- ruflo mcp start"
+    # Hỏi human đang dùng CLI nào (nếu chưa truyền qua --cli)
+    if [[ -z "$CLI_CHOICE" ]]; then
+        ask_cli_choice
     else
-        claude mcp add ruflo -e CLAUDE_FLOW_CWD="$HOME" -- npx -y ruflo@${VERSION} mcp start 2>/dev/null && \
-            print_substep "MCP server configured ✓" || \
-            print_warning "MCP setup failed - run manually: claude mcp add ruflo -e CLAUDE_FLOW_CWD=\"\$HOME\" -- npx -y ruflo@latest mcp start"
+        print_substep "CLI (từ --cli): ${BOLD}${CLI_CHOICE}${NC}"
     fi
+
+    # Chuyển lựa chọn thành danh sách CLI cần cấu hình
+    local targets=()
+    case "$CLI_CHOICE" in
+        claude)  targets=(claude) ;;
+        devin)   targets=(devin) ;;
+        agy)     targets=(agy) ;;
+        all|*)   targets=(claude devin agy) ;;
+    esac
+
+    # Cấu hình MCP cho từng CLI
+    for cli in "${targets[@]}"; do
+        setup_mcp_for_cli "$cli"
+    done
     echo ""
+}
+
+# Hỏi human đang dùng CLI nào
+ask_cli_choice() {
+    echo ""
+    echo -e "${CYAN}═══ Bạn đang dùng CLI nào? ═══${NC}"
+    echo "  1. Claude Code        (.claude/)"
+    echo "  2. Devin CLI          (.devin/)"
+    echo "  3. Antigravity CLI    (.agents/)"
+    echo "  4. Tất cả (cả 3 CLI)  ← khuyến nghị nếu dùng nhiều CLI"
+    read -r -p "Nhập số (1-4) [mặc định: 4]: " answer
+    case "$answer" in
+        1) CLI_CHOICE="claude" ;;
+        2) CLI_CHOICE="devin" ;;
+        3) CLI_CHOICE="agy" ;;
+        *) CLI_CHOICE="all" ;;
+    esac
+    print_substep "Đã chọn: ${BOLD}${CLI_CHOICE}${NC}"
+}
+
+# Cấu hình MCP cho một CLI cụ thể
+# $1 = cli ('claude' | 'devin' | 'agy')
+setup_mcp_for_cli() {
+    local cli="$1"
+    local mcp_cmd mcp_args
+
+    if [ "$GLOBAL" = "1" ]; then
+        mcp_cmd="ruflo"
+        mcp_args="mcp start"
+    else
+        mcp_cmd="npx"
+        mcp_args="-y ruflo@${VERSION} mcp start"
+    fi
+
+    case "$cli" in
+        claude)
+            if ! command -v claude &> /dev/null; then
+                print_warning "Claude CLI not found — bỏ qua MCP setup cho Claude"
+                return 0
+            fi
+            # Check if already configured
+            if claude mcp list 2>/dev/null | grep -q "ruflo\|claude-flow"; then
+                print_substep "Claude: MCP server already configured ✓"
+                return 0
+            fi
+            claude mcp add ruflo -e CLAUDE_FLOW_CWD="$HOME" -- $mcp_cmd $mcp_args 2>/dev/null && \
+                print_substep "Claude: MCP server configured ✓" || \
+                print_warning "Claude: MCP setup failed - run manually: claude mcp add ruflo -- $mcp_cmd $mcp_args"
+            ;;
+        devin)
+            # Devin CLI đọc .devin/mcp_config.json
+            local devin_dir="${HOME}/.devin"
+            mkdir -p "$devin_dir"
+            local devin_mcp="${devin_dir}/mcp_config.json"
+            # Dùng path tuyệt đối cho command nếu global, npx nếu không
+            if [ "$GLOBAL" = "1" ]; then
+                cat > "$devin_mcp" <<EOF
+{
+  "mcpServers": {
+    "claude-flow": {
+      "command": "ruflo",
+      "args": ["mcp", "start"],
+      "env": { "CLAUDE_FLOW_CWD": "$HOME" }
+    }
+  }
+}
+EOF
+            else
+                cat > "$devin_mcp" <<EOF
+{
+  "mcpServers": {
+    "claude-flow": {
+      "command": "npx",
+      "args": ["-y", "ruflo@${VERSION}", "mcp", "start"],
+      "env": { "CLAUDE_FLOW_CWD": "$HOME" }
+    }
+  }
+}
+EOF
+            fi
+            print_substep "Devin: MCP config written to ${devin_mcp} ✓"
+            ;;
+        agy)
+            # Antigravity CLI đọc .agents/mcp_config.json
+            local agy_dir="${HOME}/.agents"
+            mkdir -p "$agy_dir"
+            local agy_mcp="${agy_dir}/mcp_config.json"
+            if [ "$GLOBAL" = "1" ]; then
+                cat > "$agy_mcp" <<EOF
+{
+  "mcpServers": {
+    "claude-flow": {
+      "command": "ruflo",
+      "args": ["mcp", "start"],
+      "env": { "CLAUDE_FLOW_CWD": "$HOME" }
+    }
+  }
+}
+EOF
+            else
+                cat > "$agy_mcp" <<EOF
+{
+  "mcpServers": {
+    "claude-flow": {
+      "command": "npx",
+      "args": ["-y", "ruflo@${VERSION}", "mcp", "start"],
+      "env": { "CLAUDE_FLOW_CWD": "$HOME" }
+    }
+  }
+}
+EOF
+            fi
+            print_substep "Antigravity: MCP config written to ${agy_mcp} ✓"
+            ;;
+    esac
 }
 
 run_doctor() {

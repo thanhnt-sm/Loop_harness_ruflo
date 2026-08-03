@@ -3,9 +3,10 @@
  * hlk-git-push.mjs
  * =================
  * Push an toàn: kiểm tra divergence, set upstream, không force.
+ * Hỗ trợ --pull tự động pull --rebase khi behind.
  *
  * Cách dùng:
- *   node HLK/git-tools/hlk-git-push.mjs [--branch main] [--yes]
+ *   node HLK/git-tools/hlk-git-push.mjs [--branch main] [--yes] [--pull]
  */
 
 import { fileURLToPath } from 'node:url';
@@ -28,6 +29,7 @@ const CWD = process.cwd();
 const args = process.argv.slice(2);
 let YES = args.includes('--yes');
 let BRANCH = null;
+let AUTO_PULL = args.includes('--pull');
 
 for (let i = 0; i < args.length; i++) {
   if ((args[i] === '-b' || args[i] === '--branch') && args[i + 1]) {
@@ -97,7 +99,7 @@ async function prePushChecks() {
       if (behind > 0 && ahead > 0) {
         log('error', `Branch diverged: ${behind} behind, ${ahead} ahead so với ${expectedUpstream}.`);
         log('warn', 'Cần pull/merge trước khi push.');
-        if (await ask('Bạn có muốn pull --rebase trước khi push?')) {
+        if (AUTO_PULL || await ask('Pull --rebase trước khi push?')) {
           const pull = runGit(['pull', '--rebase', 'origin', remoteBranch], { cwd: CWD, stdio: 'inherit' });
           if (pull.status !== 0) {
             log('error', 'Pull --rebase thất bại.');
@@ -109,7 +111,7 @@ async function prePushChecks() {
         }
       } else if (behind > 0) {
         log('warn', `${behind} commit behind. Nên pull trước khi push.`);
-        if (await ask('Pull trước khi push?')) {
+        if (AUTO_PULL || await ask('Pull trước khi push?')) {
           const pull = runGit(['pull', '--rebase', 'origin', remoteBranch], { cwd: CWD, stdio: 'inherit' });
           if (pull.status !== 0) {
             log('error', 'Pull thất bại.');

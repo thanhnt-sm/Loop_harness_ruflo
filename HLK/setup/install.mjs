@@ -21,6 +21,14 @@ import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
+// Module dùng chung: hỏi human đang dùng CLI nào + trả paths cấu hình cho CLI đó.
+// Trước đây installer hard-code cho Claude Code, nên Devin/agy không thấy MCP ruflo.
+// Giờ hỏi thẳng human rồi chỉ cấu hình cho CLI đã chọn (hoặc cả 3 nếu chọn 'all').
+import {
+  promptCli, cliTargets, cliConfigDir, cliMcpConfigPath, cliHooksPath,
+  cliSkillsDir, cliDisplayName, ensureCliDirs, hookCommand,
+} from '../wrappers/hlk-cli-select.mjs';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -50,11 +58,24 @@ function askInstallPath() {
   });
 }
 
+// --- Hỏi human đang dùng CLI nào (để cấu hình đúng CLI đó) ---
+function askCliChoice() {
+  return new Promise((resolve) => {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stderr });
+    promptCli(rl).then((choice) => {
+      rl.close();
+      resolve(choice);
+    });
+  });
+}
+
 // --- Parse args: node install.mjs [path] hoặc node install.mjs --path <path> ---
 let USER_PATH = null;
+let CLI_CHOICE = null; // 'claude' | 'devin' | 'agy' | 'all' | null (chưa set → hỏi)
 const rawArgs = process.argv.slice(2);
 for (let i = 0; i < rawArgs.length; i++) {
   if (rawArgs[i] === '--path' && rawArgs[i + 1]) { USER_PATH = rawArgs[i + 1]; i++; }
+  else if (rawArgs[i] === '--cli' && rawArgs[i + 1]) { CLI_CHOICE = rawArgs[i + 1]; i++; }
   else if (rawArgs[i] === '--yes') { /* skip confirm */ }
   else if (!rawArgs[i].startsWith('--')) { USER_PATH = rawArgs[i]; }
 }
@@ -95,6 +116,15 @@ async function main() {
     WORKSPACE_ROOT = path.resolve(await askInstallPath());
     log('info', `Path cài: ${WORKSPACE_ROOT}`);
   }
+
+  // Hỏi human đang dùng CLI nào (nếu chưa truyền qua --cli)
+  if (!CLI_CHOICE) {
+    CLI_CHOICE = await askCliChoice();
+  } else {
+    log('info', `CLI (từ --cli): ${CLI_CHOICE}`);
+  }
+  const targets = cliTargets(CLI_CHOICE);
+  log('info', `Sẽ cấu hình cho: ${targets.map(cliDisplayName).join(', ')}`);
 
   // Tạo thư mục nếu chưa có
   if (!fs.existsSync(WORKSPACE_ROOT)) {
@@ -262,52 +292,126 @@ async function main() {
   }
 
   // ============================================================================
-  // Bước 4: Patch .claude/settings.json
+  // Bước 4: Patch cấu hình MCP + hooks cho từng CLI đã chọn
+  // ----------------------------------------------------------------------------
+  // Trước đây chỉ patch .claude/settings.json (Claude Code), nên Devin CLI và
+  // Antigravity không thấy MCP server của ruflo → ruflo không nhận diện CLI.
+  // Giờ lặp qua từng CLI trong targets và ghi đúng file cấu hình của CLI đó:
+  //   - claude: .claude/settings.json  (mcpServers + hooks cùng file)
+  //   - devin:  .devin/mcp_config.json (mcpServers) + .devin/hooks.v1.json (hooks)
+  //   - agy:    .agents/mcp_config.json (mcpServers) — agy không có file hooks
+  // Hook command dùng hookCommand() trung tính (không phụ thuộc $CLAUDE_PROJECT_DIR).
   // ============================================================================
 
-  const HLK_PRETOOLUSE_HOOK = {
-    hooks: [{ type: 'command', command: 'node "$CLAUDE_PROJECT_DIR/HLK/wrappers/hlk-hook-bridge.mjs"', timeout: 5000 }],
-  };
+  // Entry MCP server chung cho cả 3 CLI — gọi HLK wrapper ruflo-hlk-mcp.mjs
+  const HLK_MCP_SERVER = { command: 'node', args: ['HLK/wrappers/ruflo-hlk-mcp.mjs', 'mcp', 'start'] };
 
-  function patchSettings() {
-    log('info', 'Bước 4: Patch .claude/settings.json...');
+  // Đọc file JSON an toàn; nếu chưa có hoặc lỗi parse thì trả object rỗng
+  function readJsonSafe(filePath, fallback = {}) {
+    if (!fs.existsSync(filePath)) return { ...fallback };
+    try { return JSON.parse(fs.readFileSync(filePath, 'utf8')); }
+    catch { log('warn', `Lỗi parse ${filePath} — ghi đè.`); return { ...fallback }; }
+  }
 
-    const claudeDir = path.join(WORKSPACE_ROOT, '.claude');
-    const settingsPath = path.join(claudeDir, 'settings.json');
+  // Ghi JSON đẹp 2 space + newline cuối
+  function writeJsonPretty(filePath, obj) {
+    fs.writeFileSync(filePath, JSON.stringify(obj, null, 2) + '\n', 'utf8');
+  }
 
-    if (!fs.existsSync(settingsPath)) {
-      log('warn', 'Không tìm thấy .claude/settings.json — tạo mới tối thiểu.');
-      fs.mkdirSync(claudeDir, { recursive: true });
-      fs.writeFileSync(settingsPath, '{}\n', 'utf8');
-    }
+  // Patch cho Claude Code: .claude/settings.json (mcpServers + hooks cùng file)
+  function patchClaudeSettings() {
+    log('info', `Bước 4: Patch ${cliDisplayName('claude')} (.claude/settings.json)...`);
+    ensureCliDirs(WORKSPACE_ROOT, 'claude');
+    const settingsPath = cliMcpConfigPath(WORKSPACE_ROOT, 'claude');
+    const settings = readJsonSafe(settingsPath);
 
-    let settings;
-    try { settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8')); }
-    catch (err) { log('error', `Lỗi parse settings.json: ${err.message}`); process.exit(1); }
-
+    // Hooks: PreToolUse dùng hookCommand() trung tính
     if (!settings.hooks) settings.hooks = {};
     if (!Array.isArray(settings.hooks.PreToolUse)) settings.hooks.PreToolUse = [];
-
-    const hasHlk = settings.hooks.PreToolUse.some((e) => e.hooks?.some((h) => h.command?.includes('hlk-hook-bridge.mjs')));
+    const hasHlk = settings.hooks.PreToolUse.some((e) => e.hooks?.some((h) => h.command?.includes('hlk-hook-launcher.mjs')));
     if (!hasHlk) {
-      settings.hooks.PreToolUse.unshift(HLK_PRETOOLUSE_HOOK);
-      log('success', 'Đã thêm HLK PreToolUse hook');
+      settings.hooks.PreToolUse.unshift({ hooks: [hookCommand()] });
+      log('success', 'Đã thêm HLK PreToolUse hook (launcher trung tính)');
     } else {
       log('info', 'HLK PreToolUse hook đã có');
     }
 
+    // MCP server
     if (!settings.mcpServers) settings.mcpServers = {};
-    const cur = settings.mcpServers['claude-flow'];
-    const usesHlk = cur?.args?.some((a) => typeof a === 'string' && a.includes('ruflo-hlk-mcp'));
+    const usesHlk = settings.mcpServers['claude-flow']?.args?.some((a) => typeof a === 'string' && a.includes('ruflo-hlk-mcp'));
     if (!usesHlk) {
-      settings.mcpServers['claude-flow'] = { command: 'node', args: ['HLK/wrappers/ruflo-hlk-mcp.mjs', 'mcp', 'start'] };
+      settings.mcpServers['claude-flow'] = { ...HLK_MCP_SERVER };
       log('success', 'Đã cập nhật MCP wrapper dùng HLK');
     } else {
       log('info', 'MCP server đã dùng HLK wrapper');
     }
 
-    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n', 'utf8');
-    log('success', 'Đã ghi .claude/settings.json');
+    writeJsonPretty(settingsPath, settings);
+    log('success', `Đã ghi ${settingsPath}`);
+  }
+
+  // Patch cho Devin CLI: .devin/mcp_config.json (chỉ mcpServers) + .devin/hooks.v1.json (PreToolUse)
+  function patchDevinSettings() {
+    log('info', `Bước 4: Patch ${cliDisplayName('devin')} (.devin/mcp_config.json + hooks.v1.json)...`);
+    ensureCliDirs(WORKSPACE_ROOT, 'devin');
+
+    // MCP config — chỉ chứa mcpServers, không hooks
+    const mcpPath = cliMcpConfigPath(WORKSPACE_ROOT, 'devin');
+    const mcpConfig = readJsonSafe(mcpPath);
+    if (!mcpConfig.mcpServers) mcpConfig.mcpServers = {};
+    const usesHlk = mcpConfig.mcpServers['claude-flow']?.args?.some((a) => typeof a === 'string' && a.includes('ruflo-hlk-mcp'));
+    if (!usesHlk) {
+      mcpConfig.mcpServers['claude-flow'] = { ...HLK_MCP_SERVER };
+      log('success', 'Đã cập nhật MCP wrapper dùng HLK');
+    } else {
+      log('info', 'MCP server đã dùng HLK wrapper');
+    }
+    writeJsonPretty(mcpPath, mcpConfig);
+    log('success', `Đã ghi ${mcpPath}`);
+
+    // Hooks config — PreToolUse dùng hookCommand() trung tính
+    const hooksPath = cliHooksPath(WORKSPACE_ROOT, 'devin');
+    const hooksConfig = readJsonSafe(hooksPath);
+    if (!hooksConfig.hooks) hooksConfig.hooks = {};
+    if (!Array.isArray(hooksConfig.hooks.PreToolUse)) hooksConfig.hooks.PreToolUse = [];
+    const hasHlk = hooksConfig.hooks.PreToolUse.some((e) => e.hooks?.some((h) => h.command?.includes('hlk-hook-launcher.mjs')));
+    if (!hasHlk) {
+      hooksConfig.hooks.PreToolUse.unshift({ hooks: [hookCommand()] });
+      log('success', 'Đã thêm HLK PreToolUse hook (launcher trung tính)');
+    } else {
+      log('info', 'HLK PreToolUse hook đã có');
+    }
+    writeJsonPretty(hooksPath, hooksConfig);
+    log('success', `Đã ghi ${hooksPath}`);
+  }
+
+  // Patch cho Antigravity: .agents/mcp_config.json (chỉ mcpServers) — agy không có file hooks
+  function patchAgySettings() {
+    log('info', `Bước 4: Patch ${cliDisplayName('agy')} (.agents/mcp_config.json)...`);
+    ensureCliDirs(WORKSPACE_ROOT, 'agy');
+
+    const mcpPath = cliMcpConfigPath(WORKSPACE_ROOT, 'agy');
+    const mcpConfig = readJsonSafe(mcpPath);
+    if (!mcpConfig.mcpServers) mcpConfig.mcpServers = {};
+    const usesHlk = mcpConfig.mcpServers['claude-flow']?.args?.some((a) => typeof a === 'string' && a.includes('ruflo-hlk-mcp'));
+    if (!usesHlk) {
+      mcpConfig.mcpServers['claude-flow'] = { ...HLK_MCP_SERVER };
+      log('success', 'Đã cập nhật MCP wrapper dùng HLK');
+    } else {
+      log('info', 'MCP server đã dùng HLK wrapper');
+    }
+    writeJsonPretty(mcpPath, mcpConfig);
+    log('success', `Đã ghi ${mcpPath}`);
+  }
+
+  // Lặp qua từng CLI trong targets và patch đúng file cấu hình cho CLI đó
+  function patchCliSettingsAll(targets) {
+    for (const cli of targets) {
+      if (cli === 'claude') patchClaudeSettings();
+      else if (cli === 'devin') patchDevinSettings();
+      else if (cli === 'agy') patchAgySettings();
+      else log('warn', `CLI không hỗ trợ: ${cli} — bỏ qua`);
+    }
   }
 
   // ============================================================================
@@ -372,24 +476,29 @@ async function main() {
   // Bước 7: Copy skills HLK
   // ============================================================================
 
-  function copySkills() {
+  // Copy skills HLK sang thư mục skills của từng CLI đã chọn.
+  // Trước đây hard-code .claude/skills/ và .devin/skills/, nên Antigravity (.agents/skills/) bị bỏ sót.
+  // Giờ dùng cliSkillsDir(ws, cli) cho mỗi CLI trong targets (bao gồm .agents/skills/ cho agy).
+  function copySkillsAll(targets) {
     log('info', 'Bước 7: Copy skills HLK...');
     const skillsSrc = path.join(HLK_TARGET_DIR, 'skills');
     if (!fs.existsSync(skillsSrc)) { log('warn', 'Không tìm thấy HLK/skills/ — bỏ qua'); return; }
 
-    const claudeSkills = path.join(WORKSPACE_ROOT, '.claude', 'skills');
-    fs.mkdirSync(claudeSkills, { recursive: true });
-    const devinSkills = path.join(WORKSPACE_ROOT, '.devin', 'skills');
-    fs.mkdirSync(devinSkills, { recursive: true });
+    // Đảm bảo thư mục skills của từng CLI tồn tại
+    for (const cli of targets) {
+      ensureCliDirs(WORKSPACE_ROOT, cli);
+    }
 
     for (const entry of fs.readdirSync(skillsSrc, { withFileTypes: true })) {
       if (!entry.isDirectory() || !entry.name.startsWith('hlk-')) continue;
       const src = path.join(skillsSrc, entry.name);
-      copyRecursive(src, path.join(claudeSkills, entry.name));
-      copyRecursive(src, path.join(devinSkills, entry.name));
-      log('info', `  Đã copy skill ${entry.name}`);
+      for (const cli of targets) {
+        const dst = path.join(cliSkillsDir(WORKSPACE_ROOT, cli), entry.name);
+        copyRecursive(src, dst);
+      }
+      log('info', `  Đã copy skill ${entry.name} → ${targets.map(cliDisplayName).join(', ')}`);
     }
-    log('success', 'Đã copy skills sang .claude/skills/ và .devin/skills/');
+    log('success', `Đã copy skills sang: ${targets.map((c) => cliSkillsDir(WORKSPACE_ROOT, c)).join(', ')}`);
   }
 
   // ============================================================================
@@ -470,10 +579,10 @@ async function main() {
   try {
     installRuflo();
     copyHlk();
-    patchSettings();
+    patchCliSettingsAll(targets);
     patchGitAttributes();
     patchGitIgnore();
-    copySkills();
+    copySkillsAll(targets);
     installGitHooks();
     createSecrets();
     runVerify();

@@ -3,12 +3,14 @@
  * hlk-git-commit.mjs
  * ==================
  * Commit an toàn: kiểm tra secrets, file nhạy cảm, trống, rồi mới commit.
+ * Hỗ trợ --add để tự động git add các file mới/modifed (bỏ qua sensitive).
  *
  * Cách dùng:
  *   node HLK/git-tools/hlk-git-commit.mjs [options]
  *
  * Options:
  *   -m, --message "msg"   Commit message.
+ *   -a, --add             Tự động git add tất cả file (bỏ qua sensitive).
  *   --yes                 Không hỏi xác nhận.
  *   --no-verify           Bỏ qua kiểm tra (KHÔNG khuyến nghị).
  */
@@ -25,6 +27,9 @@ import {
   gitStatus,
   listStagedSensitiveFiles,
   scanFilesForSecrets,
+  scanUnstagedForSecrets,
+  scanUntrackedForSecrets,
+  addAllSafe,
   findLargeFiles,
   prompt,
 } from './lib/hlk-git-lib.mjs';
@@ -37,6 +42,7 @@ const args = process.argv.slice(2);
 let MESSAGE = null;
 let YES = args.includes('--yes');
 let NO_VERIFY = args.includes('--no-verify');
+let AUTO_ADD = args.includes('--add') || args.includes('-a');
 
 for (let i = 0; i < args.length; i++) {
   if ((args[i] === '-m' || args[i] === '--message') && args[i + 1]) {
@@ -83,11 +89,56 @@ async function preCommitChecks() {
   }
   log('info', `Branch: ${branch}`);
 
+  // 2b. Nếu --add: quét secrets TRƯỚC khi add, rồi add an toàn (bỏ qua sensitive)
+  if (AUTO_ADD) {
+    log('info', '--add: quét secrets trong file chưa staged/untracked...');
+
+    // Quét unstaged modified files
+    const unstagedSecrets = scanUnstagedForSecrets(CWD);
+    for (const f of unstagedSecrets) {
+      errors.push(`Phát hiện secret trong ${f.file} (chưa staged): ${f.sample}`);
+      log('error', `Phát hiện secret trong ${f.file} (chưa staged): ${f.sample}`);
+    }
+
+    // Quét untracked files
+    const untrackedSecrets = scanUntrackedForSecrets(CWD);
+    for (const f of untrackedSecrets) {
+      errors.push(`Phát hiện secret trong ${f.file} (untracked): ${f.sample}`);
+      log('error', `Phát hiện secret trong ${f.file} (untracked): ${f.sample}`);
+    }
+
+    if (errors.length > 0 && !NO_VERIFY) {
+      log('error', `Tìm thấy ${errors.length} secret. Không add. Commit bị hủy.`);
+      process.exit(1);
+    }
+
+    // Add an toàn — bỏ qua sensitive files
+    log('info', '--add: git add tất cả file (bỏ qua sensitive)...');
+    const addResult = addAllSafe(CWD);
+    if (addResult.error) {
+      log('error', `git add thất bại: ${addResult.error}`);
+      process.exit(1);
+    }
+    if (addResult.added.length > 0) {
+      log('success', `Đã add ${addResult.added.length} file.`);
+      for (const f of addResult.added) {
+        log('info', `  + ${f}`);
+      }
+    }
+    if (addResult.skipped.length > 0) {
+      log('warn', `Đã bỏ qua ${addResult.skipped.length} file nhạy cảm:`);
+      for (const f of addResult.skipped) {
+        log('warn', `  ! ${f}`);
+      }
+    }
+  }
+
   // 3. Kiểm tra staged files
   const status = gitStatus(CWD);
   const staged = status.filter((s) => s.status[0] !== ' ' && s.status[0] !== '?');
   if (staged.length === 0) {
     log('warn', 'Không có file nào staged. Không có gì để commit.');
+    log('info', 'Mẹo: dùng --add để tự động git add các file mới/modifed.');
     process.exit(0);
   }
 

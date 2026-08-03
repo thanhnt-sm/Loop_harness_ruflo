@@ -15,10 +15,10 @@
 #   1. Dùng HLK từ source local (đã clone repo) hoặc tải từ GitHub
 #   2. Cài Ruflo từ npm registry (npx ruflo@latest init) nếu chưa có
 #   3. Copy HLK vào <path>/HLK/ của workspace user chỉ định
-#   4. Patch .claude/settings.json (PreToolUse hook, MCP wrapper)
+#   4. Hỏi CLI đang dùng, patch cấu hình MCP + hook cho CLI đó
 #   5. Patch .gitattributes (merge=ours)
 #   6. Patch .gitignore (bảo vệ secrets, *.rvf, .env)
-#   7. Copy skills HLK sang .claude/skills/ và .devin/skills/
+#   7. Copy skills HLK sang thư mục skills của CLI đã chọn
 #   8. Cài .githooks/post-merge (tự verify HLK sau pull/merge)
 #   9. Run HLK integrity verify
 #
@@ -238,62 +238,152 @@ copy_hlk() {
 }
 
 # ============================================================================
-# Bước 4: Patch .claude/settings.json
+# Bước 3.5: Hỏi human đang dùng CLI nào
 # ============================================================================
 
-patch_settings() {
-  log_info "Bước 4: Patch .claude/settings.json..."
+ask_cli_choice() {
+  echo ""
+  echo "═══ Bạn đang dùng CLI nào? ═══"
+  echo "  1. Claude Code        (.claude/)"
+  echo "  2. Devin CLI          (.devin/)"
+  echo "  3. Antigravity CLI    (.agents/)"
+  echo "  4. Tất cả (cả 3 CLI)  ← khuyến nghị nếu dùng nhiều CLI"
+  echo -n "Nhập số (1-4) [mặc định: 4]: "
+  read -r CLI_ANSWER
+  CLI_ANSWER="${CLI_ANSWER:-4}"
 
-  local settings_path="${WORKSPACE_ROOT}/.claude/settings.json"
-  if [[ ! -f "${settings_path}" ]]; then
-    log_warn "Không tìm thấy .claude/settings.json — bỏ qua patch."
-    return
-  fi
+  case "${CLI_ANSWER}" in
+    1|claude|c)  CLI_CHOICE="claude" ;;
+    2|devin|d)   CLI_CHOICE="devin" ;;
+    3|agy|a)     CLI_CHOICE="agy" ;;
+    4|all)       CLI_CHOICE="all" ;;
+    *)           CLI_CHOICE="all" ;;
+  esac
 
-  # Dùng node để patch JSON an toàn
-  node -e "
-    const fs = require('fs');
-    const path = '${settings_path}'.replace(/\\\\/g, '/');
-    let s;
-    try { s = JSON.parse(fs.readFileSync(path, 'utf8')); }
-    catch (e) { console.error('❌ Lỗi parse settings.json:', e.message); process.exit(1); }
+  log_info "Đã chọn CLI: ${CLI_CHOICE}"
+}
 
-    // 1. Thêm HLK PreToolUse hook nếu chưa có
-    if (!s.hooks) s.hooks = {};
-    if (!Array.isArray(s.hooks.PreToolUse)) s.hooks.PreToolUse = [];
-    const hasHlk = s.hooks.PreToolUse.some(e =>
-      e.hooks?.some(h => h.command?.includes('hlk-hook-bridge.mjs'))
-    );
-    if (!hasHlk) {
-      s.hooks.PreToolUse.unshift({
-        hooks: [{
-          type: 'command',
-          command: 'node \"\$CLAUDE_PROJECT_DIR/HLK/wrappers/hlk-hook-bridge.mjs\"',
-          timeout: 5000
-        }]
-      });
-      console.log('✅ Đã thêm HLK PreToolUse hook');
-    } else {
-      console.log('ℹ️  HLK PreToolUse hook đã có');
+# ============================================================================
+# Bước 4: Patch cấu hình MCP + hook cho CLI đã chọn
+# ----------------------------------------------------------------------------
+# Lặp qua từng CLI (claude/devin/agy) và ghi file cấu hình tương ứng:
+#   - claude: .claude/settings.json (hooks + mcpServers cùng file)
+#   - devin:  .devin/mcp_config.json (MCP) + .devin/hooks.v1.json (hooks)
+#   - agy:    .agents/mcp_config.json (chỉ MCP, không hooks)
+# Hook command dùng hlk-hook-launcher.mjs (path tương đối, trung tính CLI)
+# ============================================================================
+
+patch_cli_settings() {
+  log_info "Bước 4: Patch cấu hình CLI (${CLI_CHOICE})..."
+
+  local hlk_select="${HLK_TARGET_DIR}/wrappers/hlk-cli-select.mjs"
+
+  # Truyền path qua env var để tránh escape phức tạp trong shell
+  WS="${WORKSPACE_ROOT}" \
+  HLK_SELECT="${hlk_select}" \
+  CLI_CHOICE="${CLI_CHOICE}" \
+  node --input-type=module -e '
+    import { pathToFileURL } from "node:url";
+    import fs from "node:fs";
+
+    const ws = process.env.WS;
+    const selectPath = process.env.HLK_SELECT;
+    const choice = process.env.CLI_CHOICE;
+
+    // Import module dùng chung hlk-cli-select.mjs
+    const mod = await import(pathToFileURL(selectPath).href);
+    const { cliTargets, cliMcpConfigPath, cliHooksPath, ensureCliDirs, hookCommand, CLI_INFO } = mod;
+
+    const targets = cliTargets(choice);
+
+    // Hook command trung tính — dùng hlk-hook-launcher.mjs (path tương đối)
+    const hookCmd = hookCommand(5000);
+
+    // MCP server config dùng HLK wrapper
+    const mcpConfig = {
+      command: "node",
+      args: ["HLK/wrappers/ruflo-hlk-mcp.mjs", "mcp", "start"]
+    };
+
+    for (const cli of targets) {
+      console.log("--- Patching " + CLI_INFO[cli].displayName + " ---");
+      ensureCliDirs(ws, cli);
+
+      const mcpPath = cliMcpConfigPath(ws, cli);
+      const hooksPath = cliHooksPath(ws, cli);
+
+      if (cli === "claude") {
+        // Claude Code: cả hooks + mcpServers trong cùng settings.json
+        let s = {};
+        try { s = JSON.parse(fs.readFileSync(mcpPath, "utf8")); } catch { s = {}; }
+
+        // Thêm PreToolUse hook (dùng launcher trung tính)
+        if (!s.hooks) s.hooks = {};
+        if (!Array.isArray(s.hooks.PreToolUse)) s.hooks.PreToolUse = [];
+        const hasHlk = s.hooks.PreToolUse.some(e =>
+          e.hooks?.some(h => h.command?.includes("hlk-hook"))
+        );
+        if (!hasHlk) {
+          s.hooks.PreToolUse.unshift({ hooks: [hookCmd] });
+          console.log("  ✅ Đã thêm HLK PreToolUse hook");
+        } else {
+          // Cập nhật hook command cũ sang launcher trung tính
+          for (const entry of s.hooks.PreToolUse) {
+            if (entry.hooks) for (const h of entry.hooks) {
+              if (h.command?.includes("hlk-hook-bridge")) h.command = hookCmd.command;
+            }
+          }
+          console.log("  ℹ️  Đã cập nhật HLK hook sang launcher trung tính");
+        }
+
+        // Cập nhật MCP server
+        if (!s.mcpServers) s.mcpServers = {};
+        s.mcpServers["claude-flow"] = mcpConfig;
+
+        fs.writeFileSync(mcpPath, JSON.stringify(s, null, 2) + "\n", "utf8");
+        console.log("  ✅ Đã ghi " + mcpPath);
+
+      } else if (cli === "devin") {
+        // Devin CLI: MCP riêng (mcp_config.json) + hooks riêng (hooks.v1.json)
+        let mcp = {};
+        try { mcp = JSON.parse(fs.readFileSync(mcpPath, "utf8")); } catch { mcp = {}; }
+        if (!mcp.mcpServers) mcp.mcpServers = {};
+        mcp.mcpServers["claude-flow"] = mcpConfig;
+        fs.writeFileSync(mcpPath, JSON.stringify(mcp, null, 2) + "\n", "utf8");
+        console.log("  ✅ Đã ghi " + mcpPath);
+
+        if (hooksPath) {
+          let hooks = {};
+          try { hooks = JSON.parse(fs.readFileSync(hooksPath, "utf8")); } catch { hooks = {}; }
+          if (!Array.isArray(hooks.PreToolUse)) hooks.PreToolUse = [];
+          const hasHlk = hooks.PreToolUse.some(e =>
+            e.hooks?.some(h => h.command?.includes("hlk-hook"))
+          );
+          if (!hasHlk) {
+            hooks.PreToolUse.unshift({ hooks: [hookCmd] });
+          } else {
+            for (const entry of hooks.PreToolUse) {
+              if (entry.hooks) for (const h of entry.hooks) {
+                if (h.command?.includes("hlk-hook-bridge")) h.command = hookCmd.command;
+              }
+            }
+          }
+          fs.writeFileSync(hooksPath, JSON.stringify(hooks, null, 2) + "\n", "utf8");
+          console.log("  ✅ Đã ghi " + hooksPath);
+        }
+
+      } else if (cli === "agy") {
+        // Antigravity: chỉ MCP (mcp_config.json), không có hooks riêng
+        let mcp = {};
+        try { mcp = JSON.parse(fs.readFileSync(mcpPath, "utf8")); } catch { mcp = {}; }
+        if (!mcp.mcpServers) mcp.mcpServers = {};
+        mcp.mcpServers["claude-flow"] = mcpConfig;
+        fs.writeFileSync(mcpPath, JSON.stringify(mcp, null, 2) + "\n", "utf8");
+        console.log("  ✅ Đã ghi " + mcpPath);
+      }
     }
-
-    // 2. Cập nhật MCP server dùng HLK wrapper
-    if (!s.mcpServers) s.mcpServers = {};
-    const cur = s.mcpServers['claude-flow'];
-    const usesHlk = cur?.args?.some(a => typeof a === 'string' && a.includes('ruflo-hlk-mcp'));
-    if (!usesHlk) {
-      s.mcpServers['claude-flow'] = {
-        command: 'node',
-        args: ['HLK/wrappers/ruflo-hlk-mcp.mjs', 'mcp', 'start']
-      };
-      console.log('✅ Đã cập nhật MCP wrapper dùng HLK');
-    } else {
-      console.log('ℹ️  MCP server đã dùng HLK wrapper');
-    }
-
-    fs.writeFileSync(path, JSON.stringify(s, null, 2) + '\n', 'utf8');
-    console.log('✅ Đã ghi .claude/settings.json');
-  "
+    console.log("✅ Đã patch cấu hình cho " + targets.length + " CLI");
+  '
 }
 
 # ============================================================================
@@ -409,6 +499,13 @@ copy_skills() {
   local devin_skills="${WORKSPACE_ROOT}/.devin/skills"
   mkdir -p "${devin_skills}"
 
+  # Copy sang .agents/skills/ nếu chọn agy hoặc all
+  local agy_skills=""
+  if [[ "${CLI_CHOICE}" == "agy" ]] || [[ "${CLI_CHOICE}" == "all" ]]; then
+    agy_skills="${WORKSPACE_ROOT}/.agents/skills"
+    mkdir -p "${agy_skills}"
+  fi
+
   for skill_dir in "${skills_src}"/hlk-*; do
     [[ -d "${skill_dir}" ]] || continue
     local name
@@ -416,10 +513,13 @@ copy_skills() {
 
     cp -r "${skill_dir}" "${claude_skills}/${name}"
     cp -r "${skill_dir}" "${devin_skills}/${name}"
+    if [[ -n "${agy_skills}" ]]; then
+      cp -r "${skill_dir}" "${agy_skills}/${name}"
+    fi
     log_info "  Đã copy skill ${name}"
   done
 
-  log_ok "Đã copy skills sang .claude/skills/ và .devin/skills/"
+  log_ok "Đã copy skills sang thư mục CLI đã chọn"
 }
 
 # ============================================================================
@@ -516,8 +616,9 @@ trap cleanup EXIT
 
 download_hlk
 install_ruflo
+ask_cli_choice
 copy_hlk
-patch_settings
+patch_cli_settings
 patch_gitattributes
 patch_gitignore
 copy_skills
@@ -531,7 +632,7 @@ echo ""
 log_info "Các bước tiếp theo:"
 log_info "  1. Mở HLK/config/secrets.env và điền API keys / tokens thật."
 log_info "  2. Khởi động lại Claude Code để MCP server dùng HLK wrapper."
-log_info "  3. Test: node HLK/wrappers/hlk-hook-bridge.mjs < test-secret.json"
+log_info "  3. Test: node HLK/wrappers/hlk-hook-launcher.mjs < test-secret.json"
 log_info "  4. Đọc HLK/docs/01-tong-quan-va-kien-truc.md để tìm hiểu thêm."
 echo ""
 log_info "Pull update từ upstream ruflo + reinstall HLK:"

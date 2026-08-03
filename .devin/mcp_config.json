@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "claude-flow": {
+      "command": "node",
+      "args": [
+        "HLK/wrappers/ruflo-hlk-mcp.mjs",
+        "mcp",
+        "start"
+      ]
+    }
+  }
+}
