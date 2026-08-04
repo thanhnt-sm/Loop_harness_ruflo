@@ -33,8 +33,7 @@ Steps 1-12. Includes GoalSpec but skips deep-memory, large-repo init, gap-scan.
 
 1-8. **Same as Tier S** (above).
 
-9. **Pre-task / crash audit** — run `python .devin/scripts/pre_task_audit.py --files <files> --tags <tags> --session <session_id>`:
-   - **U13 inline**: If in same Python process, use `from pre_task_audit import run_inline; run_inline(root, files, tags, session_id)` instead of subprocess (saves 400-700ms).
+9. **Pre-task / crash audit** — preferred: `from pre_task_audit import run_inline; run_inline(root, files, tags, session_id)` (U13 inline, saves ~200ms). Fallback subprocess: `python .devin/scripts/pre_task_audit.py --files <files> --tags <tags> --session <session_id>`.
    - Compares `last_heartbeat`, `last_state_write`, `owned_files`, `tags` against new task.
    - If stale (>30 min), mark `suspected_crashed`.
    - If overlap, ask human. **Never auto-resume.**
@@ -55,7 +54,7 @@ Steps 1-12. Includes GoalSpec but skips deep-memory, large-repo init, gap-scan.
     estimated_iterations: N
     ```
     JSON must include `status: in_progress`, `state_written: false`, `last_state_write`, `last_heartbeat`, `owned_files`, `affected_files`, `tags`.
-11. **Update registry** — append session to `.devin/loop_state.md`, set `active_session`. Call `python .devin/scripts/loop_memory_sync.py` or **U13 inline**: `from loop_memory_sync import run_inline; run_inline(root, session_id, status)` (saves 400-700ms).
+11. **Update registry** — append session to `.devin/loop_state.md`, set `active_session`. Preferred: `from loop_memory_sync import run_inline; ok, err = run_inline(root, session_id, status)` (U13 inline, saves ~200ms). Fallback subprocess: `python .devin/scripts/loop_memory_sync.py`.
 12. **Start work** — GoalSpec done, work begins.
 
 ---

@@ -20,7 +20,7 @@ from pathlib import Path
 try:
     import ahd_session
 except ImportError:  # pragma: no cover
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core" / "assets" / "runtime" / "hooks"))
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "hooks"))
     import ahd_session
 
 try:
@@ -149,9 +149,18 @@ def run_inline(root: Path, files: str = "", tags: str = "", session_id: str = ""
         if not result["ok"]:
             # handle conflicts
     """
-    new_files = [f.strip() for f in files.split(",") if f.strip()]
-    new_tags = [t.strip() for t in tags.split(",") if t.strip()]
-    return audit(root, new_files, new_tags, session_id)
+    try:
+        new_files = [f.strip() for f in files.split(",") if f.strip()]
+        new_tags = [t.strip() for t in tags.split(",") if t.strip()]
+        return audit(root, new_files, new_tags, session_id)
+    except Exception as e:
+        return {
+            "ok": False,
+            "error": str(e),
+            "active_sessions_count": 0,
+            "max_active_sessions": MAX_ACTIVE_SESSIONS,
+            "conflicts": [],
+        }
 
 
 def main() -> int:

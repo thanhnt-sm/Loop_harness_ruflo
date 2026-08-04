@@ -17,6 +17,7 @@ import json
 import re
 import shutil
 import sys
+import threading
 import traceback
 from datetime import datetime, timezone
 from pathlib import Path
@@ -24,7 +25,7 @@ from pathlib import Path
 try:
     import ahd_session
 except ImportError:  # pragma: no cover
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core" / "assets" / "runtime" / "hooks"))
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "hooks"))
     import ahd_session
 
 MAX_REGISTRY_COMPLETED = 3
@@ -437,25 +438,30 @@ def regenerate(root: Path, session_id: str = "", status: str = "") -> None:
     _cleanup_loop_state_dir(root, status_map)
 
 
-def run_inline(root: Path, session_id: str = "", status: str = "") -> bool:
+_inline_lock = threading.Lock()
+
+
+def run_inline(root: Path, session_id: str = "", status: str = "") -> tuple[bool, str]:
     """U13: Inline call interface — import and call directly, no subprocess.
 
-    Returns True on success, False on failure (fallback written).
-    Use this instead of:
+    Returns (success, error_message). Use this instead of:
         subprocess.run(["python", ".devin/scripts/loop_memory_sync.py", ...])
 
     Example:
         from loop_memory_sync import run_inline
-        ok = run_inline(root, session_id="s-123", status="in_progress")
+        ok, err = run_inline(root, session_id="s-123", status="in_progress")
         if not ok:
             # fallback was written, check loop_state_fallback.md
+            print(f"Failed: {err}")
     """
-    try:
-        _safe_regenerate(root, session_id, status)
-        return True
-    except Exception as e:
-        print(f"[loop_memory_sync] ERROR: {e}", file=sys.stderr)
-        return False
+    with _inline_lock:
+        try:
+            _safe_regenerate(root, session_id, status)
+            return True, ""
+        except Exception as e:
+            error_msg = f"{e}"
+            print(f"[loop_memory_sync] ERROR: {error_msg}", file=sys.stderr)
+            return False, error_msg
 
 
 def main() -> int:
