@@ -148,6 +148,10 @@ Output final report theo format:
 - Lint: ✓/✗
 - Tests: ✓/✗ (count pass/fail)
 - Claim grades: N fact, N inference, N unverified
+- Cross-family verification (U10, mandatory L/XL):
+  - Producer model: <family>
+  - Verifier model: <family> (must differ from producer for L/XL)
+  - Method: <fresh-context | CLI gate | test suite>
 
 ## Subagents dispatched
 - SCOUT: (findings summary)

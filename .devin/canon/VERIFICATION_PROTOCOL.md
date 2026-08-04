@@ -86,6 +86,42 @@ For genuinely high-risk judgments (security, architecture, irreversible changes)
 3. If they agree → high confidence. Integrate and proceed (or escalate if both say FAIL).
 4. If they disagree → the disagreement itself is the finding. Escalate to human with both verdicts and the diff.
 Cross-family debate catches family-blind spots (a Claude-only panel misses Claude biases; mixing Claude + GPT + Gemini triangulates).
+
+## U10: Cross-family verification enforcement (L/XL tasks)
+
+> Source: arXiv 2306.05685 (LLM-as-judge self-preference); arXiv 2404.13076 (familiarity bias).
+> Same-family "fresh context" verification is NOT sufficient for L/XL tasks.
+
+### Rule (mandatory for L/XL, recommended for M)
+
+For **L and XL tasks**, verification MUST include at least one of:
+1. **Cross-family verifier** — a verifier from a different model family than the producer
+   (e.g., if producer is GLM-5.2, verifier should be SWE-1.7 Lightning or Claude).
+2. **Strong anchor** — deterministic verification (verify.py, test suite, CLI gate) that
+   the producer cannot game.
+
+If neither is available, the task CANNOT be marked complete. Mark as `NEEDS_ESCALATION`
+and ask human for verification.
+
+### Implementation
+
+- Producer model family is recorded in session_state (`producer_model` field).
+- Verifier checks `producer_model` and selects a different model family for verification.
+- If only one model family is available, strong anchor (deterministic check) is REQUIRED.
+- Cross-family verification is recorded in verification report:
+  ```
+  ## Cross-family verification
+  - Producer: <model family>
+  - Verifier: <model family> (different from producer)
+  - Method: <fresh-context read-back | CLI gate | test suite>
+  ```
+
+### Why this matters
+
+Same-family "fresh context" verification reduces context bias but NOT family bias.
+A GLM-5.2 verifier checking GLM-5.2 output shares the same training biases, blind spots,
+and familiarity preferences. Cross-family verification (e.g., SWE-1.7 checking GLM-5.2)
+triangulates against different bias profiles, catching family-specific blind spots.
 ## No gold-plating
 > Source: kpab/claude-fable-5-skills. Scope fence = task boundary; no-gold-plating = change boundary (diff minimal).
 ### Rules
