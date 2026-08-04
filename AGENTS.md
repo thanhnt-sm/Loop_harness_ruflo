@@ -36,13 +36,19 @@ devin -p -- "mô tả công việc"
 /lightning add pagination to the users endpoint and update its tests
 /lightning reproduce and fix the checkout total rounding bug
 /lightning refactor the cache adapter without changing its public API
+
+/glm add input validation to the checkout form and update its tests
+/glm review the auth module for security issues
+/glm write tests for src/utils.js, coverage > 80%
 ```
 
-## Luồng công việc `/lightning`
+## Luồng công việc `/lightning` và `/glm`
+
+Cả 2 skill cùng pattern:
 
 1. **Frame task** — trích objective, acceptance criteria, constraints, validation needs
 2. **Preflight** — parallel reads: working-tree status, repo instructions, build scripts
-3. **Dispatch** — `run_subagent(profile: lightning-executor, is_background: false)` với work order tự chứa
+3. **Dispatch** — `run_subagent(profile: lightning-executor|glm-executor, is_background: false)` với work order tự chứa
 4. **Review** — inspect diff độc lập, treat report as evidence not proof
 5. **Correct** — trivial fix trực tiếp; lớn hơn thì `resume` cùng executor. Sau 2 resume không tiến triển → stop, hỏi user
 6. **Report** — what changed, key files, verification outcome, residual risks
@@ -57,7 +63,7 @@ devin -p -- "mô tả công việc"
 - Trivial edits (vài dòng rõ ràng) sửa thẳng, skip delegation
 - Fan-out chỉ khi write sets disjoint + user yêu cầu
 - Background executor không thể prompt approval → resume foreground nếu denied
-- Nếu `lightning-executor` unavailable → stop, report missing profile
+- Nếu `lightning-executor` hoặc `glm-executor` unavailable → stop, report missing profile
 
 ## MCP servers
 
@@ -99,7 +105,7 @@ devin -p -- "mô tả công việc"
 |------------|-------|-----------|
 | `.agents/skills/` (137 skills) | Claude Code specific (`$agent-<name>` pattern) | Moved → `.agents/skills-disabled/` |
 | `.claude/skills/` (42 skills) | Claude Flow/Ruflo specific (agentdb, flow-nexus, dual-mode) | Moved → `.claude/skills-disabled/` |
-| Root `CLAUDE.md` (68KB) | Claude-specific swarm/dual-mode/Task tool content | Replaced → 1.2KB universal rules |
+| Root `CLAUDE.md` (68KB) | Claude-specific swarm/dual-mode/Task tool content | Replaced → 1.9KB universal rules |
 | `Read(.claude/**)` in config | Claude-specific path | Removed from allow list |
 | `Exec(devin)` broad permission | Too permissive | Narrowed → specific subcommands |
 | 2 separate PreToolUse hook entries | Duplicate matcher | Merged → 1 entry with 2 hooks |

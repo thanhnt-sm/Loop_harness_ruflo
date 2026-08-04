@@ -1,14 +1,14 @@
 ---
 name: ruflo-autopilot
-description: "[DEPRECATED — use /lightning instead] Legacy Ruflo MCP-only orchestration. Kept for manual swarm/memory control. For execution tasks, prefer /lightning which uses native Devin subagents + SWE-1.7 Lightning."
+description: "[DEPRECATED — use /lightning or /glm instead] Legacy Ruflo MCP-only orchestration. Kept for manual swarm/memory control. For execution tasks, prefer /lightning (SWE-1.7 Lightning, fast) or /glm (GLM-5.2, free tier) which use native Devin subagents."
 triggers: []
 ---
 
 # Ruflo Autopilot Skill [DEPRECATED]
 
-> **Không tự kích hoạt.** Skill này đã tắt trigger `model` để tránh xung đột với `/lightning`.
+> **Không tự kích hoạt.** Skill này đã tắt trigger `model` để tránh xung đột với `/lightning` và `/glm`.
 > Chỉ dùng thủ công qua `/ruflo-autopilot` khi cần orchestration MCP trực tiếp (swarm, cost tracking, memory CRUD).
-> Cho task coding thông thường, dùng `/lightning` — nhanh hơn, rẻ hơn, native Devin.
+> Cho task coding thông thường, dùng `/lightning` (SWE-1.7 Lightning, nhanh) hoặc `/glm` (GLM-5.2, free) — native Devin, rẻ hơn.
 
 ## Khi nào dùng
 Dùng skill này MỌI khi user yêu cầu:

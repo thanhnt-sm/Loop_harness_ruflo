@@ -126,6 +126,11 @@ node D:\100.Software\Github\Loop_harness_new\Loop_harness_ruflo\HLK\bin\hlk-devi
 - Tạo `AGENTS.md` — hướng dẫn autopilot
 - Tạo `devin-run.ps1` + `devin-run.cmd` — wrapper chạy Devin với Node 22
 
+> **Note (2026 update)**: `ruflo-autopilot` hiện đã **DEPRECATED**. Cho task coding thông thường,
+> dùng `/lightning` (SWE-1.7 Lightning, nhanh, $2.5/$12.5 MTok) hoặc `/glm` (GLM-5.2, **free tier**,
+> capable tier ~Opus-4.8 class). Cả 2 dùng native Devin subagents — rẻ hơn, nhanh hơn autopilot MCP.
+> `ruflo-autopilot` chỉ giữ cho manual MCP orchestration (swarm, memory CRUD).
+
 ### Bước 3b: Chạy script Antigravity Autopilot (tùy chọn, nếu dùng agy)
 
 ```powershell
