@@ -234,3 +234,6 @@ plugin/
 .cursor/
 
 .cursor/rules/aide-memory.mdc
+
+# Backups (U07: disaster recovery)
+backups/

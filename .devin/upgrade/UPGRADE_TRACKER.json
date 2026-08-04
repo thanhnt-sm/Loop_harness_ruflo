@@ -11,7 +11,7 @@
   "phase_summary": {
     "P0": {
       "total": 10,
-      "done": 5,
+      "done": 6,
       "in_progress": 0,
       "pending": 6,
       "blocked": 0
@@ -75,7 +75,7 @@
     "feynman_simplicity_score": 2,
     "taleb_fragility_score": 8,
     "cross_family_verification": false,
-    "disaster_recovery": false,
+    "disaster_recovery": true,
     "rollback_deploy": false,
     "human_in_loop_count": 6,
     "overall_red_team_score": 5.1
@@ -228,7 +228,7 @@
       "phase": "P0",
       "priority": "critical",
       "expert": "Flow Analyst",
-      "status": "pending",
+      "status": "done",
       "dependencies": [],
       "dependents": [
         "U08"
@@ -240,11 +240,11 @@
         "tools/restore-workspace.ps1"
       ],
       "acceptance_criteria_count": 8,
-      "started_date": null,
-      "completed_date": null,
-      "verifier": null,
+      "started_date": "2026-07-07",
+      "completed_date": "2026-07-07",
+      "verifier": "GLM-5.2 High",
       "commit_hash": null,
-      "notes": ""
+      "notes": "AC: 8/8 passed. backup-workspace.ps1 creates zip (776KB), SHA256 in hashes.txt, max 10 rotation. restore-workspace.ps1 with -Latest, -DryRun, SHA256 verify, protected dirs (src/tests/node_modules/.git), post-restore verify-workspace. backups/ added to .gitignore. verify-workspace: 73/73 pass."
     },
     {
       "id": "U08",
