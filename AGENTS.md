@@ -1,13 +1,18 @@
-# Devin CLI — Lightning Orchestrator
+# Devin CLI — Lightning + GLM Orchestrators
 
 ## Kiến trúc
 
-Workspace dùng **lightning-orchestrator** (dabit3/lightning-orchestrator) — skill tách 2 role:
+Workspace có **2 orchestrator skills** — cùng pattern (planner + executor), khác model executor:
 
-| Role | Model | Trách nhiệm |
-|------|-------|-------------|
-| **Orchestrator** | Active Devin model | Hiểu request, ra quyết định, tạo work order, review diff |
-| **lightning-executor** | SWE-1.7 Lightning (1000 tok/s) | Inspect code, implement, chạy checks, báo cáo evidence |
+| Skill | Orchestrator | Executor | Model | Cost | Context |
+|-------|-------------|----------|-------|------|---------|
+| `/lightning` | Active Devin model | `lightning-executor` | SWE-1.7 Lightning | $2.5/$12.5 MTok | 202K |
+| `/glm` | Active Devin model | `glm-executor` | GLM-5.2 High | **Free** | 200K |
+
+**Khi nào dùng cái nào?**
+- `/lightning` — khi cần tốc độ (SWE-1.7 Lightning tối ưu cho code, 1000 tok/s)
+- `/glm` — khi cần free tier hoặc GLM-5.2 reasoning chất lượng cao
+- Cả 2 cùng pattern: orchestrator plan/review, executor implement/test/report
 
 ## Cách dùng
 
@@ -72,7 +77,8 @@ devin -p -- "mô tả công việc"
 
 | Skill | Triggers | Mục đích |
 |-------|----------|----------|
-| `lightning` | `[user]` | Execution chính — planner + executor |
+| `lightning` | `[user]` | Execution — planner + SWE-1.7 Lightning executor |
+| `glm` | `[user]` | Execution — planner + GLM-5.2 executor (free tier) |
 | `hlk-git-tools` | `[user]` | Commit/push an toàn qua HLK layer |
 | `hlk-integrity-check` | `[user]` | Kiểm tra HLK layer sau upstream merge |
 | `hlk-upstream-pull` | `[user]` | Pull upstream ruflo + reinstall HLK |
@@ -83,6 +89,7 @@ devin -p -- "mô tả công việc"
 | Profile | Model | Vai trò |
 |---------|-------|---------|
 | `lightning-executor` | swe-1.7-lightning | Implementation executor cho `/lightning` |
+| `glm-executor` | glm-5-2 | Implementation executor cho `/glm` (free tier) |
 
 ## Đã loại bỏ (redteam cleanup)
 
