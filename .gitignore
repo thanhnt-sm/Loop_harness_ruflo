@@ -200,3 +200,16 @@ HLK/dist/
 
 # Reference repos (research clones — never commit, move to temp after use)
 *-ref/
+
+# Removed upstream ruflo source (Option B surgical cleanup)
+v3/
+plugins/
+ruflo/
+.claude-flow/
+.claude-plugin/
+docs/
+verification/
+services/
+tests/
+crates/
+scripts/

@@ -1,4 +1,4 @@
-# Workspace Rules — Ruflo V3
+# Workspace Rules — Devin CLI
 
 > **Devin CLI**: See `AGENTS.md` for Devin-specific instructions (`/lightning` + `/glm` orchestrators, plugins, MCP servers).
 > **Claude Code**: Full Claude Code instructions are in git history (commit c29eab8). Restore with `git show c29eab8:CLAUDE.md > CLAUDE.full.md`.

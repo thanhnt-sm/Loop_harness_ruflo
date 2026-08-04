@@ -69,7 +69,7 @@ Cả 2 skill cùng pattern:
 
 | MCP server | Nguồn | Mục đích | Tools |
 |------------|-------|----------|-------|
-| `claude-flow` | `.devin/mcp_config.json` (local stdio) | Ruflo MCP — memory, swarm, agent tracking | `mcp__claude-flow__memory_search`, `mcp__claude-flow__memory_store`, `mcp__claude-flow__swarm_init`, v.v. |
+| `claude-flow` | `.devin/mcp_config.json` (local stdio) | Memory MCP (runtime via `node_modules/ruflo/`) — **source code đã remove, chỉ giữ MCP runtime** | `mcp__claude-flow__memory_search`, `mcp__claude-flow__memory_store`, v.v. |
 | `spark-memory` | spark-mcp plugin (remote HTTP) | Shared memory cộng đồng cross-agent | `mcp__spark-memory__*` |
 | `deepwiki` | yellow-devin plugin (remote HTTP, free) | Query documentation GitHub repos | `mcp__deepwiki__*` |
 | `devin` | yellow-devin plugin (remote HTTP) | Devin V3 API: session management, playbooks | `mcp__devin__*` (cần `DEVIN_SERVICE_USER_TOKEN` + `DEVIN_ORG_ID`) |
@@ -89,7 +89,7 @@ Cả 2 skill cùng pattern:
 | `glm` | `[user]` | Execution — planner + GLM-5.2 executor (free tier) |
 | `hlk-git-tools` | `[user]` | Commit/push an toàn qua HLK layer |
 | `hlk-integrity-check` | `[user]` | Kiểm tra HLK layer sau upstream merge |
-| `hlk-upstream-pull` | `[user]` | Pull upstream ruflo + reinstall HLK |
+| `hlk-upstream-pull` | `[user]` | Pull upstream + reinstall HLK (ruflo upstream đã remove — skill legacy) |
 | `ruflo-autopilot` | `[]` (disabled) | Legacy Ruflo MCP-only orchestration |
 
 ## Custom subagents trong `.devin/agents/`
@@ -110,10 +110,16 @@ Cả 2 skill cùng pattern:
 | `Exec(devin)` broad permission | Too permissive | Narrowed → specific subcommands |
 | 2 separate PreToolUse hook entries | Duplicate matcher | Merged → 1 entry with 2 hooks |
 | HLK skills missing `triggers` | Could auto-invoke, conflict with lightning | Added `triggers: [user]` |
+| `v3/` source (8942 files, 371 MB) | Upstream ruflo source — không tương thích Devin | `git rm -r` + `.gitignore` |
+| `plugins/` (599 files) | 35 ruflo Claude Code plugins — không tương thích Devin | `git rm -r` + `.gitignore` |
+| `ruflo/` source (556 files) | Ruflo core source — không tương thích Devin | `git rm -r` + `.gitignore` |
+| `scripts/` (~100 files) | Ruflo dev scripts (audit, smoke, benchmark) — reference removed source | `git rm -r` + `.gitignore` |
+| `.claude-flow/`, `.claude-plugin/`, `docs/`, `verification/`, `services/`, `tests/`, `crates/` | Ruflo runtime artifacts + docs — không cần cho Devin | `git rm -r` + `.gitignore` |
+| Root ruflo files (SKILL.md, Cargo.toml, README.md, CHANGELOG.md, v.v.) | Upstream ruflo project files | `git rm` + `.gitignore` |
+| `package.json` workspaces + 7 broken scripts | Referenced removed v3/ source | Removed from scripts |
 
 ## Phạm vi an toàn cho code changes
 
-- `v3/` — source code Ruflo
 - `src/` — source code dự án
 - `.devin/skills/`, `.devin/agents/` — định nghĩa skill/agent
 - `scripts/` — utility scripts
