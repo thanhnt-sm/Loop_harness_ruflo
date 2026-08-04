@@ -436,3 +436,30 @@ GLM-5.2 trained trên agentic trajectories — hiểu tool-use và code-editing 
 | [Cline GLM-4.6 tuning](https://cline.bot/blog/cline-our-commitment-to-open-source-zai-glm-4-6) | Short explicit mechanically-precise instructions, explore→summarize→implement |
 | [Booststash GLM-5.2 coding guide](https://www.booststash.com/how-to-use-glm-5-2-for-coding/) | Start with planning prompt (40% fewer correction cycles), self-review after implement |
 | [Sider GLM-4.6 explained](https://sider.ai/blog/ai-tools/glm-4_6-explained-without-the-hype-what-s-actually-new-and-how-to-use-it) | Constraints > cleverness, decomposition, externalized memory, verification hooks |
+
+## Red Team Report + Upgrade Plan
+
+Workspace đã qua red team exercise (7-expert council). Kết quả và kế hoạch nâng cấp:
+
+| Tài liệu | Đường dẫn | Mục đích |
+|----------|-----------|----------|
+| Red Team Report | `HLK/docs/REDTEAM_REPORT.md` | Báo cáo tấn công toàn diện từ 7 chuyên gia (Security, Token, Quality, Architecture, Performance, Flow, Cognitive) |
+| Upgrade Plan | `HLK/docs/UPGRADE_PLAN.md` | 40 upgrades chi tiết với spec, acceptance criteria, verification steps, dependency graph |
+| Upgrade Tracker | `.devin/upgrade/UPGRADE_TRACKER.json` | Progress tracking persist qua nhiều session — source of truth cho upgrade status |
+| Execution Protocol | `.devin/upgrade/UPGRADE_EXECUTION_PROTOCOL.md` | Quy tắc thực thi nhiều vòng không drift — 13-step quick card, quality gates, rollback flow |
+
+### Trạng thái hiện tại
+
+| Phase | Tổng | Done | Pending | Target |
+|-------|------|------|---------|--------|
+| P0 (Critical) | 10 | 0 | 10 | 1-2 tuần |
+| P1 (High) | 15 | 0 | 15 | 1 tháng |
+| P2 (Medium) | 15 | 0 | 15 | 3 tháng |
+| P3 (Low) | 10 | 0 | 10 | As time permits |
+
+### Cách thực thi upgrade
+
+1. Đọc `.devin/upgrade/UPGRADE_TRACKER.json` → tìm upgrade `status: "pending"` tiếp theo
+2. Đọc spec trong `HLK/docs/UPGRADE_PLAN.md` (tìm `## UXX`)
+3. Thực thi theo `UPGRADE_EXECUTION_PROTOCOL.md` (13-step quick card)
+4. Update tracker sau khi done + commit

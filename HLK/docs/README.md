@@ -19,6 +19,8 @@
 | 8 | [08-git-tools.md](./08-git-tools.md) | Git tools: doctor, commit, push, safe-sync |
 | 10 | [10-setup-max-power.md](./10-setup-max-power.md) | **Setup MAX POWER** — script `setup-max-power.mjs`, 3 CLI, provider tuning *(tham chiếu Ruflo — lịch sử)* |
 | 15 | [15-full-setup-guide.md](./15-full-setup-guide.md) | **Hướng dẫn đầy đủ** — 2 lệnh cài, sẵn sàng gửi task cho AI *(tham chiếu Ruflo — lịch sử)* |
+| RT | [REDTEAM_REPORT.md](./REDTEAM_REPORT.md) | **Red Team Report** — 7-expert council tấn công toàn diện (Security, Token, Quality, Architecture, Performance, Flow, Cognitive) |
+| UP | [UPGRADE_PLAN.md](./UPGRADE_PLAN.md) | **Upgrade Plan** — 40 upgrades chi tiết (P0-P3) với spec, acceptance criteria, verification steps, dependency graph |
 
 > **Đã loại bỏ**: `04-workflow-ruflo-best-practice.md` và `09-ruflo-hlk-lifecycle.md` — Ruflo-specific, không còn áp dụng sau AHD deployment.
 
