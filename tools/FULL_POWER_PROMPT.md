@@ -14,13 +14,15 @@
 Bạn đang chạy trong workspace có Agent Harness Deploy (AHD) làm động cơ chính. Thực hiện đầy đủ chain dưới đây — không skip, không rút gọn.
 
 ## Bước 1: BOOT
-Đọc và thực hiện `.devin/canon/BOOT_PROTOCOL.md` — đủ 17 bước:
-- Đọc `.devin/AGENTS.md` (entry file)
+Đọc và thực hiện `.devin/canon/BOOT_PROTOCOL.md` — 3-tier lazy-load model (U04):
+- **Tier S** (task <30 min): Steps 1-8 only (entry file, registry, profile, session_id, context flags, crashed check, start work)
+- **Tier M** (task 30min-2h): Steps 1-12 (adds pre-task audit, GoalSpec, registry update)
+- **Tier L/XL** (task 2h+): All steps 1-17 (adds deep-memory, large-repo init, gap-scan, interview-mode)
+- Nếu unclear → default M. Upgrade nếu scope grows.
+- Đọc `.devin/AGENTS.md` (entry file, 5KB summary — KHÔNG load AGENTS_full.md 186KB)
 - Đọc `.agents/loop_state.md` (registry)
-- Đọc `.agents/knowledge_distill.md` (lessons)
 - Đọc `.agents/user_profile.md` (preferences)
-- Đọc `.devin/canon/HANDOFF_LETTER.md` (nếu có)
-- Output GoalSpec
+- Output GoalSpec (M/L/XL only)
 
 ## Bước 2: INVENTORY
 Kiểm tra khả dụng:
