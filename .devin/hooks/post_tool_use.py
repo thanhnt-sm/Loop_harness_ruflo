@@ -217,6 +217,7 @@ def main():
         current_state = {}
 
     # Update session_state heartbeat (merge, don't overwrite current_subtask)
+    # U06: Fallback to file write if primary session_state write fails
     update = {
         "session_id": session_id,
         "status": "in_progress",
@@ -229,7 +230,18 @@ def main():
     # Only set status if not already present (avoid overwriting completed)
     if current_state.get("status"):
         update.pop("status")
-    ahd_session.update_session_state(session_id, update, root)
+    try:
+        ahd_session.update_session_state(session_id, update, root)
+    except Exception as e:
+        # U06: Fallback — write heartbeat to loop_state_fallback directory
+        try:
+            fallback_dir = ahd_session.get_config_root(root) / "loop_state_fallback"
+            fallback_dir.mkdir(parents=True, exist_ok=True)
+            fallback_path = fallback_dir / f"{session_id}.heartbeat.json"
+            fallback_data = {**update, "fallback": True, "error": str(e)[:200]}
+            fallback_path.write_text(json.dumps(fallback_data, ensure_ascii=False), encoding="utf-8")
+        except Exception:
+            pass
 
     # Write per-session journal
     journal_path = ahd_session.get_config_root(root) / "session_state" / session_id / "journal.jsonl"
