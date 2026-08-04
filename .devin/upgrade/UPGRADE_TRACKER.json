@@ -8,14 +8,36 @@
   "source_report": "HLK/docs/REDTEAM_REPORT.md",
   "source_plan": "HLK/docs/UPGRADE_PLAN.md",
   "execution_protocol": ".devin/upgrade/UPGRADE_EXECUTION_PROTOCOL.md",
-
   "phase_summary": {
-    "P0": { "total": 10, "done": 0, "in_progress": 0, "pending": 10, "blocked": 0 },
-    "P1": { "total": 15, "done": 0, "in_progress": 0, "pending": 15, "blocked": 0 },
-    "P2": { "total": 15, "done": 0, "in_progress": 0, "pending": 15, "blocked": 0 },
-    "P3": { "total": 10, "done": 0, "in_progress": 0, "pending": 10, "blocked": 0 }
+    "P0": {
+      "total": 10,
+      "done": 1,
+      "in_progress": 0,
+      "pending": 9,
+      "blocked": 0
+    },
+    "P1": {
+      "total": 15,
+      "done": 0,
+      "in_progress": 0,
+      "pending": 15,
+      "blocked": 0
+    },
+    "P2": {
+      "total": 15,
+      "done": 0,
+      "in_progress": 0,
+      "pending": 15,
+      "blocked": 0
+    },
+    "P3": {
+      "total": 10,
+      "done": 0,
+      "in_progress": 0,
+      "pending": 10,
+      "blocked": 0
+    }
   },
-
   "metrics_baseline": {
     "date": "2026-07-07",
     "always_on_context_tokens": 53225,
@@ -37,11 +59,10 @@
     "human_in_loop_count": 0,
     "overall_red_team_score": 5.1
   },
-
   "metrics_current": {
     "date": "2026-07-07",
-    "always_on_context_tokens": 53225,
-    "always_on_context_pct": 26.6,
+    "always_on_context_tokens": 12000,
+    "always_on_context_pct": 6.0,
     "boot_payload_kb": 158,
     "boot_target_kb": 16,
     "per_tool_call_overhead_ms": "250-750",
@@ -59,7 +80,6 @@
     "human_in_loop_count": 0,
     "overall_red_team_score": 5.1
   },
-
   "upgrades": [
     {
       "id": "U01",
@@ -67,18 +87,25 @@
       "phase": "P0",
       "priority": "critical",
       "expert": "Token Economist",
-      "status": "pending",
+      "status": "done",
       "dependencies": [],
-      "dependents": ["U04", "U12"],
+      "dependents": [
+        "U04",
+        "U12"
+      ],
       "effort_days": 1,
       "impact": "-41K tokens/session (26% → 6% context)",
-      "files_to_modify": [".devin/AGENTS.md", ".devin/AGENTS_full.md", ".devin/canon/BOOT_PROTOCOL.md"],
+      "files_to_modify": [
+        ".devin/AGENTS.md",
+        ".devin/AGENTS_full.md",
+        ".devin/canon/BOOT_PROTOCOL.md"
+      ],
       "acceptance_criteria_count": 6,
-      "started_date": null,
-      "completed_date": null,
-      "verifier": null,
+      "started_date": "2026-07-07",
+      "completed_date": "2026-07-07",
+      "verifier": "GLM-5.2 High",
       "commit_hash": null,
-      "notes": ""
+      "notes": "AC: 6/6 passed. AGENTS.md=5513 bytes (<6KB). AGENTS_full.md=188743 bytes (>180KB). Canon refs=16 (>=10). Skill refs=29 (>=20). BOOT_PROTOCOL step 1 updated with AGENTS_full.md ref. verify-workspace.ps1: 73/73 pass. Token savings: ~41K tokens/session (186KB->5.4KB entry file)."
     },
     {
       "id": "U02",
@@ -91,7 +118,9 @@
       "dependents": [],
       "effort_days": 3,
       "impact": "Close silent RCE hole",
-      "files_to_modify": [".devin/hooks/pre_tool_use.py"],
+      "files_to_modify": [
+        ".devin/hooks/pre_tool_use.py"
+      ],
       "acceptance_criteria_count": 8,
       "started_date": null,
       "completed_date": null,
@@ -107,10 +136,15 @@
       "expert": "Security Red Teamer",
       "status": "pending",
       "dependencies": [],
-      "dependents": ["U05", "U27"],
+      "dependents": [
+        "U05",
+        "U27"
+      ],
       "effort_days": 1,
       "impact": "Close destructive command gaps + human-in-loop",
-      "files_to_modify": [".devin/config.json"],
+      "files_to_modify": [
+        ".devin/config.json"
+      ],
       "acceptance_criteria_count": 5,
       "started_date": null,
       "completed_date": null,
@@ -125,11 +159,19 @@
       "priority": "critical",
       "expert": "Architecture Critic + Performance Engineer",
       "status": "pending",
-      "dependencies": ["U01"],
-      "dependents": ["U10", "U40"],
+      "dependencies": [
+        "U01"
+      ],
+      "dependents": [
+        "U10",
+        "U40"
+      ],
       "effort_days": 7,
       "impact": "-60-70% cold start cho S/M tasks",
-      "files_to_modify": [".devin/canon/BOOT_PROTOCOL.md", "tools/FULL_POWER_PROMPT.md"],
+      "files_to_modify": [
+        ".devin/canon/BOOT_PROTOCOL.md",
+        "tools/FULL_POWER_PROMPT.md"
+      ],
       "acceptance_criteria_count": 7,
       "started_date": null,
       "completed_date": null,
@@ -144,7 +186,9 @@
       "priority": "critical",
       "expert": "Security Red Teamer",
       "status": "pending",
-      "dependencies": ["U03"],
+      "dependencies": [
+        "U03"
+      ],
       "dependents": [],
       "effort_days": 0,
       "impact": "Human-in-loop cho push/commit/publish",
@@ -167,7 +211,10 @@
       "dependents": [],
       "effort_days": 2,
       "impact": "Eliminate single-point-of-failure",
-      "files_to_modify": [".devin/hooks/post_tool_use.py", ".devin/scripts/loop_memory_sync.py"],
+      "files_to_modify": [
+        ".devin/hooks/post_tool_use.py",
+        ".devin/scripts/loop_memory_sync.py"
+      ],
       "acceptance_criteria_count": 5,
       "started_date": null,
       "completed_date": null,
@@ -183,10 +230,15 @@
       "expert": "Flow Analyst",
       "status": "pending",
       "dependencies": [],
-      "dependents": ["U08"],
+      "dependents": [
+        "U08"
+      ],
       "effort_days": 2,
       "impact": "Recovery từ workspace corruption",
-      "files_to_modify": ["tools/backup-workspace.ps1", "tools/restore-workspace.ps1"],
+      "files_to_modify": [
+        "tools/backup-workspace.ps1",
+        "tools/restore-workspace.ps1"
+      ],
       "acceptance_criteria_count": 8,
       "started_date": null,
       "completed_date": null,
@@ -201,11 +253,18 @@
       "priority": "critical",
       "expert": "Flow Analyst",
       "status": "pending",
-      "dependencies": ["U07"],
-      "dependents": ["U23"],
+      "dependencies": [
+        "U07"
+      ],
+      "dependents": [
+        "U23"
+      ],
       "effort_days": 1,
       "impact": "Recovery từ bad deploy",
-      "files_to_modify": ["tools/deploy-template.ps1", "tools/rollback-deploy.ps1"],
+      "files_to_modify": [
+        "tools/deploy-template.ps1",
+        "tools/rollback-deploy.ps1"
+      ],
       "acceptance_criteria_count": 5,
       "started_date": null,
       "completed_date": null,
@@ -224,7 +283,9 @@
       "dependents": [],
       "effort_days": 1,
       "impact": "Close config poisoning hole",
-      "files_to_modify": ["tools/deploy-template.ps1"],
+      "files_to_modify": [
+        "tools/deploy-template.ps1"
+      ],
       "acceptance_criteria_count": 4,
       "started_date": null,
       "completed_date": null,
@@ -239,11 +300,17 @@
       "priority": "critical",
       "expert": "Quality Auditor",
       "status": "pending",
-      "dependencies": ["U04"],
+      "dependencies": [
+        "U04"
+      ],
       "dependents": [],
       "effort_days": 3,
       "impact": "Address self-preference bias",
-      "files_to_modify": [".devin/hooks/pre_verification.py", ".devin/canon/VERIFICATION_PROTOCOL.md", "tools/FULL_POWER_PROMPT.md"],
+      "files_to_modify": [
+        ".devin/hooks/pre_verification.py",
+        ".devin/canon/VERIFICATION_PROTOCOL.md",
+        "tools/FULL_POWER_PROMPT.md"
+      ],
       "acceptance_criteria_count": 4,
       "started_date": null,
       "completed_date": null,
@@ -259,10 +326,16 @@
       "expert": "Token Economist",
       "status": "pending",
       "dependencies": [],
-      "dependents": ["U26"],
+      "dependents": [
+        "U26"
+      ],
       "effort_days": 1,
       "impact": "-2.5K tokens/skill invoke",
-      "files_to_modify": [".devin/skills/executor/SKILL.md", ".devin/skills/lightning/SKILL.md", ".devin/skills/glm/SKILL.md"],
+      "files_to_modify": [
+        ".devin/skills/executor/SKILL.md",
+        ".devin/skills/lightning/SKILL.md",
+        ".devin/skills/glm/SKILL.md"
+      ],
       "acceptance_criteria_count": 4,
       "started_date": null,
       "completed_date": null,
@@ -277,11 +350,15 @@
       "priority": "high",
       "expert": "Token Economist",
       "status": "pending",
-      "dependencies": ["U01"],
+      "dependencies": [
+        "U01"
+      ],
       "dependents": [],
       "effort_days": 2,
       "impact": "-5-8K tokens/BOOT",
-      "files_to_modify": [".devin/canon/LOOP_PROTOCOL.md"],
+      "files_to_modify": [
+        ".devin/canon/LOOP_PROTOCOL.md"
+      ],
       "acceptance_criteria_count": 3,
       "started_date": null,
       "completed_date": null,
@@ -300,7 +377,11 @@
       "dependents": [],
       "effort_days": 3,
       "impact": "-400-1500ms/BOOT",
-      "files_to_modify": [".devin/scripts/loop_memory_sync.py", ".devin/scripts/pre_task_audit.py", ".devin/canon/BOOT_PROTOCOL.md"],
+      "files_to_modify": [
+        ".devin/scripts/loop_memory_sync.py",
+        ".devin/scripts/pre_task_audit.py",
+        ".devin/canon/BOOT_PROTOCOL.md"
+      ],
       "acceptance_criteria_count": 3,
       "started_date": null,
       "completed_date": null,
@@ -316,10 +397,14 @@
       "expert": "Performance Engineer",
       "status": "pending",
       "dependencies": [],
-      "dependents": ["U21"],
+      "dependents": [
+        "U21"
+      ],
       "effort_days": 2,
       "impact": "-0-10s concurrent",
-      "files_to_modify": [".devin/hooks/ahd_session.py"],
+      "files_to_modify": [
+        ".devin/hooks/ahd_session.py"
+      ],
       "acceptance_criteria_count": 3,
       "started_date": null,
       "completed_date": null,
@@ -338,7 +423,9 @@
       "dependents": [],
       "effort_days": 1,
       "impact": "-0-7s on error",
-      "files_to_modify": [".devin/config.json"],
+      "files_to_modify": [
+        ".devin/config.json"
+      ],
       "acceptance_criteria_count": 3,
       "started_date": null,
       "completed_date": null,
@@ -357,7 +444,9 @@
       "dependents": [],
       "effort_days": 3,
       "impact": "Safe parallelism",
-      "files_to_modify": [".devin/scripts/plan_dispatch.py"],
+      "files_to_modify": [
+        ".devin/scripts/plan_dispatch.py"
+      ],
       "acceptance_criteria_count": 4,
       "started_date": null,
       "completed_date": null,
@@ -376,7 +465,9 @@
       "dependents": [],
       "effort_days": 2,
       "impact": "Prevent budget overrun",
-      "files_to_modify": [".devin/scripts/session_manager.py"],
+      "files_to_modify": [
+        ".devin/scripts/session_manager.py"
+      ],
       "acceptance_criteria_count": 3,
       "started_date": null,
       "completed_date": null,
@@ -392,10 +483,14 @@
       "expert": "Architecture Critic",
       "status": "pending",
       "dependencies": [],
-      "dependents": ["U26"],
+      "dependents": [
+        "U26"
+      ],
       "effort_days": 1,
       "impact": "Eliminate persona confusion",
-      "files_to_modify": [".devin/agents/personas/architect.md"],
+      "files_to_modify": [
+        ".devin/agents/personas/architect.md"
+      ],
       "acceptance_criteria_count": 3,
       "started_date": null,
       "completed_date": null,
@@ -414,7 +509,9 @@
       "dependents": [],
       "effort_days": 1,
       "impact": "Match workspace language requirements",
-      "files_to_modify": [".devin/skills/comment_checker.md"],
+      "files_to_modify": [
+        ".devin/skills/comment_checker.md"
+      ],
       "acceptance_criteria_count": 3,
       "started_date": null,
       "completed_date": null,
@@ -433,7 +530,9 @@
       "dependents": [],
       "effort_days": 2,
       "impact": "Prevent stale evidence trap",
-      "files_to_modify": [".devin/hooks/post_tool_use.py"],
+      "files_to_modify": [
+        ".devin/hooks/post_tool_use.py"
+      ],
       "acceptance_criteria_count": 3,
       "started_date": null,
       "completed_date": null,
@@ -448,11 +547,16 @@
       "priority": "high",
       "expert": "Flow Analyst",
       "status": "pending",
-      "dependencies": ["U14"],
+      "dependencies": [
+        "U14"
+      ],
       "dependents": [],
       "effort_days": 2,
       "impact": "Prevent data loss on concurrent start",
-      "files_to_modify": [".devin/canon/BOOT_PROTOCOL.md", ".devin/hooks/ahd_session.py"],
+      "files_to_modify": [
+        ".devin/canon/BOOT_PROTOCOL.md",
+        ".devin/hooks/ahd_session.py"
+      ],
       "acceptance_criteria_count": 3,
       "started_date": null,
       "completed_date": null,
@@ -471,7 +575,9 @@
       "dependents": [],
       "effort_days": 1,
       "impact": "Prevent disk bloat",
-      "files_to_modify": ["tools/cleanup-orphan-sessions.ps1"],
+      "files_to_modify": [
+        "tools/cleanup-orphan-sessions.ps1"
+      ],
       "acceptance_criteria_count": 5,
       "started_date": null,
       "completed_date": null,
@@ -486,11 +592,15 @@
       "priority": "high",
       "expert": "Flow Analyst",
       "status": "pending",
-      "dependencies": ["U08"],
+      "dependencies": [
+        "U08"
+      ],
       "dependents": [],
       "effort_days": 2,
       "impact": "Scale deployment",
-      "files_to_modify": ["tools/init-new-project.ps1"],
+      "files_to_modify": [
+        "tools/init-new-project.ps1"
+      ],
       "acceptance_criteria_count": 3,
       "started_date": null,
       "completed_date": null,
@@ -509,7 +619,10 @@
       "dependents": [],
       "effort_days": 2,
       "impact": "Portability",
-      "files_to_modify": [".devin/config.json", "tools/deploy-template.ps1"],
+      "files_to_modify": [
+        ".devin/config.json",
+        "tools/deploy-template.ps1"
+      ],
       "acceptance_criteria_count": 3,
       "started_date": null,
       "completed_date": null,
@@ -528,7 +641,9 @@
       "dependents": [],
       "effort_days": 2,
       "impact": "Justify cognitive verification cost",
-      "files_to_modify": [".devin/scripts/session_manager.py"],
+      "files_to_modify": [
+        ".devin/scripts/session_manager.py"
+      ],
       "acceptance_criteria_count": 3,
       "started_date": null,
       "completed_date": null,
@@ -543,8 +658,16 @@
       "priority": "medium",
       "expert": "Nuwa Cognitive Reviewer",
       "status": "pending",
-      "dependencies": ["U01", "U04", "U11", "U12", "U18"],
-      "dependents": ["U40"],
+      "dependencies": [
+        "U01",
+        "U04",
+        "U11",
+        "U12",
+        "U18"
+      ],
+      "dependents": [
+        "U40"
+      ],
       "effort_days": 7,
       "impact": "-40% system complexity",
       "files_to_modify": [],
@@ -562,11 +685,18 @@
       "priority": "medium",
       "expert": "Security Red Teamer",
       "status": "pending",
-      "dependencies": ["U03"],
-      "dependents": ["U28"],
+      "dependencies": [
+        "U03"
+      ],
+      "dependents": [
+        "U28"
+      ],
       "effort_days": 3,
       "impact": "Graded enforcement",
-      "files_to_modify": [".devin/tool_registry.json", ".devin/config.json"],
+      "files_to_modify": [
+        ".devin/tool_registry.json",
+        ".devin/config.json"
+      ],
       "acceptance_criteria_count": 3,
       "started_date": null,
       "completed_date": null,
@@ -581,11 +711,15 @@
       "priority": "medium",
       "expert": "Security Red Teamer",
       "status": "pending",
-      "dependencies": ["U27"],
+      "dependencies": [
+        "U27"
+      ],
       "dependents": [],
       "effort_days": 3,
       "impact": "Pre-commit validation",
-      "files_to_modify": [".devin/risk_contract.json"],
+      "files_to_modify": [
+        ".devin/risk_contract.json"
+      ],
       "acceptance_criteria_count": 3,
       "started_date": null,
       "completed_date": null,
@@ -604,7 +738,9 @@
       "dependents": [],
       "effort_days": 1,
       "impact": "Cover AWS/JWT/OAuth",
-      "files_to_modify": ["HLK/security/sanitizer.js"],
+      "files_to_modify": [
+        "HLK/security/sanitizer.js"
+      ],
       "acceptance_criteria_count": 2,
       "started_date": null,
       "completed_date": null,
@@ -620,10 +756,14 @@
       "expert": "Quality Auditor",
       "status": "pending",
       "dependencies": [],
-      "dependents": ["U31"],
+      "dependents": [
+        "U31"
+      ],
       "effort_days": 1,
       "impact": "Keep slop detection current",
-      "files_to_modify": [".devin/skills/slop-detector.md"],
+      "files_to_modify": [
+        ".devin/skills/slop-detector.md"
+      ],
       "acceptance_criteria_count": 3,
       "started_date": null,
       "completed_date": null,
@@ -638,11 +778,15 @@
       "priority": "medium",
       "expert": "Quality Auditor",
       "status": "pending",
-      "dependencies": ["U30"],
+      "dependencies": [
+        "U30"
+      ],
       "dependents": [],
       "effort_days": 1,
       "impact": "Reduce over-polishing",
-      "files_to_modify": [".devin/skills/slop-detector.md"],
+      "files_to_modify": [
+        ".devin/skills/slop-detector.md"
+      ],
       "acceptance_criteria_count": 2,
       "started_date": null,
       "completed_date": null,
@@ -661,7 +805,9 @@
       "dependents": [],
       "effort_days": 2,
       "impact": "Expand verification coverage",
-      "files_to_modify": [".devin/canon/VERIFICATION_PROTOCOL.md"],
+      "files_to_modify": [
+        ".devin/canon/VERIFICATION_PROTOCOL.md"
+      ],
       "acceptance_criteria_count": 2,
       "started_date": null,
       "completed_date": null,
@@ -680,7 +826,9 @@
       "dependents": [],
       "effort_days": 2,
       "impact": "Incremental value delivery",
-      "files_to_modify": [".devin/canon/VERIFICATION_PROTOCOL.md"],
+      "files_to_modify": [
+        ".devin/canon/VERIFICATION_PROTOCOL.md"
+      ],
       "acceptance_criteria_count": 2,
       "started_date": null,
       "completed_date": null,
@@ -699,7 +847,9 @@
       "dependents": [],
       "effort_days": 1,
       "impact": "Fit diverse project sizes",
-      "files_to_modify": [".devin/memory_config.json"],
+      "files_to_modify": [
+        ".devin/memory_config.json"
+      ],
       "acceptance_criteria_count": 3,
       "started_date": null,
       "completed_date": null,
@@ -718,7 +868,9 @@
       "dependents": [],
       "effort_days": 1,
       "impact": "Prevent skill invocation deadlock",
-      "files_to_modify": [".devin/skills/using-skills.md"],
+      "files_to_modify": [
+        ".devin/skills/using-skills.md"
+      ],
       "acceptance_criteria_count": 3,
       "started_date": null,
       "completed_date": null,
@@ -737,7 +889,9 @@
       "dependents": [],
       "effort_days": 3,
       "impact": "Scalable config management",
-      "files_to_modify": ["tools/merge-config.ps1"],
+      "files_to_modify": [
+        "tools/merge-config.ps1"
+      ],
       "acceptance_criteria_count": 3,
       "started_date": null,
       "completed_date": null,
@@ -756,7 +910,9 @@
       "dependents": [],
       "effort_days": 2,
       "impact": "Detect silent degradation",
-      "files_to_modify": ["tools/health-check.ps1"],
+      "files_to_modify": [
+        "tools/health-check.ps1"
+      ],
       "acceptance_criteria_count": 3,
       "started_date": null,
       "completed_date": null,
@@ -775,7 +931,9 @@
       "dependents": [],
       "effort_days": 3,
       "impact": "-500-2000ms/session",
-      "files_to_modify": [".devin/mcp_config.json"],
+      "files_to_modify": [
+        ".devin/mcp_config.json"
+      ],
       "acceptance_criteria_count": 3,
       "started_date": null,
       "completed_date": null,
@@ -794,7 +952,9 @@
       "dependents": [],
       "effort_days": 7,
       "impact": "Linux/macOS support",
-      "files_to_modify": ["tools/"],
+      "files_to_modify": [
+        "tools/"
+      ],
       "acceptance_criteria_count": 2,
       "started_date": null,
       "completed_date": null,
@@ -809,11 +969,17 @@
       "priority": "medium",
       "expert": "Nuwa Cognitive Reviewer",
       "status": "pending",
-      "dependencies": ["U04", "U26"],
+      "dependencies": [
+        "U04",
+        "U26"
+      ],
       "dependents": [],
       "effort_days": 3,
       "impact": "Graceful degradation",
-      "files_to_modify": [".devin/config.minimal.json", ".devin/canon/BOOT_PROTOCOL.md"],
+      "files_to_modify": [
+        ".devin/config.minimal.json",
+        ".devin/canon/BOOT_PROTOCOL.md"
+      ],
       "acceptance_criteria_count": 4,
       "started_date": null,
       "completed_date": null,
@@ -832,7 +998,9 @@
       "dependents": [],
       "effort_days": 2,
       "impact": "Detect tampered hooks",
-      "files_to_modify": [".devin/config.json"],
+      "files_to_modify": [
+        ".devin/config.json"
+      ],
       "acceptance_criteria_count": 2,
       "started_date": null,
       "completed_date": null,
@@ -851,7 +1019,10 @@
       "dependents": [],
       "effort_days": 1,
       "impact": "Prevent bypass via induced failure",
-      "files_to_modify": [".devin/hooks/pre_tool_use.py", ".devin/hooks/post_tool_use.py"],
+      "files_to_modify": [
+        ".devin/hooks/pre_tool_use.py",
+        ".devin/hooks/post_tool_use.py"
+      ],
       "acceptance_criteria_count": 2,
       "started_date": null,
       "completed_date": null,
@@ -870,7 +1041,9 @@
       "dependents": [],
       "effort_days": 2,
       "impact": "Block data exfiltration",
-      "files_to_modify": [".devin/hooks/pre_tool_use.py"],
+      "files_to_modify": [
+        ".devin/hooks/pre_tool_use.py"
+      ],
       "acceptance_criteria_count": 2,
       "started_date": null,
       "completed_date": null,
@@ -889,7 +1062,9 @@
       "dependents": [],
       "effort_days": 1,
       "impact": "Prevent disk exhaustion",
-      "files_to_modify": [".devin/hooks/post_tool_use.py"],
+      "files_to_modify": [
+        ".devin/hooks/post_tool_use.py"
+      ],
       "acceptance_criteria_count": 2,
       "started_date": null,
       "completed_date": null,
@@ -908,7 +1083,9 @@
       "dependents": [],
       "effort_days": 1,
       "impact": "Identify unused adapters",
-      "files_to_modify": [".devin/scripts/session_manager.py"],
+      "files_to_modify": [
+        ".devin/scripts/session_manager.py"
+      ],
       "acceptance_criteria_count": 2,
       "started_date": null,
       "completed_date": null,
@@ -927,7 +1104,9 @@
       "dependents": [],
       "effort_days": 2,
       "impact": "Reduce complexity",
-      "files_to_modify": [".devin/canon/LOOP_PROTOCOL.md"],
+      "files_to_modify": [
+        ".devin/canon/LOOP_PROTOCOL.md"
+      ],
       "acceptance_criteria_count": 2,
       "started_date": null,
       "completed_date": null,
@@ -946,7 +1125,9 @@
       "dependents": [],
       "effort_days": 1,
       "impact": "-20-50ms per call",
-      "files_to_modify": [".devin/hooks/ahd_session.py"],
+      "files_to_modify": [
+        ".devin/hooks/ahd_session.py"
+      ],
       "acceptance_criteria_count": 2,
       "started_date": null,
       "completed_date": null,
@@ -965,7 +1146,9 @@
       "dependents": [],
       "effort_days": 2,
       "impact": "-50-100ms per tool call",
-      "files_to_modify": [".devin/hooks/post_tool_use.py"],
+      "files_to_modify": [
+        ".devin/hooks/post_tool_use.py"
+      ],
       "acceptance_criteria_count": 2,
       "started_date": null,
       "completed_date": null,
@@ -984,7 +1167,9 @@
       "dependents": [],
       "effort_days": 1,
       "impact": "-0-500ms when network slow",
-      "files_to_modify": [".devin/mcp_config.json"],
+      "files_to_modify": [
+        ".devin/mcp_config.json"
+      ],
       "acceptance_criteria_count": 2,
       "started_date": null,
       "completed_date": null,
@@ -1003,7 +1188,9 @@
       "dependents": [],
       "effort_days": 1,
       "impact": "-20-50ms per rotation",
-      "files_to_modify": [".devin/hooks/post_tool_use.py"],
+      "files_to_modify": [
+        ".devin/hooks/post_tool_use.py"
+      ],
       "acceptance_criteria_count": 2,
       "started_date": null,
       "completed_date": null,

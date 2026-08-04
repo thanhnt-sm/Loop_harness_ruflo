@@ -6,8 +6,10 @@
 
 ## Sequence
 
-1. **Read entry file** — the file that brought you here (AGENTS.md / CLAUDE.md /
-   instructions.md / .devin/AGENTS.md). It routes you to canon.
+1. **Read entry file** — the summary file that brought you here (`.devin/AGENTS.md`).
+   It is a ~5KB summary with tables referencing all canon files, skills, agents, and
+   runtime components. **Do NOT load the full canon body** (`.devin/AGENTS_full.md`, 186KB)
+   — load individual canon files on-demand per the steps below.
 2. **Ensure registry exists** — `.devin/loop_state.md` is the session registry.
    If it does not exist, create an empty registry with front matter:
    ```yaml
