@@ -104,7 +104,7 @@
       "started_date": "2026-07-07",
       "completed_date": "2026-07-07",
       "verifier": "GLM-5.2 High",
-      "commit_hash": null,
+      "commit_hash": "e5cc253",
       "notes": "AC: 6/6 passed. AGENTS.md=5513 bytes (<6KB). AGENTS_full.md=188743 bytes (>180KB). Canon refs=16 (>=10). Skill refs=29 (>=20). BOOT_PROTOCOL step 1 updated with AGENTS_full.md ref. verify-workspace.ps1: 73/73 pass. Token savings: ~41K tokens/session (186KB->5.4KB entry file)."
     },
     {
