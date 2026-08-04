@@ -59,6 +59,22 @@ New-Item -ItemType Directory -Path $tempExtract -Force | Out-Null
 
 # Dùng .NET ZipFile để extract (tránh Expand-Archive bug)
 Add-Type -AssemblyName System.IO.Compression.FileSystem
+
+# U09: Safe zip extraction — validate entry paths to prevent path traversal
+$tempExtractFull = [System.IO.Path]::GetFullPath($tempExtract)
+$zip = [System.IO.Compression.ZipFile]::OpenRead($TemplatePath)
+foreach ($entry in $zip.Entries) {
+  $targetPath = [System.IO.Path]::GetFullPath(
+    [System.IO.Path]::Combine($tempExtractFull, $entry.FullName)
+  )
+  if (-not $targetPath.StartsWith($tempExtractFull, [System.StringComparison]::OrdinalIgnoreCase)) {
+    Write-Host "  [BLOCKED] Path traversal detected in zip entry: $($entry.FullName)" -ForegroundColor Red
+    $zip.Dispose()
+    throw "Path traversal detected in zip entry: $($entry.FullName) — refusing to extract"
+  }
+}
+$zip.Dispose()
+Write-Host "  [security] Zip entry paths validated (no traversal)" -ForegroundColor DarkGray
 [System.IO.Compression.ZipFile]::ExtractToDirectory($TemplatePath, $tempExtract)
 
 # Copy tất cả vào target (merge, không overwrite files hiện có của user)
@@ -124,6 +140,11 @@ if (-not (Test-Path $aideMemoryCli)) {
 
 # 5c. Workspace root
 $workspaceRoot = $target
+# U09: Validate workspaceRoot for path traversal
+if ($workspaceRoot -match '\.\.') {
+  throw "WORKSPACE_ROOT contains path traversal characters: $workspaceRoot — refusing to deploy"
+}
+$workspaceRoot = [System.IO.Path]::GetFullPath($workspaceRoot)
 Write-Host "    WORKSPACE_ROOT = $workspaceRoot`n" -ForegroundColor DarkGray
 
 # --- 6. Resolve placeholders trong config.json + mcp_config.json ---
@@ -136,6 +157,12 @@ if (Test-Path $configPath) {
   $content = $content -replace '\{\{AIDE_MEMORY_CLI\}\}', ($aideMemoryCli -replace '\\', '\\')
   $content = $content -replace '\{\{NODE_EXE\}\}', ($nodeExe -replace '\\', '\\')
   [System.IO.File]::WriteAllText($configPath, $content, $utf8NoBom)
+  # U09: Check for unresolved placeholders
+  $unresolved = [regex]::Matches($content, '\{\{.*?\}\}')
+  if ($unresolved.Count -gt 0) {
+    Write-Host "  [WARN] Unresolved placeholders in config.json: $($unresolved.Count)" -ForegroundColor Yellow
+    $unresolved | ForEach-Object { Write-Host "    $($_.Value)" -ForegroundColor Yellow }
+  }
   Write-Host "  [resolved] .devin/config.json" -ForegroundColor Green
 }
 
@@ -145,6 +172,12 @@ if (Test-Path $mcpPath) {
   $content = $content -replace '\{\{WORKSPACE_ROOT\}\}', ($workspaceRoot -replace '\\', '\\')
   $content = $content -replace '\{\{AIDE_MEMORY_CLI\}\}', ($aideMemoryCli -replace '\\', '\\')
   [System.IO.File]::WriteAllText($mcpPath, $content, $utf8NoBom)
+  # U09: Check for unresolved placeholders
+  $unresolvedMcp = [regex]::Matches($content, '\{\{.*?\}\}')
+  if ($unresolvedMcp.Count -gt 0) {
+    Write-Host "  [WARN] Unresolved placeholders in mcp_config.json: $($unresolvedMcp.Count)" -ForegroundColor Yellow
+    $unresolvedMcp | ForEach-Object { Write-Host "    $($_.Value)" -ForegroundColor Yellow }
+  }
   Write-Host "  [resolved] .devin/mcp_config.json" -ForegroundColor Green
 }
 

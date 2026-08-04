@@ -11,7 +11,7 @@
   "phase_summary": {
     "P0": {
       "total": 10,
-      "done": 4,
+      "done": 5,
       "in_progress": 0,
       "pending": 6,
       "blocked": 0
@@ -68,7 +68,7 @@
     "per_tool_call_overhead_ms": "250-750",
     "boot_cold_start_s": "2-8",
     "full_power_cost_lightning_usd": 0.19,
-    "security_critical_vulns": 3,
+    "security_critical_vulns": 2,
     "security_high_vulns": 5,
     "single_points_of_failure": 5,
     "component_count": 50,
@@ -278,7 +278,7 @@
       "phase": "P0",
       "priority": "critical",
       "expert": "Security Red Teamer",
-      "status": "pending",
+      "status": "done",
       "dependencies": [],
       "dependents": [],
       "effort_days": 1,
@@ -287,11 +287,11 @@
         "tools/deploy-template.ps1"
       ],
       "acceptance_criteria_count": 4,
-      "started_date": null,
-      "completed_date": null,
-      "verifier": null,
+      "started_date": "2026-07-07",
+      "completed_date": "2026-07-07",
+      "verifier": "GLM-5.2 High",
       "commit_hash": null,
-      "notes": ""
+      "notes": "AC: 4/4 passed. Path traversal validation added (reject .. in workspaceRoot). Safe zip extraction with entry path validation (GetFullPath + StartsWith check). Unresolved placeholder check after replacement (warns on {{.*}} remaining). traversal refs=6, GetFullPath refs=3, unresolved refs=10. verify-workspace: 73/73 pass."
     },
     {
       "id": "U10",
