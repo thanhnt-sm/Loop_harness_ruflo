@@ -1,19 +1,33 @@
 {
   "model": "claude-sonnet-5",
-  "skillListingBudgetFraction": 0.06,
+  "skillListingBudgetFraction": 0.08,
   "customInstructions": "Follow the project's CLAUDE.md guidelines. Use concurrent execution for all operations. Prioritize v3 implementation with security-first development, 15-agent swarm coordination, phased performance optimization, and cross-platform helper automation.",
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
     "CLAUDE_FLOW_V3_ENABLED": "true",
-    "CLAUDE_FLOW_HOOKS_ENABLED": "true"
+    "CLAUDE_FLOW_HOOKS_ENABLED": "true",
+    "CLAUDE_FLOW_MODE": "v3",
+    "CLAUDE_FLOW_TOPOLOGY": "hierarchical-mesh",
+    "CLAUDE_FLOW_MAX_AGENTS": "15",
+    "CLAUDE_FLOW_MEMORY_BACKEND": "hybrid",
+    "CLAUDE_FLOW_HNSW_ENABLED": "true",
+    "CLAUDE_FLOW_NEURAL_ENABLED": "true",
+    "CLAUDE_FLOW_DAEMON_AUTOSTART": "true",
+    "CLAUDE_FLOW_AGENT_TEAMS": "true",
+    "CLAUDE_FLOW_LEARNING_ENABLED": "true",
+    "CLAUDE_FLOW_SECURITY_AUTOSCAN": "true"
   },
   "permissions": {
     "allow": [
-      "Bash(npx @claude-flow*)",
-      "Bash(npx claude-flow*)",
-      "Bash(node .claude/*)",
+      "Bash(npx ruflo:*)",
+      "Bash(npx claude-flow:*)",
+      "Bash(npx @claude-flow/*:*)",
+      "Bash(ruflo:*)",
+      "Bash(claude-flow:*)",
+      "Bash(node:*)",
       "Bash(npm run:*)",
       "Bash(npm test:*)",
+      "Bash(npm install:*)",
       "Bash(git status)",
       "Bash(git diff:*)",
       "Bash(git log:*)",
@@ -21,19 +35,22 @@
       "Bash(git commit:*)",
       "Bash(git push)",
       "Bash(git config:*)",
-      "Bash(git tag:*)",
       "Bash(git branch:*)",
       "Bash(git checkout:*)",
       "Bash(git stash:*)",
+      "Bash(git tag:*)",
       "Bash(jq:*)",
-      "Bash(node:*)",
       "Bash(which:*)",
       "Bash(pwd)",
       "Bash(ls:*)",
       "Bash(npx:*)",
       "mcp__claude-flow__*",
       "mcp__ruv-swarm__*",
-      "mcp__flow-nexus__*"
+      "mcp__flow-nexus__*",
+      "mcp__ruflo__*",
+      "Bash(npx @claude-flow*)",
+      "Bash(npx claude-flow*)",
+      "Bash(node .claude/*)"
     ],
     "deny": [
       "Read(./.env)",
@@ -47,7 +64,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node HLK/wrappers/hlk-hook-launcher.mjs",
+            "command": "\"$CLAUDE_PROJECT_DIR/.tools/node/node.exe\" HLK/wrappers/hlk-hook-launcher.mjs",
             "timeout": 5000
           }
         ]
@@ -57,7 +74,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" pre-bash",
+            "command": "\"$CLAUDE_PROJECT_DIR/.tools/node/node.exe\" \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" pre-bash",
             "timeout": 5000
           }
         ]
@@ -69,7 +86,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" post-edit",
+            "command": "\"$CLAUDE_PROJECT_DIR/.tools/node/node.exe\" \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" post-edit",
             "timeout": 10000
           }
         ]
@@ -80,7 +97,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" route",
+            "command": "\"$CLAUDE_PROJECT_DIR/.tools/node/node.exe\" \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" route",
             "timeout": 10000
           }
         ]
@@ -91,12 +108,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" session-restore",
+            "command": "\"$CLAUDE_PROJECT_DIR/.tools/node/node.exe\" \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" session-restore",
             "timeout": 15000
           },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/auto-memory-hook.mjs\" import",
+            "command": "\"$CLAUDE_PROJECT_DIR/.tools/node/node.exe\" \"$CLAUDE_PROJECT_DIR/.claude/helpers/auto-memory-hook.mjs\" import",
             "timeout": 8000
           }
         ]
@@ -107,7 +124,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" session-end",
+            "command": "\"$CLAUDE_PROJECT_DIR/.tools/node/node.exe\" \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" session-end",
             "timeout": 10000
           }
         ]
@@ -118,7 +135,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/auto-memory-hook.mjs\" sync",
+            "command": "\"$CLAUDE_PROJECT_DIR/.tools/node/node.exe\" \"$CLAUDE_PROJECT_DIR/.claude/helpers/auto-memory-hook.mjs\" sync",
             "timeout": 10000
           }
         ]
@@ -130,11 +147,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" compact-manual"
+            "command": "\"$CLAUDE_PROJECT_DIR/.tools/node/node.exe\" \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" compact-manual"
           },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" session-end",
+            "command": "\"$CLAUDE_PROJECT_DIR/.tools/node/node.exe\" \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" session-end",
             "timeout": 5000
           }
         ]
@@ -144,11 +161,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" compact-auto"
+            "command": "\"$CLAUDE_PROJECT_DIR/.tools/node/node.exe\" \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" compact-auto"
           },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" session-end",
+            "command": "\"$CLAUDE_PROJECT_DIR/.tools/node/node.exe\" \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" session-end",
             "timeout": 6000
           }
         ]
@@ -159,7 +176,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" post-task",
+            "command": "\"$CLAUDE_PROJECT_DIR/.tools/node/node.exe\" \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" post-task",
             "timeout": 5000
           }
         ]
@@ -168,7 +185,7 @@
   },
   "attribution": {
     "commit": "Co-Authored-By: RuFlo <ruv@ruv.net>",
-    "pr": "🤖 Generated with [RuFlo](https://github.com/ruvnet/ruflo)"
+    "pr": "Generated with [RuFlo](https://github.com/ruvnet/ruflo)"
   },
   "claudeFlow": {
     "version": "3.34.0",
@@ -203,7 +220,13 @@
     },
     "swarm": {
       "topology": "hierarchical-mesh",
-      "maxAgents": 15
+      "maxAgents": 15,
+      "strategy": "specialized",
+      "consensus": "raft",
+      "loadBalancingStrategy": "capability-match",
+      "messageTimeout": 30000,
+      "retryAttempts": 3,
+      "healthCheckInterval": 5000
     },
     "memory": {
       "backend": "hybrid",
@@ -259,6 +282,22 @@
         "ultralearn": {
           "interval": "1h",
           "priority": "normal"
+        },
+        "testgaps": {
+          "interval": "2h",
+          "priority": "high"
+        },
+        "refactor": {
+          "interval": "6h",
+          "priority": "normal"
+        },
+        "benchmark": {
+          "interval": "12h",
+          "priority": "normal"
+        },
+        "map": {
+          "interval": "4h",
+          "priority": "low"
         }
       }
     },
@@ -290,6 +329,63 @@
       "scanOnEdit": true,
       "cveCheck": true,
       "threatModel": true
+    },
+    "hooksConfig": {
+      "preToolUse": true,
+      "postToolUse": true,
+      "userPromptSubmit": true,
+      "sessionStart": true,
+      "stop": true,
+      "notification": true,
+      "permissionRequest": true,
+      "timeout": 5000,
+      "continueOnError": true
+    },
+    "skills": {
+      "core": true,
+      "agentdb": true,
+      "github": true,
+      "flowNexus": true,
+      "v3": true,
+      "all": true
+    },
+    "commands": {
+      "core": true,
+      "analysis": true,
+      "automation": true,
+      "github": true,
+      "hooks": true,
+      "monitoring": true,
+      "optimization": true,
+      "sparc": true
+    },
+    "agents": {
+      "core": true,
+      "github": true,
+      "sparc": true,
+      "swarm": true,
+      "consensus": true,
+      "hiveMind": true
+    },
+    "mcp": {
+      "claudeFlow": true,
+      "agenticFlow": true,
+      "memory": true,
+      "neural": true,
+      "github": true
+    },
+    "runtime": {
+      "topology": "hierarchical-mesh",
+      "maxAgents": 15,
+      "memoryBackend": "hybrid",
+      "enableHNSW": true,
+      "enableNeural": true
+    },
+    "statusline": {
+      "enabled": true,
+      "style": "detailed",
+      "position": "right",
+      "refreshInterval": 2000
     }
   },
   "agents": {
@@ -302,11 +398,11 @@
   },
   "statusLine": {
     "type": "command",
-    "command": "sh -c 'exec node \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/statusline.cjs\"'"
+    "command": "sh -c 'exec \"$CLAUDE_PROJECT_DIR/.tools/node/node.exe\" \"${CLAUDE_PROJECT_DIR:-.}/.claude/helpers/statusline.cjs\"'"
   },
   "mcpServers": {
     "claude-flow": {
-      "command": "node",
+      "command": "$CLAUDE_PROJECT_DIR/.tools/node/node.exe",
       "args": [
         "HLK/wrappers/ruflo-hlk-mcp.mjs",
         "mcp",
