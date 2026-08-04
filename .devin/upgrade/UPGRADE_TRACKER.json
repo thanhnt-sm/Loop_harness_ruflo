@@ -11,7 +11,7 @@
   "phase_summary": {
     "P0": {
       "total": 10,
-      "done": 7,
+      "done": 8,
       "in_progress": 0,
       "pending": 6,
       "blocked": 0
@@ -76,7 +76,7 @@
     "taleb_fragility_score": 8,
     "cross_family_verification": false,
     "disaster_recovery": true,
-    "rollback_deploy": false,
+    "rollback_deploy": true,
     "human_in_loop_count": 6,
     "overall_red_team_score": 5.1
   },
@@ -252,7 +252,7 @@
       "phase": "P0",
       "priority": "critical",
       "expert": "Flow Analyst",
-      "status": "pending",
+      "status": "done",
       "dependencies": [
         "U07"
       ],
@@ -266,11 +266,11 @@
         "tools/rollback-deploy.ps1"
       ],
       "acceptance_criteria_count": 5,
-      "started_date": null,
-      "completed_date": null,
-      "verifier": null,
+      "started_date": "2026-07-07",
+      "completed_date": "2026-07-07",
+      "verifier": "GLM-5.2 High",
       "commit_hash": null,
-      "notes": ""
+      "notes": "AC: 5/5 passed. rollback-deploy.ps1 created. Calls restore-workspace.ps1 for file restore. SHA256 verification before rollback. Protected dirs (src/tests/node_modules/.git). DryRun mode tested (selects backup, verifies hash, shows plan). Optional -RevertGitCommit flag (git revert HEAD --no-edit). Post-rollback verify-workspace.ps1. verify-workspace: 73/73 pass."
     },
     {
       "id": "U09",
