@@ -1,9 +1,9 @@
 {
   "mcpServers": {
     "claude-flow": {
-      "command": "node",
+      "command": "D:\\100.Software\\Github\\Loop_harness_new\\Loop_harness_ruflo\\.tools\\node\\node.exe",
       "args": [
-        "HLK/wrappers/ruflo-hlk-mcp.mjs",
+        "D:\\100.Software\\Github\\Loop_harness_new\\Loop_harness_ruflo\\HLK\\wrappers\\ruflo-hlk-mcp.mjs",
         "mcp",
         "start"
       ]
