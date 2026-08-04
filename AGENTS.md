@@ -69,7 +69,7 @@ Cả 2 skill cùng pattern:
 
 | MCP server | Nguồn | Mục đích | Tools |
 |------------|-------|----------|-------|
-| `claude-flow` | `.devin/mcp_config.json` (local stdio) | Memory MCP (runtime via `node_modules/ruflo/`) — **source code đã remove, chỉ giữ MCP runtime** | `mcp__claude-flow__memory_search`, `mcp__claude-flow__memory_store`, v.v. |
+| `aide-memory` | `.devin/mcp_config.json` (local stdio) | Persistent memory — recall/remember/search theo file scope | `mcp__aide-memory__aide_recall`, `mcp__aide-memory__aide_remember`, `mcp__aide-memory__aide_search`, v.v. |
 | `spark-memory` | spark-mcp plugin (remote HTTP) | Shared memory cộng đồng cross-agent | `mcp__spark-memory__*` |
 | `deepwiki` | yellow-devin plugin (remote HTTP, free) | Query documentation GitHub repos | `mcp__deepwiki__*` |
 | `devin` | yellow-devin plugin (remote HTTP) | Devin V3 API: session management, playbooks | `mcp__devin__*` (cần `DEVIN_SERVICE_USER_TOKEN` + `DEVIN_ORG_ID`) |
@@ -87,10 +87,9 @@ Cả 2 skill cùng pattern:
 |-------|----------|----------|
 | `lightning` | `[user]` | Execution — planner + SWE-1.7 Lightning executor |
 | `glm` | `[user]` | Execution — planner + GLM-5.2 executor (free tier) |
+| `aide-memory` | `[user, model]` | Persistent memory — recall/remember theo file scope |
 | `hlk-git-tools` | `[user]` | Commit/push an toàn qua HLK layer |
 | `hlk-integrity-check` | `[user]` | Kiểm tra HLK layer sau upstream merge |
-| `hlk-upstream-pull` | `[user]` | Pull upstream + reinstall HLK (ruflo upstream đã remove — skill legacy) |
-| `ruflo-autopilot` | `[]` (disabled) | Legacy Ruflo MCP-only orchestration |
 
 ## Custom subagents trong `.devin/agents/`
 
@@ -117,6 +116,12 @@ Cả 2 skill cùng pattern:
 | `.claude-flow/`, `.claude-plugin/`, `docs/`, `verification/`, `services/`, `tests/`, `crates/` | Ruflo runtime artifacts + docs — không cần cho Devin | `git rm -r` + `.gitignore` |
 | Root ruflo files (SKILL.md, Cargo.toml, README.md, CHANGELOG.md, v.v.) | Upstream ruflo project files | `git rm` + `.gitignore` |
 | `package.json` workspaces + 7 broken scripts | Referenced removed v3/ source | Removed from scripts |
+| Ruflo MCP server (`claude-flow`) + `node_modules/ruflo/` | Replaced by aide-memory (Devin-native) | Removed MCP config entry + node_modules |
+| `hlk-upstream-pull` skill | Ruflo upstream đã remove — skill legacy | `git rm` |
+| `ruflo-autopilot` skill | Legacy MCP orchestration — replaced by /lightning + /glm | `git rm` |
+| `package-lock.json` (491 KB) | Stale ruflo dependency tree | `git rm` — will regenerate if needed |
+| `package.json` ruflo manifest (212 lines) | All ruflo deps, workspaces, bin, files array | Replaced → 20-line minimal manifest |
+| `.devin/hooks.v1.json` | Old hooks file — merged into `.devin/config.json` | Merged exec blocker + removed file |
 
 ## Phạm vi an toàn cho code changes
 

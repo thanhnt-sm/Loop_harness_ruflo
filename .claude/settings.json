@@ -78,6 +78,66 @@
             "timeout": 5000
           }
         ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-read-recall.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-edit-recall.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-edit-recall.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Grep",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-search-nudge.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-search-nudge.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__aide-memory__aide_recall",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\track-recall.sh",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -90,6 +150,56 @@
             "timeout": 10000
           }
         ]
+      },
+      {
+        "matcher": "mcp__aide-memory__aide_recall",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\track-recall-post.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__aide-memory__aide_remember",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\track-remember.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__aide-memory__aide_update",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\track-remember.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__aide-memory__aide_forget",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\track-remember.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__aide-memory__aide_search",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\track-search.sh",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [
@@ -99,6 +209,15 @@
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR/.tools/node/node.exe\" \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" route",
             "timeout": 10000
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\detect-correction.sh",
+            "timeout": 5
           }
         ]
       }
@@ -115,6 +234,15 @@
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR/.tools/node/node.exe\" \"$CLAUDE_PROJECT_DIR/.claude/helpers/auto-memory-hook.mjs\" import",
             "timeout": 8000
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\session-start-clear.sh",
+            "timeout": 10
           }
         ]
       }
@@ -137,6 +265,15 @@
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR/.tools/node/node.exe\" \"$CLAUDE_PROJECT_DIR/.claude/helpers/auto-memory-hook.mjs\" sync",
             "timeout": 10000
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\stop-remember.sh",
+            "timeout": 30
           }
         ]
       }
@@ -167,6 +304,15 @@
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR/.tools/node/node.exe\" \"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\" session-end",
             "timeout": 6000
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-compact-save.sh",
+            "timeout": 30
           }
         ]
       }
@@ -412,5 +558,6 @@
   },
   "enabledMcpjsonServers": [
     "claude-flow"
-  ]
+  ],
+  "_aideMemoryVersion": "0.6.4"
 }

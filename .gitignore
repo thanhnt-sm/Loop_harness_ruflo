@@ -213,3 +213,9 @@ services/
 tests/
 crates/
 scripts/
+
+# aide-memory
+.aide/memories/preferences/personal/
+.aide/cache/
+.aide/recall-log.jsonl
+.aide/pending-memories.jsonl
