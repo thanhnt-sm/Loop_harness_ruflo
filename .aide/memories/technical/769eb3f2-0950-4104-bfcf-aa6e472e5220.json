@@ -1,0 +1,22 @@
+{
+  "id": 1,
+  "uuid": "769eb3f2-0950-4104-bfcf-aa6e472e5220",
+  "layer": "technical",
+  "what": "Workspace đã loại bỏ hoàn toàn ruflo (Claude Code orchestration) và thay thế bằng Devin-native stack: /lightning + /glm skills (native subagents), aide-memory MCP (persistent memory), HLK security layer (sanitizer + vault-bridge). Ruflo không tương thích Devin.ai — hooks, plugins, skills, agents, dual-mode, 3-tier routing đều Claude-specific.",
+  "why": "Giải thích kiến trúc hiện tại sau khi ruflo removal, tránh agent cố gắng dùng ruflo tools đã bị xóa",
+  "scope": ".devin/**",
+  "context_label": null,
+  "contributor": "thanhnt-sm",
+  "tags": [
+    "architecture",
+    "ruflo-removal",
+    "devin-native"
+  ],
+  "source": "conversation",
+  "shared": true,
+  "priority": "always",
+  "generated_by": null,
+  "derived_from": null,
+  "created_at": "2026-08-04T06:02:13.400Z",
+  "updated_at": "2026-08-04T06:02:13.400Z"
+}

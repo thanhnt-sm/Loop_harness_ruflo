@@ -227,3 +227,8 @@ scripts/
 bin/
 data/
 plugin/
+
+
+# Editor configs recreated by aide-memory hooks (Devin-only workspace)
+.claude/
+.cursor/
