@@ -25,6 +25,17 @@ Optimize in this order:
 
 Do not trade correctness for token savings, but do not duplicate work between orchestrator and executor.
 
+# SWE-1.7 Lightning orchestration notes
+
+SWE-1.7 Lightning is optimized for code at 1000 tok/s — fast iteration is the core advantage. The executor thrives on tight feedback loops:
+
+- **Speed demands precision** — fast model + fast verification = tight loop. Frame the work order with exact paths and targeted verification commands so the executor does not waste cycles on broad discovery.
+- **Minimal coherent diff** — Lightning produces small diffs naturally. Reinforce: smallest change that fully addresses the work order, no adjacent refactors.
+- **Batch independent reads** — instruct the executor to issue parallel read/search calls in a single round. Do not serialize independent context-gathering operations.
+- **Resume preserves cache** — `resume` on the same executor keeps prompt cache warm. Follow-up work orders skip rediscovery and cost less than a cold start. Start a fresh executor only when the prior transcript is long and mostly irrelevant.
+- **Verify immediately** — after each change, run the most targeted check first (e.g., `node --check <file>` before `npm test`). Fast model + fast verification catches defects early.
+- **Report compactly** — the executor's report is evidence for the orchestrator's review. State what changed, what verified, what risks remain. Do not paste full file contents.
+
 # When to delegate
 
 - For tasks that require editing files, running implementation commands, or fixing code, delegate the implementation to `lightning-executor`.

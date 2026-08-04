@@ -133,3 +133,101 @@ Cả 2 skill cùng pattern:
 - `.devin/skills/`, `.devin/agents/` — định nghĩa skill/agent
 - `scripts/` — utility scripts
 - **KHÔNG đụng**: `HLK/` (security layer), security policies, `.env`
+
+## Best practices (từ Devin docs + community research)
+
+### Rules vs Skills
+
+> **Devin docs khuyến nghị**: "Rules and AGENTS should be kept as small as possible. To improve coding ability, speed, and lower cost, use Skills instead whenever possible. Skills are only injected into context when relevant."
+
+- `AGENTS.md` + `CLAUDE.md` = always-on context → giữ **minimal** (mỗi token đều được load mỗi session)
+- Skills = on-demand context → chỉ inject khi relevant → **prefer skills cho domain knowledge**
+- Pattern khuyến nghị: rule ngắn tham chiếu skill, skill chứa detail
+
+### Subagent model pinning
+
+| Profile | Model | Cost |
+|---------|-------|------|
+| `subagent_explore` | Default subagent model (SWE-1.6) | Cheap — billed at SWE rates |
+| `subagent_general` | Same as parent (Opus, GPT-5, v.v.) | Same rate as parent — fans out = multiplies spend |
+| Custom (`lightning-executor`, `glm-executor`) | `model:` trong AGENT.md | Dependent on pinned model |
+
+- **Research/exploration** → dùng `subagent_explore` (cheap)
+- **Code changes** → dùng custom executor với model pinned (lightning = SWE-1.7, glm = GLM-5.2 free)
+- **Không** spawn `subagent_general` cho research — tốn premium tokens
+- `model:` trong AGENT.md là **cách duy nhất** chạy write-capable subagent trên model khác parent
+
+### GLM-5.2 prompting (từ Cline + Z.AI + community)
+
+GLM-5.2 trained trên agentic trajectories — hiểu tool-use và code-editing workflows implicitly:
+
+1. **Concise prompts > verbose** — GLM-5.2 tuned cho conciseness, verbose prompts "fight the training"
+2. **Explore → Summarize → Implement** — structured workflow bắt buộc: đọc code trước, tóm tắt, rồi mới sửa
+3. **Constraints over Cleverness** — spell out target format, acceptance tests, failure conditions
+4. **Decomposition Over Monologues** — parse → plan → execute → verify
+5. **Externalized Memory** — dùng aide-memory thay bắt model nhớ qua long context
+6. **Verification Hooks** — second pass review catch dumb mistakes (orchestrator review executor's diff)
+7. **Stable system prompts** — Z.AI prefix-based caching, system prompt identical across requests = cache hits
+8. **Explicit invocation rules** — GLM có thể hallucinate tool params, cần tight prompting around invocation scope
+
+### SWE-1.7 Lightning prompting
+
+- Tối ưu cho code, 1000 tok/s — fast iteration
+- Pattern planner + executor: orchestrator (premium model) plan/review, Lightning execute
+- Work order tự chứa (self-contained) — executor không thấy conversation, cần full context
+- `resume` cùng executor cho follow-up — giữ prompt cache warm, skip rediscovery
+
+### Permissions (từ Devin docs)
+
+```json
+{
+  "permissions": {
+    "allow": ["Read(**)", "Exec(git status)", "Exec(git diff)", "Exec(git log)"],
+    "deny": ["Exec(rm -rf)", "Exec(git push --force)", "Exec(git reset --hard)"],
+    "ask": ["Exec(git commit)", "Exec(git push)", "Exec(npm publish)"]
+  }
+}
+```
+
+- `allow` — auto-approve safe operations (giảm approval fatigue)
+- `deny` — hard-block destructive (rm -rf, force-push, drop table)
+- `ask` — prompt before sensitive (commit, push, publish)
+- Scope: project `.devin/config.json` (team) > `.devin/config.local.json` (personal) > user global
+
+## Tham khảo (awesome-devin)
+
+### Devin CLI docs chính thức
+
+| Doc | URL |
+|-----|-----|
+| Config reference | https://docs.devin.ai/cli/reference/configuration/config-file |
+| Models | https://docs.devin.ai/cli/models |
+| Rules & AGENTS.md | https://docs.devin.ai/cli/extensibility/rules |
+| Skills overview | https://docs.devin.ai/cli/extensibility/skills/overview |
+| Subagents | https://docs.devin.ai/cli/subagents |
+| Plugins | https://docs.devin.ai/cli/extensibility/plugins |
+| MCP configuration | https://docs.devin.ai/cli/extensibility/mcp/configuration |
+| Hooks | https://docs.devin.ai/cli/extensibility/hooks |
+| Global vs local | https://docs.devin.ai/cli/reference/configuration/global-vs-local |
+| Changelog | https://docs.devin.ai/cli/changelog/stable |
+
+### GitHub repos hữu ích cho Devin CLI
+
+| Repo | Mục đích |
+|------|----------|
+| [jsklan/devin-api-mcp](https://github.com/jsklan/devin-api-mcp) | MCP server wrap full Devin API (v1+v3+deepwiki proxy) |
+| [mjinno09/devin-mcp](https://github.com/mjinno09/devin-mcp) | Rust MCP cho Devin session management |
+| [ldastey-dev/devin-mcp](https://github.com/ldastey-dev/devin-mcp) | Python MCP wrap v1+v2+v3beta1 multi-org |
+| [desertaxle/devin-mcp](https://github.com/desertaxle/devin-mcp) | Python MCP delegate tasks to Devin |
+| [adw0rd/awesome-mcp-tools-mcp](https://github.com/adw0rd/awesome-mcp-tools-mcp) | CLI + MCP bridge cho 2000+ MCP servers catalog |
+| [adrianmikula/AgentSkills](https://github.com/adrianmikula/AgentSkills) | Claude plugins/skills (security, outreach) — compatible `.agents` standard |
+| [everyinc/compound-engineering-plugin](https://github.com/everyinc/compound-engineering-plugin) | Devin plugin mẫu (compound engineering methodology) |
+
+### GLM best practices
+
+| Nguồn | Takeaway |
+|-------|----------|
+| [GLM-5 system prompt research (gist)](https://gist.github.com/apnea/e9dd7a650bdc3300375fffc54592f48d) | Stable system prompts cho cache hits, concise > verbose |
+| [Cline GLM-4.6 tuning](https://cline.bot/blog/cline-our-commitment-to-open-source-zai-glm-4-6) | Short explicit mechanically-precise instructions, explore→summarize→implement |
+| [Booststash GLM-5.2 coding guide](https://www.booststash.com/how-to-use-glm-5-2-for-coding/) | Start with planning prompt (40% fewer correction cycles), self-review after implement |
+| [Sider GLM-4.6 explained](https://sider.ai/blog/ai-tools/glm-4_6-explained-without-the-hype-what-s-actually-new-and-how-to-use-it) | Constraints > cleverness, decomposition, externalized memory, verification hooks |

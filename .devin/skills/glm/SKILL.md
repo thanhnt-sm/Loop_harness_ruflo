@@ -25,6 +25,17 @@ Optimize in this order:
 
 Do not trade correctness for token savings, but do not duplicate work between orchestrator and executor.
 
+# GLM-5.2 orchestration notes
+
+GLM-5.2 is trained on agentic trajectories — it understands tool-use and code-editing workflows implicitly. The executor needs less behavioral guidance than a general-purpose model, but more explicit constraints:
+
+- **Work order = constraints, not narration** — spell out target format, acceptance tests, failure conditions. GLM-5.2 does not need "use tools to complete the task efficiently"; it needs exact scope boundaries.
+- **Explore → Summarize → Implement** — the executor follows this sequence naturally. Frame the work order so this sequence is obvious: list files to inspect, then state the change, then state the verification.
+- **Concise prompts > verbose** — GLM-5.2 is tuned for conciseness; verbose work orders fight the training. Include precise paths and errors, not narrative context.
+- **Stable system prompt = cache hits** — Z.AI prefix-based caching rewards identical system prompts across resumes. The executor's AGENT.md is stable; do not request mid-session changes.
+- **Self-review checkpoint** — after implementation, the executor benefits from a brief self-review pass: "Check for runtime errors, edge cases, inconsistencies with codebase patterns." The orchestrator's independent review (step 4) is the second pass.
+- **Externalized memory** — for cross-session knowledge, use `aide_recall` before dispatching and `aide_remember` after review. Do not rely on the executor's context window for long-term memory.
+
 # When to delegate
 
 - For tasks that require editing files, running implementation commands, or fixing code, delegate the implementation to `glm-executor`.
