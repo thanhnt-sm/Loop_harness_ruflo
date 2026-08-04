@@ -181,6 +181,8 @@ v3/@claude-flow/cli/plugins/
 # Runtime proven-config adoption state (per-install, not source)
 .claude/proven-config.json
 .claude/.proven-config-version
+**/.claude/proven-config.json
+**/.claude/.proven-config-version
 HLK/config/secrets.*
 HLK/config/*.local.json
 HLK/logs/
@@ -191,3 +193,7 @@ agentdb.rvf.lock
 example.env
 HLK/dist/*.tgz
 HLK/dist/
+
+# Node portable
+.tools/node/
+.tools/*.zip

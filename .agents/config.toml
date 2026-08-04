@@ -79,22 +79,25 @@ tool_timeout_sec = 120
 # =============================================================================
 # Skills Configuration
 # =============================================================================
+# Note: Skills moved to .agents/skills-disabled/ during Devin redteam cleanup.
+# These were Claude Code specific ($agent-* pattern). Re-enable only if using
+# Codex CLI with Claude Code compatibility.
 
 [[skills.config]]
-path = ".agents/skills/swarm-orchestration"
-enabled = true
+path = ".agents/skills-disabled/swarm-orchestration"
+enabled = false
 
 [[skills.config]]
-path = ".agents/skills/memory-management"
-enabled = true
+path = ".agents/skills-disabled/memory-management"
+enabled = false
 
 [[skills.config]]
-path = ".agents/skills/sparc-methodology"
-enabled = true
+path = ".agents/skills-disabled/sparc-methodology"
+enabled = false
 
 [[skills.config]]
-path = ".agents/skills/security-audit"
-enabled = true
+path = ".agents/skills-disabled/security-audit"
+enabled = false
 
 # =============================================================================
 # Profiles

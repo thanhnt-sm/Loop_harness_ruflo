@@ -31,3 +31,4 @@ HLK/docs/** merge=ours
 # overwriting HLK PreToolUse/MCP wrapper customizations.
 # Review upstream changes manually if needed.
 .claude/settings.json merge=ours
+# HLK config — keep ours on merge

@@ -89,8 +89,8 @@
     "zod": "3.25.76"
   },
   "optionalDependencies": {
-    "@napi-rs/keyring": "1.3.0",
     "@claude-flow/plugin-gastown-bridge": "^0.1.3",
+    "@napi-rs/keyring": "1.3.0",
     "@ruvector/attention": "^0.1.3",
     "@ruvector/core": "^0.1.30",
     "@ruvector/router": "^0.1.30",
@@ -147,6 +147,7 @@
     "@types/bcrypt": "^5.0.2",
     "@types/node": "^20.0.0",
     "eslint": "^8.0.0",
+    "ruflo": "^3.34.0",
     "tsx": "^4.21.0",
     "typescript": "^5.0.0",
     "vitest": "^3.2.6"
