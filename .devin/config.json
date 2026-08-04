@@ -1,8 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Exec(node:*)",
-      "Exec(npm run:*)",
+      "Exec(node scripts/*)",
+      "Exec(node .devin/scripts/*)",
+      "Exec(npm run build)",
+      "Exec(npm run test)",
+      "Exec(npm run lint)",
       "Exec(npm test:*)",
       "Exec(aide-memory:*)",
       "Exec(aide:*)",
@@ -10,8 +13,6 @@
       "Exec(git diff:*)",
       "Exec(git log:*)",
       "Exec(git add:*)",
-      "Exec(git commit:*)",
-      "Exec(git push)",
       "Exec(git config:*)",
       "Exec(python scripts/*)",
       "Exec(python .devin/scripts/*)",
@@ -27,11 +28,30 @@
       "Exec(git push --force:*)",
       "Exec(git push -f:*)",
       "Exec(curl * | bash:*)",
+      "Exec(curl * | sh:*)",
+      "Exec(wget * | bash:*)",
+      "Exec(wget * | sh:*)",
       "Exec(mkfs:*)",
+      "Exec(chmod 777:*)",
+      "Exec(chmod -R 777:*)",
+      "Exec(chown:*)",
+      "Exec(git clean -fd:*)",
+      "Exec(git checkout -- .:*)",
+      "Exec(git branch -D:*)",
+      "Exec(dd:*)",
+      "Exec(format:*)",
+      "Exec(shred:*)",
       "Read(.env)",
       "Read(.env.*)"
     ],
-    "ask": []
+    "ask": [
+      "Exec(git push)",
+      "Exec(git commit)",
+      "Exec(npm publish)",
+      "Exec(pip install)",
+      "Exec(git merge:*)",
+      "Exec(git rebase:*)"
+    ]
   },
   "hooks": {
     "SessionStart": [

@@ -11,9 +11,9 @@
   "phase_summary": {
     "P0": {
       "total": 10,
-      "done": 2,
+      "done": 4,
       "in_progress": 0,
-      "pending": 9,
+      "pending": 6,
       "blocked": 0
     },
     "P1": {
@@ -68,7 +68,7 @@
     "per_tool_call_overhead_ms": "250-750",
     "boot_cold_start_s": "2-8",
     "full_power_cost_lightning_usd": 0.19,
-    "security_critical_vulns": 4,
+    "security_critical_vulns": 3,
     "security_high_vulns": 5,
     "single_points_of_failure": 5,
     "component_count": 50,
@@ -77,7 +77,7 @@
     "cross_family_verification": false,
     "disaster_recovery": false,
     "rollback_deploy": false,
-    "human_in_loop_count": 0,
+    "human_in_loop_count": 6,
     "overall_red_team_score": 5.1
   },
   "upgrades": [
@@ -134,7 +134,7 @@
       "phase": "P0",
       "priority": "critical",
       "expert": "Security Red Teamer",
-      "status": "pending",
+      "status": "done",
       "dependencies": [],
       "dependents": [
         "U05",
@@ -146,11 +146,11 @@
         ".devin/config.json"
       ],
       "acceptance_criteria_count": 5,
-      "started_date": null,
-      "completed_date": null,
-      "verifier": null,
+      "started_date": "2026-07-07",
+      "completed_date": "2026-07-07",
+      "verifier": "GLM-5.2 High",
       "commit_hash": null,
-      "notes": "U05 (ask list) is subset of U03 — complete U03 to satisfy both"
+      "notes": "AC: 5/5 passed. deny expanded with 11 new patterns (chmod 777, chown, git clean -fd, git checkout --, git branch -D, dd, format, shred, curl|sh, wget|bash, wget|sh). allow narrowed: node:* -> node scripts/*, npm run:* -> npm run build/test/lint. ask populated with 6 patterns (git push, git commit, npm publish, pip install, git merge, git rebase). JSON valid. verify-workspace: 73/73 pass. U05 (ask list) auto-satisfied by U03."
     },
     {
       "id": "U04",
@@ -185,7 +185,7 @@
       "phase": "P0",
       "priority": "critical",
       "expert": "Security Red Teamer",
-      "status": "pending",
+      "status": "done",
       "dependencies": [
         "U03"
       ],
@@ -195,10 +195,10 @@
       "files_to_modify": [],
       "acceptance_criteria_count": 0,
       "started_date": null,
-      "completed_date": null,
+      "completed_date": "2026-07-07",
       "verifier": null,
       "commit_hash": null,
-      "notes": "Covered by U03. Auto-complete when U03 done."
+      "notes": "Auto-completed by U03. ask list populated with 6 patterns."
     },
     {
       "id": "U06",
