@@ -232,3 +232,5 @@ plugin/
 # Editor configs recreated by aide-memory hooks (Devin-only workspace)
 .claude/
 .cursor/
+
+.cursor/rules/aide-memory.mdc

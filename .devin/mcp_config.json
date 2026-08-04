@@ -2,10 +2,7 @@
   "mcpServers": {
     "aide-memory": {
       "command": "node",
-      "args": [
-        "C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\dist\\memory\\cli.js",
-        "D:\\100.Software\\Github\\Loop_harness_new\\Loop_harness_ruflo"
-      ]
+      "args": ["C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\dist\\memory\\cli.js", "D:\\100.Software\\Github\\Loop_harness_new\\Loop_harness_ruflo"]
     }
   }
 }

@@ -1,6 +1,75 @@
-# Devin CLI — Lightning + GLM Orchestrators
+# Devin CLI — Agent Harness Deploy + Lightning/GLM Orchestrators
 
-## Kiến trúc
+## Kiến trúc chính: Agent Harness Deploy (AHD)
+
+Workspace sử dụng **Agent Harness Deploy** (masteryee-labs/Tool.Agent-Harness-Deploy) làm **động cơ chính, kiến trúc chính, giải pháp chính**. AHD là self-deploying cross-tool AI harness — deploy canonical rules + skills + orchestrator + memory protocol + hooks vào `.devin/`.
+
+### AHD cung cấp
+
+| Layer | Location | Mục đích |
+|-------|----------|----------|
+| Canon (universal rules) | `.devin/canon/` | 10 protocol files: BOOT, MEMORY, LOOP, VERIFICATION, CAVEMAN, REDLINES, HARNESS_ENGINEERING, JUDGMENT_RUBRICS, HANDOFF_LETTER, CORE_CANON |
+| Orchestrator | `.devin/agents/COMMANDER.md` + personas/ + workers/ | Commander + Worker persona system (backend_architect, code_reviewer, devops_automator, frontend_developer, git_workflow_master, software_architect) |
+| Skills (AHD) | `.devin/skills/*.md` + `nuwa-skill/` + `chroma-hybrid-search/` + `domain-adapters/` | 16 harness skills: auditor, claim-grader, comment_checker, context-compactor, fable-judge, gap-scan, graph-verify, harness-sensor, init_deep, loop-memory, memory-audit, slop-detector, systematic_debugging, tdd, user-preference, using-skills |
+| Runtime hooks | `.devin/hooks/` | Python hooks: pre_tool_use.py, post_tool_use.py, stop.py, ahd_session.py |
+| Runtime scripts | `.devin/scripts/` | 7 scripts: worktree.py, plan_dispatch.py, session_manager.py, loop_memory_sync.py, memory_audit.py, pre_task_audit.py, ahd_session.py |
+| Session state | `.devin/session_state/`, `.devin/loop_state/`, `.devin/context_flags/` | Per-session machine state + human state |
+| Shared state | `.agents/` | loop_state.md (registry), knowledge_distill.md (anti-patterns), user_profile.md (preferences) |
+| Project rules | `.devin/rules/` | Project-owned, AHD không overwrite |
+| Entry file | `.devin/AGENTS.md` | Auto-generated từ canon — 186KB canonical harness body |
+| Vault | `.devin/skills/assets/vault/` | Anti-link-rot templates: caveman_template.json, strix_security_rules.json, memory_mcp_schema.json |
+
+### AHD canonical protocols (10 files trong `.devin/canon/`)
+
+| Protocol | Mục đích |
+|----------|----------|
+| `CORE_CANON.md` | Tool-agnostic source of truth — identity, operating principles, deploy contract |
+| `BOOT_PROTOCOL.md` | 17-step startup sequence — registry, knowledge, profile, GoalSpec |
+| `MEMORY_PROTOCOL.md` | 3-layer memory: hot registry, hot session, knowledge + cold archive |
+| `LOOP_PROTOCOL.md` | Loop/goal primitives, stop conditions, idle-yank |
+| `VERIFICATION_PROTOCOL.md` | Maker ≠ checker, read-back verification, CLI gates |
+| `CAVEMAN_PROTOCOL.md` | Token compression style (~65% reduction) |
+| `HARNESS_ENGINEERING.md` | Design principles for agent-facing systems |
+| `JUDGMENT_RUBRICS.md` | Externalized decision criteria |
+| `HANDOFF_LETTER.md` | Letter to future sessions |
+| `REDLINES.md` | Hard stops — violating → stop, ask human |
+
+### AHD orchestrator: Commander + Workers
+
+```
+Commander (main thread)
+├── SCOUT (worker) — scan/discover
+├── BUILDER (worker) — implement
+├── AUDITOR (worker) — verify
+├── VERIFIER (worker) — independent check
+├── MEMORY_KEEPER (worker) — persist state
+└── Nuwa cognitive angles — Munger/Feynman/Taleb verification
+```
+
+Personas: `backend_architect`, `code_reviewer`, `database_optimizer`, `devops_automator`, `frontend_developer`, `git_workflow_master`, `software_architect`
+
+## Tích hợp với existing stack
+
+AHD là **main engine**. Existing components được bảo vệ và tích hợp:
+
+| Component | Vai trò | Bảo vệ |
+|-----------|---------|--------|
+| `/lightning` + `/glm` skills | Devin-native subagent orchestrators | `.devin/skills/lightning/`, `.devin/skills/glm/` — không overwrite |
+| `lightning-executor` + `glm-executor` agents | Pinned model executors | `.devin/agents/lightning-executor/`, `.devin/agents/glm-executor/` — không overwrite |
+| HLK security layer | PreToolUse hook (sanitizer + vault-bridge) | `HLK/` — config.json hooks preserved |
+| aide-memory MCP | Persistent cross-session memory | `.devin/mcp_config.json` — không đụng |
+| aide-memory hooks | SessionStart/Stop/PreToolUse/PostToolUse | config.json hooks preserved + merged với AHD hooks |
+
+### Config merge strategy
+
+AHD deployer **không phải deep merge** — nó ghi đè permissions + hooks. Đã manually merge:
+- HLK hook launcher (exec matcher) — **giữ nguyên**
+- AHD pre_tool_use.py (exec matcher) — **thêm vào** cùng matcher
+- aide-memory hooks (read/edit/write/grep/glob/mcp matchers) — **giữ nguyên**
+- AHD post_tool_use.py (empty matcher) + AgentStop — **thêm vào**
+- Permissions: AHD `Bash()` format + Devin `Exec()` format — **hợp nhất cả hai**
+
+## Orchestrator skills: /lightning + /glm
 
 Workspace có **2 orchestrator skills** — cùng pattern (planner + executor), khác model executor:
 
@@ -28,6 +97,16 @@ devin -p -- "mô tả công việc"
 
 # Gọi skill lightning trực tiếp
 /lightning <software-engineering task>
+
+# Gọi skill glm trực tiếp
+/glm <software-engineering task>
+
+# AHD skills (tự invoke khi relevant)
+/nuwa-skill <tên người/subject> — cognitive diversity verification
+/tdd — test-driven development
+/auditor — audit code
+/gap-scan — differential gap scan
+/slop-detector — detect AI slop
 ```
 
 ## Ví dụ
@@ -40,6 +119,9 @@ devin -p -- "mô tả công việc"
 /glm add input validation to the checkout form and update its tests
 /glm review the auth module for security issues
 /glm write tests for src/utils.js, coverage > 80%
+
+/nuwa-skill Munger — verify investment logic from Munger's perspective
+/tdd write tests for src/utils.js, coverage > 80%
 ```
 
 ## Luồng công việc `/lightning` và `/glm`
@@ -83,6 +165,8 @@ Cả 2 skill cùng pattern:
 
 ## Skills trong `.devin/skills/`
 
+### Devin-native skills (existing)
+
 | Skill | Triggers | Mục đích |
 |-------|----------|----------|
 | `lightning` | `[user]` | Execution — planner + SWE-1.7 Lightning executor |
@@ -91,12 +175,59 @@ Cả 2 skill cùng pattern:
 | `hlk-git-tools` | `[user]` | Commit/push an toàn qua HLK layer |
 | `hlk-integrity-check` | `[user]` | Kiểm tra HLK layer sau upstream merge |
 
+### AHD harness skills (deployed)
+
+| Skill | Mục đích |
+|-------|----------|
+| `nuwa-skill` | Cognitive diversity verification — Munger/Feynman/Taleb perspectives |
+| `chroma-hybrid-search` | Deep-memory hybrid search (BM25 + vector + reranker) |
+| `auditor` | Audit code quality |
+| `claim-grader` | Grade claims: [fact] / [inference] / [unverified-guess] |
+| `comment_checker` | Check comment discipline (comments are debt) |
+| `context-compactor` | Compress context (caveman mode) |
+| `fable-judge` | Judge fables (narrative verification) |
+| `gap-scan` | Differential gap scan (scope angles) |
+| `graph-verify` | Verify knowledge graph |
+| `harness-sensor` | Detect harness state |
+| `init_deep` | Large-repo init (build code graph) |
+| `loop-memory` | Loop memory sync |
+| `memory-audit` | Audit memory (candidate → knowledge) |
+| `slop-detector` | Detect AI slop |
+| `systematic_debugging` | Systematic debugging protocol |
+| `tdd` | Test-driven development |
+| `user-preference` | User preference learning |
+| `using-skills` | How to use skills |
+| `domain-adapters/*` | Domain-specific adapters: coding, data, devops, design, finance, legal, marketing, research, business-ops |
+
 ## Custom subagents trong `.devin/agents/`
+
+### Devin-native executors (existing)
 
 | Profile | Model | Vai trò |
 |---------|-------|---------|
 | `lightning-executor` | swe-1.7-lightning | Implementation executor cho `/lightning` |
 | `glm-executor` | glm-5-2 | Implementation executor cho `/glm` (free tier) |
+
+### AHD orchestrator (deployed)
+
+| File | Vai trò |
+|------|---------|
+| `COMMANDER.md` | Commander persona — main thread decides, dispatches, integrates |
+| `DISPATCH_TEMPLATES.md` | Dispatch templates cho worker personas |
+| `model_tiers.md` | Model tier routing (Tier 1/2/3) |
+| `PERSONA_TEMPLATE.md` | Template để tạo persona mới |
+| `personas/backend_architect.md` | Backend architecture persona |
+| `personas/code_reviewer.md` | Code review persona |
+| `personas/database_optimizer.md` | Database optimization persona |
+| `personas/devops_automator.md` | DevOps automation persona |
+| `personas/frontend_developer.md` | Frontend development persona |
+| `personas/git_workflow_master.md` | Git workflow persona |
+| `personas/software_architect.md` | Software architecture persona |
+| `workers/AUDITOR.md` | Auditor worker — verify |
+| `workers/BUILDER.md` | Builder worker — implement |
+| `workers/MEMORY_KEEPER.md` | Memory keeper worker — persist state |
+| `workers/SCOUT.md` | Scout worker — scan/discover |
+| `workers/VERIFIER.md` | Verifier worker — independent check |
 
 ## Đã loại bỏ (redteam cleanup)
 
