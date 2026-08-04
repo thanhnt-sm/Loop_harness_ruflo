@@ -219,3 +219,11 @@ scripts/
 .aide/cache/
 .aide/recall-log.jsonl
 .aide/pending-memories.jsonl
+
+# Remaining ruflo artifacts
+.agents/
+.harness/
+.swarm/
+bin/
+data/
+plugin/
