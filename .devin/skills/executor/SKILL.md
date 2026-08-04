@@ -1,16 +1,18 @@
 ---
-name: executor
-description: "Merged executor skill — orchestrator + delegated implementation. Use via lightning or glm wrapper."
-triggers:
-  - user
-permissions:
-  allow:
-    - Exec(git status)
-    - Exec(git diff)
-    - Exec(git log)
+name: executor-template
+description: "TEMPLATE (not a runtime skill) — source of truth for lightning + glm SKILL.md. Edit here, sync to copies."
 ---
 
-# Mission
+# Executor Skill Template (U11)
+
+> **This is a TEMPLATE, not a runtime skill.** Devin CLI does not support
+> `{{...}}` parameter substitution or skill inclusion. This file is the
+> source of truth — edit here, then sync to:
+> - `.devin/skills/lightning/SKILL.md` (replace {{MODEL}} → SWE-1.7 Lightning, {{EXECUTOR_PROFILE}} → lightning-executor)
+> - `.devin/skills/glm/SKILL.md` (replace {{MODEL}} → GLM-5.2, {{EXECUTOR_PROFILE}} → glm-executor)
+>
+> The model-specific orchestration notes sections at the bottom show both
+> variants. When syncing, include only the relevant section in each copy.
 
 Act as the control plane for the user's software-engineering task. The currently active model is the orchestrator. Keep it active for planning, decisions, and review; delegate implementation to the `{{EXECUTOR_PROFILE}}` subagent, which is pinned to {{MODEL}} ({{MODEL_TIER}}).
 

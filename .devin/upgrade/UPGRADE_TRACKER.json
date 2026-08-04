@@ -341,7 +341,7 @@
       "completed_date": "2026-07-07",
       "verifier": "GLM-5.2 High",
       "commit_hash": null,
-      "notes": "AC: 4/4 passed. executor/SKILL.md created with {{MODEL}}, {{EXECUTOR_PROFILE}}, {{ORCHESTRATION_NOTES}} parameters. lightning=399 bytes, glm=383 bytes (both <500). Both reference executor/SKILL.md. verify-workspace: 73/73 pass."
+      "notes": "AC: 4/4 passed initially. REDTEAM FIX: Devin CLI does not support {{...}} parameter substitution. Reverted thin wrappers to full self-contained skills. executor/SKILL.md kept as template (source of truth for maintenance). Real benefit: single file to edit, sync to copies. Token savings claim corrected: maintenance benefit, not per-invoke savings. verify-workspace: 73/73 pass."
     },
     {
       "id": "U12",
