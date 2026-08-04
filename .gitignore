@@ -197,3 +197,6 @@ HLK/dist/
 # Node portable
 .tools/node/
 .tools/*.zip
+
+# Reference repos (research clones — never commit, move to temp after use)
+*-ref/

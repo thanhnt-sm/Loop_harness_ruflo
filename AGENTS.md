@@ -7,12 +7,14 @@ Workspace có **2 orchestrator skills** — cùng pattern (planner + executor), 
 | Skill | Orchestrator | Executor | Model | Cost | Context |
 |-------|-------------|----------|-------|------|---------|
 | `/lightning` | Active Devin model | `lightning-executor` | SWE-1.7 Lightning | $2.5/$12.5 MTok | 202K |
-| `/glm` | Active Devin model | `glm-executor` | GLM-5.2 High | **Free** | 200K |
+| `/glm` | Active Devin model | `glm-executor` | GLM-5.2 High | **Free** (capable tier) | 200K |
 
 **Khi nào dùng cái nào?**
 - `/lightning` — khi cần tốc độ (SWE-1.7 Lightning tối ưu cho code, 1000 tok/s)
 - `/glm` — khi cần free tier hoặc GLM-5.2 reasoning chất lượng cao
 - Cả 2 cùng pattern: orchestrator plan/review, executor implement/test/report
+
+> **Note**: GLM-5.2 là **"capable tier"** (frontier capability tại budget price, ~Opus-4.8 class) — không phải "cheap and dumb". Phù hợp cho high-stakes reasoning, security review, deep judgment, dù cost thấp. (Nguồn: outsourcerer repo)
 
 ## Cách dùng
 
