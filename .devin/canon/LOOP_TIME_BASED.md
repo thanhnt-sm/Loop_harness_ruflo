@@ -2,6 +2,9 @@
 
 > Sub-protocol of `LOOP_PROTOCOL.md`. Load when task is periodic (content known, only timing repeats).
 > Time-based = clock triggers, human/cap decides done. Modes: `/loop` (local) or `/schedule` (cloud).
+>
+> **Required context**: This sub-protocol references `§State contract`, `§Mandatory stop conditions`,
+> and `§Maker/checker` from `LOOP_PROTOCOL.md`. Load core first if not already loaded.
 
 ## Cadence rules
 

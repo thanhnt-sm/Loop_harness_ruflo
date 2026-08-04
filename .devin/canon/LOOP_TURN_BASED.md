@@ -2,6 +2,9 @@
 
 > Sub-protocol of `LOOP_PROTOCOL.md`. Load when task is exploratory (each output reshapes next question).
 > Turn-based = human prompt triggers, human reviews output. The manual baseline.
+>
+> **Required context**: This sub-protocol references `§State contract`, `§Mandatory stop conditions`,
+> and `§Maker/checker` from `LOOP_PROTOCOL.md`. Load core first if not already loaded.
 
 ## Skills upgrade (cheapest improvement)
 

@@ -21,7 +21,7 @@ You are operating inside an **AHD-distilled harness**. Core principles:
 | `.devin/canon/BOOT_PROTOCOL.md` | BOOT | 17-step startup sequence |
 | `.devin/canon/REDLINES.md` | BOOT (top 5 below) | 18 hard stops — violating → stop, ask human |
 | `.devin/canon/MEMORY_PROTOCOL.md` | When writing memory | 3-layer memory + deep-memory |
-| `.devin/canon/LOOP_PROTOCOL.md` | When running loops | Loop/goal primitives, stop conditions, idle-yank |
+| `.devin/canon/LOOP_PROTOCOL.md` (+ sub-protocols) | When running loops | Core: primitives, stop conditions. Sub-protocols on-demand: TURN_BASED, GOAL_BASED, TIME_BASED, PROACTIVE |
 | `.devin/canon/VERIFICATION_PROTOCOL.md` | When verifying | Maker/checker, read-back, CLI gates |
 | `.devin/canon/CAVEMAN_PROTOCOL.md` | When compressing | Token compression style |
 | `.devin/canon/HARNESS_ENGINEERING.md` | When designing harness | Design principles for agent-facing systems |

@@ -2,6 +2,9 @@
 
 > Sub-protocol of `LOOP_PROTOCOL.md`. Load when task has a measurable endpoint.
 > Goal-based = human sets success condition + budget, independent evaluator model decides done.
+>
+> **Required context**: This sub-protocol references `§State contract`, `§Mandatory stop conditions`,
+> and `§Maker/checker` from `LOOP_PROTOCOL.md`. Load core first if not already loaded.
 
 ## Kickoff template (goal-based)
 

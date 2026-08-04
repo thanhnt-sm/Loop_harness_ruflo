@@ -3,6 +3,9 @@
 > Sub-protocol of `LOOP_PROTOCOL.md`. Load when task is standing duty with unpredictable input.
 > Proactive = event/schedule triggers, **no human present**, adversarial review agent decides done.
 > **L3 (unattended) by definition** — requires Readiness Score ≥90 and prior L1→L2→L3 progression.
+>
+> **Required context**: This sub-protocol references `§State contract`, `§Mandatory stop conditions`,
+> and `§Maker/checker` from `LOOP_PROTOCOL.md`. Load core first if not already loaded.
 
 ## Proactive loop pattern (no human present, workflow generated on the spot)
 
@@ -180,7 +183,7 @@ At harness setup (predict top 3 failure modes). After a failure (reverse-enginee
 | **Memory safety** | 10 | No secrets in any layer | `grep -r "key\|token\|password" .devin/` |
 | **Red lines** | 10 | REDLINES.md exists, referenced in entry file | `grep REDLINES AGENTS.md` |
 | **Skills loaded** | 10 | ≥1 skill deployed | `ls .devin/skills/` |
-| **Warning signals** | 5 | Warning signal table exists in canon | `grep "Warning signals" LOOP_PROTOCOL.md` |
+| **Warning signals** | 5 | Warning signal table exists in canon | `grep "Warning signals" LOOP_PROACTIVE.md` |
 
 ### Score interpretation
 
