@@ -6,8 +6,8 @@
 //
 // Mục đích:
 //   Trước đây các installer hard-code cho Claude Code (.claude/settings.json),
-//   nên Devin CLI và Antigravity CLI không thấy MCP server của ruflo, dẫn tới
-//   ruflo không nhận diện được CLI đang chạy và chỉ theo rule của Claude.
+//   nên Devin CLI và Antigravity CLI không thấy MCP server, dẫn tới
+//   không nhận diện được CLI đang chạy và chỉ theo rule của Claude.
 //
 //   Giờ đây, installer hỏi thẳng human: "Bạn đang dùng CLI nào?"
 //   Rồi chỉ cấu hình cho CLI đó (hoặc cả 3 nếu chọn "all").

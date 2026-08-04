@@ -2,10 +2,10 @@
 /**
  * hlk-install.mjs
  * ===============
- * Cài đặt HLK vào một workspace Ruflo / Claude Flow (từ npm package hlk-ruflo).
+ * Cài đặt HLK vào một workspace (từ npm package hlk-ruflo).
  *
- * VAI TRÒ: Cài HLK layer vào workspace đã có ruflo. Không cấu hình MAX POWER.
- *           Dùng hlk-setup-max-power.mjs nếu muốn cài đầy đủ Ruflo + HLK + 3 CLI.
+ * VAI TRÒ: Cài HLK layer vào workspace. Không cấu hình MAX POWER.
+ *           Dùng hlk-setup-max-power.mjs nếu muốn cài đầy đủ HLK + 3 CLI.
  *
  * Cách dùng:
  *   npx hlk-install
@@ -14,7 +14,7 @@
  *
  * Yêu cầu:
  *   - Node >= 20
- *   - Thư mục hiện tại là workspace Ruflo (có .claude/settings.json hoặc package.json ruflo/claude-flow)
+ *   - Thư mục hiện tại là workspace (có package.json)
  */
 
 import fs from 'node:fs';
@@ -25,7 +25,7 @@ import { spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 
 // Module dùng chung: hỏi human đang dùng CLI nào + trả paths cấu hình cho CLI đó.
-// Trước đây installer hard-code cho Claude Code, nên Devin/agy không thấy MCP ruflo.
+// Trước đây installer hard-code cho Claude Code, nên Devin/agy không thấy MCP.
 // Giờ hỏi thẳng human rồi chỉ cấu hình cho CLI đã chọn (hoặc cả 3 nếu chọn 'all').
 import {
   promptCli, cliTargets, cliConfigDir, cliMcpConfigPath, cliHooksPath,
@@ -63,12 +63,12 @@ const HLK_CONTENT_DIRS = [
 // File riêng lẻ cần copy
 const HLK_CONTENT_FILES = ['README.md', 'INSTALL.md'];
 
-// File cần tồn tại để xác định workspace Ruflo
-const RUFLO_MARKERS = [
+// File cần tồn tại để xác định workspace
+const WORKSPACE_MARKERS = [
   '.claude',
   'package.json',
-  'bin/cli.js',
-  'v3/@claude-flow/cli/bin/cli.js',
+  '.devin',
+  '.agents',
 ];
 
 // ---------------------------------------------------------------------------
@@ -111,29 +111,19 @@ function copyRecursive(src, dst, options = {}) {
 // Bước 1: Xác định workspace
 // ---------------------------------------------------------------------------
 
-function detectRufloWorkspace() {
-  const markers = RUFLO_MARKERS.filter((m) => {
+function detectWorkspace() {
+  const markers = WORKSPACE_MARKERS.filter((m) => {
     const p = path.join(WORKSPACE_ROOT, m);
     return fs.existsSync(p);
   });
 
   if (markers.length === 0) {
-    log('error', `Thư mục hiện tại không giống workspace Ruflo: ${WORKSPACE_ROOT}`);
-    log('error', 'Thiếu ít nhất một trong các dấu hiệu: .claude/, package.json, bin/cli.js');
+    log('error', `Thư mục hiện tại không giống workspace: ${WORKSPACE_ROOT}`);
+    log('error', 'Thiếu ít nhất một trong các dấu hiệu: .claude/, package.json, .devin/, .agents/');
     process.exit(1);
   }
 
-  let packageName = null;
-  try {
-    const pkg = JSON.parse(fs.readFileSync(path.join(WORKSPACE_ROOT, 'package.json'), 'utf8'));
-    packageName = pkg.name;
-  } catch { /* ignore */ }
-
-  if (packageName && !['claude-flow', 'ruflo'].some((n) => packageName.includes(n))) {
-    log('warn', `package.json name là "${packageName}" — không chắc là Ruflo, nhưng vẫn tiếp tục.`);
-  }
-
-  log('info', `Workspace Ruflo: ${WORKSPACE_ROOT}`);
+  log('info', `Workspace: ${WORKSPACE_ROOT}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -195,7 +185,7 @@ async function askCliChoice() {
 // ---------------------------------------------------------------------------
 // Bước 4: Patch cấu hình MCP + hooks cho từng CLI đã chọn
 // ---------------------------------------------------------------------------
-// Trước đây chỉ patch .claude/settings.json → Devin/agy không thấy MCP ruflo.
+// Trước đây chỉ patch .claude/settings.json → Devin/agy không thấy MCP.
 // Giờ lặp qua danh sách CLI đã chọn, với mỗi CLI ghi đúng file cấu hình của nó:
 //   - claude: .claude/settings.json (mcpServers + hooks.PreToolUse cùng file)
 //   - devin:  .devin/mcp_config.json (mcpServers) + .devin/hooks.v1.json (hooks)
@@ -206,17 +196,10 @@ const HLK_PRETOOLUSE = {
   hooks: [hookCommand(5000)],
 };
 
-function writeMcpEntry() {
-  return {
-    command: 'node',
-    args: ['HLK/wrappers/ruflo-hlk-mcp.mjs', 'mcp', 'start'],
-  };
-}
-
 function patchClaudeSettings(ws) {
   const settingsPath = path.join(ws, '.claude', 'settings.json');
   if (!fs.existsSync(settingsPath)) {
-    log('warn', 'Không tìm thấy .claude/settings.json — bỏ qua patch Claude.');
+    log('info', 'Không tìm thấy .claude/settings.json — bỏ qua patch Claude.');
     return;
   }
 
@@ -256,36 +239,12 @@ function patchClaudeSettings(ws) {
     log('info', 'HLK PreToolUse hook đã có (đã nâng cấp sang launcher trung tính).');
   }
 
-  if (!settings.mcpServers) settings.mcpServers = {};
-  const cur = settings.mcpServers['claude-flow'];
-  const usesHlk = cur?.args?.some((a) => typeof a === 'string' && a.includes('ruflo-hlk-mcp'));
-  if (!usesHlk) {
-    settings.mcpServers['claude-flow'] = writeMcpEntry();
-    log('success', 'Đã cập nhật mcpServers.claude-flow dùng HLK MCP wrapper.');
-  } else {
-    log('info', 'mcpServers.claude-flow đã dùng HLK wrapper.');
-  }
-
-  try {
-    const pkg = JSON.parse(fs.readFileSync(path.join(ws, 'package.json'), 'utf8'));
-    if (pkg?.version && settings.claudeFlow) {
-      settings.claudeFlow.version = pkg.version;
-      log('success', `Đồng bộ claudeFlow.version = ${pkg.version}`);
-    }
-  } catch { /* ignore */ }
-
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n', 'utf8');
   log('success', 'Đã ghi .claude/settings.json');
 }
 
 function patchDevinSettings(ws) {
   ensureCliDirs(ws, 'devin');
-
-  // .devin/mcp_config.json — MCP servers
-  const mcpPath = cliMcpConfigPath(ws, 'devin');
-  const devinMcp = { mcpServers: { 'claude-flow': writeMcpEntry() } };
-  fs.writeFileSync(mcpPath, JSON.stringify(devinMcp, null, 2) + '\n', 'utf8');
-  log('success', 'Đã ghi .devin/mcp_config.json');
 
   // .devin/hooks.v1.json — lifecycle hooks (dùng launcher trung tính)
   const hooksPath = cliHooksPath(ws, 'devin');
@@ -303,12 +262,7 @@ function patchDevinSettings(ws) {
 
 function patchAgySettings(ws) {
   ensureCliDirs(ws, 'agy');
-
-  // .agents/mcp_config.json — MCP servers (agy đọc file này)
-  const mcpPath = cliMcpConfigPath(ws, 'agy');
-  const agyMcp = { mcpServers: { 'claude-flow': writeMcpEntry() } };
-  fs.writeFileSync(mcpPath, JSON.stringify(agyMcp, null, 2) + '\n', 'utf8');
-  log('success', 'Đã ghi .agents/mcp_config.json');
+  log('success', 'Đã đảm bảo thư mục .agents/ tồn tại');
 }
 
 function patchCliSettingsAll(ws, targets) {
@@ -329,8 +283,8 @@ const HLK_GITATTRIBUTES_LINES = [
   '# HLK docs — keep ours',
   'HLK/docs/** merge=ours',
   '',
-  '# .claude settings — keep ours to prevent upstream ruflo from',
-  '# overwriting HLK PreToolUse/MCP wrapper customizations.',
+  '# .claude settings — keep ours to prevent upstream',
+  '# from overwriting HLK PreToolUse customizations.',
   '# Review upstream changes manually if needed.',
   '.claude/settings.json merge=ours',
 ];
@@ -382,9 +336,6 @@ const REQUIRED_IGNORE_PATTERNS = [
   'agentdb.rvf.lock',
   '.env',
   '.env.*',
-  '.claude-flow/data/',
-  '.swarm/',
-  '.hive-mind/',
 ];
 
 function ensureGitIgnore() {
@@ -574,11 +525,11 @@ function installPostMergeHook() {
 // ---------------------------------------------------------------------------
 
 async function main() {
-  log('info', '=== HLK Installer for Ruflo ===');
+  log('info', '=== HLK Installer ===');
   log('info', `HLK package root: ${HLK_PACKAGE_ROOT}`);
   log('info', `Workspace root: ${WORKSPACE_ROOT}`);
 
-  detectRufloWorkspace();
+  detectWorkspace();
 
   // Hỏi human đang dùng CLI nào (nếu chưa truyền qua HLK_CLI)
   const choice = await askCliChoice();

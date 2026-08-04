@@ -122,10 +122,14 @@ Cả 2 skill cùng pattern:
 | `package-lock.json` (491 KB) | Stale ruflo dependency tree | `git rm` — will regenerate if needed |
 | `package.json` ruflo manifest (212 lines) | All ruflo deps, workspaces, bin, files array | Replaced → 20-line minimal manifest |
 | `.devin/hooks.v1.json` | Old hooks file — merged into `.devin/config.json` | Merged exec blocker + removed file |
+| `.claude/` toàn bộ (374 files) | Toàn bộ Claude Code config ruflo-specific (settings.json, agents/, commands/, workflows/, helpers/, skills-disabled/, mcp.json, memory.db, statusline) | `git rm -r` + `Remove-Item` |
+| HLK ruflo scripts (hlk-setup-max-power, hlk-update-max-power, hlk-devin-autopilot, hlk-agy-autopilot, hlk-lifecycle, ruflo-hlk wrappers) | Ruflo-specific install/autopilot scripts — không cần cho Devin | `git rm` |
+| Launcher "Ruflo Autopilot" labels | Stale ruflo branding trong devin-run/devin-swe scripts | Cleaned → "Devin CLI" |
+| HLK config `ruflo_version_tested` + "Ruflo Workspace" | Stale ruflo references trong hlk.config.json | Removed |
 
 ## Phạm vi an toàn cho code changes
 
 - `src/` — source code dự án
 - `.devin/skills/`, `.devin/agents/` — định nghĩa skill/agent
 - `scripts/` — utility scripts
-- **KHÔNG đụng**: `HLK/` (security layer), `.claude/` (Claude Code config), security policies, `.env`
+- **KHÔNG đụng**: `HLK/` (security layer), security policies, `.env`

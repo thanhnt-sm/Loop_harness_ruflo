@@ -2,7 +2,7 @@
 /**
  * hlk-update.mjs
  * ==============
- * Cập nhật HLK trong một workspace Ruflo đã cài.
+ * Cập nhật HLK trong một workspace đã cài.
  *
  * VAI TRÒ: Update HLK layer (backup + copy code mới + giữ config user + re-patch).
  *           Không re-patch MAX POWER — dùng hlk-update-max-power.mjs cho việc đó.
@@ -114,9 +114,8 @@ function detectWorkspace() {
     log('error', `Không tìm thấy HLK/ trong workspace. Hãy chạy 'npx hlk-install' trước.`);
     process.exit(1);
   }
-  if (!fs.existsSync(path.join(WORKSPACE_ROOT, '.claude', 'settings.json'))) {
-    log('error', 'Không tìm thấy .claude/settings.json.');
-    process.exit(1);
+  if (!fs.existsSync(path.join(WORKSPACE_ROOT, 'package.json'))) {
+    log('warn', 'Không tìm thấy package.json — tiếp tục update HLK.');
   }
   log('info', `Workspace: ${WORKSPACE_ROOT}`);
 }
@@ -214,9 +213,6 @@ function updateConfig() {
   if (packageDefaults.version) {
     merged.version = packageDefaults.version;
   }
-  if (packageDefaults.ruflo_version_tested) {
-    merged.ruflo_version_tested = packageDefaults.ruflo_version_tested;
-  }
 
   // Backup trước khi ghi
   const backupPath = path.join(HLK_TARGET_DIR, 'logs', `hlk.config.json.user-backup.${Date.now()}.json`);
@@ -273,17 +269,10 @@ const HLK_PRETOOLUSE = {
   hooks: [hookCommand(5000)],
 };
 
-function writeMcpEntry() {
-  return {
-    command: 'node',
-    args: ['HLK/wrappers/ruflo-hlk-mcp.mjs', 'mcp', 'start'],
-  };
-}
-
 function reapplyClaudeSettings() {
   const settingsPath = path.join(WORKSPACE_ROOT, '.claude', 'settings.json');
   if (!fs.existsSync(settingsPath)) {
-    log('warn', 'Không tìm thấy .claude/settings.json — bỏ qua re-patch Claude.');
+    log('info', 'Không tìm thấy .claude/settings.json — bỏ qua re-patch Claude.');
     return;
   }
 
@@ -312,29 +301,12 @@ function reapplyClaudeSettings() {
     log('success', 'Đã thêm HLK PreToolUse hook (launcher trung tính).');
   }
 
-  settings.mcpServers = settings.mcpServers || {};
-  settings.mcpServers['claude-flow'] = writeMcpEntry();
-  log('success', 'Đã cập nhật mcpServers.claude-flow.');
-
-  try {
-    const pkg = JSON.parse(fs.readFileSync(path.join(WORKSPACE_ROOT, 'package.json'), 'utf8'));
-    if (pkg?.version && settings.claudeFlow) {
-      settings.claudeFlow.version = pkg.version;
-      log('success', `Đồng bộ claudeFlow.version = ${pkg.version}`);
-    }
-  } catch { /* ignore */ }
-
   writeJson(settingsPath, settings);
   log('success', 'Đã ghi .claude/settings.json');
 }
 
 function reapplyDevinSettings() {
   ensureCliDirs(WORKSPACE_ROOT, 'devin');
-
-  const mcpPath = cliMcpConfigPath(WORKSPACE_ROOT, 'devin');
-  const devinMcp = { mcpServers: { 'claude-flow': writeMcpEntry() } };
-  writeJson(mcpPath, devinMcp);
-  log('success', 'Đã ghi .devin/mcp_config.json');
 
   const hooksPath = cliHooksPath(WORKSPACE_ROOT, 'devin');
   const devinHooks = {
@@ -348,10 +320,7 @@ function reapplyDevinSettings() {
 
 function reapplyAgySettings() {
   ensureCliDirs(WORKSPACE_ROOT, 'agy');
-  const mcpPath = cliMcpConfigPath(WORKSPACE_ROOT, 'agy');
-  const agyMcp = { mcpServers: { 'claude-flow': writeMcpEntry() } };
-  writeJson(mcpPath, agyMcp);
-  log('success', 'Đã ghi .agents/mcp_config.json');
+  log('success', 'Đã đảm bảo thư mục .agents/ tồn tại');
 }
 
 async function reapplyCliSettingsAll() {
@@ -448,7 +417,7 @@ function runLoopStatus() {
 // ---------------------------------------------------------------------------
 
 async function main() {
-  log('info', '=== HLK Updater for Ruflo ===');
+  log('info', '=== HLK Updater ===');
 
   detectWorkspace();
   const backupDir = backupHlk();

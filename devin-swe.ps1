@@ -8,7 +8,7 @@ if (Test-Path $nodeDir) { $env:PATH = "$nodeDir;$env:PATH" }
 $env:NODE_PATH = Join-Path $wsRoot 'node_modules'
 $env:DEVIN_MODEL = "swe-1-7"
 
-Write-Host "Devin CLI + Ruflo Autopilot" -ForegroundColor Cyan
+Write-Host "Devin CLI" -ForegroundColor Cyan
 Write-Host "Node: $(node --version)" -ForegroundColor DarkGray
 Write-Host "Model: SWE-1.7 Max (FREE beta, 262K ctx, coding-tuned)" -ForegroundColor Green
 Write-Host ""

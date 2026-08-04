@@ -2,14 +2,14 @@
  * HLK Interceptor Loader Module (ESM compatible)
  * =================================================
  * Mục đích tổng thể:
- *   - Can thiệp tiến trình Node.js TRƯỚC khi Ruflo CLI (`bin/cli.js`) chạy.
+ *   - Can thiệp tiến trình Node.js TRƯỚC khi CLI chạy.
  *   - Bật/tắt hoàn toàn bằng `hlk_enabled` trong `HLK/config/hlk.config.json`.
  *   - Khi bật: redact secret trong `process.argv`, block telemetry, nạp vault,
  *     nạp custom hooks.
  *   - Khi tắt: no-op tuyệt đối — không in log, không set env, không đụng argv.
  *
  * Cách dùng:
- *   NODE_OPTIONS="--import=file://<repo>/HLK/wrappers/hlk-loader.js" npx claude-flow ...
+ *   NODE_OPTIONS="--import=file://<repo>/HLK/wrappers/hlk-loader.js" node <cli> ...
  *
  * Phiên bản: 3.0.0
  */
@@ -88,7 +88,7 @@ if (config.hlk_enabled) {
 
   /**
    * Ghi log ra `stderr` thay vì `console.log`.
-   * Lý do: khi Ruflo chạy ở chế độ MCP server, stdout chứa khung JSON-RPC.
+   * Lý do: khi CLI chạy ở chế độ MCP server, stdout chứa khung JSON-RPC.
    * Nếu log ra stdout sẽ làm hỏng giao thức stdio.
    */
   function log(msg) {
@@ -227,11 +227,11 @@ if (config.hlk_enabled) {
   }
 
   // -------------------------------------------------------------------
-  // 3.6. Sanitize process.argv trước khi Ruflo parse
+  // 3.6. Sanitize process.argv trước khi CLI parse
   // -------------------------------------------------------------------
 
   /**
-   * Các flag chứa giá trị nhạy cảm mà Ruflo CLI sử dụng:
+   * Các flag chứa giá trị nhạy cảm mà CLI sử dụng:
    *   -v, --value (memory store value)
    *   --data      (dữ liệu thô)
    *   --content   (nội dung ghi vào memory hoặc tool input)

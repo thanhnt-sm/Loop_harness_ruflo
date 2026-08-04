@@ -153,7 +153,7 @@ function packStep(version) {
     log('error', 'Pack thất bại.');
     process.exit(1);
   }
-  log('success', `Pack thành công: HLK/dist/hlk-ruflo-${version}.tgz`);
+  log('success', `Pack thành công: HLK/dist/hlk-${version}.tgz`);
 }
 
 // ---------------------------------------------------------------------------
@@ -163,7 +163,7 @@ function packStep(version) {
 async function installStep(version) {
   if (!INSTALL) return;
 
-  const tarball = path.join(HLK_ROOT, 'dist', `hlk-ruflo-${version}.tgz`);
+  const tarball = path.join(HLK_ROOT, 'dist', `hlk-${version}.tgz`);
   if (!fs.existsSync(tarball)) {
     log('error', `Không tìm thấy tarball: ${tarball}`);
     process.exit(1);
@@ -174,7 +174,7 @@ async function installStep(version) {
   // Không thể cài package HLK vào chính package root
   if (WORKSPACE_ROOT === HLK_ROOT || WORKSPACE_ROOT === path.resolve(HLK_ROOT, '..')) {
     log('warn', 'Workspace hiện tại là source của package HLK. Không thể cài HLK vào chính nó.');
-    log('info', 'Bỏ qua bước cài. Hãy chạy --install trong một workspace Ruflo riêng.');
+    log('info', 'Bỏ qua bước cài. Hãy chạy --install trong một workspace riêng.');
     return;
   }
 
@@ -227,10 +227,10 @@ async function main() {
   log('info', '');
   log('success', '=== Repack hoàn tất ===');
   log('info', `Version: ${version}`);
-  log('info', `Tarball: HLK/dist/hlk-ruflo-${version}.tgz`);
+  log('info', `Tarball: HLK/dist/hlk-${version}.tgz`);
   log('info', '');
   log('info', 'Cách dùng trên workspace khác:');
-  log('info', `  npm install -g HLK/dist/hlk-ruflo-${version}.tgz`);
+  log('info', `  npm install -g HLK/dist/hlk-${version}.tgz`);
   log('info', '  npx hlk-install');
 }
 

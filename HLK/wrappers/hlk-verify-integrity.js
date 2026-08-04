@@ -30,9 +30,6 @@ const REQUIRED_FILES = [
   'wrappers/hlk-loader.js',
   'wrappers/hlk-hook-bridge.mjs',
   'wrappers/hlk-verify-integrity.js',
-  'wrappers/ruflo-hlk.mjs',
-  'wrappers/ruflo-hlk.cmd',
-  'wrappers/ruflo-hlk.ps1',
   'security/sanitizer.js',
   'security/vault-bridge.js',
   'custom-hooks/README.md',
@@ -150,7 +147,6 @@ if (failures === 0) {
   if (config) {
     console.log(`   HLK Version:  ${config.version || '?'}`);
     console.log(`   HLK Enabled:  ${config.hlk_enabled}`);
-    console.log(`   Ruflo Tested: ${config.ruflo_version_tested || '?'}`);
   }
 } else {
   console.log(`⚠️ ${failures} check(s) FAILED — review HLK layer\n`);

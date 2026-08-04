@@ -1,4 +1,4 @@
-# devin-run.ps1 — Chạy Devin CLI với Node 22 portable + ruflo MCP
+# devin-run.ps1 — Chạy Devin CLI với Node 22 portable
 # Model mac dinh: glm-5-2 (FREE, khong ton quota Pro)
 # Dung: .\devin-run.ps1              -> glm-5-2 (FREE)
 #       .\devin-run.ps1 -Model swe-1-7  -> SWE-1.7 (FREE beta, tot cho coding)
@@ -26,7 +26,7 @@ $label = switch ($Model) {
     default           { $Model }
 }
 
-Write-Host "Devin CLI + Ruflo Autopilot" -ForegroundColor Cyan
+Write-Host "Devin CLI" -ForegroundColor Cyan
 Write-Host "Node: $(node --version)" -ForegroundColor DarkGray
 Write-Host "Model: $label" -ForegroundColor Green
 Write-Host ""

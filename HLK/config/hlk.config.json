@@ -1,8 +1,7 @@
 {
   "hlk_enabled": true,
   "version": "3.0.0",
-  "ruflo_version_tested": "3.34.0",
-  "description": "Harness & Logic Knowledge Layer config for Ruflo Workspace",
+  "description": "Harness & Logic Knowledge Layer config",
   "features": {
     "knowledge_protection": true,
     "data_sanitization": true,

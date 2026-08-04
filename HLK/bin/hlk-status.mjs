@@ -118,11 +118,11 @@ function checkWorkspace() {
       log('warn', 'Thiếu HLK PreToolUse hook trong .claude/settings.json');
     }
 
-    const hasMcp = s.mcpServers?.['claude-flow']?.args?.some((a) => a.includes('ruflo-hlk-mcp'));
+    const hasMcp = s.mcpServers?.['hlk']?.args?.some((a) => a.includes('hlk-'));
     if (hasMcp) {
       log('success', 'HLK MCP wrapper đã cài.');
     } else {
-      log('warn', 'MCP server chưa dùng HLK wrapper.');
+      log('info', 'MCP server chưa dùng HLK wrapper (tùy chọn).');
     }
   }
 

@@ -5,6 +5,6 @@ set "NODE_DIR=%WS_ROOT%\.tools\node"
 if exist "%NODE_DIR%\node.exe" set "PATH=%NODE_DIR%;%PATH%"
 set "NODE_PATH=%WS_ROOT%\node_modules"
 set "DEVIN_MODEL=swe-1-7"
-echo Devin CLI + Ruflo Autopilot
+echo Devin CLI
 echo Model: SWE-1.7 Max (FREE beta, coding-tuned)
 devin %*

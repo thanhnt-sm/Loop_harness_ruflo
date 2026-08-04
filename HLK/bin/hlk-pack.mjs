@@ -13,7 +13,7 @@
  *   node HLK/bin/hlk-pack.mjs
  *
  * Output:
- *   HLK/dist/hlk-ruflo-<version>.tgz
+ *   HLK/dist/hlk-<version>.tgz
  */
 
 import fs from 'node:fs';
@@ -91,7 +91,6 @@ const REQUIRED_FILES = [
   'config/secrets.env.example',
   'wrappers/hlk-loader.js',
   'wrappers/hlk-hook-bridge.mjs',
-  'wrappers/ruflo-hlk-mcp.mjs',
   'wrappers/hlk-verify-integrity.js',
   'security/sanitizer.js',
   'security/vault-bridge.js',
@@ -223,7 +222,7 @@ function main() {
   log('info', '');
   log('info', 'Cách dùng:');
   log('info', `  1. Global install: npm install -g HLK/dist/${tarball}`);
-  log('info', `  2. Trong workspace Ruflo mới: npx hlk-install`);
+  log('info', `  2. Trong workspace mới: npx hlk-install`);
   log('info', `  3. Cập nhật: npx hlk-update`);
 }
 
