@@ -262,6 +262,76 @@ Cả 2 skill cùng pattern:
 
 > **Master reference list**: xem [`REPOS.md`](./REPOS.md) — toàn bộ GitHub repos, documentation, papers, tools được tham khảo/sử dụng/học hỏi (AHD engine + vendored skills + canon sources + vault templates + Nuwa ecosystem + Devin CLI ecosystem + GLM best practices + removed repos).
 
+## Đóng gói + Deploy sang dự án mới
+
+Workspace có hệ thống đóng gói trong `tools/` — cho phép export workspace hiện tại thành template sạch, deploy sang dự án mới với 1 lệnh.
+
+### Quick start
+
+```powershell
+# One-shot: package + deploy + git init + verify
+.\tools\init-new-project.ps1 -TargetPath D:\projects\my-new-app
+
+# Từng bước:
+.\tools\package-template.ps1                              # → harness-template.zip (clean, templated)
+.\tools\deploy-template.ps1 -TemplatePath .\harness-template.zip -TargetPath D:\projects\my-new-app
+.\tools\verify-workspace.ps1 -WorkspaceRoot D:\projects\my-new-app
+
+# Clean runtime state (wipe session/memories/loop_state)
+.\tools\clean-runtime.ps1
+```
+
+### Files trong `tools/`
+
+| File | Mục đích |
+|------|----------|
+| `init-new-project.ps1` | **One-shot orchestrator** — package + deploy + git init + verify + print hướng dẫn |
+| `package-template.ps1` | Đóng gói workspace → `harness-template.zip` (clean runtime, templated config) |
+| `deploy-template.ps1` | Deploy template → dự án mới (resolve placeholders, git init) |
+| `verify-workspace.ps1` | Verify integrity — 73 checks (canon, skills, agents, hooks, scripts, vault, config, HLK) |
+| `clean-runtime.ps1` | Wipe runtime state (session, memories, loop_state, context_flags) |
+| `FULL_POWER_PROMPT.md` | **One-shot prompt** — paste vào Devin CLI → tự động chạy full harness chain (BOOT → inventory → Commander → decompose → dispatch parallel subagents → integrate → verify → Nuwa cognitive → claim grade → slop check → memory write-back → report) |
+| `README.md` | Documentation đầy đủ cho packaging system |
+
+### Template bao gồm gì (reusable)
+
+- 10 canon protocols, COMMANDER + 7 personas + 5 workers + 2 executors
+- 21+ skills (16 AHD + 5 Devin-native + nuwa-skill + chroma-hybrid-search + 9 domain-adapters)
+- 4 Python hooks, 7 runtime scripts, 5 vault templates
+- HLK security layer (sanitizer + vault-bridge + git-tools)
+- config.json + mcp_config.json (templated placeholders, auto-resolved on deploy)
+- AGENTS.md, CLAUDE.md, REPOS.md, .gitignore, package.json
+- .github/ (ISSUE_TEMPLATE, CODEOWNERS, dependabot, workflows)
+
+### Loại bỏ gì (KHÔNG mang sang dự án mới)
+
+- `.git/` (new project starts fresh), `.tools/`, `node_modules/`
+- `.claude/`, `.cursor/` (runtime, gitignored)
+- `HLK/reports/`, `HLK/logs/` (project-specific)
+- `.github/issues/`, `.github/supply-chain/` (project-specific)
+- `.aide/memories/*`, `.devin/session_state/`, `.devin/loop_state/`, `.devin/context_flags/` (runtime state, wiped)
+
+### Placeholders (auto-resolved bởi deploy-template.ps1)
+
+| Placeholder | Thay bằng |
+|-------------|-----------|
+| `{{WORKSPACE_ROOT}}` | Absolute path to new project |
+| `{{AIDE_MEMORY_GLOBAL}}` | Global `node_modules/aide-memory` path |
+| `{{AIDE_MEMORY_CLI}}` | `aide-memory/dist/memory/cli.js` path |
+| `{{NODE_EXE}}` | `node.exe` path |
+
+### FULL_POWER_PROMPT — Cách dùng
+
+```bash
+cd D:\projects\my-new-app
+devin
+# Paste nội dung tools/FULL_POWER_PROMPT.md + thay <TASK> bằng task của bạn
+```
+
+Prompt trigger 13-step chain: BOOT → INVENTORY → COMMANDER MODE → TASK FRAMING → GAP SCAN → DECOMPOSE + DISPATCH (parallel subagents) → INTEGRATE → VERIFY → NUWA COGNITIVE → CLAIM GRADING → SLOP CHECK → MEMORY WRITE-BACK → REPORT.
+
+> Chi tiết: xem [`tools/README.md`](./tools/README.md)
+
 ## Phạm vi an toàn cho code changes
 
 - `src/` — source code dự án
