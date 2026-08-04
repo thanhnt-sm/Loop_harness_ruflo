@@ -1,6 +1,7 @@
 # Workspace Rules — Devin CLI
 
-> **Devin CLI**: See `AGENTS.md` for Devin-specific instructions (`/lightning` + `/glm` orchestrators, plugins, MCP servers).
+> **Devin CLI**: See `AGENTS.md` for Devin-specific instructions (AHD main engine, `/lightning` + `/glm` orchestrators, plugins, MCP servers).
+> **Full reference list**: See `REPOS.md` for all repos/sources referenced, used, and learned from.
 > **Claude Code**: Full Claude Code instructions are in git history (commit c29eab8). Restore with `git show c29eab8:CLAUDE.md > CLAUDE.full.md`.
 
 ## Universal Rules (apply to all agents)

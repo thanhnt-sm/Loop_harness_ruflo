@@ -139,7 +139,7 @@ Cả 2 skill cùng pattern:
 
 - Smallest coherent diff — không scope creep
 - Preserve pre-existing user changes — không revert/overwrite
-- No destructive ops — chặn bởi `.devin/hooks.v1.json` (rm -rf, git push --force, git reset --hard, drop table, v.v.)
+- No destructive ops — chặn bởi `.devin/hooks/pre_tool_use.py` + config.json deny list (rm -rf, git push --force, git reset --hard, drop table, v.v.)
 - No unrelated refactors, dependencies, generated files, documentation
 - No weakening tests/security/typing/lint để pass check
 - Trivial edits (vài dòng rõ ràng) sửa thẳng, skip delegation
@@ -257,6 +257,10 @@ Cả 2 skill cùng pattern:
 | HLK ruflo scripts (hlk-setup-max-power, hlk-update-max-power, hlk-devin-autopilot, hlk-agy-autopilot, hlk-lifecycle, ruflo-hlk wrappers) | Ruflo-specific install/autopilot scripts — không cần cho Devin | `git rm` |
 | Launcher "Ruflo Autopilot" labels | Stale ruflo branding trong devin-run/devin-swe scripts | Cleaned → "Devin CLI" |
 | HLK config `ruflo_version_tested` + "Ruflo Workspace" | Stale ruflo references trong hlk.config.json | Removed |
+
+## Tham khảo đầy đủ
+
+> **Master reference list**: xem [`REPOS.md`](./REPOS.md) — toàn bộ GitHub repos, documentation, papers, tools được tham khảo/sử dụng/học hỏi (AHD engine + vendored skills + canon sources + vault templates + Nuwa ecosystem + Devin CLI ecosystem + GLM best practices + removed repos).
 
 ## Phạm vi an toàn cho code changes
 
