@@ -437,6 +437,27 @@ def regenerate(root: Path, session_id: str = "", status: str = "") -> None:
     _cleanup_loop_state_dir(root, status_map)
 
 
+def run_inline(root: Path, session_id: str = "", status: str = "") -> bool:
+    """U13: Inline call interface — import and call directly, no subprocess.
+
+    Returns True on success, False on failure (fallback written).
+    Use this instead of:
+        subprocess.run(["python", ".devin/scripts/loop_memory_sync.py", ...])
+
+    Example:
+        from loop_memory_sync import run_inline
+        ok = run_inline(root, session_id="s-123", status="in_progress")
+        if not ok:
+            # fallback was written, check loop_state_fallback.md
+    """
+    try:
+        _safe_regenerate(root, session_id, status)
+        return True
+    except Exception as e:
+        print(f"[loop_memory_sync] ERROR: {e}", file=sys.stderr)
+        return False
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Regenerate loop_state.md registry")
     ap.add_argument("--session", default="", help="Session ID to update")
