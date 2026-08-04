@@ -18,9 +18,9 @@
     },
     "P1": {
       "total": 15,
-      "done": 1,
+      "done": 2,
       "in_progress": 0,
-      "pending": 14,
+      "pending": 13,
       "blocked": 0
     },
     "P2": {
@@ -63,7 +63,7 @@
     "date": "2026-07-07",
     "always_on_context_tokens": 12000,
     "always_on_context_pct": 6.0,
-    "boot_payload_kb": 158,
+    "boot_payload_kb": 80,
     "boot_target_kb": 16,
     "per_tool_call_overhead_ms": "250-750",
     "boot_cold_start_s": "1-2",
@@ -349,7 +349,7 @@
       "phase": "P1",
       "priority": "high",
       "expert": "Token Economist",
-      "status": "pending",
+      "status": "done",
       "dependencies": [
         "U01"
       ],
@@ -360,11 +360,11 @@
         ".devin/canon/LOOP_PROTOCOL.md"
       ],
       "acceptance_criteria_count": 3,
-      "started_date": null,
-      "completed_date": null,
-      "verifier": null,
+      "started_date": "2026-07-07",
+      "completed_date": "2026-07-07",
+      "verifier": "GLM-5.2 High",
       "commit_hash": null,
-      "notes": ""
+      "notes": "AC: 3/3 passed. LOOP_PROTOCOL.md split from 734 lines to 124 lines core (<150). 4 sub-protocols created: LOOP_TURN_BASED.md (85 lines), LOOP_GOAL_BASED.md (146 lines), LOOP_TIME_BASED.md (72 lines), LOOP_PROACTIVE.md (315 lines). Core references sub-protocols with on-demand note. Content preserved: stop conditions, state contract, maker/checker in core. verify-workspace: 73/73 pass."
     },
     {
       "id": "U13",
