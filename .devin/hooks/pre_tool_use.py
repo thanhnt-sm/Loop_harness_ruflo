@@ -43,6 +43,40 @@ COMPACTION_SAFE_TOOLS = frozenset({
     "skill", "Skill",
 })
 
+
+def normalize_command(command: str) -> str:
+    """Normalize shell command before pattern matching (U02: fix regex bypass).
+
+    Strips backslash escaping, quotes, and expands simple $(echo X) substitutions.
+    Also flags base64-piped-to-shell patterns that can hide destructive commands.
+    """
+    # 1. Remove backslash escaping (r\m -> rm)
+    normalized = re.sub(r'\\(.)', r'\1', command)
+
+    # 2. Remove quote characters (r''m -> rm, r""m -> rm)
+    normalized = re.sub(r"['\"]", "", normalized)
+
+    # 3. Expand simple $(echo X) command substitutions
+    normalized = re.sub(
+        r'\$\(echo\s+(\S+)\)',
+        lambda m: m.group(1),
+        normalized,
+    )
+
+    # 4. Expand backtick `echo X` substitutions
+    normalized = re.sub(
+        r'`echo\s+(\S+)`',
+        lambda m: m.group(1),
+        normalized,
+    )
+
+    # 5. Detect base64 piped to shell — flag as suspicious
+    if re.search(r'base64\s+-d\s*\|\s*(bash|sh|zsh)', normalized, re.IGNORECASE):
+        normalized += " BASE64_PIPE_TO_SHELL_DETECTED"
+
+    return normalized
+
+
 # Patterns that are always blocked
 DANGEROUS_PATTERNS = [
     # rm -rf with broad targets
@@ -61,6 +95,10 @@ DANGEROUS_PATTERNS = [
     (r"\bmkfs\b", "filesystem format"),
     # GitHub token / API key in command
     (r"\b(ghp_[A-Za-z0-9]{36}|sk-[A-Za-z0-9]{48}|AKIA[A-Z0-9]{16})\b", "secret in command"),
+    # base64 decoded piped to shell (U02: prevent encoding bypass)
+    (r"base64\s+-d\s*\|\s*(bash|sh|zsh)", "base64 decoded piped to shell"),
+    # BASE64_PIPE_TO_SHELL_DETECTED flag from normalize_command
+    (r"BASE64_PIPE_TO_SHELL_DETECTED", "base64 encoded command piped to shell"),
 ]
 
 # Patterns that are warned but allowed (exit 0 with stderr note)
@@ -159,9 +197,13 @@ def main():
     if not command:
         sys.exit(0)
 
-    # Check dangerous patterns
+    # Normalize before pattern matching (U02: fix regex bypass via shell encoding)
+    normalized = normalize_command(command)
+
+    # Check dangerous patterns against BOTH raw and normalized command
     for pattern, reason in DANGEROUS_PATTERNS:
-        if re.search(pattern, command, re.IGNORECASE):
+        if re.search(pattern, command, re.IGNORECASE) or \
+           re.search(pattern, normalized, re.IGNORECASE):
             print(f"[Agent Harness Deploy guard] BLOCKED: {reason}", file=sys.stderr)
             print(f"Command: {command[:200]}", file=sys.stderr)
             print(f"Pattern: {pattern}", file=sys.stderr)
