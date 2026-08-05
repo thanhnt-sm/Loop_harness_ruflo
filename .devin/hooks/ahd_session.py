@@ -83,8 +83,18 @@ def resolve_shared_state_file(filename: str, root: Path) -> Path:
 
 
 def _lock_relpath(root: Path) -> Path:
-    """Return the lock file path relative to the config root."""
+    """Return the repo-level lock file path (for registry writes)."""
     return get_config_root(root) / "tmp" / "ahd_session.lock"
+
+
+def _session_lock_relpath(root: Path, session_id: str) -> Path:
+    """U14: Return a per-session lock file path.
+
+    Per-session locks eliminate contention when multiple sessions
+    write to different session_state files concurrently.
+    """
+    slug = slugify_session_id(session_id) if session_id else "unknown"
+    return get_config_root(root) / "tmp" / f"ahd_session.{slug}.lock"
 
 
 def get_repo_root(start_from: Optional[Path] = None) -> Path:
@@ -175,8 +185,13 @@ def get_loop_state_path(session_id: str, root: Optional[Path] = None) -> Path:
 
 
 def _get_lock_path(root: Path) -> Path:
-    """Return a lock file path for the repo."""
+    """Return a repo-level lock file path (for registry writes)."""
     return _lock_relpath(root)
+
+
+def _get_session_lock_path(root: Path, session_id: str) -> Path:
+    """U14: Return a per-session lock file path (for session_state writes)."""
+    return _session_lock_relpath(root, session_id)
 
 
 def _acquire_lock(lock_path: Path, timeout: float = 10.0) -> Any:
@@ -269,10 +284,15 @@ def _release_lock(handle: Any) -> None:
         pass
 
 
-def _locked_json_read(path: Path, default: Any = None) -> Any:
-    """Read a JSON file with a repo-level lock."""
+def _locked_json_read(path: Path, default: Any = None, session_id: str = "") -> Any:
+    """Read a JSON file with a lock.
+
+    U14: If session_id is provided, uses per-session lock (no contention
+    with other sessions). If not, uses repo-level lock (for registry).
+    """
     root = get_repo_root(path.parent if path.is_absolute() else None)
-    lock = _acquire_lock(_get_lock_path(root))
+    lock_path = _get_session_lock_path(root, session_id) if session_id else _get_lock_path(root)
+    lock = _acquire_lock(lock_path)
     try:
         if path.exists():
             return json.loads(path.read_text(encoding="utf-8"))
@@ -283,10 +303,14 @@ def _locked_json_read(path: Path, default: Any = None) -> Any:
         _release_lock(lock)
 
 
-def _locked_json_write(path: Path, data: Any) -> None:
-    """Write a JSON file with a repo-level lock."""
+def _locked_json_write(path: Path, data: Any, session_id: str = "") -> None:
+    """Write a JSON file with a lock.
+
+    U14: If session_id is provided, uses per-session lock. If not, repo-level.
+    """
     root = get_repo_root(path.parent if path.is_absolute() else None)
-    lock = _acquire_lock(_get_lock_path(root))
+    lock_path = _get_session_lock_path(root, session_id) if session_id else _get_lock_path(root)
+    lock = _acquire_lock(lock_path)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(path.suffix + ".tmp")
@@ -296,10 +320,14 @@ def _locked_json_write(path: Path, data: Any) -> None:
         _release_lock(lock)
 
 
-def _locked_json_update(path: Path, update_fn, default: Any = None) -> Any:
-    """Read a JSON file, apply update_fn under the same lock, and write it back."""
+def _locked_json_update(path: Path, update_fn, default: Any = None, session_id: str = "") -> Any:
+    """Read a JSON file, apply update_fn under the same lock, and write it back.
+
+    U14: If session_id is provided, uses per-session lock. If not, repo-level.
+    """
     root = get_repo_root(path.parent if path.is_absolute() else None)
-    lock = _acquire_lock(_get_lock_path(root))
+    lock_path = _get_session_lock_path(root, session_id) if session_id else _get_lock_path(root)
+    lock = _acquire_lock(lock_path)
     try:
         data = default
         if path.exists():
@@ -331,13 +359,13 @@ def _locked_text_write(path: Path, text: str) -> None:
 
 
 def read_session_state(session_id: str, root: Optional[Path] = None) -> Dict[str, Any]:
-    """Read session_state JSON with lock."""
+    """Read session_state JSON with per-session lock (U14)."""
     path = get_session_state_path(session_id, root)
-    return _locked_json_read(path, default={})
+    return _locked_json_read(path, default={}, session_id=session_id)
 
 
 def write_session_state(session_id: str, data: Dict[str, Any], root: Optional[Path] = None, merge: bool = True) -> None:
-    """Write session_state JSON with lock.
+    """Write session_state JSON with per-session lock (U14).
 
     If merge=True, merge with existing data under the same lock. This lets
     `post_tool_use` update `last_heartbeat` without overwriting `current_subtask`
@@ -345,9 +373,9 @@ def write_session_state(session_id: str, data: Dict[str, Any], root: Optional[Pa
     """
     path = get_session_state_path(session_id, root)
     if merge:
-        _locked_json_update(path, lambda existing: {**(existing or {}), **data}, default={})
+        _locked_json_update(path, lambda existing: {**(existing or {}), **data}, default={}, session_id=session_id)
     else:
-        _locked_json_write(path, data)
+        _locked_json_write(path, data, session_id=session_id)
 
 
 def update_session_state(session_id: str, fields: Dict[str, Any], root: Optional[Path] = None) -> None:
@@ -356,15 +384,15 @@ def update_session_state(session_id: str, fields: Dict[str, Any], root: Optional
 
 
 def write_context_flags(session_id: str, data: Dict[str, Any], root: Optional[Path] = None) -> None:
-    """Write per-session context_flags.json."""
+    """Write per-session context_flags.json with per-session lock (U14)."""
     path = get_context_flags_path(session_id, root)
-    _locked_json_update(path, lambda existing: {**(existing or {}), **data}, default={})
+    _locked_json_update(path, lambda existing: {**(existing or {}), **data}, default={}, session_id=session_id)
 
 
 def read_context_flags(session_id: str, root: Optional[Path] = None) -> Dict[str, Any]:
-    """Read per-session context_flags.json."""
+    """Read per-session context_flags.json with per-session lock (U14)."""
     path = get_context_flags_path(session_id, root)
-    return _locked_json_read(path, default={})
+    return _locked_json_read(path, default={}, session_id=session_id)
 
 
 def append_jsonl(path: Path, record: Dict[str, Any]) -> None:

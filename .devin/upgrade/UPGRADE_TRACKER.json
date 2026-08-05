@@ -18,9 +18,9 @@
     },
     "P1": {
       "total": 15,
-      "done": 3,
+      "done": 4,
       "in_progress": 0,
-      "pending": 12,
+      "pending": 11,
       "blocked": 0
     },
     "P2": {
@@ -395,7 +395,7 @@
       "phase": "P1",
       "priority": "high",
       "expert": "Performance Engineer",
-      "status": "pending",
+      "status": "done",
       "dependencies": [],
       "dependents": [
         "U21"
@@ -406,11 +406,11 @@
         ".devin/hooks/ahd_session.py"
       ],
       "acceptance_criteria_count": 3,
-      "started_date": null,
-      "completed_date": null,
-      "verifier": null,
+      "started_date": "2026-07-07",
+      "completed_date": "2026-07-07",
+      "verifier": "GLM-5.2 High",
       "commit_hash": null,
-      "notes": ""
+      "notes": "AC: 3/3 passed. _session_lock_relpath() added: ahd_session.<slug>.lock per-session. _get_session_lock_path() added. _locked_json_read/write/update accept optional session_id param. read/write_session_state, read/write_context_flags pass session_id for per-session lock. Registry writes (append_jsonl, _locked_text_write) still use repo-level _get_lock_path. Test: session lock=ahd_session.s-test-123.lock, repo lock=ahd_session.lock. Python syntax valid. verify-workspace: 73/73 pass."
     },
     {
       "id": "U15",
