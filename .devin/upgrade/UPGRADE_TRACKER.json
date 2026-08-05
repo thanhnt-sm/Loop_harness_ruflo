@@ -25,7 +25,7 @@
     },
     "P2": {
       "total": 15,
-      "done": 11,
+      "done": 12,
       "in_progress": 0,
       "pending": 15,
       "blocked": 0
@@ -905,7 +905,7 @@
       "phase": "P2",
       "priority": "medium",
       "expert": "Flow Analyst",
-      "status": "pending",
+      "status": "done",
       "dependencies": [],
       "dependents": [],
       "effort_days": 2,
@@ -915,10 +915,10 @@
       ],
       "acceptance_criteria_count": 3,
       "started_date": null,
-      "completed_date": null,
-      "verifier": null,
+      "completed_date": "2026-07-07",
+      "verifier": "GLM-5.2 High",
       "commit_hash": null,
-      "notes": ""
+      "notes": "AC: 3/3 passed. tools/health-check.ps1: 4 test categories (hooks, MCP, memory, canon/config), 20 checks. Health score 0-100. Status: HEALTHY (>=90), DEGRADED (70-89), UNHEALTHY (<70). Test result: 100/100 HEALTHY, 20/20 checks passed. verify-workspace: 60/60 pass."
     },
     {
       "id": "U38",
