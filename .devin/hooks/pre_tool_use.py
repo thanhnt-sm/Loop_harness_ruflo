@@ -26,8 +26,13 @@ doesn't.
 import json
 import re
 import sys
+import threading
 
 import ahd_session
+
+# U15: Internal timeout — if hook runs longer than this, force-allow (fail open).
+# Config timeout is 3s; this is a safety net at 2.5s to exit before config kills us.
+HOOK_TIMEOUT_SECONDS = 2.5
 
 # --- Context-oversized gate config ---
 OVERSIZED_NOTE_THRESHOLD = 0   # counter >= this -> note
@@ -219,4 +224,23 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # U15: Internal timeout — fail open (exit 0) if hook takes too long.
+    # This prevents the config-level timeout from killing us mid-write.
+    result = {"code": 0}
+
+    def _run():
+        try:
+            main()
+        except SystemExit as e:
+            result["code"] = e.code if e.code is not None else 0
+        except Exception:
+            result["code"] = 0  # fail open on unexpected error
+
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+    t.join(timeout=HOOK_TIMEOUT_SECONDS)
+    if t.is_alive():
+        # Timeout — fail open
+        print("[pre_tool_use] U15 timeout — allowing (fail open)", file=sys.stderr)
+        sys.exit(0)
+    sys.exit(result["code"])

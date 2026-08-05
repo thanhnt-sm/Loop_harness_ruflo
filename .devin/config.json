@@ -110,12 +110,12 @@
           {
             "type": "prompt",
             "prompt": "Block the command if it matches any destructive pattern: rm -rf, git push --force, git push -f, git reset --hard, git clean -fd, git checkout -- ., git branch -D, drop table, truncate, delete from without where, sudo rm, format, mkfs, dd if=. Allow everything else. Return {\"permissionDecision\":\"deny\",\"reason\":\"<why>\"} when blocking, otherwise {\"permissionDecision\":\"allow\"}.",
-            "timeout": 10
+            "timeout": 3
           },
           {
             "type": "command",
             "command": "python .devin/hooks/pre_tool_use.py",
-            "timeout": 10
+            "timeout": 3
           }
         ]
       },
@@ -187,7 +187,7 @@
           {
             "type": "command",
             "command": "python .devin/hooks/post_tool_use.py",
-            "timeout": 10
+            "timeout": 5
           }
         ]
       },
@@ -248,7 +248,7 @@
           {
             "type": "command",
             "command": "python .devin/hooks/stop.py",
-            "timeout": 10
+            "timeout": 5
           }
         ]
       }

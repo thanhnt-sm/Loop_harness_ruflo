@@ -20,8 +20,12 @@ from __future__ import annotations
 import json
 import re
 import sys
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
+
+# U15: Internal timeout — post-hook is non-blocking, fail silently if too slow.
+HOOK_TIMEOUT_SECONDS = 4.5
 
 import ahd_session
 
@@ -311,4 +315,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # U15: Internal timeout — post-hook always exits 0, just fail silently if too slow.
+    t = threading.Thread(target=main, daemon=True)
+    t.start()
+    t.join(timeout=HOOK_TIMEOUT_SECONDS)
+    if t.is_alive():
+        print("[post_tool_use] U15 timeout — exiting (non-blocking)", file=sys.stderr)
+    sys.exit(0)
