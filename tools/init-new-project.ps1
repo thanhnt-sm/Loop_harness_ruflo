@@ -11,7 +11,9 @@
 
   Nếu template zip đã tồn tại (mặc định ./harness-template.zip), skip packaging.
 .PARAMETER TargetPath
-  Đường dẫn dự án mới (bắt buộc).
+  Đường dẫn dự án mới (bắt buộc nếu không dùng -TargetList).
+.PARAMETER TargetList
+  U23: Danh sách đường dẫn để batch deploy. Mỗi path được deploy tuần tự.
 .PARAMETER ProjectName
   Tên dự án. Mặc định: tên thư mục TargetPath.
 .PARAMETER TemplatePath
@@ -21,15 +23,85 @@
 .EXAMPLE
   .\tools\init-new-project.ps1 -TargetPath D:\projects\my-new-app
   .\tools\init-new-project.ps1 -TargetPath D:\projects\my-new-app -ProjectName "My App" -ForceRepackage
+  .\tools\init-new-project.ps1 -TargetList @("D:\proj1", "D:\proj2", "D:\proj3")
 #>
 param(
-  [Parameter(Mandatory)][string]$TargetPath,
+  [string]$TargetPath,
+  [string[]]$TargetList,
   [string]$ProjectName,
   [string]$TemplatePath = (Join-Path (Get-Location).Path 'harness-template.zip'),
   [switch]$ForceRepackage
 )
 
 $ErrorActionPreference = 'Stop'
+
+# U23: Validate — either TargetPath or TargetList must be provided
+if (-not $TargetPath -and -not $TargetList) {
+    Write-Host "[ERROR] Must provide either -TargetPath or -TargetList" -ForegroundColor Red
+    exit 1
+}
+
+# U23: If TargetList provided, batch deploy to each
+if ($TargetList) {
+    Write-Host @"
+
+╔══════════════════════════════════════════════════════════════╗
+║   BATCH DEPLOY — Multi-Project                               ║
+║   $($TargetList.Count) project(s) to deploy                                ║
+╚══════════════════════════════════════════════════════════════╝
+
+"@ -ForegroundColor Cyan
+
+    $results = @()
+    $idx = 0
+    foreach ($target in $TargetList) {
+        $idx++
+        Write-Host "`n=== [$idx/$($TargetList.Count)] Deploying to: $target ===" -ForegroundColor Cyan
+
+        $result = [PSCustomObject]@{
+            Path = $target
+            Status = "pending"
+            Error = ""
+        }
+
+        try {
+            $scriptArgs = @{
+                TargetPath = $target
+                TemplatePath = $TemplatePath
+                ForceRepackage = $ForceRepackage
+            }
+            & $PSCommandPath @scriptArgs
+            $result.Status = "success"
+        } catch {
+            $result.Status = "failed"
+            $result.Error = $_.Exception.Message
+        }
+
+        $results += $result
+    }
+
+    # U23: Aggregated verification report
+    Write-Host ""
+    Write-Host "=== AGGREGATED VERIFICATION REPORT ===" -ForegroundColor Cyan
+    Write-Host ""
+    $results | Format-Table Path, Status, Error -AutoSize
+
+    $successCount = ($results | Where-Object { $_.Status -eq "success" }).Count
+    $failCount = ($results | Where-Object { $_.Status -eq "failed" }).Count
+    Write-Host ""
+    Write-Host "Summary: $successCount success, $failCount failed out of $($TargetList.Count) projects." -ForegroundColor $(if ($failCount -eq 0) { "Green" } else { "Yellow" })
+
+    if ($failCount -gt 0) {
+        Write-Host ""
+        Write-Host "Failed projects:" -ForegroundColor Red
+        $results | Where-Object { $_.Status -eq "failed" } | ForEach-Object {
+            Write-Host "  $($_.Path): $($_.Error)" -ForegroundColor Red
+        }
+    }
+
+    Write-Host ""
+    exit $(if ($failCount -gt 0) { 1 } else { 0 })
+}
 
 Write-Host @"
 

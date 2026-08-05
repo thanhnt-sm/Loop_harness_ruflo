@@ -18,9 +18,9 @@
     },
     "P1": {
       "total": 15,
-      "done": 12,
+      "done": 13,
       "in_progress": 0,
-      "pending": 3,
+      "pending": 2,
       "blocked": 0
     },
     "P2": {
@@ -591,7 +591,7 @@
       "phase": "P1",
       "priority": "high",
       "expert": "Flow Analyst",
-      "status": "pending",
+      "status": "done",
       "dependencies": [
         "U08"
       ],
@@ -602,11 +602,11 @@
         "tools/init-new-project.ps1"
       ],
       "acceptance_criteria_count": 3,
-      "started_date": null,
-      "completed_date": null,
-      "verifier": null,
+      "started_date": "2026-07-07",
+      "completed_date": "2026-07-07",
+      "verifier": "GLM-5.2 High",
       "commit_hash": null,
-      "notes": ""
+      "notes": "AC: 3/3 passed. init-new-project.ps1: added -TargetList parameter (string[]). Batch deploy loops through targets, calls self recursively for each. Aggregated report: Format-Table with Path/Status/Error, summary with success/fail counts. Validation: either TargetPath or TargetList required. Test: no args → error. verify-workspace: 73/73 pass."
     },
     {
       "id": "U24",
