@@ -3,19 +3,57 @@ name: plan
 triggers:
   - user
   - model
-description: "Plan Phase — Phân tích → Thiết kế → Plan → Quality Check. Tạo SDD + Implementation Plan trước khi code. Human approval gate bắt buộc."
+description: "Plan Phase — Tự động orchestrate qua plan_orchestrator.py. Phân tích → Thiết kế → Plan → Quality Check → Approval. Human approval gate bắt buộc."
+---
+
+# AUTO-ACTIVATION — Kích hoạt ngay lập tức
+
+> **ĐÂY LÀ ĐIỀU ĐẦU TIÊN PHẢI LÀM khi skill này được invoke.**
+> Không hỏi user. Không chờ xác nhận. Không giải thích dài dòng.
+> Chỉ chạy orchestrator và follow instructions.
+
+**KHI SKILL NÀY ĐƯỢC INVOKE với task `<task>`:**
+
+1. **NGAY LẬP TỨC** chạy lệnh sau (thay `<task>` bằng task description thực tế):
+
+```bash
+python .devin/scripts/plan_orchestrator.py --init --task "<task>"
+```
+
+2. Đọc `next_action` từ JSON output. Thực hiện action đó:
+   - `skip` → S-tier, Plan phase không cần. Báo user và kết thúc.
+   - `dispatch_scouts` → Dispatch 5 SCOUT subagents (xem Step 2 bên dưới)
+   - `dispatch_architect` → Dispatch 1 ARCHITECT (xem Step 3)
+   - `dispatch_reviewers` → Dispatch 3 reviewers (xem Step 4)
+   - `decompose_plan` → Decompose SDD thành tasks (xem Step 5)
+   - `run_qc` → Run quality check (xem Step 6)
+   - `present_approval` → Run approval gate (xem Step 7)
+   - `write_plan_state` → Write plan state (xem Step 8)
+   - `done` → Plan phase hoàn thành
+   - `escalate` → Present unresolved issues to user
+
+3. Sau mỗi action, viết results vào temp JSON file, rồi gọi:
+
+```bash
+python .devin/scripts/plan_orchestrator.py --step --state <state_file> --results <results_file>
+```
+
+4. Lặp lại bước 2-3 cho đến khi `state` = `DONE` hoặc `REJECTED` hoặc `ESCALATE`.
+
+**State file path** nằm trong JSON output của `--init` (field `state_file`).
+
 ---
 
 # Mission
 
-This skill implements **Phase 1 (PLAN)** of the AHD 3-Phase architecture:
+This skill implements **Phase 1 (PLAN)** of the AHD 3-Phase architecture using the **plan_orchestrator.py** FSM state machine:
 
 ```
 Phase 1: PLAN     →  Phase 2: APPROVE  →  Phase 3: EXECUTE
 (this skill)         (human gate)         (/lightning, /glm, /kimi)
 ```
 
-It produces two contract documents — `SOLUTION_DESIGN.md` and `IMPLEMENTATION_PLAN.md` — then waits for explicit human approval before any code is written. No execution happens inside this skill.
+The orchestrator (`plan_orchestrator.py`) drives the entire flow as a state machine. The agent interacts with it via CLI: init → step → step → ... → done. This ensures the Plan phase runs reliably and produces visible, high-quality output.
 
 Optimize in this order:
 
@@ -29,107 +67,129 @@ Do not trade thoroughness for speed. A bad plan costs more in rework than a slow
 
 # Overview
 
-The Plan phase runs four sequential steps — **Analyze → Design → Plan → Quality Check** — and ends at a human approval gate. Each step produces evidence that feeds the next. If the quality check fails, the workflow loops back to Design (max 3 rounds).
+The orchestrator runs a state machine with these states:
 
-```mermaid
-flowchart TD
-    A[Step 1: ANALYZE<br/>5 SCOUT subagents parallel] --> B[Step 2: DESIGN<br/>1 ARCHITECT + 3 adversarial reviewers]
-    B --> C[Step 3: PLAN<br/>Decompose → DAG → coverage matrix]
-    C --> D[Step 4: QUALITY CHECK<br/>10-dimension check]
-    D -- FAIL --> B
-    D -- PASS --> E[Human Approval Gate]
-    E -- Approve --> F[Hand off to executor<br/>/lightning, /glm, /kimi]
-    E -- Reject/Modify --> B
 ```
+INIT → CLASSIFY → ANALYZE → DESIGN → REVIEW → PLAN → QC → APPROVAL → WRITE_STATE → DONE
+                              ↑          |              |
+                              |--- REVISION (max 3)     |
+                              |                         |
+                              ←--- QC FAIL (max 3) ←----|
+```
+
+Each state transition produces a **next_action** that tells the agent exactly what to do. The agent performs the action, then calls `--step` with results to advance the state machine.
 
 # Workflow
 
-## Step 1 — ANALYZE
-
-Dispatch **5 SCOUT subagents in parallel** using `run_subagent` with `profile: subagent_explore` and `is_background: true`. Launch all five in a single round so they run concurrently, then collect each result with `read_subagent`.
-
-| Scout | Mission | Output |
-|-------|---------|--------|
-| SCOUT-1 | Scan codebase structure — directory tree, module boundaries, entry points, build system | Structure map + dependency graph |
-| SCOUT-2 | Find relevant files + dependencies for the target feature — trace call paths, locate interfaces | File list with relevance rationale |
-| SCOUT-3 | Research cutting-edge solutions via `web_search` — patterns, libraries, prior art, pitfalls | External research brief |
-| SCOUT-4 | Analyze test coverage gaps — existing tests, untested paths, test infrastructure | Coverage gap report |
-| SCOUT-5 | Check constraints — security policies, performance budgets, compatibility matrix, compliance | Constraint ledger |
-
-Aggregate all five findings into a single **analysis context** block. This context is the input to Step 2.
-
-> *Lưu ý: 5 SCOUT chạy song song (background) để tiết kiệm wall-clock time. Thu thập kết quả bằng `read_subagent` theo từng agent ID.*
-
-## Step 2 — DESIGN
-
-### 2a — Architect
-
-Dispatch **1 ARCHITECT** subagent using `run_subagent` with `profile: glm-executor` and `is_background: false` (foreground so write approvals can be requested). The architect designs the complete solution using the SDD template at `docs/templates/SDD_TEMPLATE.md`.
-
-The work order to the architect must include:
-
-- the full analysis context from Step 1
-- the user's original objective and acceptance criteria
-- the SDD template path to follow
-- explicit instruction: **design only, no code**
-
-### 2b — Adversarial Review
-
-Once the architect returns a draft SDD, dispatch **3 adversarial reviewers in parallel** using `run_subagent` with `profile: subagent_explore` and `is_background: true`:
-
-| Reviewer | Persona | Core question |
-|----------|---------|---------------|
-| SABOTEUR | Hostile attacker | "How do I break this design? What inputs crash it? What edge cases fail?" |
-| NEW_HIRE | Junior engineer, first day | "Can I understand this design without asking anyone? Where is it ambiguous?" |
-| SECURITY_AUDITOR | OWASP-aligned auditor | "Scan for OWASP Top 10 risks. What attack surfaces does this design open?" |
-
-Collect all three reviews. **Promote any issue found by 2 or more reviewers** to a must-fix list. Issues found by only one reviewer go to an optional list.
-
-### 2c — Revision Loop
-
-If the must-fix list is non-empty, send the issues back to the architect (resume same agent ID) for revision. Re-run adversarial review on the revised draft. **Maximum 3 revision rounds.** If issues remain after 3 rounds, escalate to the human with the unresolved issues clearly listed.
-
-### 2d — Output
-
-Finalize and write:
-
-- `docs/plans/SOLUTION_DESIGN_[task_name].md`
-
-> *Vòng sửa tối đa 3 lần. Sau 3 vòng vẫn còn vấn đề → escalate lên human, không tự ý bỏ qua.*
-
-## Step 3 — PLAN
-
-Decompose the approved solution design into **atomic tasks**. Each task record must contain:
-
-| Field | Description |
-|-------|-------------|
-| `ID` | Unique task identifier (e.g., `T01`, `T02.1`) |
-| `description` | One-sentence statement of what the task does |
-| `file_paths` | Exact files the task will create or modify |
-| `function_names` | Functions/classes/interfaces the task touches |
-| `acceptance_criteria` | Observable, testable conditions that mark the task done |
-| `REQ_ID` | Requirement ID this task satisfies (traceability) |
-| `risk_tier` | R0 (trivial) / R1 (low) / R2 (medium) / R3 (high) / R4 (critical) |
-
-Then:
-
-1. **Build a dependency DAG** — order tasks so no task starts before its prerequisites complete. Detect cycles; abort if any cycle is found.
-2. **Generate a coverage matrix** — map every REQ ID to the task(s) that implement it. Any REQ with zero tasks is a gap; loop back to Step 2.
-3. **Define test strategy** — unit tests, integration tests, edge cases, and the specific commands to run for verification.
-4. **Define rollback plan** — for each risk tier R2 and above, state the rollback steps if the task fails in production.
-
-Write the output using the plan template at `docs/templates/PLAN_TEMPLATE.md`:
-
-- `docs/plans/IMPLEMENTATION_PLAN_[task_name].md`
-
-> *Mỗi task phải có REQ_ID để đảm bảo traceability (truy vết yêu cầu). Coverage matrix đảm bảo không requirement nào bị bỏ sót.*
-
-## Step 4 — QUALITY CHECK
-
-Run the 10-dimension quality check script:
+## Step 1 — INIT: Khởi tạo orchestrator
 
 ```bash
-python .devin/scripts/plan_quality_check.py docs/plans/IMPLEMENTATION_PLAN_[task_name].md
+python .devin/scripts/plan_orchestrator.py --init --task "<task description>"
+```
+
+The orchestrator:
+- Creates a state file at `.devin/plan_state/<task_slug>_orchestrator.json`
+- Classifies task tier (S/M/L/XL)
+- Returns first `next_action`
+
+**If S-tier** → orchestrator returns `action: skip` → Plan phase not needed, proceed to execution.
+**If M-tier+** → orchestrator returns `action: dispatch_scouts` → continue to Step 2.
+
+## Step 2 — ANALYZE: Dispatch 5 SCOUT subagents song song
+
+The orchestrator returns `action: dispatch_scouts` with 5 scout missions. Dispatch ALL 5 in a SINGLE response for max parallelism:
+
+```
+run_subagent(profile: subagent_explore, is_background: true, task: SCOUT-1 mission)
+run_subagent(profile: subagent_explore, is_background: true, task: SCOUT-2 mission)
+run_subagent(profile: subagent_explore, is_background: true, task: SCOUT-3 mission)
+run_subagent(profile: subagent_explore, is_background: true, task: SCOUT-4 mission)
+run_subagent(profile: subagent_explore, is_background: true, task: SCOUT-5 mission)
+```
+
+Collect all 5 results with `read_subagent`. Then write results to a temp JSON file and call `--step`:
+
+```bash
+# Write results JSON
+# Format: {"action": "wait_scouts", "scout_results": [...]}
+python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
+```
+
+The orchestrator transitions to DESIGN and returns `action: dispatch_architect`.
+
+## Step 3 — DESIGN: Dispatch ARCHITECT
+
+The orchestrator returns `action: dispatch_architect` with SDD template path and output file path.
+
+Dispatch 1 ARCHITECT subagent (foreground, profile: glm-executor):
+
+```
+run_subagent(profile: glm-executor, is_background: false, task: "Design solution using SDD template at docs/templates/SDD_TEMPLATE.md. Analysis context: <aggregated findings>. Output: docs/plans/<task_slug>/SOLUTION_DESIGN.md")
+```
+
+After architect completes, write results JSON and call `--step`:
+
+```bash
+# Format: {"action": "dispatch_architect", "sdd_path": "docs/plans/<task_slug>/SOLUTION_DESIGN.md"}
+python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
+```
+
+The orchestrator transitions to REVIEW.
+
+## Step 4 — REVIEW: Dispatch 3 adversarial reviewers song song
+
+The orchestrator returns `action: dispatch_reviewers` with 3 reviewer personas.
+
+Dispatch ALL 3 in a SINGLE response:
+
+```
+run_subagent(profile: subagent_explore, is_background: true, task: SABOTEUR review of SDD)
+run_subagent(profile: subagent_explore, is_background: true, task: NEW_HIRE review of SDD)
+run_subagent(profile: subagent_explore, is_background: true, task: SECURITY_AUDITOR review of SDD)
+```
+
+Collect all 3 reviews. Aggregate findings:
+- Deduplicate (cùng root cause)
+- Promote: issue found by 2+ reviewers → +1 severity
+- Classify: BLOCKING / ADVISORY / INFO
+
+Write results JSON and call `--step`:
+
+```bash
+# Format: {"action": "dispatch_reviewers", "findings": [{"severity": "BLOCKING", ...}, ...]}
+python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
+```
+
+**If BLOCKING issues + revision rounds < 3** → orchestrator transitions to REVISION → dispatch architect with issues to fix → re-review.
+**If BLOCKING issues + revision rounds >= 3** → orchestrator transitions to ESCALATE → present unresolved issues to human.
+**If no BLOCKING issues** → orchestrator transitions to PLAN.
+
+## Step 5 — PLAN: Decompose thành atomic tasks
+
+The orchestrator returns `action: decompose_plan` with plan template path.
+
+As the main agent, decompose the SDD into atomic tasks:
+- Each task: Task ID, description, file path(s), function(s), acceptance criteria, REQ ID, risk tier (R0-R4)
+- Build dependency DAG (Mermaid graph)
+- Generate coverage matrix: REQ ID → Task ID → File Path → Function
+- Define test strategy + rollback plan
+- Write to `docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md` using `docs/templates/PLAN_TEMPLATE.md`
+
+Write results JSON and call `--step`:
+
+```bash
+# Format: {"action": "decompose_plan", "plan_path": "docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md"}
+python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
+```
+
+The orchestrator transitions to QC.
+
+## Step 6 — QC: Run quality check (10 dimensions)
+
+The orchestrator returns `action: run_qc` with the command to run.
+
+```bash
+python .devin/scripts/plan_quality_check.py docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md
 ```
 
 The script evaluates the plan across 10 dimensions (D1–D10):
@@ -137,81 +197,91 @@ The script evaluates the plan across 10 dimensions (D1–D10):
 | Dim | Name | What it checks |
 |-----|------|----------------|
 | D1 | Requirement coverage | Every REQ ID has at least one task |
-| D2 | Task atomicity | Each task is small enough to implement in one session |
-| D3 | Dependency acyclicity | DAG has no cycles |
-| D4 | Acceptance criteria clarity | Every task has observable, testable criteria |
-| D5 | Risk classification | Every task has a risk tier; R3+ tasks have mitigation |
-| D6 | Test strategy completeness | Test plan covers unit + integration + edge cases |
-| D7 | Rollback plan | R2+ tasks have rollback steps |
-| D8 | File path specificity | Every task names exact files, not vague references |
-| D9 | Traceability | Every task links to a REQ ID; no orphan tasks |
-| D10 | Scope minimality | No speculative tasks outside stated requirements |
+| D2 | Task completeness | Each task has file path + function + acceptance criteria |
+| D3 | Dependency correctness | DAG in Mermaid is acyclic |
+| D4 | Key links planned | All integration points from SDD have tasks |
+| D5 | Scope sanity | No orphan tasks outside requirements |
+| D6 | Must-haves derivation | Acceptance criteria falsifiable, not vague |
+| D7 | Context compliance | Plan follows AGENTS.md/CLAUDE.md |
+| D8 | Risk assessment | All R3+ tasks have mitigation |
+| D9 | Test coverage | All requirements have test cases |
+| D10 | Rollback plan | All R2+ tasks have rollback |
 
-### Decision
+Write results JSON and call `--step`:
 
-- **If any dimension FAIL** → loop back to Step 2 (DESIGN). The failed dimension determines what to redesign.
-- **If all dimensions PASS** → write the quality report and proceed to the Human Approval Gate.
-
-Write the quality report:
-
-- `docs/plans/QUALITY_REPORT_[task_name].md`
-
-> *Quality check là bắt buộc. Không được bỏ qua dù task có vẻ đơn giản. Nếu script chưa tồn tại, báo cho user biết.*
-
-# Human Approval Gate
-
-After the quality check passes, present a plan summary to the user. **DO NOT proceed to execution without explicit approval.**
-
-Present the summary in this exact format:
-
-```markdown
-## Plan Summary
-- Feature: [name]
-- Complexity: [Low/Medium/High]
-- Risk Tier: [R0-R4]
-- Files to change: [count]
-- Requirements covered: [X]%
-- Quality score: [D1-D10 scorecard]
-
-## Approval Decision
-- [ ] Approve — proceed to execute
-- [ ] Approve with modifications
-- [ ] Reject
-- [ ] Request more information
+```bash
+# Format: {"action": "run_qc", "qc_result": {"all_pass": true/false, "report_path": "..."}}
+python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
 ```
 
-Wait for the user's decision:
+**If all PASS** → orchestrator transitions to APPROVAL.
+**If FAIL + QC rounds < 3** → orchestrator loops back to DESIGN.
+**If FAIL + QC rounds >= 3** → orchestrator transitions to ESCALATE.
 
-| Decision | Action |
-|----------|--------|
-| **Approve** | Proceed to hand off. Inform user they can trigger execution with `/lightning`, `/glm`, or `/kimi`. |
-| **Approve with modifications** | Apply requested modifications (loop back to Step 2 or 3 as needed), re-run quality check, re-present. |
-| **Reject** | Stop. Ask for the reason and store it in memory for future reference. |
-| **Request more information** | Answer the question, then re-present the gate. |
+## Step 7 — APPROVAL: Human approval gate
 
-### R0 Auto-Approve Exception
+The orchestrator returns `action: present_approval` with the command to run.
 
-If **every task** in the plan is risk tier **R0** (trivial — a few low-risk lines in known files), the plan may auto-approve without waiting for human input. State clearly that auto-approve was applied and why. Any task at R1 or above requires the human gate.
+Run the interactive approval gate:
 
-> *Human approval gate là red line. Không được tự ý bỏ qua trừ khi toàn bộ task ở mức R0 (tầm thường, rủi ro thấp).*
+```bash
+python .devin/scripts/approval_gate.py docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md --interactive --quality-report docs/plans/<task_slug>/QUALITY_REPORT.md
+```
+
+The gate presents:
+- Plan summary (feature, risk tier, tasks, requirements, files)
+- Quality scorecard (D1-D10 pass/fail)
+- Options: [y] Approve, [n] Reject, [m] Modify, [i] Info
+
+Wait for user decision, then write results JSON and call `--step`:
+
+```bash
+# Format: {"action": "present_approval", "decision": "approved"/"rejected"/"changes_requested", "reason": "...", "modifications": "..."}
+python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
+```
+
+**If approved** → orchestrator transitions to WRITE_STATE.
+**If rejected** → orchestrator transitions to REJECTED → stop.
+**If changes_requested** → orchestrator loops back to DESIGN.
+
+## Step 8 — WRITE_STATE: Activate enforcement hook
+
+The orchestrator returns `action: write_plan_state` with the command to run.
+
+```bash
+python .devin/scripts/approval_gate.py docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md --approve
+```
+
+This writes the plan state file that activates `plan_enforce.py` hook — allowing execution to proceed.
+
+Write results JSON and call `--step`:
+
+```bash
+# Format: {"action": "write_plan_state"}
+python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
+```
+
+The orchestrator transitions to DONE. Plan phase complete.
 
 # Output Files
 
 | File | Purpose | Step |
 |------|---------|------|
-| `docs/plans/SOLUTION_DESIGN_[task_name].md` | Solution Design Document — architecture, components, data flow, decisions | Step 2 |
-| `docs/plans/IMPLEMENTATION_PLAN_[task_name].md` | Implementation Plan — atomic tasks, DAG, coverage matrix, test + rollback | Step 3 |
-| `docs/plans/QUALITY_REPORT_[task_name].md` | Quality Report — D1–D10 scorecard, pass/fail per dimension | Step 4 |
-
-All three files use `[task_name]` derived from the user's objective (slugified, lowercase, hyphen-separated).
+| `docs/plans/<task_slug>/SOLUTION_DESIGN.md` | Solution Design Document — architecture, components, data flow | Step 3 |
+| `docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md` | Implementation Plan — atomic tasks, DAG, coverage matrix, test + rollback | Step 5 |
+| `docs/plans/<task_slug>/QUALITY_REPORT.md` | Quality Report — D1–D10 scorecard, pass/fail per dimension | Step 6 |
+| `.devin/plan_state/<task_slug>_orchestrator.json` | Orchestrator state — FSM state, history, all paths | All steps |
+| `.devin/plan_state/<task_slug>_approved.json` | Approval state — activates enforcement hook (for plans under `docs/plans/<task_slug>/`) | Step 8 |
 
 # Guardrails
 
 - **DO NOT write any code during the Plan phase.** This skill produces documents only. Code is written in Phase 3 (EXECUTE) by an executor skill.
+- **DO NOT skip the orchestrator.** Always use `plan_orchestrator.py` to drive the flow. Do not manually skip steps.
 - **DO NOT skip the quality check.** The 10-dimension check is mandatory for every plan, regardless of complexity.
-- **DO NOT proceed without human approval** — except the R0 auto-approve exception defined above.
+- **DO NOT proceed without human approval** — except the S-tier auto-skip exception.
 - **DO NOT skip adversarial review.** Minimum 3 personas (SABOTEUR, NEW_HIRE, SECURITY_AUDITOR). Fewer is a quality check failure.
-- **Maximum 3 revision rounds.** After 3 rounds with unresolved issues, escalate to the human. Do not silently ship a flawed design.
+- **Maximum 3 revision rounds.** After 3 rounds with unresolved issues, escalate to the human.
+- **Maximum 3 QC rounds.** After 3 rounds with failing dimensions, escalate to the human.
 - **DO NOT edit files outside `docs/plans/`.** This skill's write scope is limited to plan documents.
 - **Preserve pre-existing user changes.** Before writing any plan file, check the working tree for uncommitted changes and note them.
 
@@ -225,7 +295,7 @@ After approval, the user triggers execution with one of the executor skills:
 | `/glm <task>` | GLM-5.2 | Free tier, high reasoning |
 | `/kimi <task>` | Kimi K2.7 | Free tier, open-source |
 
-The executor reads `docs/plans/IMPLEMENTATION_PLAN_[task_name].md` as its **contract** — the plan is the source of truth for what to build, in what order, and how to verify. The executor should not redesign; it implements the approved plan.
+The executor reads `docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md` as its **contract** — the plan is the source of truth for what to build, in what order, and how to verify. The executor should not redesign; it implements the approved plan.
 
 If the executor discovers a plan defect during implementation, it must stop and report back. The user then re-triggers `/plan` to revise the design rather than allowing the executor to improvise.
 

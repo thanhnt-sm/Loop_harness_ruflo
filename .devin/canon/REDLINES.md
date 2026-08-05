@@ -26,6 +26,8 @@
 16. No explanatory comments in generated code — comments are debt (arXiv 2605.02741).
 17. No in-file version stacking — version truth = git + CHANGELOG.md.
 18. No new canon/skill without passing the 5-question existence gate.
+19. **No skipping Plan phase for M-tier+** — `plan_enforce.py` hook blocks Write/Edit without approved plan. Use `plan_orchestrator.py` to run Plan phase properly.
+20. **No bypassing plan_orchestrator.py** — Plan phase must run via orchestrator FSM, not manually. Orchestrator ensures all steps (SCOUTs, adversarial review, QC, approval) execute in order.
 
 ## Enforcement layers (full detail in docs/REDLINES_full.md)
 

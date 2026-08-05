@@ -2,20 +2,24 @@
 """
 Hook: plan_enforce.py — Plan Phase Enforcement (PreToolUse)
 
-Kiểm tra: agent có đang cố execute (Write/Edit) mà chưa có approved plan không?
-Nếu task M-tier+ và chưa có approved plan → BLOCK.
+Kiểm tra: agent có đang cố write/edit file mà chưa có approved plan cho task hiện tại không?
+Nếu task M-tier+ và chưa có approved plan cho task hiện tại → BLOCK.
 
 Logic:
-1. Đọc session_state để xác định current task tier
-2. Nếu M-tier+ → kiểm tra plan_state có approved plan không
-3. Nếu chưa approved → BLOCK Write/Edit (trừ docs/plans/ — cho phép viết plan)
-4. Nếu S-tier hoặc đã approved → allow
+1. Đọc session_state để xác định current task (goal hoặc task field)
+2. Từ task description, tính task_slug
+3. Kiểm tra orchestrator state cho task_slug: nếu state=DONE và approval_status=approved → có approved plan
+4. Phân loại tier: nếu S-tier → allow
+5. Nếu M-tier+ và file không thuộc docs/plans/ → BLOCK nếu chưa có approved plan cho task hiện tại
+6. Nếu file thuộc docs/plans/ hoặc docs/templates/ → allow (cho phép viết plan)
 
 Fail-closed: nếu không xác định được tier → default M → require plan.
+Fail-closed: nếu hook input parse error → BLOCK (không fail-open).
 """
 
 from __future__ import annotations
 import json
+import os
 import sys
 import re
 from pathlib import Path
@@ -45,33 +49,76 @@ def _get_session_state(root: Path) -> dict:
         return {}
 
 
-def _get_plan_state(root: Path, plan_name: str | None = None) -> dict:
-    """Đọc plan state — kiểm tra approval status"""
-    plan_dir = root / ".devin" / "plan_state"
-    if not plan_dir.exists():
-        return {}
-    if plan_name:
-        state_file = plan_dir / f"{plan_name}.json"
-        if state_file.exists():
-            try:
-                return json.loads(state_file.read_text(encoding="utf-8"))
-            except (json.JSONDecodeError, OSError):
-                return {}
-    # Tìm plan approved mới nhất
-    approved_plans = []
-    for f in plan_dir.glob("*.json"):
-        if f.name.endswith("_coverage.json") or f.name.endswith("_workflow.json"):
-            continue
+def _slugify(text: str) -> str:
+    """Tạo task slug — giống logic trong plan_orchestrator.py"""
+    if not text:
+        return ""
+    slug = re.sub(r"[^\w\s-]", "", text.lower().strip())
+    slug = re.sub(r"[\s_]+", "-", slug)
+    slug = re.sub(r"-+", "-", slug).strip("-")
+    return slug[:60] if slug else ""
+
+
+def _plan_state_name_from_path(plan_path: str) -> str:
+    """
+    Tạo tên state file duy nhất cho plan — phải khớp với logic trong approval_gate.py.
+    Nếu plan nằm trong docs/plans/<task_slug>/ → dùng <task_slug>_approved.json.
+    Fallback: dùng stem.
+    """
+    if not plan_path:
+        return ""
+    p = Path(plan_path)
+    parts = p.parts
+    if "docs" in parts and "plans" in parts:
         try:
-            state = json.loads(f.read_text(encoding="utf-8"))
-            if state.get("status") == "approved":
-                approved_plans.append((f, state))
-        except (json.JSONDecodeError, OSError):
-            continue
-    if approved_plans:
-        approved_plans.sort(key=lambda x: x[1].get("date", ""), reverse=True)
-        return approved_plans[0][1]
-    return {}
+            idx = parts.index("plans")
+            if idx + 1 < len(parts):
+                return f"{parts[idx + 1]}_approved"
+        except ValueError:
+            pass
+    return p.stem
+
+
+def _get_plan_state_for_task(root: Path, task_slug: str) -> dict:
+    """
+    Đọc plan state cho task cụ thể thông qua orchestrator state.
+
+    1. Load orchestrator state: .devin/plan_state/<task_slug>_orchestrator.json
+    2. Nếu state=DONE và approval_status=approved → lấy plan_path
+    3. Load approval state cho plan_path (dùng task_slug_approved.json nếu trong docs/plans/<task_slug>)
+    4. Trả về approved state nếu tồn tại
+
+    KHÔNG tìm bất kỳ approved plan nào — chỉ dùng plan của task hiện tại.
+    """
+    if not task_slug:
+        return {}
+    orchestrator_path = root / ".devin" / "plan_state" / f"{task_slug}_orchestrator.json"
+    if not orchestrator_path.exists():
+        return {}
+    try:
+        orch_state = json.loads(orchestrator_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+    # Chỉ cho phép nếu orchestrator state = DONE và approval_status=approved
+    if orch_state.get("state") != "DONE":
+        return {}
+    if orch_state.get("approval_status") != "approved":
+        return {}
+
+    plan_path = orch_state.get("plan_path", "")
+    if not plan_path:
+        return {}
+
+    # Load approval state tương ứng (dùng task_slug_approved.json nếu trong docs/plans/<task_slug>)
+    state_name = _plan_state_name_from_path(plan_path)
+    state_file = root / ".devin" / "plan_state" / f"{state_name}.json"
+    if not state_file.exists():
+        return {}
+    try:
+        return json.loads(state_file.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
 
 
 def _classify_tier(task_description: str, session_state: dict) -> str:
@@ -118,23 +165,41 @@ def _is_template_file(file_path: str) -> bool:
 
 
 def _extract_file_path(tool_input: dict) -> str | None:
-    """Trích file path từ tool input"""
+    """Trích file path từ tool input — kiểm tra nhiều key phổ biến."""
     if not tool_input:
         return None
-    for key in ("file_path", "path", "filename", "file"):
+    # Các key phổ biến cho write/edit tools
+    for key in ("file_path", "path", "filename", "file", "target", "destination"):
         if key in tool_input:
-            return str(tool_input[key])
-    return None
+            val = tool_input[key]
+            if isinstance(val, (str, os.PathLike)):
+                return str(val)
+    # Fallback: tìm string chứa dấu / hoặc \ trong nested dict
+    def _find_path(obj):
+        if isinstance(obj, str) and ("/" in obj or "\\" in obj):
+            # Ưu tiên các đường dẫn source / docs / tests
+            if any(obj.startswith(p) for p in ("src/", "tests/", ".devin/", "docs/", "HLK/")):
+                return obj
+            # Nếu kết thúc bằng extension phổ biến → cũng coi là file path
+            if any(obj.endswith(ext) for ext in (".py", ".js", ".ts", ".md", ".json", ".yml", ".yaml", ".toml")):
+                return obj
+        if isinstance(obj, dict):
+            for v in obj.values():
+                found = _find_path(v)
+                if found:
+                    return found
+        return None
+    return _find_path(tool_input)
 
 
 def main():
     """Entry point — đọc hook input từ stdin, output JSON"""
     try:
         hook_input = json.load(sys.stdin)
-    except (json.JSONDecodeError, OSError):
-        # Không parse được → allow (don't block on hook errors)
-        print(json.dumps({"allow": True, "reason": "hook input parse error, fail-open"}))
-        sys.exit(0)
+    except (json.JSONDecodeError, OSError) as e:
+        # Không parse được → BLOCK (fail-closed)
+        print(json.dumps({"allow": False, "reason": f"PLAN ENFORCEMENT: hook input parse error, fail-closed: {e}", "enforcement": "hook_error"}))
+        sys.exit(1)
 
     tool_name = hook_input.get("tool_name", "")
     tool_input = hook_input.get("tool_input", {})
@@ -147,6 +212,7 @@ def main():
     root = _repo_root()
     session_state = _get_session_state(root)
     task_desc = session_state.get("goal", "") or hook_input.get("task", "")
+    task_slug = _slugify(task_desc)
     tier = _classify_tier(task_desc, session_state)
 
     # S-tier → allow (no plan needed)
@@ -154,7 +220,7 @@ def main():
         print(json.dumps({"allow": True, "reason": "S-tier task, plan not required"}))
         sys.exit(0)
 
-    # M-tier+ → require approved plan
+    # M-tier+ → require approved plan cho task hiện tại
     file_path = _extract_file_path(tool_input)
     if file_path:
         # Cho phép viết plan files + templates
@@ -162,8 +228,8 @@ def main():
             print(json.dumps({"allow": True, "reason": "writing plan/template file"}))
             sys.exit(0)
 
-    # Kiểm tra: có approved plan không?
-    plan_state = _get_plan_state(root)
+    # Kiểm tra: task hiện tại có approved plan không?
+    plan_state = _get_plan_state_for_task(root, task_slug)
     if plan_state.get("status") == "approved":
         print(json.dumps({"allow": True, "reason": f"plan approved: {plan_state.get('plan_file', 'unknown')}"}))
         sys.exit(0)
@@ -171,7 +237,7 @@ def main():
     # KHÔNG có approved plan + M-tier+ + đang cố write code → BLOCK
     block_reason = (
         f"PLAN ENFORCEMENT: Task tier={tier} requires approved plan before execution. "
-        f"No approved plan found. Run /plan or /full-power first. "
+        f"No approved plan found for task '{task_desc}'. Run /plan or /full-power first. "
         f"Plan phase is MANDATORY for M-tier+ tasks. "
         f"To override: classify as S-tier or get plan approved via approval_gate.py."
     )

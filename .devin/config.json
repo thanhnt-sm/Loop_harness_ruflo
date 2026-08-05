@@ -26,6 +26,9 @@
       "Exec(python scripts/test_*.py)",
       "Exec(python .devin/scripts/hook_integrity.py:*)",
       "Exec(python .devin/scripts/log_rotation.py:*)",
+      "Exec(python .devin/scripts/plan_orchestrator.py:*)",
+      "Exec(python .devin/scripts/approval_gate.py:*)",
+      "Exec(python .devin/scripts/plan_quality_check.py:*)",
       "Exec(python tools/cross_platform.py:*)",
       "Exec(pwsh tools/verify-workspace.ps1)",
       "Exec(pwsh tools/health-check.ps1)",
@@ -162,11 +165,6 @@
             "type": "command",
             "command": "python .devin/hooks/pre_tool_use.py",
             "timeout": 3
-          },
-          {
-            "type": "command",
-            "command": "python .devin/hooks/plan_enforce.py",
-            "timeout": 3
           }
         ]
       },
@@ -187,6 +185,11 @@
             "type": "command",
             "command": "bash $APPDATA/nvm/v18.20.0/node_modules/aide-memory\\scripts\\hooks\\pre-edit-recall.sh",
             "timeout":  5
+          },
+          {
+            "type": "command",
+            "command": "python .devin/hooks/plan_enforce.py",
+            "timeout": 3
           }
         ]
       },
@@ -197,6 +200,11 @@
             "type": "command",
             "command": "bash $APPDATA/nvm/v18.20.0/node_modules/aide-memory\\scripts\\hooks\\pre-edit-recall.sh",
             "timeout":  5
+          },
+          {
+            "type": "command",
+            "command": "python .devin/hooks/plan_enforce.py",
+            "timeout": 3
           }
         ]
       },

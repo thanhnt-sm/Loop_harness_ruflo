@@ -29,39 +29,37 @@ TASK → TIER CLASSIFICATION
 
 **RED LINE: Skip Plan phase cho M-tier+ = violation. Hook sẽ block.**
 
-### Phase 1: PLAN (agent tự trị, max parallel research)
+### Phase 1: PLAN (orchestrator-driven, max parallel research)
 
 Trigger: `/plan` skill hoặc task M-tier+
 
-1. **ANALYZE** — 5 SCOUT subagents song song (subagent_explore, background):
-   - Scan codebase structure, patterns, conventions
-   - Find relevant files, dependencies, blast radius
-   - Research cutting-edge solutions (web_search)
-   - Analyze test coverage gaps
-   - Check constraints (security, performance, compatibility)
-   - Aggregate findings → `analysis_findings.md`
+**QUAN TRỌNG**: Plan phase chạy qua `plan_orchestrator.py` — FSM state machine tự động orchestrate toàn bộ flow. Commander không tự làm từng bước mà tương tác với orchestrator qua CLI.
 
-2. **DESIGN** — 1 ARCHITECT (glm-executor) + 3 adversarial reviewers song song:
-   - ARCHITECT thiết kế theo `docs/templates/SDD_TEMPLATE.md`
-   - 3 personas (subagent_explore, background): SABOTEUR, NEW_HIRE, SECURITY_AUDITOR
-   - Issues 2+ tìm thấy → promote severity
-   - Max 3 revision rounds → output: `SOLUTION_DESIGN.md`
+```bash
+# Khởi tạo
+python .devin/scripts/plan_orchestrator.py --init --task "<task>"
+# Sau mỗi action, gọi --step với results
+python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
+```
 
-3. **PLAN** — Decompose thành atomic tasks:
-   - Mỗi task: ID, file, function, acceptance criteria, REQ ID, risk tier
-   - Build dependency DAG → `docs/templates/PLAN_TEMPLATE.md`
-   - Coverage matrix: REQ → Task → File → Function
-   - Risk assessment (R0-R4) + rollback plan
+Orchestrator FSM: INIT → CLASSIFY → ANALYZE → DESIGN → REVIEW → PLAN → QC → APPROVAL → WRITE_STATE → DONE
 
-4. **QUALITY CHECK** — `python .devin/scripts/plan_quality_check.py <plan.md>`
-   - 10 dimensions (D1-D10): coverage, completeness, dependencies, scope, risk, test, rollback
-   - FAIL → loop lại DESIGN. PASS → present cho human.
+1. **ANALYZE** — Orchestrator trả `dispatch_scouts`. Commander dispatch 5 SCOUT subagents song song (subagent_explore, background). Collect results → call `--step`.
 
-### Phase 2: APPROVE (human gate)
+2. **DESIGN** — Orchestrator trả `dispatch_architect`. Commander dispatch 1 ARCHITECT (glm-executor, foreground). Sau xong → call `--step` → orchestrator trả `dispatch_reviewers`. Commander dispatch 3 adversarial reviewers song song. Collect → aggregate → call `--step`.
 
-- Present plan summary: feature, complexity, risk tier, files, coverage %, quality score
-- Risk-based: R0 auto-approve, R1+ require review
-- `python .devin/scripts/approval_gate.py <plan.md> --approve|--reject`
+3. **PLAN** — Orchestrator trả `decompose_plan`. Commander decompose SDD thành atomic tasks + DAG + coverage matrix. Write `IMPLEMENTATION_PLAN.md` → call `--step`.
+
+4. **QUALITY CHECK** — Orchestrator trả `run_qc`. Commander chạy `plan_quality_check.py`. Call `--step` với QC result. FAIL → loop lại DESIGN. PASS → APPROVAL.
+
+### Phase 2: APPROVE (human gate, interactive)
+
+- Orchestrator trả `present_approval`. Commander chạy interactive approval gate:
+  ```bash
+  python .devin/scripts/approval_gate.py <plan.md> --interactive --quality-report <qr.md>
+  ```
+- Gate tự động present plan summary + quality scorecard + options [y/n/m/i]
+- User decide → Commander call `--step` với decision
 - **KHÔNG execute trước khi approved**
 
 ### Phase 3: EXECUTE (max parallel, QC gates, enforcement)
