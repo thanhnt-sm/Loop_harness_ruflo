@@ -1,0 +1,331 @@
+{
+  "_description": "Upgrade Plan v2 — Red Team Council Report v2. 20 upgrades (U51-U70) across 4 phases.",
+  "_version": "2.0.0",
+  "_created": "2026-08-05",
+  "_source": "HLK/docs/REDTEAM_COUNCIL_REPORT_v2.md",
+  "_previous_plan": "U01-U50 (all complete)",
+
+  "phase_summary": {
+    "P4": { "total": 5, "done": 0, "in_progress": 0, "pending": 5, "blocked": 0, "priority": "critical", "name": "Critical Security" },
+    "P5": { "total": 7, "done": 0, "in_progress": 0, "pending": 7, "blocked": 0, "priority": "high", "name": "Mechanical Enforcement" },
+    "P6": { "total": 5, "done": 0, "in_progress": 0, "pending": 5, "blocked": 0, "priority": "medium", "name": "Optimization" },
+    "P7": { "total": 3, "done": 0, "in_progress": 0, "pending": 3, "blocked": 0, "priority": "medium", "name": "Devin Compatibility" }
+  },
+
+  "metrics": {
+    "current": {
+      "red_team_score": 4.0,
+      "always_on_tokens": 50770,
+      "hook_overhead_ms": "400-1000",
+      "devin_compatibility_pct": 44,
+      "security_bypass_vectors": 5,
+      "enforced_protocols": 0,
+      "file_count": 60
+    },
+    "target": {
+      "red_team_score": 8.0,
+      "always_on_tokens": 12000,
+      "hook_overhead_ms": "<200",
+      "devin_compatibility_pct": 100,
+      "security_bypass_vectors": 0,
+      "enforced_protocols": 3,
+      "file_count": 35
+    }
+  },
+
+  "upgrades": [
+    {
+      "id": "U51", "title": "Encoding bypass fix (normalize_command v2)", "phase": "P4",
+      "priority": "critical", "expert": "Security Red Teamer", "status": "pending",
+      "dependencies": [], "dependents": [],
+      "effort_days": 1,
+      "description": "Fix hex/octal/unicode/variable expansion bypass in normalize_command()",
+      "files_to_modify": [".devin/hooks/pre_tool_use.py"],
+      "acceptance_criteria": [
+        "\\x72\\x6d\\x20\\x2d\\x72\\x66 detected as rm -rf",
+        "$CMD where CMD=rm -rf flagged",
+        "base64 -d|sh detected (all shell variants)"
+      ],
+      "acceptance_criteria_count": 3,
+      "token_impact": "+200"
+    },
+    {
+      "id": "U52", "title": "Fail-closed default (timeout)", "phase": "P4",
+      "priority": "high", "expert": "Security Red Teamer", "status": "pending",
+      "dependencies": [], "dependents": [],
+      "effort_days": 1,
+      "description": "Change timeout default from fail-open to fail-closed",
+      "files_to_modify": [".devin/hooks/pre_tool_use.py"],
+      "acceptance_criteria": [
+        "Timeout → exit 2 (blocked) by default",
+        "AHD_FAIL_OPEN=1 → exit 0 (allowed)",
+        "Slow regex patterns denied"
+      ],
+      "acceptance_criteria_count": 3,
+      "token_impact": "+50"
+    },
+    {
+      "id": "U53", "title": "Narrow permission wildcards", "phase": "P4",
+      "priority": "high", "expert": "Security Red Teamer", "status": "pending",
+      "dependencies": ["U27"], "dependents": [],
+      "effort_days": 1,
+      "description": "Replace scripts/* wildcards with explicit allowlist + SHA-256",
+      "files_to_modify": [".devin/config.json"],
+      "acceptance_criteria": [
+        "python scripts/evil.py → blocked",
+        "python scripts/verify.py → allowed",
+        "Unknown script → ask"
+      ],
+      "acceptance_criteria_count": 3,
+      "token_impact": "+100"
+    },
+    {
+      "id": "U54", "title": "Expand sanitizer patterns (round 2)", "phase": "P4",
+      "priority": "medium", "expert": "Security Red Teamer", "status": "pending",
+      "dependencies": ["U29"], "dependents": [],
+      "effort_days": 1,
+      "description": "Add Twilio, SendGrid, Datadog, Firebase, AWS session patterns",
+      "files_to_modify": ["HLK/security/sanitizer.js", "HLK/config/hlk.config.json"],
+      "acceptance_criteria": ["5 new secret types detected"],
+      "acceptance_criteria_count": 1,
+      "token_impact": "+150"
+    },
+    {
+      "id": "U55", "title": "Hook chain atomicity", "phase": "P4",
+      "priority": "medium", "expert": "Security Red Teamer", "status": "pending",
+      "dependencies": [], "dependents": [],
+      "effort_days": 1,
+      "description": "Add stop_on_error to hook chain config",
+      "files_to_modify": [".devin/config.json"],
+      "acceptance_criteria": ["HLK hook fails → remaining hooks don't run"],
+      "acceptance_criteria_count": 1,
+      "token_impact": "+30"
+    },
+    {
+      "id": "U56", "title": "SessionStart hook — BOOT enforcement", "phase": "P5",
+      "priority": "critical", "expert": "Flow Analyst", "status": "pending",
+      "dependencies": [], "dependents": ["U60"],
+      "effort_days": 2,
+      "description": "New session_start.py hook to enforce BOOT protocol",
+      "files_to_modify": [".devin/hooks/session_start.py", ".devin/config.json"],
+      "acceptance_criteria": [
+        "Session starts → BOOT hook runs",
+        "boot_complete=false → work tools blocked",
+        "BOOT steps verified → boot_complete=true"
+      ],
+      "acceptance_criteria_count": 3,
+      "token_impact": "+400"
+    },
+    {
+      "id": "U57", "title": "Auto-invoke slop + comment checker", "phase": "P5",
+      "priority": "high", "expert": "Quality Auditor", "status": "pending",
+      "dependencies": [], "dependents": [],
+      "effort_days": 2,
+      "description": "PostToolUse auto-run slop-detector + comment_checker on Write/Edit",
+      "files_to_modify": [".devin/hooks/post_tool_use.py"],
+      "acceptance_criteria": [
+        "Write tool → slop_detector runs automatically",
+        "Write tool → comment_checker runs automatically",
+        "High slop score → warning in session_state"
+      ],
+      "acceptance_criteria_count": 3,
+      "token_impact": "+700"
+    },
+    {
+      "id": "U58", "title": "Done-detection hook (fable-judge auto)", "phase": "P5",
+      "priority": "medium", "expert": "Quality Auditor", "status": "pending",
+      "dependencies": ["U57"], "dependents": [],
+      "effort_days": 1,
+      "description": "Auto-invoke fable-judge on done/complete/finished detection",
+      "files_to_modify": [".devin/hooks/post_tool_use.py"],
+      "acceptance_criteria": [
+        "Agent says done → fable-judge auto-invokes",
+        "VERIFIED → task complete",
+        "FAIL → task blocked"
+      ],
+      "acceptance_criteria_count": 3,
+      "token_impact": "+250"
+    },
+    {
+      "id": "U59", "title": "Skill auto-router", "phase": "P5",
+      "priority": "medium", "expert": "Quality Auditor", "status": "pending",
+      "dependencies": [], "dependents": [],
+      "effort_days": 2,
+      "description": "Auto-invoke skills based on tool output matching trigger patterns",
+      "files_to_modify": [".devin/hooks/post_tool_use.py", ".devin/config.json"],
+      "acceptance_criteria": [
+        "Code edit → harness-sensor auto-invokes",
+        "Prose output → slop-detector auto-invokes",
+        "Skill usage tracked in session_state"
+      ],
+      "acceptance_criteria_count": 3,
+      "token_impact": "+500"
+    },
+    {
+      "id": "U60", "title": "Loop enforcement hook", "phase": "P5",
+      "priority": "high", "expert": "Flow Analyst", "status": "pending",
+      "dependencies": ["U56"], "dependents": [],
+      "effort_days": 2,
+      "description": "Enforce budget cap, time limit, convergence, state write",
+      "files_to_modify": [".devin/hooks/post_tool_use.py"],
+      "acceptance_criteria": [
+        "Budget exceeded → tools blocked",
+        "Time limit exceeded → tools blocked",
+        "State not written in N iterations → warning"
+      ],
+      "acceptance_criteria_count": 3,
+      "token_impact": "+350"
+    },
+    {
+      "id": "U61", "title": "Session state write verification", "phase": "P5",
+      "priority": "medium", "expert": "Flow Analyst", "status": "pending",
+      "dependencies": [], "dependents": [],
+      "effort_days": 1,
+      "description": "Read-back after write, failure counter, escalation",
+      "files_to_modify": [".devin/hooks/ahd_session.py"],
+      "acceptance_criteria": [
+        "Write → read-back verifies",
+        "Write failure → counter increments",
+        "Counter > 3 → escalate to human"
+      ],
+      "acceptance_criteria_count": 3,
+      "token_impact": "+100"
+    },
+    {
+      "id": "U62", "title": "Memory confidence + honest limit", "phase": "P5",
+      "priority": "medium", "expert": "Flow Analyst", "status": "pending",
+      "dependencies": [], "dependents": [],
+      "effort_days": 1,
+      "description": "Memory source tracking, confidence score, honest limit thresholds",
+      "files_to_modify": [".devin/hooks/ahd_session.py", ".devin/canon/VERIFICATION_PROTOCOL.md"],
+      "acceptance_criteria": [
+        "Memory recall includes source + confidence",
+        "Uncertainty > 30% → auto-escalate",
+        "Honest limit documented + enforced"
+      ],
+      "acceptance_criteria_count": 3,
+      "token_impact": "+200"
+    },
+    {
+      "id": "U63", "title": "Canon lazy-load enforcement", "phase": "P6",
+      "priority": "high", "expert": "Performance Engineer", "status": "pending",
+      "dependencies": [], "dependents": [],
+      "effort_days": 2,
+      "description": "Move canon to canon-ref/, BOOT loads only essential, track loaded",
+      "files_to_modify": [".devin/canon/BOOT_PROTOCOL.md", ".devin/canon/*.md"],
+      "acceptance_criteria": [
+        "BOOT payload < 16KB (~4K tokens)",
+        "Canon loaded on-demand only",
+        "Loaded canon tracked in session_state"
+      ],
+      "acceptance_criteria_count": 3,
+      "token_impact": "-35000"
+    },
+    {
+      "id": "U64", "title": "Hook performance optimization", "phase": "P6",
+      "priority": "medium", "expert": "Performance Engineer", "status": "pending",
+      "dependencies": [], "dependents": [],
+      "effort_days": 2,
+      "description": "Cache context_flags, batch state writes, remove prompt hook for L0/L1",
+      "files_to_modify": [".devin/hooks/pre_tool_use.py", ".devin/hooks/post_tool_use.py"],
+      "acceptance_criteria": [
+        "Hook overhead < 200ms/call",
+        "No double-read of context_flags",
+        "L0/L1 tools skip prompt hook"
+      ],
+      "acceptance_criteria_count": 3,
+      "token_impact": "-200/call"
+    },
+    {
+      "id": "U65", "title": "File consolidation (via negativa v2)", "phase": "P6",
+      "priority": "high", "expert": "Architecture Critic", "status": "pending",
+      "dependencies": ["U26"], "dependents": [],
+      "effort_days": 2,
+      "description": "Merge sub-protocols, consolidate config files, remove redundant",
+      "files_to_modify": [".devin/canon/*.md", ".devin/*.json"],
+      "acceptance_criteria": [
+        "File count < 35",
+        "Config files = 2 (main + minimal)",
+        "No broken references"
+      ],
+      "acceptance_criteria_count": 3,
+      "token_impact": "-5000"
+    },
+    {
+      "id": "U66", "title": "Interface definitions (decoupling)", "phase": "P6",
+      "priority": "medium", "expert": "Architecture Critic", "status": "pending",
+      "dependencies": [], "dependents": [],
+      "effort_days": 2,
+      "description": "JSON schemas for hook I/O, versioned interfaces, DI for ahd_session",
+      "files_to_modify": [".devin/schemas/*.json"],
+      "acceptance_criteria": [
+        "Hook I/O schema defined",
+        "Interface versioned",
+        "ahd_session injectable"
+      ],
+      "acceptance_criteria_count": 3,
+      "token_impact": "+500"
+    },
+    {
+      "id": "U67", "title": "Antifragility + circuit breakers", "phase": "P6",
+      "priority": "high", "expert": "Nuwa Cognitive Reviewer", "status": "pending",
+      "dependencies": [], "dependents": [],
+      "effort_days": 2,
+      "description": "Failure tracking, adaptive timeouts, circuit breakers, failure injection tests",
+      "files_to_modify": [".devin/hooks/ahd_session.py", ".devin/scripts/test_minimal_mode.py"],
+      "acceptance_criteria": [
+        "Failure tracked in session_state",
+        "Circuit breaker trips on 3 failures",
+        "Minimal mode auto-activates on component failure",
+        "Test script validates minimal mode"
+      ],
+      "acceptance_criteria_count": 4,
+      "token_impact": "+600"
+    },
+    {
+      "id": "U68", "title": "Adaptive model routing + Kimi executor", "phase": "P7",
+      "priority": "medium", "expert": "Performance Engineer", "status": "pending",
+      "dependencies": [], "dependents": [],
+      "effort_days": 1,
+      "description": "Add adaptive routing, kimi-executor, skill model override",
+      "files_to_modify": [".devin/config.json", ".devin/agents/kimi-executor/AGENT.md"],
+      "acceptance_criteria": [
+        "Adaptive model in config",
+        "kimi-executor/AGENT.md exists",
+        "Skill model override documented"
+      ],
+      "acceptance_criteria_count": 3,
+      "token_impact": "+300"
+    },
+    {
+      "id": "U69", "title": "Smart permission mode + plugin governance", "phase": "P7",
+      "priority": "medium", "expert": "Security Red Teamer", "status": "pending",
+      "dependencies": [], "dependents": [],
+      "effort_days": 1,
+      "description": "Document smart mode, plugin governance, MCP disabledTools, sandbox",
+      "files_to_modify": [".devin/config.json", "AGENTS.md"],
+      "acceptance_criteria": [
+        "Smart mode documented",
+        "Plugin governance in config",
+        "MCP disabledTools supported"
+      ],
+      "acceptance_criteria_count": 3,
+      "token_impact": "+200"
+    },
+    {
+      "id": "U70", "title": "Full Devin feature alignment", "phase": "P7",
+      "priority": "medium", "expert": "Architecture Critic", "status": "pending",
+      "dependencies": ["U68", "U69"], "dependents": [],
+      "effort_days": 1,
+      "description": "SessionEnd, UserPromptSubmit, PostCompaction hooks, prompt-type hooks, skill subagent, max-nesting, MCP prompts, AGENTS.local.md, read_config_from",
+      "files_to_modify": [".devin/config.json", ".devin/hooks/*.py", "AGENTS.md"],
+      "acceptance_criteria": [
+        "10+ Devin features newly supported",
+        "All hook events covered",
+        "Cross-tool import enabled"
+      ],
+      "acceptance_criteria_count": 3,
+      "token_impact": "+1000"
+    }
+  ]
+}
