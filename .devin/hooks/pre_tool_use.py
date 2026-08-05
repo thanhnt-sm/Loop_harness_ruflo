@@ -181,6 +181,49 @@ def _check_context_oversized_gate(data: dict) -> None:
         pass  # don't block on internal errors
 
 
+def _check_risk_contract(tool_name: str, tool_input: dict) -> None:
+    """U28: Warn on critical file modifications per risk_contract.json.
+
+    Non-blocking — only logs warning to stderr. Does not deny the tool call.
+    """
+    write_tools = {"Write", "write", "Edit", "edit", "notebook_edit", "NotebookEdit"}
+    if tool_name not in write_tools:
+        return
+
+    file_path = ""
+    for key in ("file_path", "path", "notebook_path", "file"):
+        if key in tool_input:
+            file_path = tool_input[key]
+            break
+    if not file_path:
+        return
+
+    try:
+        root = ahd_session.get_repo_root()
+        contract_path = root / ".devin" / "risk_contract.json"
+        if not contract_path.exists():
+            return
+
+        contract = json.loads(contract_path.read_text(encoding="utf-8"))
+        critical_files = contract.get("critical_files", {})
+
+        # Normalize path for matching
+        norm_path = str(file_path).replace("\\", "/")
+        for pattern, rules in critical_files.items():
+            norm_pattern = pattern.replace("\\", "/")
+            if norm_pattern in norm_path or norm_path.endswith(norm_pattern):
+                risk = rules.get("risk", "unknown")
+                review = rules.get("required_review", "self")
+                print(
+                    f"[U28 Risk Contract] WARNING: Modifying critical file "
+                    f"{file_path} (risk: {risk}, review: {review})",
+                    file=sys.stderr,
+                )
+                return
+    except Exception:
+        pass  # non-blocking
+
+
 def main():
     try:
         data = json.load(sys.stdin)
@@ -191,9 +234,13 @@ def main():
     # Gate 1: context-oversized enforcement (all tools)
     _check_context_oversized_gate(data)
 
-    # Gate 2: dangerous-command check (Bash/shell only)
+    # Gate 1.5: U28 — Risk contract check for critical file modifications
     tool_name = data.get("tool_name", "")
     tool_input = data.get("tool_input", {})
+    _check_risk_contract(tool_name, tool_input)
+
+    # Gate 2: dangerous-command check (Bash/shell only)
+    # tool_name + tool_input already extracted above (Gate 1.5)
 
     if tool_name not in ("Bash", "bash", "Shell", "Execute", "exec", "terminal"):
         sys.exit(0)

@@ -1,0 +1,79 @@
+{
+  "_description": "U28: Risk contract for pre-commit validation",
+  "_version": "1.0.0",
+  "_created": "2026-07-07",
+
+  "critical_files": {
+    ".devin/config.json": {
+      "risk": "high",
+      "reason": "Core configuration — changes affect all hooks",
+      "required_review": "human",
+      "allowed_authors": ["*"],
+      "forbidden_changes": [
+        "removing deny list entries",
+        "removing ask list entries",
+        "adding Exec(sudo) to allow",
+        "adding Exec(rm -rf) to allow"
+      ]
+    },
+    ".devin/tool_registry.json": {
+      "risk": "high",
+      "reason": "Permission taxonomy — changes affect tool enforcement",
+      "required_review": "human",
+      "forbidden_changes": [
+        "moving L4 tools to L0-L2",
+        "moving L3 tools to L0-L1"
+      ]
+    },
+    ".devin/hooks/pre_tool_use.py": {
+      "risk": "high",
+      "reason": "Security guard — changes affect pre-execution checks",
+      "required_review": "human",
+      "forbidden_changes": [
+        "removing deny pattern checks",
+        "disabling timeout logic"
+      ]
+    },
+    ".devin/hooks/post_tool_use.py": {
+      "risk": "medium",
+      "reason": "State tracking — changes affect session state integrity",
+      "required_review": "self",
+      "forbidden_changes": [
+        "removing SHA tracking",
+        "removing cost tracking"
+      ]
+    },
+    "HLK/security/sanitizer.js": {
+      "risk": "high",
+      "reason": "Secret detection — changes affect security scanning",
+      "required_review": "human",
+      "forbidden_changes": [
+        "removing secret patterns",
+        "disabling redaction"
+      ]
+    },
+    ".devin/canon/REDLINES.md": {
+      "risk": "critical",
+      "reason": "Red lines — changes affect safety boundaries",
+      "required_review": "human",
+      "forbidden_changes": [
+        "removing any red line",
+        "weakening enforcement language"
+      ]
+    }
+  },
+
+  "pre_commit_rules": {
+    "check_forbidden_changes": true,
+    "check_required_review": true,
+    "check_critical_files": true,
+    "block_on_violation": true
+  },
+
+  "pretooluse_integration": {
+    "enabled": true,
+    "check_on_edit": true,
+    "check_on_write": true,
+    "warn_on_critical_file": true
+  }
+}

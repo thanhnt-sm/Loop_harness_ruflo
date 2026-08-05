@@ -25,7 +25,7 @@
     },
     "P2": {
       "total": 15,
-      "done": 2,
+      "done": 3,
       "in_progress": 0,
       "pending": 15,
       "blocked": 0
@@ -710,7 +710,7 @@
       "phase": "P2",
       "priority": "medium",
       "expert": "Security Red Teamer",
-      "status": "pending",
+      "status": "done",
       "dependencies": [
         "U27"
       ],
@@ -722,10 +722,10 @@
       ],
       "acceptance_criteria_count": 3,
       "started_date": null,
-      "completed_date": null,
-      "verifier": null,
+      "completed_date": "2026-07-07",
+      "verifier": "GLM-5.2 High",
       "commit_hash": null,
-      "notes": ""
+      "notes": "AC: 3/3 passed. risk_contract.json: 6 critical files (config.json, tool_registry.json, pre_tool_use.py, post_tool_use.py, sanitizer.js, REDLINES.md). tools/risk-contract-check.ps1: pre-commit validation. pre_tool_use.py: _check_risk_contract() warns on critical file edits (non-blocking). verify-workspace: 60/60 pass."
     },
     {
       "id": "U29",
