@@ -424,9 +424,7 @@ node HLK/bin/hlk-setup-max-power.mjs --path D:/my-app --provider gemini --yes
 ### 11.3 Liên kết tài liệu liên quan
 
 - [03-cau-hinh-best-practice.md](./03-cau-hinh-best-practice.md) — Cấu hình `.claude/settings.json` chi tiết
-- [04-workflow-ruflo-best-practice.md](./04-workflow-ruflo-best-practice.md) — Workflow Ruflo best practice
 - [07-dong-goi-va-cai-dat.md](./07-dong-goi-va-cai-dat.md) — Đóng gói HLK package
-- [09-ruflo-hlk-lifecycle.md](./09-ruflo-hlk-lifecycle.md) — Vòng đời Ruflo + HLK
 
 ---
 

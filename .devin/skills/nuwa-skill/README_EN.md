@@ -27,7 +27,7 @@ Just input a name — Nuwa handles research, extraction, and validation automati
 
 **Other Languages:**
 
-[中文](README.md) · [日本語](README_JA.md) · [한국어](README_KO.md) · [Español](README_ES.md)
+[中文](README.md)
 
 </div>
 
@@ -178,7 +178,7 @@ Nuwa has already distilled 14 people + 1 topic. Each is a standalone, ready-to-i
 | **Naval** | Wealth / leverage / life philosophy | [naval-skill](https://github.com/alchaincyf/naval-skill) | `npx skills add alchaincyf/naval-skill` |
 | **Taleb** | Risk / antifragility / uncertainty | [taleb-skill](https://github.com/alchaincyf/taleb-skill) | `npx skills add alchaincyf/taleb-skill` |
 | **Zhang Xuefeng** | Education choices / career planning / class mobility | [zhangxuefeng-skill](https://github.com/alchaincyf/zhangxuefeng-skill) | `npx skills add alchaincyf/zhangxuefeng-skill` |
-| **Sun Yuchen** | Marketing / attention economy / narrative control | [examples/ in this repo](examples/sun-yuchen-perspective/) | copy `examples/sun-yuchen-perspective/` into your skills directory |
+| **Sun Yuchen** | Marketing / attention economy / narrative control | [upstream repo](https://github.com/alchaincyf/nuwa-skill) | copy `examples/sun-yuchen-perspective/` from upstream into your skills directory |
 
 ### Topic Skill
 
