@@ -6,6 +6,15 @@
 > **Method**: Full source review of every .py, .md, .json in `.devin/`
 >
 > ⚠️ **Resolution status** (2026-08-06): Nhiều findings dưới đây đã được fix trong commit `8bba2c3` và tiếp tục được xử lý theo `.devin/reports/QA_AUDIT_2026_08_06.md`. Các mục C-03, M-04, H-01, H-02 đã được giải quyết. Hãy đối chiếu với source hiện tại trước khi dùng báo cáo này làm baseline.
+>
+> **Resolved in commit `8f5ba2f` (2026-08-06)**:
+> - C-02: `schema_gate.py` blocked zones và tests/ safe zone đã cập nhật.
+> - C-03: `schema_gate.py`, `coverage_enforce.py`, `drift_detect.py`, `self_heal.py`, `otel_instrument.py` đã đăng ký trong `.devin/config.json`.
+> - C-04: `Any` import đã thêm vào `dag_executor.py`.
+> - H-01: `post_tool_use.py` `main()` block đã chuyển ra `if __name__ == "__main__"`.
+> - H-02: `plan_dispatch.py` đã loại bỏ `rg` dependency.
+> - M-04: Các hooks PostToolUse đã đăng ký đầy đủ.
+> - I-01: `dag_compile.py` output JSON đã khớp `dag_executor.py` input (cùng schema).
 
 ---
 

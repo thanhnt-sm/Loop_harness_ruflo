@@ -289,7 +289,7 @@ Tất cả trong `.devin/scripts/`.
 
 | Script | Mục đích | Cách gọi |
 |--------|----------|----------|
-| plan_dispatch.py | Plan + dispatch workers | `python .devin/scripts/plan_dispatch.py` |
+| plan_dispatch.py | Dependency graph + file ownership + conflict detection before dispatch | `python .devin/scripts/plan_dispatch.py --analyze --subtasks subtasks.json` |
 | worktree.py | Git worktree management | `python .devin/scripts/worktree.py` |
 | session_manager.py | Session state management | `python .devin/scripts/session_manager.py` |
 | loop_memory_sync.py | Sync loop state cross-session | `python .devin/scripts/loop_memory_sync.py` |

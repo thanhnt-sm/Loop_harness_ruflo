@@ -50,11 +50,11 @@ TASK → BOOT → INVENTORY → COMMANDER MODE → TIER CLASSIFICATION
 ## Bước 2: INVENTORY
 
 Kiểm tra khả dụng (chạy 1 lần, ghi nhận):
-- Skills: `ls .devin/skills/` — 25 skills (gồm /plan, /adversarial-consensus, /full-power)
-- Agents: `ls .devin/agents/` — COMMANDER + 6 personas + 5 workers + 3 executors
-- Hooks: `ls .devin/hooks/` — 11 hooks (pre_tool_use, post_tool_use, schema_gate, coverage_enforce, drift_detect, self_heal, otel_instrument, v.v.)
-- Scripts: `ls .devin/scripts/` — 16 scripts (plan_quality_check, coverage_matrix, approval_gate, dag_compile, dag_executor, state_router, event_bus, blackboard, spc_monitor, checkpoint, v.v.)
-- Canon: `ls .devin/canon/` — 10 protocol files
+- Skills: `ls .devin/skills/` — 16 top-level skill files + packages (`/plan`, `/adversarial-consensus`, `/full-power`, `/nuwa-skill`, v.v.)
+- Agents: `ls .devin/agents/` — COMMANDER + personas + workers + executors
+- Hooks: `ls .devin/hooks/` — 13 hooks (pre_tool_use, post_tool_use, schema_gate, coverage_enforce, drift_detect, self_heal, otel_instrument, v.v.)
+- Scripts: `ls .devin/scripts/` — 22 scripts (plan_orchestrator, plan_quality_check, coverage_matrix, approval_gate, dag_compile, dag_executor, state_router, event_bus, blackboard, spc_monitor, checkpoint, v.v.)
+- Canon: `ls .devin/canon/` — 15 protocol files
 - MCP: aide-memory, spark-memory, deepwiki, devin
 
 ## Bước 3: COMMANDER MODE
@@ -283,7 +283,7 @@ python .devin/scripts/coverage_matrix.py docs/plans/IMPLEMENTATION_PLAN_<task>.m
 
 - Coverage matrix verification (all plan items executed?)
 - Traceability matrix (REQ → Task → Code → Test)
-- Drift detection report (`drift_detect.py`)
+- Drift detection report (PostToolUse hook `.devin/hooks/drift_detect.py`)
 - SPC check (`python .devin/scripts/spc_monitor.py --check`)
 - Self-heal log (if triggered)
 - OTel audit trail

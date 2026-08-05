@@ -18,13 +18,13 @@ subtasks.json format:
   [
     {
       "id": "st-1",
-      "goal": "Fix backup logic in sync.py",
-      "files_hint": ["scripts/sync.py", "adapters/base.py"]
+      "goal": "Fix backup logic in plan_dispatch.py",
+      "files_hint": [".devin/scripts/plan_dispatch.py", ".devin/scripts/pre_task_audit.py"]
     },
     {
       "id": "st-2",
       "goal": "Add new adapter for tool X",
-      "files_hint": ["adapters/tool_x.py", "adapters/registry.json"]
+      "files_hint": [".devin/tool_registry.json", ".devin/scripts/hook_integrity.py"]
     }
   ]
 
@@ -33,8 +33,8 @@ Output (JSON):
     "subtasks": [
       {
         "id": "st-1",
-        "owned_files": ["scripts/sync.py"],
-        "shared_files": ["adapters/base.py"],   # needs serialization
+        "owned_files": [".devin/scripts/plan_dispatch.py"],
+        "shared_files": [".devin/scripts/pre_task_audit.py"],
         "conflicts": [],
         "nuwa_angles": ["edge-case", "dependency"],
         "parallel_safe": true,
@@ -44,14 +44,14 @@ Output (JSON):
     ],
     "conflicts": [
       {
-        "file": "adapters/base.py",
+        "file": ".devin/scripts/pre_task_audit.py",
         "subtasks": ["st-1", "st-2"],
         "resolution": "serialize",
         "suggested_order": ["st-1", "st-2"]
       }
     ],
     "worktrees": ["builder-a", "builder-b"],
-    "summary": "2 subtasks, 1 conflict (adapters/base.py), 2 worktrees needed"
+    "summary": "2 subtasks, 1 conflict (.devin/scripts/pre_task_audit.py), 2 worktrees needed"
   }
 """
 from __future__ import annotations
@@ -109,16 +109,30 @@ NUWA_ANGLES = {
 
 
 def _grep_files(pattern: str, path: str = ".") -> list[str]:
-    """Find files matching a pattern (import/reference grep)."""
-    try:
-        r = subprocess.run(
-            ["rg", "-l", "--no-heading", pattern, path],
-            capture_output=True, text=True, timeout=10, cwd=str(ROOT)
-        )
-        if r.returncode == 0:
-            return [f.strip() for f in r.stdout.strip().split("\n") if f.strip()]
-    except Exception:
-        pass
+    """Find files matching a pattern (import/reference grep).
+
+    Thử `rg` trước, nếu thất bại thì fallback `grep` (Unix) hoặc `findstr` (Windows).
+    """
+    candidates = [
+        ["rg", "-l", "--no-heading", pattern, path],
+    ]
+    if sys.platform == "win32":
+        candidates.append(["findstr", "/M", "/S", f"/C:{pattern}", f"{path}\\*"])
+    else:
+        candidates.append(["grep", "-lR", "--", pattern, path])
+
+    for cmd in candidates:
+        try:
+            r = subprocess.run(
+                cmd,
+                capture_output=True, text=True, timeout=10, cwd=str(ROOT)
+            )
+            if r.returncode in (0, 1):
+                out = [f.strip() for f in r.stdout.strip().split("\n") if f.strip()]
+                if out or r.returncode == 0:
+                    return out
+        except Exception:
+            continue
     return []
 
 
