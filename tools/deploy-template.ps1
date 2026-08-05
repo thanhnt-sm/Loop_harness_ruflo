@@ -157,6 +157,12 @@ if (Test-Path $configPath) {
   $content = $content -replace '\{\{AIDE_MEMORY_CLI\}\}', ($aideMemoryCli -replace '\\', '\\')
   $content = $content -replace '\{\{NODE_EXE\}\}', ($nodeExe -replace '\\', '\\')
   [System.IO.File]::WriteAllText($configPath, $content, $utf8NoBom)
+  # U24: Resolve %APPDATA%, %USERPROFILE% etc. for the target user
+  $content = [System.IO.File]::ReadAllText($configPath)
+  $content = $content -replace '%APPDATA%', ($env:APPDATA -replace '\\', '\\')
+  $content = $content -replace '%USERPROFILE%', ($env:USERPROFILE -replace '\\', '\\')
+  $content = $content -replace '%LOCALAPPDATA%', ($env:LOCALAPPDATA -replace '\\', '\\')
+  [System.IO.File]::WriteAllText($configPath, $content, $utf8NoBom)
   # U09: Check for unresolved placeholders
   $unresolved = [regex]::Matches($content, '\{\{.*?\}\}')
   if ($unresolved.Count -gt 0) {

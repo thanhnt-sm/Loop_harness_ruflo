@@ -18,9 +18,9 @@
     },
     "P1": {
       "total": 15,
-      "done": 13,
+      "done": 14,
       "in_progress": 0,
-      "pending": 2,
+      "pending": 1,
       "blocked": 0
     },
     "P2": {
@@ -614,7 +614,7 @@
       "phase": "P1",
       "priority": "high",
       "expert": "Security Red Teamer + Architecture Critic",
-      "status": "pending",
+      "status": "done",
       "dependencies": [],
       "dependents": [],
       "effort_days": 2,
@@ -624,11 +624,11 @@
         "tools/deploy-template.ps1"
       ],
       "acceptance_criteria_count": 3,
-      "started_date": null,
-      "completed_date": null,
-      "verifier": null,
+      "started_date": "2026-07-07",
+      "completed_date": "2026-07-07",
+      "verifier": "GLM-5.2 High",
       "commit_hash": null,
-      "notes": ""
+      "notes": "AC: 3/3 passed. config.json: 15 hardcoded C:\\Users\\thant paths replaced with %APPDATA%. resolve_env.py: resolve_path() supports %VAR% and  patterns. deploy-template.ps1: resolves %APPDATA%, %USERPROFILE%, %LOCALAPPDATA% at deploy time. Test: resolve_env.py '%APPDATA%\\nvm\\v18.20.0' → C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0. verify-workspace: 73/73 pass."
     },
     {
       "id": "U25",
