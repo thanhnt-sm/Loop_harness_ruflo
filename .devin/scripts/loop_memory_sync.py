@@ -402,7 +402,23 @@ def regenerate(root: Path, session_id: str = "", status: str = "") -> None:
     lines.append("- session_archive_dir: .devin/loop_state_archive/")
 
     # U14 redteam fix: dùng repo-level inter-process lock khi viết registry
-    lock = ahd_session._acquire_lock(ahd_session._get_lock_path(root))
+    # U21: Retry với backoff nếu lock held (BOOT race condition)
+    import time
+    max_retries = 3
+    base_delay = 0.5  # 500ms initial backoff
+    lock = None
+    for attempt in range(max_retries):
+        # U21: short timeout per attempt (1s) — don't block 10s on each try
+        lock = ahd_session._acquire_lock(ahd_session._get_lock_path(root), timeout=1.0)
+        if lock is not None:
+            break
+        # Lock held — backoff
+        delay = base_delay * (2 ** attempt)  # 0.5s, 1s, 2s
+        time.sleep(delay)
+    if lock is None:
+        # All retries failed — write fallback registry
+        _write_fallback(root, "registry_write", "registry lock held after retries")
+        return
     try:
         tmp = registry_path.with_suffix(".tmp")
         tmp.write_text("\n".join(lines) + "\n", encoding="utf-8")

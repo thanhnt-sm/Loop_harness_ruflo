@@ -18,9 +18,9 @@
     },
     "P1": {
       "total": 15,
-      "done": 10,
+      "done": 11,
       "in_progress": 0,
-      "pending": 5,
+      "pending": 4,
       "blocked": 0
     },
     "P2": {
@@ -546,7 +546,7 @@
       "phase": "P1",
       "priority": "high",
       "expert": "Flow Analyst",
-      "status": "pending",
+      "status": "done",
       "dependencies": [
         "U14"
       ],
@@ -558,11 +558,11 @@
         ".devin/hooks/ahd_session.py"
       ],
       "acceptance_criteria_count": 3,
-      "started_date": null,
-      "completed_date": null,
-      "verifier": null,
+      "started_date": "2026-07-07",
+      "completed_date": "2026-07-07",
+      "verifier": "GLM-5.2 High",
       "commit_hash": null,
-      "notes": ""
+      "notes": "AC: 3/3 passed. loop_memory_sync.py: retry 3x with exponential backoff (0.5s, 1s, 2s) when registry lock held. Short timeout per attempt (1s). Fallback to _write_fallback() if all retries fail. BOOT_PROTOCOL.md: U21 Registry locking documented. Test: regenerate exit 0. verify-workspace: 73/73 pass."
     },
     {
       "id": "U22",

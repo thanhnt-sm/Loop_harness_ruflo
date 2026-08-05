@@ -57,6 +57,7 @@ Steps 1-12. Includes GoalSpec but skips deep-memory, large-repo init, gap-scan.
     ```
     JSON must include `status: in_progress`, `state_written: false`, `last_state_write`, `last_heartbeat`, `owned_files`, `affected_files`, `tags`.
 11. **Update registry** — append session to `.devin/loop_state.md`, set `active_session`. Preferred: `from loop_memory_sync import run_inline; ok, err = run_inline(root, session_id, status)` (U13 inline, saves ~200ms). Fallback subprocess: `python .devin/scripts/loop_memory_sync.py`.
+    - **U21: Registry locking** — `loop_memory_sync` uses repo-level inter-process lock (`ahd_session.lock`) during registry write. If lock held (concurrent BOOT), retries 3x with exponential backoff (0.5s, 1s, 2s). If all retries fail, writes fallback registry to `loop_state_fallback/`. This prevents BOOT race condition where two sessions start simultaneously and second overwrites first.
 12. **Start work** — GoalSpec done, work begins.
 
 ---
