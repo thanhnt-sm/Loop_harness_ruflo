@@ -58,6 +58,32 @@ Ask the user a focused question only when a material product or architecture dec
 
 # Workflow
 
+## PREFLIGHT — Auto-activate scripts
+
+Tạo `session_id` = `s-YYYYMMDD-<task_slug>` (slugify từ task).
+
+Chạy trước khi frame:
+
+```bash
+# 1. Rotate log
+python .devin/scripts/log_rotation.py --rotate
+
+# 2. Verify hooks
+python .devin/scripts/hook_integrity.py --verify
+
+# 3. Khởi tạo session
+python .devin/scripts/session_manager.py init <session_id> --goal "<task>" --complexity M
+
+# 4. Pre-task audit
+python .devin/scripts/pre_task_audit.py --tags "<task_slug>" --session <session_id> --json
+
+# 5. Cost cap
+python .devin/scripts/cost_tracker.py --session <session_id> --set-cap 5.0
+```
+
+- Nếu `pre_task_audit` trả `ok: false` → stop, hỏi user.
+- Sau **mỗi step** sau này, chạy `python .devin/scripts/cost_tracker.py --session <session_id> --check`.
+
 ## 1. Frame the task
 
 Extract:
@@ -160,6 +186,17 @@ Finish with:
 - residual risks or blockers, if any
 
 Do not expose internal orchestration chatter or repeat the executor's full report. Do not claim success unless the acceptance criteria are met and verification supports the claim.
+
+## WRAP-UP — Auto-activate scripts
+
+Trước khi kết thúc:
+
+```bash
+python .devin/scripts/cost_tracker.py --session <session_id> --check
+python .devin/scripts/session_manager.py status <session_id> completed
+python .devin/scripts/memory_audit.py
+python .devin/scripts/loop_memory_sync.py
+```
 
 # Scope and quality guardrails
 

@@ -88,6 +88,56 @@ Nếu M-tier+ → tiếp tục Bước 5 (PLAN phase — BẮT BUỘC).
 
 ---
 
+## Bước 4.5: PREFLIGHT — Auto-activate tất cả scripts
+
+Tạo `session_id` = `s-YYYYMMDD-<task_slug>` (slugify từ `<task>`).
+
+Chạy tuần tự, không skip:
+
+```bash
+# 1. Log rotation
+python .devin/scripts/log_rotation.py --rotate
+
+# 2. Hook integrity
+python .devin/scripts/hook_integrity.py --verify
+
+# 3. Khởi tạo session với tier từ Bước 4
+python .devin/scripts/session_manager.py init <session_id> --goal "<task>" --complexity <S|M|L|XL>
+
+# 4. Cost cap theo tier (S=1, M=5, L=10, XL=20)
+python .devin/scripts/cost_tracker.py --session <session_id> --set-cap <cap>
+
+# 5. Pre-task audit
+python .devin/scripts/pre_task_audit.py --tags "<task_slug>" --session <session_id> --json
+```
+
+- Nếu `pre_task_audit` trả `ok: false` → stop, hỏi user.
+- Sau mỗi bước tiếp theo, gọi `python .devin/scripts/session_manager.py heartbeat <session_id>` để giữ session active.
+
+**Cost guardrail**: Sau **mỗi step**, chạy `python .devin/scripts/cost_tracker.py --session <session_id> --check`. Nếu exit code 1 → stop, báo user.
+
+**Script auto-activation map**:
+
+| Script | Khi chạy | Lệnh |
+|---|---|---|
+| `log_rotation.py` | Preflight | `--rotate` |
+| `hook_integrity.py` | Preflight | `--verify` |
+| `session_manager.py` | Preflight/heartbeat/status/sync | `init`, `heartbeat`, `status`, `sync` |
+| `cost_tracker.py` | Preflight + sau mỗi step | `--set-cap`, `--check` |
+| `pre_task_audit.py` | Preflight + pre-execute | `--tags`, `--files` |
+| `plan_orchestrator.py` | Phase 1 | `--init`, `--step` |
+| `plan_quality_check.py` | Phase 1 QC | `<plan.md>` |
+| `approval_gate.py` | Phase 2 | `--interactive` |
+| `plan_dispatch.py` | Phase 3 pre-dispatch | `--plan` |
+| `dag_compile.py` / `dag_executor.py` | Phase 3 | compile + execute |
+| `worktree.py` | Phase 3 | `create` |
+| `spc_monitor.py` | Phase 3/7d | `--check` |
+| `checkpoint.py` | Trước DAG execute | `--save` |
+| `nuwa_roi.py` | Bước 10 | `--record-nuwa`, `--report` |
+| `memory_audit.py` / `loop_memory_sync.py` | Bước 11 | merge + sync |
+
+---
+
 ## Bước 5: PHASE 1 — PLAN (BẮT BUỘC, KHÔNG SKIP)
 
 > **RED LINE**: Skip Plan phase cho M-tier+ = violation. Hook `plan_enforce.py` sẽ block.
@@ -213,6 +263,15 @@ python .devin/scripts/plan_dispatch.py --plan docs/plans/<task_slug>/IMPLEMENTAT
 - Nếu `deadlock_detected` → stop và escalate.
 - Dùng `parallel_groups` và `worktrees` từ output để dispatch.
 
+Re-run `pre_task_audit` với file list thực tế từ plan output:
+
+```bash
+# Flatten owned_files + shared_files từ plan_dispatch JSON, join bằng dấu phẩy
+python .devin/scripts/pre_task_audit.py --files "<owned+shared files>" --session <session_id> --json
+```
+
+Nếu conflict với active sessions → stop hoặc serialize.
+
 Sau đó biên dịch và chạy DAG:
 
 ```bash
@@ -254,6 +313,9 @@ Workers tự trị (max power trong boundary):
 - `coverage_enforce.py` track mọi plan item
 - `drift_detect.py` phát hiện lệch plan
 - `self_heal.py` tự sửa khi fail
+- Sau mỗi batch: `python .devin/scripts/session_manager.py heartbeat <session_id>`
+- Sau mỗi batch: `python .devin/scripts/cost_tracker.py --session <session_id> --check`
+- Trước khi chạy DAG executor: `python .devin/scripts/checkpoint.py .devin/plan_state/<task_slug>_workflow.json --save pre-execute .devin/plan_state/<task_slug>_orchestrator.json`
 
 ### 7c. VERIFY — 3-layer (BẮT BUỘC)
 
@@ -323,10 +385,21 @@ Chạy `.devin/skills/nuwa-skill/` cho adversarial cognitive review:
 - **Feynman perspective** — check có explain được đơn giản không
 - **Taleb perspective** — check robustness against black swans, tail risks
 
-## Bước 11: MEMORY WRITE-BACK
+Record Nuwa metrics và xem ROI recommendation:
+
+```bash
+python .devin/scripts/nuwa_roi.py --session <session_id> --record-nuwa --bugs <n> --tokens <n>
+python .devin/scripts/nuwa_roi.py --session <session_id> --report
+```
+
+Nếu recommendation = `reduce` → giảm tần suất Nuwa, chỉ dùng cho high-stakes tasks.
+
+## Bước 11: MEMORY WRITE-BACK + SESSION CLOSE
 
 - `python .devin/scripts/memory_audit.py` — merge candidate memories
 - `python .devin/scripts/loop_memory_sync.py` — update registry
+- `python .devin/scripts/session_manager.py sync --session <session_id>` — sync loop state
+- `python .devin/scripts/session_manager.py status <session_id> completed` — close session
 - Store lessons vào aide-memory: `mcp__aide-memory__aide_remember`
 - Append handoff letter nếu có decisions worth recording
 
@@ -415,33 +488,3 @@ Output final report:
 12. **Plan = contract** — lệch plan = drift, alert nếu > 50%
 
 ---
-
-## Tích hợp với skills khác
-
-| Skill | Khi nào trigger | Cách |
-|-------|----------------|------|
-| `/plan` | Bước 5 (PLAN phase) | Auto-trigger cho M-tier+ |
-| `/adversarial-consensus` | Bước 5b (DESIGN) + 7c (VERIFY) | Auto-trigger |
-| `/lightning` | Bước 7b (EXECUTE) | User chọn sau approval |
-| `/glm` | Bước 7b (EXECUTE) | User chọn sau approval |
-| `/kimi` | Bước 7b (EXECUTE) | User chọn sau approval |
-| `/auditor` | Bước 7c (VERIFY) | Auto-trigger Layer 2 |
-| `/gap-scan` | Bước 5a (ANALYZE) | Auto-trigger |
-| `/claim-grader` | Bước 8 | Auto-trigger |
-| `/slop-detector` | Bước 9 | Auto-trigger |
-| `/nuwa-skill` | Bước 10 (L/XL only) | Auto-trigger |
-| `/context-compactor` | Context > 70% | Auto-trigger |
-| `/tdd` | Bước 7b nếu task liên quan test | User chọn |
-
----
-
-## Tham khảo
-
-- `tools/FULL_POWER_PROMPT.md` — prompt gốc (reference)
-- `.devin/agents/COMMANDER.md` — Commander protocol
-- `.devin/canon/BOOT_PROTOCOL.md` — BOOT sequence
-- `.devin/canon/REDLINES.md` — 18 hard stops
-- `.devin/canon/VERIFICATION_PROTOCOL.md` — Maker≠Checker
-- `docs/USAGE_GUIDE.md` — hướng dẫn sử dụng
-- `docs/CONTINUOUS_LOOP_GUIDE.md` — hướng dẫn loop
-- `docs/PROPOSAL.md` — tài liệu đề xuất 3-Phase

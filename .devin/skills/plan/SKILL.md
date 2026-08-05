@@ -44,6 +44,45 @@ python .devin/scripts/plan_orchestrator.py --step --state <state_file> --results
 
 ---
 
+# PREFLIGHT — Auto-activate scripts trước khi bắt đầu
+
+Tạo `session_id` bằng cách slugify task: `s-YYYYMMDD-<task_slug>` (ví dụ `s-20260806-integrate-scripts`).
+
+Chạy tuần tự:
+
+```bash
+# 1. Rotate log nếu quá lớn
+python .devin/scripts/log_rotation.py --rotate
+
+# 2. Verify hooks chưa bị tamper
+python .devin/scripts/hook_integrity.py --verify
+
+# 3. Khởi tạo session
+python .devin/scripts/session_manager.py init <session_id> --goal "<task>" --complexity <S|M|L|XL>
+
+# 4. Pre-task audit — kiểm tra active sessions
+python .devin/scripts/pre_task_audit.py --tags "<task_slug>" --session <session_id> --json
+```
+
+- Nếu `pre_task_audit` trả `ok: false` → stop, đọc conflicts, hỏi user.
+- Nếu `session_manager init` fail do quá 3 active sessions → dùng `--force` để queue hoặc hỏi user.
+
+Sau đó tiếp tục `plan_orchestrator.py --init`.
+
+---
+
+# COST GUARDRAIL
+
+Sau **mỗi lần gọi `--step`**, chạy:
+
+```bash
+python .devin/scripts/cost_tracker.py --session <session_id> --check
+```
+
+Nếu exit code 1 (cost cap exceeded) → stop và báo user.
+
+---
+
 # Mission
 
 This skill implements **Phase 1 (PLAN)** of the AHD 3-Phase architecture using the **plan_orchestrator.py** FSM state machine:
@@ -300,3 +339,22 @@ The executor reads `docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md` as its **cont
 If the executor discovers a plan defect during implementation, it must stop and report back. The user then re-triggers `/plan` to revise the design rather than allowing the executor to improvise.
 
 > *Plan là contract (hợp đồng). Executor chỉ thực thi, không tự ý thay đổi thiết kế. Nếu phát hiện lỗi trong plan → dừng, báo lại, chạy lại /plan.*
+
+---
+
+# WRAP-UP — Auto-activate scripts khi Plan hoàn thành
+
+Khi orchestrator đạt `DONE` hoặc `REJECTED`:
+
+```bash
+# 1. Final cost check
+python .devin/scripts/cost_tracker.py --session <session_id> --check
+
+# 2. Cập nhật session status
+python .devin/scripts/session_manager.py status <session_id> completed
+# hoặc `crashed` nếu plan bị reject / escalate
+
+# 3. Merge memory
+python .devin/scripts/memory_audit.py
+python .devin/scripts/loop_memory_sync.py
+```
