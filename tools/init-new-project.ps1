@@ -64,13 +64,35 @@ if ($TargetList) {
             Error = ""
         }
 
+        # U23 redteam: validate path before deploy
+        $resolvedTarget = ""
         try {
+            $resolvedTarget = (Resolve-Path -LiteralPath $target -ErrorAction Stop).Path
+        } catch {
+            # Path doesn't exist — check if parent exists (new project)
+            $parent = Split-Path $target -Parent
+            if ($parent -and (Test-Path $parent)) {
+                $resolvedTarget = $target  # Parent exists, will be created
+            } else {
+                $result.Status = "failed"
+                $result.Error = "Parent directory does not exist: $parent"
+                $results += $result
+                continue
+            }
+        }
+
+        try {
+            # U23 redteam: chỉ re-package cho project đầu tiên, skip cho các project sau
             $scriptArgs = @{
                 TargetPath = $target
                 TemplatePath = $TemplatePath
-                ForceRepackage = $ForceRepackage
+                ForceRepackage = ($idx -eq 1 -and $ForceRepackage)
             }
             & $PSCommandPath @scriptArgs
+            # U23 redteam: check exit code từ recursive call
+            if ($LASTEXITCODE -ne 0) {
+                throw "Deployment failed with exit code $LASTEXITCODE"
+            }
             $result.Status = "success"
         } catch {
             $result.Status = "failed"
