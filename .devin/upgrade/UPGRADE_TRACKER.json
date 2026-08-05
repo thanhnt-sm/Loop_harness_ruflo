@@ -25,7 +25,7 @@
     },
     "P2": {
       "total": 15,
-      "done": 5,
+      "done": 6,
       "in_progress": 0,
       "pending": 15,
       "blocked": 0
@@ -777,7 +777,7 @@
       "phase": "P2",
       "priority": "medium",
       "expert": "Quality Auditor",
-      "status": "pending",
+      "status": "done",
       "dependencies": [
         "U30"
       ],
@@ -789,10 +789,10 @@
       ],
       "acceptance_criteria_count": 2,
       "started_date": null,
-      "completed_date": null,
-      "verifier": null,
+      "completed_date": "2026-07-07",
+      "verifier": "GLM-5.2 High",
       "commit_hash": null,
-      "notes": ""
+      "notes": "AC: 2/2 passed. 4 severity levels: CRITICAL (meaning distortion), HIGH (hedge words), MEDIUM (filler), LOW (style). 6 patterns tagged: prose[HIGH], naming[MEDIUM], abstraction[CRITICAL], commit msg[HIGH], meaning distortion[CRITICAL], style[LOW]. Version bumped to 1.2.0. Output format updated with severity column. verify-workspace: 60/60 pass."
     },
     {
       "id": "U32",
