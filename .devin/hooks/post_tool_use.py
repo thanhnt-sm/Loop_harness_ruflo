@@ -235,6 +235,22 @@ def main():
     # Only set status if not already present (avoid overwriting completed)
     if current_state.get("status"):
         update.pop("status")
+    # U17: Track cumulative cost — merge into same update dict (avoid double write)
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+        from cost_tracker import _estimate_cost, check_cost_cap
+        response_size = len(str(tool_response)) if tool_response else 0
+        cost = _estimate_cost(tool_name, response_size)
+        cumulative = round(current_state.get("cumulative_cost", 0.0) + cost, 6)
+        cost_cap = current_state.get("cost_cap", 5.0)
+        call_count = current_state.get("cost_tracked_calls", 0) + 1
+        update["cumulative_cost"] = cumulative
+        update["cost_cap"] = cost_cap
+        update["cost_tracked_calls"] = call_count
+        update["last_tool_cost"] = cost
+    except Exception:
+        pass
+
     try:
         ahd_session.update_session_state(session_id, update, root)
     except Exception as e:
@@ -247,6 +263,16 @@ def main():
             fallback_path.write_text(json.dumps(fallback_data, ensure_ascii=False), encoding="utf-8")
         except Exception:
             pass
+
+    # U17: Check cost cap after state write (separate check, not write)
+    try:
+        exceeded, cost_msg = check_cost_cap(root, session_id)
+        if exceeded:
+            print(f"[U17 COST CAP] {cost_msg}", file=sys.stderr)
+        elif cost_msg:
+            print(f"[U17 COST] {cost_msg}", file=sys.stderr)
+    except Exception:
+        pass
 
     # Write per-session journal
     journal_path = ahd_session.get_config_root(root) / "session_state" / session_id / "journal.jsonl"
@@ -266,20 +292,6 @@ def main():
         if current_subtask:
             journal_entry["current_subtask"] = current_subtask
         ahd_session.append_jsonl(journal_path, journal_entry)
-    except Exception:
-        pass
-
-    # U17: Track cumulative cost + check cost cap
-    try:
-        sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
-        from cost_tracker import track_tool_cost, check_cost_cap
-        response_size = len(str(tool_response)) if tool_response else 0
-        track_tool_cost(root, session_id, tool_name, response_size)
-        exceeded, cost_msg = check_cost_cap(root, session_id)
-        if exceeded:
-            print(f"[U17 COST CAP] {cost_msg}", file=sys.stderr)
-        elif cost_msg:
-            print(f"[U17 COST] {cost_msg}", file=sys.stderr)
     except Exception:
         pass
 

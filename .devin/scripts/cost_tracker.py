@@ -91,8 +91,8 @@ def track_tool_cost(root: Path, session_id: str, tool_name: str, response_size: 
 def check_cost_cap(root: Path, session_id: str) -> tuple[bool, str]:
     """U17: Check if cumulative cost exceeds cap.
 
-    Returns (exceeded, message). If exceeded, message includes
-    instructions for human notification.
+    Returns (exceeded, message). If exceeded, sets cost_cap_exceeded flag
+    in session_state so the agent can check and stop escalation.
     """
     if not session_id:
         return False, ""
@@ -107,6 +107,10 @@ def check_cost_cap(root: Path, session_id: str) -> tuple[bool, str]:
             f"Stop escalation. Ask human whether to continue or stop. "
             f"Session: {session_id}, calls tracked: {state.get('cost_tracked_calls', 0)}"
         )
+        # U17 redteam: set flag so agent can check before escalating
+        ahd_session.update_session_state(session_id, {
+            "cost_cap_exceeded": True,
+        }, root)
         return True, msg
 
     # Warning at 80%
