@@ -25,7 +25,7 @@
     },
     "P2": {
       "total": 15,
-      "done": 10,
+      "done": 11,
       "in_progress": 0,
       "pending": 15,
       "blocked": 0
@@ -884,7 +884,7 @@
       "phase": "P2",
       "priority": "medium",
       "expert": "Architecture Critic",
-      "status": "pending",
+      "status": "done",
       "dependencies": [],
       "dependents": [],
       "effort_days": 3,
@@ -894,10 +894,10 @@
       ],
       "acceptance_criteria_count": 3,
       "started_date": null,
-      "completed_date": null,
-      "verifier": null,
+      "completed_date": "2026-07-07",
+      "verifier": "GLM-5.2 High",
       "commit_hash": null,
-      "notes": ""
+      "notes": "AC: 3/3 passed. tools/merge-config.ps1: auto-merge non-conflicting sections (ADD new keys, MERGE arrays unique, recursive nested merge). Conflict detection → human prompt (base/source/manual/abort). Test: base {a:1,b:2,arr:[x,y]} + source {b:2,c:3,arr:[y,z]} → merged {a:1,b:2,c:3,arr:[x,y,z]}. verify-workspace: 60/60 pass."
     },
     {
       "id": "U37",
