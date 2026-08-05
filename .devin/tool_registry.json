@@ -1,0 +1,76 @@
+{
+  "_description": "U27: L0-L4 permission taxonomy for tool classification",
+  "_version": "1.0.0",
+  "_created": "2026-07-07",
+
+  "tiers": {
+    "L0": {
+      "name": "Safe read-only",
+      "description": "No side effects, no data modification, no network",
+      "enforcement": "allow",
+      "tools": [
+        "Read", "read", "Grep", "grep", "Glob", "glob", "find_file_by_name",
+        "LS", "ls", "Get-Content", "cat", "head", "tail", "wc",
+        "git status", "git diff", "git log", "git show", "git branch",
+        "python --version", "node --version", "npm list"
+      ]
+    },
+    "L1": {
+      "name": "Safe write (workspace-local)",
+      "description": "Write to workspace files only, no external side effects",
+      "enforcement": "allow",
+      "tools": [
+        "Write", "write", "Edit", "edit", "notebook_edit", "NotebookEdit",
+        "mkdir", "New-Item", "touch",
+        "git add", "git checkout", "git stash"
+      ]
+    },
+    "L2": {
+      "name": "Write with logging",
+      "description": "Write operations that should be logged for audit",
+      "enforcement": "allow_with_logging",
+      "tools": [
+        "python", "node", "npm run", "npm test", "npm install",
+        "pip install", "cargo build", "cargo test",
+        "make", "cmake", "dotnet build", "dotnet test",
+        "pwsh", "powershell", "bash",
+        "docker build", "docker run"
+      ]
+    },
+    "L3": {
+      "name": "Sensitive — ask before execution",
+      "description": "Operations with external side effects or history modification",
+      "enforcement": "ask",
+      "tools": [
+        "git commit", "git push", "git merge", "git rebase", "git cherry-pick",
+        "git tag", "git reset",
+        "npm publish", "pip upload", "docker push",
+        "gh pr create", "gh pr merge", "gh issue close",
+        "scp", "rsync", "curl", "wget"
+      ]
+    },
+    "L4": {
+      "name": "Dangerous — deny",
+      "description": "Irreversible or destructive operations",
+      "enforcement": "deny",
+      "tools": [
+        "rm -rf", "Remove-Item -Recurse -Force",
+        "git push --force", "git push -f", "git reset --hard",
+        "git clean -fd", "git checkout -- .",
+        "DROP TABLE", "DROP DATABASE", "TRUNCATE", "DELETE FROM",
+        "docker rm -f", "docker system prune",
+        "chmod 777", "format", "fdisk",
+        "dd if=", "shred",
+        "git branch -D", "git push --delete"
+      ]
+    }
+  },
+
+  "config_mapping": {
+    "L0": { "permissions": "allow", "log": false },
+    "L1": { "permissions": "allow", "log": false },
+    "L2": { "permissions": "allow", "log": true },
+    "L3": { "permissions": "ask", "log": true },
+    "L4": { "permissions": "deny", "log": true }
+  }
+}

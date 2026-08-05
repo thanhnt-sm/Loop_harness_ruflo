@@ -25,7 +25,7 @@
     },
     "P2": {
       "total": 15,
-      "done": 1,
+      "done": 2,
       "in_progress": 0,
       "pending": 15,
       "blocked": 0
@@ -684,7 +684,7 @@
       "phase": "P2",
       "priority": "medium",
       "expert": "Security Red Teamer",
-      "status": "pending",
+      "status": "done",
       "dependencies": [
         "U03"
       ],
@@ -699,10 +699,10 @@
       ],
       "acceptance_criteria_count": 3,
       "started_date": null,
-      "completed_date": null,
-      "verifier": null,
+      "completed_date": "2026-07-07",
+      "verifier": "GLM-5.2 High",
       "commit_hash": null,
-      "notes": ""
+      "notes": "AC: 3/3 passed. tool_registry.json: 5 tiers (L0-L4), 88 tools classified. L0 (22 tools, allow), L1 (12, allow), L2 (17, allow+logging), L3 (17, ask), L4 (20, deny). config.json: _u27_tier_mapping field added. verify-workspace: 60/60 pass."
     },
     {
       "id": "U28",

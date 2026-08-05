@@ -1,4 +1,5 @@
 {
+  "_u27_tier_mapping": "L0-L4 permission taxonomy in .devin/tool_registry.json. L0/L1→allow, L2→allow+logging, L3→ask, L4→deny",
   "permissions": {
     "allow": [
       "Exec(node scripts/*)",
