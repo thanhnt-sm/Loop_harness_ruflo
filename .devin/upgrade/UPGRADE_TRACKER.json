@@ -18,9 +18,9 @@
     },
     "P1": {
       "total": 15,
-      "done": 11,
+      "done": 12,
       "in_progress": 0,
-      "pending": 4,
+      "pending": 3,
       "blocked": 0
     },
     "P2": {
@@ -570,7 +570,7 @@
       "phase": "P1",
       "priority": "high",
       "expert": "Flow Analyst",
-      "status": "pending",
+      "status": "done",
       "dependencies": [],
       "dependents": [],
       "effort_days": 1,
@@ -579,11 +579,11 @@
         "tools/cleanup-orphan-sessions.ps1"
       ],
       "acceptance_criteria_count": 5,
-      "started_date": null,
-      "completed_date": null,
-      "verifier": null,
+      "started_date": "2026-07-07",
+      "completed_date": "2026-07-07",
+      "verifier": "GLM-5.2 High",
       "commit_hash": null,
-      "notes": ""
+      "notes": "AC: 5/5 passed. tools/cleanup-orphan-sessions.ps1: scans session_state/*.json + subdirs, checks against loop_state.md registry, deletes orphans > 7 days old (configurable via -MaxAge). Archives to loop_state_archive/ before deletion. -DryRun mode for safe testing. Test: dry run found 0 orphans (clean workspace). verify-workspace: 73/73 pass."
     },
     {
       "id": "U23",
