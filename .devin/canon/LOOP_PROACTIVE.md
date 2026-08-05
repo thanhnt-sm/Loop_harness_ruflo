@@ -117,30 +117,21 @@ Every kickoff must state: `Level: L1 (report-only) | L2 (assisted) | L3 (unatten
 ## Warning signals (observable → meaning → action)
 
 > Source: personal governance framework "預警表" concept. Signals must be observable (file state, command output, timestamps) — not feelings.
+> U26: Reduced from 15 to 5 core signals (via negativa — keep only highest-impact).
 
 ### The signal table
 
 | # | Observable signal | Meaning | Action |
 |---|-------------------|---------|--------|
 | 1 | State not updated 2+ iterations | Skipping state writes — loop blind | Force state write. 2nd round → red line, escalate. |
-| 2 | `verify.py` fails same check 2+ rounds | Systematic issue | Stop fixing symptoms. Dispatch systematic-debugging skill. |
-| 3 | `knowledge_distill.md` > 8KB | Knowledge bloated | Distillation pass: merge dups, abstract to patterns, archive. |
-| 4 | Same error recurs across 2+ sessions | Anti-pattern not captured | Write `knowledge_distill.md` entry. |
-| 5 | Budget cap hit, 0 convergence iterations | Not converging — goal wrong | Stop. Re-examine GoalSpec. |
-| 6 | Worker BLOCKED 2+ times same task | Task too large or plan wrong | Break into smaller pieces or escalate. |
-| 7 | 3+ fixes, each reveals new problem elsewhere | Architectural problem | Stop fixing. Question architecture. Discuss with human. |
-| 8 | GoalSpec empty | BOOT incomplete | Stop. Re-run BOOT. No work without GoalSpec for L/XL. |
-| 9 | Memory retrieval score < 0.35 all queries | Deep-memory irrelevant | Set `memory_low_relevance: true`. Don't fabricate. |
-| 10 | Knowledge entry references path grep returns nothing | Entry stale | Mark `[STALE]`. Re-verify or archive. |
-| 11 | 2+ tool-call parameter errors in session | Context degradation | Dispatch to fresh-context subagents. |
-| 12 | Model edits file marked "done" or contradicts knowledge | Semantic drift | STOP. Re-read state + knowledge. Revert wrong edits. |
-| 13 | Model claims "file written" but read-back shows missing/unchanged | False completion | Re-execute write. Verify read-back. 2nd fail → escalate. |
-| 14 | `context_oversized = true` or `context_fill_pct > 70%` | Context degrading | Dispatch `context-compactor`. Offload large outputs. |
-| 15 | Loop actions don't map to GoalSpec | Intent drift | STOP. Re-confirm intent with human. |
+| 2 | GoalSpec empty | BOOT incomplete | Stop. Re-run BOOT. No work without GoalSpec for L/XL. |
+| 3 | 3+ fixes, each reveals new problem elsewhere | Architectural problem | Stop fixing. Question architecture. Discuss with human. |
+| 4 | Model claims "file written" but read-back shows missing/unchanged | False completion | Re-execute write. Verify read-back. 2nd fail → escalate. |
+| 5 | Loop actions don't map to GoalSpec | Intent drift | STOP. Re-confirm intent with human. |
 
 ### How to use the table
 
-1. **At BOOT:** Check 3, 8, 9, 10. 2. **Between iterations:** Check 1, 2, 5, 6, 14. 3. **On session end:** Check 3, 4. 4. **Anytime:** 7, 8, 14 are circuit breakers — STOP immediately.
+1. **At BOOT:** Check 2. 2. **Between iterations:** Check 1, 5. 3. **Anytime:** 3, 4 are circuit breakers — STOP immediately.
 
 ### Rules
 
@@ -158,41 +149,34 @@ Every kickoff must state: `Level: L1 (report-only) | L2 (assisted) | L3 (unatten
 
 ### Three weak-model failure scenarios
 
+> U26: Reduced to 2 core scenarios (via negativa). Signal refs updated to new 5-signal table.
+
 | # | Failure mode | Root cause | Observable precursor | Defense | Signal |
 |---|-------------|------------|---------------------|---------|--------|
-| 1 | Tool-call degradation | Context bloat pushes tool schema out of attention | Tool call fails "invalid parameter" 2+ times | Context >60% → subagent dispatch. 2nd error → re-read schema. | 11 |
-| 2 | Semantic drift | GoalSpec + completed-work scroll out of context | Edits file marked "done" | Read state every iteration. Before editing: grep state+knowledge. | 12 |
-| 3 | False completion | Completion narrative before tool call | Claims "written" but read-back shows missing | Every write → read-back. `verify.py` at session end. | 13 |
+| 1 | Semantic drift | GoalSpec + completed-work scroll out of context | Edits file marked "done" | Read state every iteration. Before editing: grep state+knowledge. | 5 |
+| 2 | False completion | Completion narrative before tool call | Claims "written" but read-back shows missing | Every write → read-back. `verify.py` at session end. | 4 |
 
 ### When to run
 
-At harness setup (predict top 3 failure modes). After a failure (reverse-engineer → add new signal). On model change. Every 50 iterations.
+At harness setup (predict top 2 failure modes). After a failure (reverse-engineer → add new signal). On model change. Every 50 iterations.
 
-## Loop Readiness Score
+## Loop Readiness Check (U26: binary, replaces 0-100 rubric)
 
-> Source: cobusgreyling/loop-engineering `loop-audit`. `verify.py` is binary. A graded rubric tells you how far from loop-ready.
+> U26: Replaced complex 0-100 rubric with simple binary check (via negativa).
 
-### The rubric (0-100)
+### Binary check
 
-| Category | Max | What's checked | How to verify |
-|----------|-----|----------------|---------------|
-| **State persistence** | 20 | Registry exists, <3KB; state written every iteration | `ls` + timestamps |
-| **Knowledge layer** | 15 | `knowledge_distill.md` exists, <8KB, ≥1 entry | `ls` + `wc -c` |
-| **Stop conditions** | 15 | Every loop has budget + convergence + time limit | grep kickoffs |
-| **Maker ≠ checker** | 15 | Fresh-context or CLI verification, not self-approval | Does verify.py exist? |
-| **Memory safety** | 10 | No secrets in any layer | `grep -r "key\|token\|password" .devin/` |
-| **Red lines** | 10 | REDLINES.md exists, referenced in entry file | `grep REDLINES AGENTS.md` |
-| **Skills loaded** | 10 | ≥1 skill deployed | `ls .devin/skills/` |
-| **Warning signals** | 5 | Warning signal table exists in canon | `grep "Warning signals" LOOP_PROACTIVE.md` |
+A workspace is **loop-ready** if ALL of these pass:
+1. State persistence: registry exists, state written every iteration
+2. Knowledge layer: `knowledge_distill.md` exists (if applicable)
+3. Stop conditions: every loop has budget + convergence + time limit
+4. Maker ≠ checker: fresh-context or CLI verification, not self-approval
+5. Memory safety: no secrets in any layer
+6. Red lines: REDLINES.md exists, referenced in entry file
+7. Skills loaded: ≥1 skill deployed
 
-### Score interpretation
-
-| Score | Status | Action |
-|-------|--------|--------|
-| 90-100 | Loop-ready | Can run unattended loops (L3) |
-| 70-89 | Mostly ready | Run assisted loops (L2) |
-| 50-69 | Partially ready | Report-only loops (L1) |
-| <50 | Not ready | No loops. Fix state, memory, verification first |
+If ALL pass → **loop-ready** (can run L3 unattended).
+If ANY fail → **not loop-ready** (fix before running loops).
 
 ## Comprehension debt + Intent debt
 

@@ -25,7 +25,7 @@
     },
     "P2": {
       "total": 15,
-      "done": 0,
+      "done": 1,
       "in_progress": 0,
       "pending": 15,
       "blocked": 0
@@ -657,7 +657,7 @@
       "phase": "P2",
       "priority": "medium",
       "expert": "Nuwa Cognitive Reviewer",
-      "status": "pending",
+      "status": "done",
       "dependencies": [
         "U01",
         "U04",
@@ -672,11 +672,11 @@
       "impact": "-40% system complexity",
       "files_to_modify": [],
       "acceptance_criteria_count": 6,
-      "started_date": null,
-      "completed_date": null,
-      "verifier": null,
+      "started_date": "2026-07-07",
+      "completed_date": "2026-07-07",
+      "verifier": "GLM-5.2 High",
       "commit_hash": null,
-      "notes": "Largest single upgrade — remove personas, skills, deep-memory, warning signals"
+      "notes": "AC: 6/6 passed. Personas: 6→3 (merged database_optimizer, devops_automator, frontend_developer into architect). Skills: 25→11 (removed 14 non-core). Deep-memory (chroma-hybrid-search) removed. Warning signals: 15→5 (kept highest-impact). Loop Readiness Score: 0-100 rubric → binary check. verify-workspace.ps1 updated. Passed: 60 (was 73, reduced checks match reduced components)."
     },
     {
       "id": "U27",

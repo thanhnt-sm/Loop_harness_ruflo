@@ -73,24 +73,21 @@ Check-File '.devin/agents/DISPATCH_TEMPLATES.md' 'Dispatch templates'
 Check-File '.devin/agents/MODEL_TIERS.md' 'Model tiers (case-insensitive check)'
 Check-File '.devin/agents/model_tiers.md' 'Model tiers'
 Check-File '.devin/agents/PERSONA_TEMPLATE.md' 'Persona template'
-Check-Dir '.devin/agents/personas' '7 persona files'
+Check-Dir '.devin/agents/personas' '3 persona files (U26: via negativa)'
 Check-Dir '.devin/agents/workers' '5 worker files'
 Check-File '.devin/agents/lightning-executor/AGENT.md' 'Lightning executor'
 Check-File '.devin/agents/glm-executor/AGENT.md' 'GLM executor'
 
 # --- 3. Skills ---
 Write-Host "`n[3/8] Skills (.devin/skills/)" -ForegroundColor Yellow
+# U26: Reduced from 16 AHD skills to 5 core (via negativa)
 $ahdSkills = @(
-  'auditor.md', 'claim-grader.md', 'comment_checker.md', 'context-compactor.md',
-  'fable-judge.md', 'gap-scan.md', 'graph-verify.md', 'harness-sensor.md',
-  'init_deep.md', 'loop-memory.md', 'memory-audit.md', 'slop-detector.md',
-  'systematic_debugging.md', 'tdd.md', 'user-preference.md', 'using-skills.md'
+  'comment_checker.md', 'fable-judge.md', 'harness-sensor.md',
+  'slop-detector.md', 'using-skills.md'
 )
 foreach ($s in $ahdSkills) { Check-File ".devin/skills/$s" "AHD skill missing" }
 
 Check-Dir '.devin/skills/nuwa-skill' 'Nuwa skill (vendored)'
-Check-Dir '.devin/skills/chroma-hybrid-search' 'Chroma hybrid search'
-Check-Dir '.devin/skills/domain-adapters' 'Domain adapters (9 sectors)'
 Check-File '.devin/skills/lightning/SKILL.md' 'Lightning skill'
 Check-File '.devin/skills/glm/SKILL.md' 'GLM skill'
 Check-File '.devin/skills/aide-memory/SKILL.md' 'aide-memory skill'
