@@ -302,6 +302,90 @@ def _assign_worktrees(subtasks: list[dict], allocation: dict, session_id: str = 
     return worktree_map
 
 
+def _build_dependency_graph(subtasks: list[dict], conflicts: list[dict]) -> dict[str, list[str]]:
+    """U16: Build a dependency graph from file conflicts.
+
+    If subtask A and B share a file, and A is suggested to go first
+    (suggested_order), then B depends on A: B must wait for A to finish.
+
+    Returns adjacency list: {subtask_id: [depends_on_ids]}.
+    """
+    graph: dict[str, list[str]] = {st["id"]: [] for st in subtasks}
+    for c in conflicts:
+        order = c.get("suggested_order", [])
+        if len(order) >= 2:
+            # order[0] goes first, order[1+] depend on order[0]
+            for dependent in order[1:]:
+                if dependent in graph and order[0] not in graph[dependent]:
+                    graph[dependent].append(order[0])
+    return graph
+
+
+def _topological_sort(graph: dict[str, list[str]]) -> tuple[list[str] | None, list[str] | None]:
+    """U16: Topological sort with cycle detection (Kahn's algorithm).
+
+    Returns (dispatch_order, cycle_nodes):
+    - dispatch_order: list of subtask IDs in dependency order (None if cycle)
+    - cycle_nodes: list of subtask IDs in a cycle (empty if no cycle)
+    """
+    from collections import deque
+
+    # Build in-degree map
+    in_degree: dict[str, int] = {node: 0 for node in graph}
+    for node, deps in graph.items():
+        for dep in deps:
+            if dep in in_degree:
+                pass  # dep is a dependency, not counted in in_degree of dep
+    # Recalculate: in_degree[node] = number of nodes that node depends on
+    for node in graph:
+        in_degree[node] = len(graph[node])
+
+    # Queue of nodes with no dependencies
+    queue = deque([n for n in graph if in_degree[n] == 0])
+    order: list[str] = []
+
+    while queue:
+        node = queue.popleft()
+        order.append(node)
+        # Find nodes that depend on this node (reverse edges)
+        for other in graph:
+            if node in graph[other]:
+                in_degree[other] -= 1
+                if in_degree[other] == 0:
+                    queue.append(other)
+
+    if len(order) < len(graph):
+        # Cycle detected — find cycle nodes
+        cycle_nodes = [n for n in graph if in_degree[n] > 0]
+        return None, cycle_nodes
+
+    return order, []
+
+
+def _parallel_groups(graph: dict[str, list[str]], dispatch_order: list[str]) -> list[list[str]]:
+    """U16: Group subtasks into parallel execution levels.
+
+    Subtasks at the same level have all dependencies satisfied by previous levels.
+    Level 0 = no dependencies. Level N = depends on something in level N-1 or earlier.
+    """
+    if not dispatch_order:
+        return []
+
+    levels: dict[str, int] = {}
+    for node in dispatch_order:
+        if not graph[node]:
+            levels[node] = 0
+        else:
+            levels[node] = max(levels.get(dep, 0) for dep in graph[node]) + 1
+
+    max_level = max(levels.values()) if levels else 0
+    groups: list[list[str]] = [[] for _ in range(max_level + 1)]
+    for node, level in levels.items():
+        groups[level].append(node)
+
+    return groups
+
+
 def analyze(subtasks: list[dict], session_id: str = "") -> dict:
     """Full analysis: expand files, detect conflicts, allocate, suggest angles."""
     root = ahd_session.get_repo_root()
@@ -327,6 +411,11 @@ def analyze(subtasks: list[dict], session_id: str = "") -> dict:
 
     # Step 6: Assign worktrees
     worktree_map = _assign_worktrees(subtasks, allocation, session_id)
+
+    # U16: Step 7: Build dependency graph + topological sort + deadlock detection
+    dep_graph = _build_dependency_graph(subtasks, conflicts)
+    dispatch_order, cycle_nodes = _topological_sort(dep_graph)
+    parallel_groups = _parallel_groups(dep_graph, dispatch_order) if dispatch_order else []
 
     # Build output
     result_subtasks = []
@@ -358,6 +447,11 @@ def analyze(subtasks: list[dict], session_id: str = "") -> dict:
         "subtasks": result_subtasks,
         "conflicts": conflicts,
         "worktrees": sorted(set(worktree_map.values())),
+        "dispatch_order": dispatch_order or [],
+        "parallel_groups": parallel_groups,
+        "deadlock_detected": cycle_nodes is not None and len(cycle_nodes) > 0,
+        "cycle_nodes": cycle_nodes or [],
+        "dependency_graph": dep_graph,
         "summary": summary,
     }
 
@@ -406,6 +500,21 @@ def main() -> int:
             print("  Conflicts:")
             for c in result["conflicts"]:
                 print(f"    {c['file']}: {c['subtasks']} -> {c['resolution']}")
+            print()
+
+        # U16: Deadlock detection output
+        if result.get("deadlock_detected"):
+            print("  [!] DEADLOCK DETECTED — circular dependency:")
+            print(f"      Cycle nodes: {result['cycle_nodes']}")
+            print("      Escalate to human. Cannot auto-resolve.")
+            print()
+        else:
+            print(f"  Dispatch order: {result.get('dispatch_order', [])}")
+            groups = result.get("parallel_groups", [])
+            if groups:
+                print("  Parallel groups:")
+                for i, group in enumerate(groups):
+                    print(f"    Level {i}: {group} (run in parallel)")
             print()
 
         print(f"  Worktrees: {result['worktrees']}")

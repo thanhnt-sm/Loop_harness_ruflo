@@ -18,9 +18,9 @@
     },
     "P1": {
       "total": 15,
-      "done": 5,
+      "done": 6,
       "in_progress": 0,
-      "pending": 10,
+      "pending": 9,
       "blocked": 0
     },
     "P2": {
@@ -439,7 +439,7 @@
       "phase": "P1",
       "priority": "high",
       "expert": "Architecture Critic",
-      "status": "pending",
+      "status": "done",
       "dependencies": [],
       "dependents": [],
       "effort_days": 3,
@@ -448,11 +448,11 @@
         ".devin/scripts/plan_dispatch.py"
       ],
       "acceptance_criteria_count": 4,
-      "started_date": null,
-      "completed_date": null,
-      "verifier": null,
+      "started_date": "2026-07-07",
+      "completed_date": "2026-07-07",
+      "verifier": "GLM-5.2 High",
       "commit_hash": null,
-      "notes": ""
+      "notes": "AC: 4/4 passed. _build_dependency_graph(): builds adjacency list from file conflicts. _topological_sort(): Kahn's algorithm with cycle detection. _parallel_groups(): groups subtasks by dependency level. Output includes dispatch_order, parallel_groups, deadlock_detected, cycle_nodes, dependency_graph. Test: no conflict → parallel [st-1, st-2]. With conflict → serial [st-1] then [st-2]. Python syntax valid. verify-workspace: 73/73 pass."
     },
     {
       "id": "U17",
