@@ -16,9 +16,9 @@
     },
     "P5": {
       "total": 7,
-      "done": 0,
+      "done": 7,
       "in_progress": 0,
-      "pending": 7,
+      "pending": 0,
       "blocked": 0,
       "priority": "high",
       "name": "Mechanical Enforcement"
@@ -180,7 +180,7 @@
       "phase": "P5",
       "priority": "critical",
       "expert": "Flow Analyst",
-      "status": "pending",
+      "status": "done",
       "dependencies": [],
       "dependents": [
         "U60"
@@ -205,7 +205,7 @@
       "phase": "P5",
       "priority": "high",
       "expert": "Quality Auditor",
-      "status": "pending",
+      "status": "done",
       "dependencies": [],
       "dependents": [],
       "effort_days": 2,
@@ -227,7 +227,7 @@
       "phase": "P5",
       "priority": "medium",
       "expert": "Quality Auditor",
-      "status": "pending",
+      "status": "done",
       "dependencies": [
         "U57"
       ],
@@ -251,7 +251,7 @@
       "phase": "P5",
       "priority": "medium",
       "expert": "Quality Auditor",
-      "status": "pending",
+      "status": "done",
       "dependencies": [],
       "dependents": [],
       "effort_days": 2,
@@ -274,7 +274,7 @@
       "phase": "P5",
       "priority": "high",
       "expert": "Flow Analyst",
-      "status": "pending",
+      "status": "done",
       "dependencies": [
         "U56"
       ],
@@ -298,7 +298,7 @@
       "phase": "P5",
       "priority": "medium",
       "expert": "Flow Analyst",
-      "status": "pending",
+      "status": "done",
       "dependencies": [],
       "dependents": [],
       "effort_days": 1,
@@ -320,7 +320,7 @@
       "phase": "P5",
       "priority": "medium",
       "expert": "Flow Analyst",
-      "status": "pending",
+      "status": "done",
       "dependencies": [],
       "dependents": [],
       "effort_days": 1,

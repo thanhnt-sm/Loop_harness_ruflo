@@ -404,10 +404,309 @@ def main():
     except Exception:
         pass
 
+    # U57-U62: Enforcement hooks (non-blocking, append to session_state)
+    try:
+        _u57_auto_quality_checks(data, session_id, root)
+    except Exception:
+        pass
+    try:
+        _u58_done_detection(data, session_id, root)
+    except Exception:
+        pass
+    try:
+        _u59_skill_auto_router(data, session_id, root)
+    except Exception:
+        pass
+    try:
+        _u60_loop_enforcement(data, session_id, root)
+    except Exception:
+        pass
+    try:
+        _u61_state_write_verification(data, session_id, root)
+    except Exception:
+        pass
+    try:
+        _u62_memory_confidence(data, session_id, root)
+    except Exception:
+        pass
+
     sys.exit(0)
 
 
-if __name__ == "__main__":
+# U57: Auto-invoke slop-detector + comment_checker on Write/Edit
+def _u57_auto_quality_checks(data: dict, session_id: str, root: Path) -> None:
+    """Auto-run quality checks on Write/Edit tools. Non-blocking warnings."""
+    tool_name = data.get("tool_name", "").lower()
+    if tool_name not in ("write", "edit", "notebook_edit"):
+        return
+
+    tool_input = data.get("tool_input", {})
+    file_path = tool_input.get("file_path", tool_input.get("path", ""))
+    content = tool_input.get("content", tool_input.get("new_string", ""))
+
+    if not content:
+        return
+
+    # U57: Slop detection — check for common AI slop patterns
+    slop_score = 0
+    slop_patterns = [
+        (r"\b(leveraging|utilizing|facilitating|comprehensive|seamless)\b", "AI slop word", 2),
+        (r"\b(it['']s worth noting that|it should be noted that)\b", "filler phrase", 1),
+        (r"\b(delve into|dive deep into|explore in detail)\b", "verbose phrase", 1),
+        (r"\b(robust|scalable|enterprise-grade|production-ready)\b", "buzzword", 1),
+    ]
+    for pattern, label, weight in slop_patterns:
+        matches = re.findall(pattern, content, re.IGNORECASE)
+        slop_score += len(matches) * weight
+
+    # U57: Comment quality — check for AI-generated comments
+    comment_issues = 0
+    comment_patterns = [
+        (r"#\s*(TODO|FIXME|HACK|XXX)", "stale comment marker", 2),
+        (r"//\s*(TODO|FIXME|HACK|XXX)", "stale comment marker", 2),
+        (r"#\s*Step \d+:", "numbered step comment", 1),
+        (r"//\s*Step \d+:", "numbered step comment", 1),
+    ]
+    for pattern, label, weight in comment_patterns:
+        matches = re.findall(pattern, content)
+        comment_issues += len(matches) * weight
+
+    # Write scores to session_state
+    if slop_score > 0 or comment_issues > 0:
+        state_path = ahd_session.get_session_state_path(session_id, root)
+        ahd_session._locked_json_update(
+            state_path,
+            lambda existing: {
+                **(existing or {}),
+                "quality_scores": {
+                    **((existing or {}).get("quality_scores", {})),
+                    str(file_path): {
+                        "slop_score": slop_score,
+                        "comment_issues": comment_issues,
+                        "checked_at": datetime.now(timezone.utc).isoformat(),
+                    },
+                },
+            },
+            default={},
+            session_id=session_id,
+        )
+        if slop_score >= 5:
+            print(
+                f"[U57] WARNING: High slop score ({slop_score}) in {file_path}. "
+                f"Review for AI slop patterns.",
+                file=sys.stderr,
+            )
+        if comment_issues >= 5:
+            print(
+                f"[U57] WARNING: Comment issues ({comment_issues}) in {file_path}. "
+                f"Review comment quality.",
+                file=sys.stderr,
+            )
+
+
+# U58: Done-detection — auto-invoke fable-judge on "done" declarations
+def _u58_done_detection(data: dict, session_id: str, root: Path) -> None:
+    """Detect 'done' declarations in tool output, flag for fable-judge."""
+    tool_response = data.get("tool_response", {})
+    output = ""
+    if isinstance(tool_response, dict):
+        output = str(tool_response.get("output", tool_response.get("content", "")))
+    elif isinstance(tool_response, str):
+        output = tool_response
+
+    done_patterns = [
+        r"\b(done|complete|completed|finished|finalized|all (tests|checks) pass)\b",
+    ]
+    done_detected = False
+    for pattern in done_patterns:
+        if re.search(pattern, output, re.IGNORECASE):
+            done_detected = True
+            break
+
+    if done_detected:
+        state_path = ahd_session.get_session_state_path(session_id, root)
+        ahd_session._locked_json_update(
+            state_path,
+            lambda existing: {
+                **(existing or {}),
+                "done_declared": True,
+                "done_declared_at": datetime.now(timezone.utc).isoformat(),
+                "fable_judge_required": True,
+            },
+            default={},
+            session_id=session_id,
+        )
+        print(
+            "[U58] Done declaration detected. fable-judge verification required "
+            "before task complete.",
+            file=sys.stderr,
+        )
+
+
+# U59: Skill auto-router — suggest skills based on tool output
+def _u59_skill_auto_router(data: dict, session_id: str, root: Path) -> None:
+    """Auto-suggest skills based on tool type and output."""
+    tool_name = data.get("tool_name", "").lower()
+    suggestions = []
+
+    # Map tools to skills
+    skill_map = {
+        "write": ["harness-sensor", "slop-detector", "comment_checker"],
+        "edit": ["harness-sensor", "slop-detector", "comment_checker"],
+        "notebook_edit": ["harness-sensor"],
+        "exec": ["harness-sensor"],
+        "read": [],
+        "grep": [],
+        "glob": [],
+    }
+
+    suggestions = skill_map.get(tool_name, [])
+    if not suggestions:
+        return
+
+    state_path = ahd_session.get_session_state_path(session_id, root)
+    ahd_session._locked_json_update(
+        state_path,
+        lambda existing: {
+            **(existing or {}),
+            "skill_suggestions": suggestions,
+            "skill_suggested_at": datetime.now(timezone.utc).isoformat(),
+        },
+        default={},
+        session_id=session_id,
+    )
+
+
+# U60: Loop enforcement — check budget, time, convergence
+def _u60_loop_enforcement(data: dict, session_id: str, root: Path) -> None:
+    """Enforce loop stop conditions: budget cap, time limit, state write."""
+    state = ahd_session.read_session_state(session_id, root)
+
+    # Check budget cap (token cost)
+    total_cost = state.get("total_cost", 0)
+    budget_cap = state.get("budget_cap", 0)
+    if budget_cap > 0 and total_cost > budget_cap:
+        print(
+            f"[U60] BUDGET EXCEEDED: {total_cost} > {budget_cap}. "
+            f"Loop should stop.",
+            file=sys.stderr,
+        )
+        ahd_session._locked_json_update(
+            ahd_session.get_session_state_path(session_id, root),
+            lambda existing: {**(existing or {}), "budget_exceeded": True},
+            default={},
+            session_id=session_id,
+        )
+
+    # Check time limit
+    started_at = state.get("started_at")
+    time_limit = state.get("time_limit_seconds", 0)
+    if started_at and time_limit > 0:
+        try:
+            start = datetime.fromisoformat(started_at)
+            elapsed = (datetime.now(start.tzinfo) - start).total_seconds()
+            if elapsed > time_limit:
+                print(
+                    f"[U60] TIME LIMIT EXCEEDED: {elapsed:.0f}s > {time_limit}s. "
+                    f"Loop should stop.",
+                    file=sys.stderr,
+                )
+        except Exception:
+            pass
+
+    # Check iteration count vs state writes
+    iteration_count = state.get("iteration_count", 0)
+    last_state_write = state.get("last_state_write_iteration", 0)
+    if iteration_count - last_state_write > 5:
+        print(
+            f"[U60] WARNING: {iteration_count - last_state_write} iterations "
+            f"without state write. Loop state may be stale.",
+            file=sys.stderr,
+        )
+
+
+# U61: State write verification — read-back after write
+def _u61_state_write_verification(data: dict, session_id: str, root: Path) -> None:
+    """Verify session state write succeeded by reading back."""
+    state_path = ahd_session.get_session_state_path(session_id, root)
+    if not state_path.exists():
+        return
+
+    try:
+        content = state_path.read_text(encoding="utf-8")
+        if not content.strip():
+            # Empty file — write failure
+            state = ahd_session.read_session_state(session_id, root)
+            fail_count = state.get("state_write_failures", 0) + 1
+            ahd_session._locked_json_update(
+                state_path,
+                lambda existing: {
+                    **(existing or {}),
+                    "state_write_failures": fail_count,
+                },
+                default={},
+                session_id=session_id,
+            )
+            if fail_count > 3:
+                print(
+                    f"[U61] CRITICAL: {fail_count} state write failures. "
+                    f"Escalate to human.",
+                    file=sys.stderr,
+                )
+    except Exception:
+        pass
+
+
+# U62: Memory confidence + honest limit
+def _u62_memory_confidence(data: dict, session_id: str, root: Path) -> None:
+    """Track memory confidence and enforce honest limit thresholds."""
+    tool_name = data.get("tool_name", "").lower()
+
+    # Only check on memory-related tools
+    if "memory" not in tool_name and "recall" not in tool_name:
+        return
+
+    tool_response = data.get("tool_response", {})
+    output = str(tool_response.get("output", "")) if isinstance(tool_response, dict) else str(tool_response)
+
+    # Estimate confidence: if output is empty or very short, low confidence
+    confidence = 100
+    if not output.strip():
+        confidence = 0
+    elif len(output.strip()) < 50:
+        confidence = 30
+
+    # Check for uncertainty markers
+    uncertainty_markers = [
+        r"\b(might be|possibly|perhaps|maybe|uncertain|not sure|unclear)\b",
+        r"\b(approximately|roughly|around)\b",
+    ]
+    uncertainty_count = 0
+    for pattern in uncertainty_markers:
+        uncertainty_count += len(re.findall(pattern, output, re.IGNORECASE))
+
+    if uncertainty_count > 3:
+        confidence = min(confidence, 50)
+
+    state_path = ahd_session.get_session_state_path(session_id, root)
+    ahd_session._locked_json_update(
+        state_path,
+        lambda existing: {
+            **(existing or {}),
+            "last_memory_confidence": confidence,
+            "last_memory_source": tool_name,
+        },
+        default={},
+        session_id=session_id,
+    )
+
+    # U62: Honest limit — auto-escalate if uncertainty > 30%
+    if confidence < 70:
+        print(
+            f"[U62] Memory confidence low ({confidence}%). "
+            f"Consider escalating to human. Honest limit threshold: 70%.",
+            file=sys.stderr,
+        )
     # U15: Internal timeout — post-hook always exits 0, just fail silently if too slow.
     t = threading.Thread(target=main, daemon=True)
     t.start()

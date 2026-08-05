@@ -83,6 +83,11 @@
             "type": "command",
             "command": "bash $APPDATA/nvm/v18.20.0/node_modules/aide-memory\\scripts\\hooks\\session-start-clear.sh",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python .devin/hooks/session_start.py",
+            "timeout": 5
           }
         ]
       }
