@@ -25,9 +25,9 @@
     },
     "P2": {
       "total": 15,
-      "done": 14,
+      "done": 15,
       "in_progress": 0,
-      "pending": 15,
+      "pending": 0,
       "blocked": 0
     },
     "P3": {
@@ -968,7 +968,7 @@
       "phase": "P2",
       "priority": "medium",
       "expert": "Nuwa Cognitive Reviewer",
-      "status": "pending",
+      "status": "done",
       "dependencies": [
         "U04",
         "U26"
@@ -982,10 +982,10 @@
       ],
       "acceptance_criteria_count": 4,
       "started_date": null,
-      "completed_date": null,
-      "verifier": null,
+      "completed_date": "2026-07-07",
+      "verifier": "GLM-5.2 High",
       "commit_hash": null,
-      "notes": ""
+      "notes": "AC: 4/4 passed. config.minimal.json: essential hooks only (pre_tool_use, post_tool_use, stop), minimal permissions. BOOT_PROTOCOL.md: U40 section — when to enter, what keeps/disables, detection steps, how to exit, when NOT to use. JSON valid. verify-workspace: 60/60 pass."
     },
     {
       "id": "U41",

@@ -102,3 +102,58 @@ Switch modes explicitly when the task changes character. State the active mode i
 
 > See `HARNESS_ENGINEERING.md` for the full principle.
 > Short version: critical rules go at the top of the entry file (first 30 lines = "golden position"). Rules buried at line 300 of a 600-line file are effectively unwritten.
+
+## U40: Minimum viable harness mode (graceful degradation)
+
+> When components fail, switch to minimal mode instead of crashing.
+
+### When to enter minimal mode
+
+BOOT detects component failures during startup. If ANY of these fail:
+1. **MCP server unreachable** — aide-memory MCP won't start
+2. **Hook execution error** — pre_tool_use.py or post_tool_use.py crashes
+3. **Config parse error** — config.json invalid JSON
+4. **Session state dir missing** — can't write state
+
+→ Switch to `config.minimal.json` (only essential hooks + permissions).
+
+### What minimal mode keeps
+
+- `pre_tool_use.py` — security guard (dangerous command blocking)
+- `post_tool_use.py` — session state tracking
+- `stop.py` — session cleanup
+- `ahd_session.py` — shared session utilities
+
+### What minimal mode disables
+
+- HLK security hooks (hlk-hook-launcher.mjs)
+- aide-memory hooks (recall, remember, search, track)
+- MCP servers (aide-memory, spark-memory, deepwiki, devin)
+- Skills auto-invocation
+- Context compaction
+- Cost tracking, SHA tracking, risk contract warnings
+
+### How to detect (BOOT step)
+
+During BOOT, after loading config:
+1. Test MCP server connection — if timeout → flag
+2. Test hook execution — if error → flag
+3. Validate config JSON — if parse error → flag
+4. Check session_state dir — if missing → flag
+
+If any flagged → load `config.minimal.json` instead.
+Log to stderr: `[U40] Entering minimal mode: <reason>`
+
+### How to exit minimal mode
+
+1. Fix the failed component
+2. Restart session with full config (`.devin/config.json`)
+3. Verify with `health-check.ps1` — score >= 90
+
+### When NOT to use minimal mode
+
+- If the failure is in a non-essential component (skills, memory recall)
+- If the task is trivial and doesn't need full harness
+- If user explicitly requests minimal mode
+
+Minimal mode is for **graceful degradation**, not permanent operation.
