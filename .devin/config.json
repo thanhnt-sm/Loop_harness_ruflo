@@ -59,7 +59,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash %APPDATA%\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\session-start-clear.sh",
+            "command": "bash $APPDATA/nvm/v18.20.0/node_modules/aide-memory\\scripts\\hooks\\session-start-clear.sh",
             "timeout": 10
           }
         ]
@@ -70,7 +70,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash %APPDATA%\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-compact-save.sh",
+            "command": "bash $APPDATA/nvm/v18.20.0/node_modules/aide-memory\\scripts\\hooks\\pre-compact-save.sh",
             "timeout": 30
           }
         ]
@@ -81,7 +81,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash %APPDATA%\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\stop-remember.sh",
+            "command": "bash $APPDATA/nvm/v18.20.0/node_modules/aide-memory\\scripts\\hooks\\stop-remember.sh",
             "timeout": 30
           }
         ]
@@ -92,7 +92,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash %APPDATA%\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\detect-correction.sh",
+            "command": "bash $APPDATA/nvm/v18.20.0/node_modules/aide-memory\\scripts\\hooks\\detect-correction.sh",
             "timeout": 5
           }
         ]
@@ -124,7 +124,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash %APPDATA%\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-read-recall.sh",
+            "command": "bash $APPDATA/nvm/v18.20.0/node_modules/aide-memory\\scripts\\hooks\\pre-read-recall.sh",
             "timeout":  5
           }
         ]
@@ -134,7 +134,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash %APPDATA%\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-edit-recall.sh",
+            "command": "bash $APPDATA/nvm/v18.20.0/node_modules/aide-memory\\scripts\\hooks\\pre-edit-recall.sh",
             "timeout":  5
           }
         ]
@@ -144,7 +144,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash %APPDATA%\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-edit-recall.sh",
+            "command": "bash $APPDATA/nvm/v18.20.0/node_modules/aide-memory\\scripts\\hooks\\pre-edit-recall.sh",
             "timeout":  5
           }
         ]
@@ -154,7 +154,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash %APPDATA%\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-search-nudge.sh",
+            "command": "bash $APPDATA/nvm/v18.20.0/node_modules/aide-memory\\scripts\\hooks\\pre-search-nudge.sh",
             "timeout":  5
           }
         ]
@@ -164,7 +164,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash %APPDATA%\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-search-nudge.sh",
+            "command": "bash $APPDATA/nvm/v18.20.0/node_modules/aide-memory\\scripts\\hooks\\pre-search-nudge.sh",
             "timeout":  5
           }
         ]
@@ -174,7 +174,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash %APPDATA%\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\track-recall.sh",
+            "command": "bash $APPDATA/nvm/v18.20.0/node_modules/aide-memory\\scripts\\hooks\\track-recall.sh",
             "timeout": 5
           }
         ]
@@ -196,7 +196,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash %APPDATA%\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\track-recall-post.sh",
+            "command": "bash $APPDATA/nvm/v18.20.0/node_modules/aide-memory\\scripts\\hooks\\track-recall-post.sh",
             "timeout": 5
           }
         ]
@@ -206,7 +206,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash %APPDATA%\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\track-remember.sh",
+            "command": "bash $APPDATA/nvm/v18.20.0/node_modules/aide-memory\\scripts\\hooks\\track-remember.sh",
             "timeout": 5
           }
         ]
@@ -216,7 +216,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash %APPDATA%\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\track-remember.sh",
+            "command": "bash $APPDATA/nvm/v18.20.0/node_modules/aide-memory\\scripts\\hooks\\track-remember.sh",
             "timeout": 5
           }
         ]
@@ -226,7 +226,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash %APPDATA%\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\track-remember.sh",
+            "command": "bash $APPDATA/nvm/v18.20.0/node_modules/aide-memory\\scripts\\hooks\\track-remember.sh",
             "timeout": 5
           }
         ]
@@ -236,7 +236,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash %APPDATA%\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\track-search.sh",
+            "command": "bash $APPDATA/nvm/v18.20.0/node_modules/aide-memory\\scripts\\hooks\\track-search.sh",
             "timeout": 5
           }
         ]
@@ -257,5 +257,13 @@
   "_aideMemoryVersion": "0.6.4",
   "_agent_harness_deploy_note": "Agent Harness Deploy runtime layer merged. HLK security hooks + aide-memory hooks preserved. AHD pre_tool_use/post_tool_use/AgentStop hooks added alongside existing hooks."
 }
+
+
+
+
+
+
+
+
 
 

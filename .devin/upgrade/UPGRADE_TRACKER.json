@@ -628,7 +628,7 @@
       "completed_date": "2026-07-07",
       "verifier": "GLM-5.2 High",
       "commit_hash": null,
-      "notes": "AC: 3/3 passed. config.json: 15 hardcoded C:\\Users\\thant paths replaced with %APPDATA%. resolve_env.py: resolve_path() supports %VAR% and  patterns. deploy-template.ps1: resolves %APPDATA%, %USERPROFILE%, %LOCALAPPDATA% at deploy time. Test: resolve_env.py '%APPDATA%\\nvm\\v18.20.0' → C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0. verify-workspace: 73/73 pass."
+      "notes": "AC: 3/3 passed. Redesign: use \\ (bash-style env var) instead of %APPDATA% or {{placeholder}}. 15 aide-memory hook commands use \\/nvm/v18.20.0/node_modules/aide-memory (forward slashes for bash). HLK hook uses actual workspace path (resolved). mcp_config.json uses actual paths (MCP args not bash-expanded). resolve_env.py deleted (unused). deploy-template.ps1 env var resolution removed (not needed). verify-workspace: 73/73 pass, 0 warnings."
     },
     {
       "id": "U25",
