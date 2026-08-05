@@ -269,6 +269,20 @@ def main():
     except Exception:
         pass
 
+    # U17: Track cumulative cost + check cost cap
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+        from cost_tracker import track_tool_cost, check_cost_cap
+        response_size = len(str(tool_response)) if tool_response else 0
+        track_tool_cost(root, session_id, tool_name, response_size)
+        exceeded, cost_msg = check_cost_cap(root, session_id)
+        if exceeded:
+            print(f"[U17 COST CAP] {cost_msg}", file=sys.stderr)
+        elif cost_msg:
+            print(f"[U17 COST] {cost_msg}", file=sys.stderr)
+    except Exception:
+        pass
+
     # Detect oversized context and enforce compaction
     try:
         oversized = _response_size(tool_response) > CONTEXT_OVERSIZE_THRESHOLD

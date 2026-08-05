@@ -18,9 +18,9 @@
     },
     "P1": {
       "total": 15,
-      "done": 6,
+      "done": 7,
       "in_progress": 0,
-      "pending": 9,
+      "pending": 8,
       "blocked": 0
     },
     "P2": {
@@ -460,7 +460,7 @@
       "phase": "P1",
       "priority": "high",
       "expert": "Architecture Critic",
-      "status": "pending",
+      "status": "done",
       "dependencies": [],
       "dependents": [],
       "effort_days": 2,
@@ -469,11 +469,11 @@
         ".devin/scripts/session_manager.py"
       ],
       "acceptance_criteria_count": 3,
-      "started_date": null,
-      "completed_date": null,
-      "verifier": null,
+      "started_date": "2026-07-07",
+      "completed_date": "2026-07-07",
+      "verifier": "GLM-5.2 High",
       "commit_hash": null,
-      "notes": ""
+      "notes": "AC: 3/3 passed. cost_tracker.py: _estimate_cost (rough token-based), track_tool_cost (updates session_state), check_cost_cap (80% warning + 100% exceeded), set_cost_cap. post_tool_use.py: integrated cost tracking after journal write. BOOT_PROTOCOL.md: cost_cap + cumulative_cost fields in GoalSpec template. Default cap: 5 USD. Test: 1000 char response = 0.00525 USD. verify-workspace: 73/73 pass."
     },
     {
       "id": "U18",

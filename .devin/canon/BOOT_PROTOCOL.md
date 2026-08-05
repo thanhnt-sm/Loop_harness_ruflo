@@ -52,6 +52,8 @@ Steps 1-12. Includes GoalSpec but skips deep-memory, large-repo init, gap-scan.
     acceptance_criteria: []
     human_in_loop_triggers: []
     estimated_iterations: N
+    cost_cap: 5.0  # U17: max USD per task (default $5, adjust per complexity)
+    cumulative_cost: 0.0  # U17: tracked by post_tool_use hook
     ```
     JSON must include `status: in_progress`, `state_written: false`, `last_state_write`, `last_heartbeat`, `owned_files`, `affected_files`, `tags`.
 11. **Update registry** — append session to `.devin/loop_state.md`, set `active_session`. Preferred: `from loop_memory_sync import run_inline; ok, err = run_inline(root, session_id, status)` (U13 inline, saves ~200ms). Fallback subprocess: `python .devin/scripts/loop_memory_sync.py`.
