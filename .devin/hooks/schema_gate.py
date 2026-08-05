@@ -36,18 +36,33 @@ HOOK_TIMEOUT_SECONDS = 2.5
 SAFE_ZONES = (
     "src/",
     ".devin/skills/",
-    ".devin/agents/",
+    ".devin/agents/personas/",
     "scripts/",
     "docs/plans/",
+    "docs/templates/",
+    "docs/research/",
 )
 
 # Blocked zone: KHÔNG bao giờ cho phép ghi vào các thư mục/file này
+# C-02 fix: Block agent từ việc sửa hooks, canon, config, AGENTS.md —
+# nếu agent sửa được hooks thì toàn bộ enforcement bị vô hiệu hóa
 BLOCKED_ZONES = (
     "HLK/",
     ".env",
     ".git/",
     "credentials/",
     "secrets/",
+    # C-02: Agent KHÔNG được sửa hooks (sẽ vô hiệu hóa enforcement)
+    ".devin/hooks/",
+    # C-02: Agent KHÔNG được sửa canon (will change red lines)
+    ".devin/canon/",
+    # C-02: Agent KHÔNG được sửa config (will change permissions/deny list)
+    ".devin/config.json",
+    ".devin/config.local.json",
+    # C-02: Agent KHÔNG được sửa AGENTS.md (will change own rules)
+    "AGENTS.md",
+    ".devin/AGENTS.md",
+    "CLAUDE.md",
 )
 
 # --- Regex quét secret (không bao giờ cho phép trong output) ---

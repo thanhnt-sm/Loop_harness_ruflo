@@ -1,14 +1,37 @@
 ---
 name: adversarial-consensus
 triggers:
+  - user
   - model
-description: "Adversarial Consensus Protocol (C3) — 3-persona review đối kháng: Saboteur + New Hire + Security Auditor. Issue do 2+ reviewer tìm thấy = tăng severity. Max 3 vòng."
+description: "Adversarial Consensus Protocol (C3) — 3-persona review đối kháng: Saboteur + New Hire + Security Auditor. Issue do 2+ reviewer tìm thấy = tăng severity. Max 3 vòng. Gọi: /adversarial-consensus <artifact_path hoặc mô tả>"
 ---
 
 # Adversarial Consensus Protocol (C3)
 
 > Quality Control layer cho AHD — review đối kháng bằng 3 persona độc lập.
 > Phase B component — tích hợp vào Plan phase (Step 2: DESIGN) và Execute phase (Step 3: VERIFY).
+
+## Cách gọi
+
+```
+/adversarial-consensus <artifact_path>      # Review file cụ thể (SDD, plan, code)
+/adversarial-consensus review <module>      # Review module/thành phần
+/adversarial-consensus <mô tả task>         # Review artifact theo mô tả
+```
+
+**Ví dụ:**
+```
+/adversarial-consensus docs/plans/SOLUTION_DESIGN_auth.md
+/adversarial-consensus review the auth module
+/adversarial-consensus review src/checkout/ for security issues
+```
+
+## Khi nào tự trigger (model)
+
+Skill tự trigger khi:
+- Plan phase Step 2 (DESIGN): sau khi ARCHITECT xuất SDD → tự động C3 review
+- Execute phase Step 3 (VERIFY): sau khi BUILDER hoàn thành code → tự động C3 review
+- User gọi `/adversarial-consensus` trực tiếp
 
 ## 1. Overview — C3 Pattern
 

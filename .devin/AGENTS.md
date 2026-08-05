@@ -33,8 +33,9 @@ AHD-distilled harness. Core principles:
 4. No auto-resume crashed sessions
 5. No skipping verification
 
-## Skills (25 total, on-demand)
+## Skills (26 total, on-demand)
 
+`full-power` — 3-Phase đầy đủ (Plan→Approve→Execute), FORCE Plan bắt buộc
 `plan` — Phase 1: Plan (SDD + 10-D quality check + approval gate)
 `adversarial-consensus` — 3-persona adversarial review (C3 pattern)
 `lightning`, `glm`, `kimi` — executors
@@ -55,7 +56,7 @@ AHD-distilled harness. Core principles:
 
 ## Runtime
 
-- Hooks: pre_tool_use, post_tool_use, stop, session_start, session_end, user_prompt_submit, schema_gate, coverage_enforce, drift_detect, self_heal, otel_instrument
+- Hooks: pre_tool_use, post_tool_use, stop, session_start, session_end, user_prompt_submit, schema_gate, coverage_enforce, drift_detect, self_heal, otel_instrument, plan_enforce
 - Scripts: plan_dispatch, worktree, session_manager, loop_memory_sync, memory_audit, pre_task_audit, plan_quality_check, coverage_matrix, approval_gate, dag_compile, dag_executor, state_router, event_bus, blackboard, spc_monitor, checkpoint
 - State: session_state/, loop_state/, context_flags/, plan_state/, checkpoints/, telemetry/, event_bus/, blackboard/
 - MCP: aide-memory, spark-memory, deepwiki, devin

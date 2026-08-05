@@ -7,11 +7,27 @@
 
 ## 3-Phase Architecture (Plan → Approve → Execute)
 
-**Bắt buộc cho mọi task M-tier trở lên.** S-tier (<5 lines, 1 file) skip.
+**BẮT BUỘC cho mọi task M-tier trở lên. KHÔNG TÙY CHỌN. KHÔNG SKIP.**
+**S-tier (<5 lines, 1 file, no verification, no destructive op) → skip 3-Phase, sửa trực tiếp.**
 
 ```
-TASK → PHASE 1: PLAN → HUMAN APPROVE → PHASE 3: EXECUTE → REPORT
+TASK → TIER CLASSIFICATION
+  → S-tier? → sửa trực tiếp → REPORT
+  → M-tier+? → PHASE 1: PLAN (FORCE) → PHASE 2: APPROVE → PHASE 3: EXECUTE → REPORT
 ```
+
+### TIER CLASSIFICATION (bắt buộc, trước mọi action)
+
+| Tier | Tiêu chí | Flow |
+|------|----------|------|
+| S | <5 lines, 1 file, no verification, no destructive op | Sửa trực tiếp |
+| M | 1-3 files, simple logic, 30min-2h | 3-Phase BẮT BUỘC |
+| L | Multiple files, needs research, 2h+ | 3-Phase BẮT BUỘC + deep research |
+| XL | Architecture change, security-critical | 3-Phase BẮT BUỘC + Nuwa cognitive |
+
+**DEFAULT: M-tier.** Unclear → M. Upgrade nếu scope grows.
+
+**RED LINE: Skip Plan phase cho M-tier+ = violation. Hook sẽ block.**
 
 ### Phase 1: PLAN (agent tự trị, max parallel research)
 

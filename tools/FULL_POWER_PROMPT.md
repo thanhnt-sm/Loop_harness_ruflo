@@ -1,8 +1,11 @@
 # FULL_POWER_PROMPT — One-shot trigger cho full harness chain
 
-> **Cách dùng**: Copy toàn bộ nội dung dưới đây, dán vào Devin CLI, thay `<TASK>` bằng task của bạn.
+> **Cách dùng 1 (khuyến nghị)**: Gọi skill `/full-power <task>` trong Devin CLI — tự động chạy 3-Phase.
+> **Cách dùng 2**: Copy toàn bộ nội dung dưới đây, dán vào Devin CLI, thay `<TASK>` bằng task của bạn.
 >
-> **Kết quả**: Harness tự động BOOT → inventory → 3-Phase (Plan → Approve → Execute) → report. M-tier+ bắt buộc đi qua Plan phase với SDD + quality check + human approval gate.
+> **Kết quả**: Harness tự động BOOT → inventory → 3-Phase (Plan → Approve → Execute) → report.
+> M-tier+ bắt buộc đi qua Plan phase với SDD + quality check + human approval gate.
+> **Plan phase BẮT BUỘC** — hook `plan_enforce.py` sẽ block execute nếu chưa có approved plan.
 
 ---
 
@@ -232,6 +235,6 @@ Get-Content tools/FULL_POWER_PROMPT.md | Select-String -Pattern '^\[' | ForEach-
 | Task complexity | Dùng |
 |----------------|------|
 | S-tier (<5 lines, 1 file, no verification) | Trực tiếp, skip harness |
-| M-tier (1-3 files, simple logic) | `/plan` → approve → `/lightning` hoặc `/glm` |
-| L-tier (multiple files, needs research) | FULL_POWER_PROMPT (3-Phase đầy đủ) |
-| XL-tier (architecture change, security-critical) | FULL_POWER_PROMPT + Nuwa cognitive + adversarial consensus |
+| M-tier (1-3 files, simple logic) | `/full-power <task>` hoặc `/plan` → approve → `/lightning` hoặc `/glm` |
+| L-tier (multiple files, needs research) | `/full-power <task>` (3-Phase đầy đủ) |
+| XL-tier (architecture change, security-critical) | `/full-power <task>` + Nuwa cognitive + adversarial consensus |

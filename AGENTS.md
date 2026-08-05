@@ -20,25 +20,28 @@ Pattern chung: orchestrator (active model) plan/review → executor implement/te
 cd . && devin                          # Mở CLI
 devin -p -- "mô tả công việc"          # Non-interactive
 
-/plan <task>          # Phase 1: Plan (SDD + quality check + approval gate)
-/lightning <task>     # Executor SWE-1.7 Lightning
-/glm <task>           # Executor GLM-5.2 (free)
-/kimi <task>          # Executor Kimi K2.7 (free)
+/full-power <task>    # 3-Phase đầy đủ (Plan→Approve→Execute) — FORCE Plan bắt buộc
+/plan <task>          # Chỉ Phase 1: Plan (SDD + quality check + approval gate)
+/lightning <task>     # Executor SWE-1.7 Lightning (sau khi plan approved)
+/glm <task>           # Executor GLM-5.2 (free, sau khi plan approved)
+/kimi <task>          # Executor Kimi K2.7 (free, sau khi plan approved)
 /auditor             # Audit code
 /tdd                 # Test-driven development
 /gap-scan            # Scan thiếu sót
-/adversarial-consensus  # 3-persona adversarial review
+/adversarial-consensus <artifact>  # 3-persona adversarial review
 ```
 
-## 3-Phase Architecture (Plan → Approve → Execute)
+## 3-Phase Architecture (Plan → Approve → Execute) — BẮT BUỘC
 
-M-tier+ tasks bắt buộc đi qua 3 phase:
+**M-tier+ tasks BẮT BUỘC đi qua 3 phase. KHÔNG SKIP. Hook `plan_enforce.py` sẽ block.**
 
-1. **PLAN** (`/plan`): 5 SCOUTs song song → ARCHITECT + 3 adversarial reviewers → plan + coverage matrix → 10-D quality check
+1. **PLAN** (`/plan` hoặc `/full-power`): 5 SCOUTs song song → ARCHITECT + 3 adversarial reviewers → plan + coverage matrix → 10-D quality check
 2. **APPROVE**: Human approval gate (R0 auto-approve, R1+ require review)
 3. **EXECUTE**: DAG-based parallel dispatch → 3-layer verify (deterministic + adversarial + acceptance) → coverage + audit
 
-S-tier (<5 lines, 1 file) → skip 3-Phase, sửa trực tiếp.
+S-tier (<5 lines, 1 file, no destructive op) → skip 3-Phase, sửa trực tiếp.
+
+**RED LINE**: Skip Plan phase cho M-tier+ = violation.
 
 ## Guardrails
 

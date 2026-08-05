@@ -24,6 +24,7 @@ should already know not to do these things; this hook catches it if the agent
 doesn't.
 """
 import json
+import os
 import re
 import sys
 import threading
