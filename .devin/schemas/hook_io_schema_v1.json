@@ -1,0 +1,161 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "_u66_description": "Hook I/O interface schema v1. Defines stdin/stdout contract for all hooks.",
+  "_u66_version": "1.0.0",
+
+  "PreToolUse": {
+    "stdin": {
+      "type": "object",
+      "required": ["tool_name", "tool_input"],
+      "properties": {
+        "tool_name": {"type": "string"},
+        "tool_input": {"type": "object"},
+        "session_id": {"type": "string"},
+        "prompt_id": {"type": "string"}
+      }
+    },
+    "stdout": {
+      "type": "object",
+      "properties": {
+        "decision": {"type": "string", "enum": ["block", "allow"]},
+        "reason": {"type": "string"},
+        "hookSpecificOutput": {
+          "type": "object",
+          "properties": {
+            "PreToolUse": {
+              "type": "object",
+              "properties": {
+                "updatedInput": {"type": "object"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "exit_codes": {
+      "0": "success — continue",
+      "2": "block — deny action",
+      "other": "error — logged, not blocked"
+    }
+  },
+
+  "PostToolUse": {
+    "stdin": {
+      "type": "object",
+      "required": ["tool_name", "tool_input", "tool_response"],
+      "properties": {
+        "tool_name": {"type": "string"},
+        "tool_input": {"type": "object"},
+        "tool_response": {
+          "type": "object",
+          "properties": {
+            "success": {"type": "boolean"},
+            "output": {"type": "string"},
+            "error": {"type": "string"}
+          }
+        },
+        "session_id": {"type": "string"},
+        "prompt_id": {"type": "string"}
+      }
+    },
+    "stdout": {
+      "type": "object",
+      "properties": {
+        "hookSpecificOutput": {
+          "type": "object",
+          "properties": {
+            "PostToolUse": {
+              "type": "object",
+              "properties": {
+                "additionalContext": {"type": "string"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "exit_codes": {
+      "0": "success (always — post-hooks never block)"
+    }
+  },
+
+  "SessionStart": {
+    "stdin": {
+      "type": "object",
+      "properties": {
+        "session_id": {"type": "string"},
+        "prompt_id": {"type": "string"}
+      }
+    },
+    "stdout": {
+      "type": "object",
+      "properties": {
+        "hookSpecificOutput": {
+          "type": "object",
+          "properties": {
+            "SessionStart": {
+              "type": "object",
+              "properties": {
+                "additionalContext": {"type": "string"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "exit_codes": {"0": "success"}
+  },
+
+  "Stop": {
+    "stdin": {
+      "type": "object",
+      "properties": {
+        "session_id": {"type": "string"},
+        "prompt_id": {"type": "string"}
+      }
+    },
+    "stdout": {"type": "object"},
+    "exit_codes": {"0": "success"}
+  },
+
+  "UserPromptSubmit": {
+    "stdin": {
+      "type": "object",
+      "required": ["prompt"],
+      "properties": {
+        "prompt": {"type": "string"},
+        "session_id": {"type": "string"},
+        "prompt_id": {"type": "string"}
+      }
+    },
+    "stdout": {
+      "type": "object",
+      "properties": {
+        "hookSpecificOutput": {
+          "type": "object",
+          "properties": {
+            "UserPromptSubmit": {
+              "type": "object",
+              "properties": {
+                "additionalContext": {"type": "string"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "exit_codes": {"0": "success", "2": "block prompt"}
+  },
+
+  "PostCompaction": {
+    "stdin": {
+      "type": "object",
+      "properties": {
+        "session_id": {"type": "string"},
+        "prompt_id": {"type": "string"}
+      }
+    },
+    "stdout": {"type": "object"},
+    "exit_codes": {"0": "success"}
+  }
+}

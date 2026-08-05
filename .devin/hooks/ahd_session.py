@@ -482,3 +482,76 @@ def append_jsonl(path: Path, record: Dict[str, Any]) -> None:
 
 def now_utc() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+# U67: Antifragility — failure tracking + circuit breakers
+
+# In-memory failure counters per component
+_FAILURE_COUNTERS: dict[str, int] = {}
+_CIRCUIT_BREAKER_THRESHOLD = 3
+_TRIPPED_BREAKERS: set[str] = set()
+
+
+def record_failure(component: str, session_id: str = "") -> None:
+    """U67: Record a component failure. Trips circuit breaker on 3 failures."""
+    _FAILURE_COUNTERS[component] = _FAILURE_COUNTERS.get(component, 0) + 1
+    if _FAILURE_COUNTERS[component] >= _CIRCUIT_BREAKER_THRESHOLD:
+        _TRIPPED_BREAKERS.add(component)
+        # Also persist to session_state for cross-session visibility
+        try:
+            root = get_repo_root()
+            state_path = get_session_state_path(session_id, root)
+            _locked_json_update(
+                state_path,
+                lambda existing: {
+                    **(existing or {}),
+                    "circuit_breakers_tripped": list(_TRIPPED_BREAKERS),
+                    "failure_counts": dict(_FAILURE_COUNTERS),
+                },
+                default={},
+                session_id=session_id,
+            )
+        except Exception:
+            pass
+
+
+def is_circuit_open(component: str) -> bool:
+    """U67: Check if circuit breaker is tripped for a component."""
+    return component in _TRIPPED_BREAKERS
+
+
+def reset_circuit(component: str) -> None:
+    """U67: Reset circuit breaker for a component (manual override)."""
+    _TRIPPED_BREAKERS.discard(component)
+    _FAILURE_COUNTERS.pop(component, None)
+
+
+def get_failure_stats() -> dict[str, int]:
+    """U67: Get current failure counts for all components."""
+    return dict(_FAILURE_COUNTERS)
+
+
+def auto_minimal_mode(session_id: str, root: Optional[Path] = None) -> bool:
+    """U67: Auto-activate minimal mode if critical components fail.
+
+    Returns True if minimal mode should be activated.
+    """
+    critical_components = ["ahd_session", "pre_tool_use", "post_tool_use"]
+    failed_critical = [c for c in critical_components if is_circuit_open(c)]
+    if failed_critical:
+        try:
+            state_path = get_session_state_path(session_id, root)
+            _locked_json_update(
+                state_path,
+                lambda existing: {
+                    **(existing or {}),
+                    "minimal_mode_auto": True,
+                    "minimal_mode_reason": f"Circuit breakers tripped: {failed_critical}",
+                },
+                default={},
+                session_id=session_id,
+            )
+        except Exception:
+            pass
+        return True
+    return False

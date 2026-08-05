@@ -1,5 +1,8 @@
 # Loop Protocol — Proactive Loop Detail
 
+> **U65: DEPRECATED** — Merged into LOOP_PROTOCOL.md (U46). This file retained for reference only.
+> Do NOT load at BOOT. Load LOOP_PROTOCOL.md instead.
+>
 > Sub-protocol of `LOOP_PROTOCOL.md`. Load when task is standing duty with unpredictable input.
 > Proactive = event/schedule triggers, **no human present**, adversarial review agent decides done.
 > **L3 (unattended) by definition** — requires Readiness Score ≥90 and prior L1→L2→L3 progression.

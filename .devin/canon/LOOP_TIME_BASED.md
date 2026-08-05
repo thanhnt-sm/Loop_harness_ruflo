@@ -1,5 +1,8 @@
 # Loop Protocol — Time-Based Loop Detail
 
+> **U65: DEPRECATED** — Merged into LOOP_PROTOCOL.md (U46). This file retained for reference only.
+> Do NOT load at BOOT. Load LOOP_PROTOCOL.md instead.
+>
 > Sub-protocol of `LOOP_PROTOCOL.md`. Load when task is periodic (content known, only timing repeats).
 > Time-based = clock triggers, human/cap decides done. Modes: `/loop` (local) or `/schedule` (cloud).
 >

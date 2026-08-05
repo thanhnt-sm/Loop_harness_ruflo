@@ -28,6 +28,14 @@ from pathlib import Path
 # Config timeout is 5s; internal 4s (1s margin) to exit before config kills us.
 HOOK_TIMEOUT_SECONDS = 4.0
 
+# U64: In-memory cache for context_flags (read once per session)
+_CONTEXT_FLAGS_CACHE: dict[str, dict] = {}
+_CONTEXT_FLAGS_LOADED: set[str] = set()
+
+# U64: Batch state writes — only write every 5th call
+_STATE_WRITE_COUNTER: dict[str, int] = {}
+_STATE_WRITE_BATCH = 5
+
 import ahd_session
 
 CONTEXT_OVERSIZE_THRESHOLD = 3000  # characters in response

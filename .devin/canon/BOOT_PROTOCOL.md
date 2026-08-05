@@ -8,6 +8,27 @@
 > - **Tier L/XL** (Large, 2h+): All steps 1-17.
 >
 > Determine tier from task description. If unclear, default to M.
+>
+> **U63: Canon lazy-load enforcement** — Only these files load at BOOT:
+> - `.devin/AGENTS.md` (summary, ~5KB)
+> - `.devin/canon/CORE_CANON.md` (~2KB)
+> - `.devin/canon/REDLINES.md` (top 5 redlines only, ~2KB)
+> - `.devin/loop_state.md` (registry, <3KB)
+> - `.devin/knowledge_distill.md` (<8KB)
+> - `.devin/user_profile.md` (<2KB)
+>
+> **All other canon files are ON-DEMAND ONLY.** Do NOT read them at BOOT.
+> Load them via explicit `read` call when their topic is relevant:
+> - VERIFICATION_PROTOCOL.md → when verifying output
+> - MEMORY_PROTOCOL.md → when managing memory
+> - LOOP_PROTOCOL.md → when running loops
+> - HARNESS_ENGINEERING.md → when designing harness
+> - JUDGMENT_RUBRICS.md → when making decisions
+> - CAVEMAN_PROTOCOL.md → when compressing context
+> - DAEMON_PROTOCOL.md → when daemonizing MCP
+> - HANDOFF_LETTER.md → when handing off session
+>
+> Track loaded canon in session_state.loaded_canon to prevent re-loading.
 
 ---
 
