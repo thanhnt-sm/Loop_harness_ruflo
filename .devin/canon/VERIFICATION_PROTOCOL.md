@@ -22,7 +22,7 @@ Models grade their own work too leniently. The author has invested in the answer
 Give verifier: file paths, acceptance criteria, minimal background (<2KB). Not conversation history or author's reasoning. Verifier reads files cold.
 ## Report contract
 ```
-## Verdict [PASS | FAIL | NEEDS_ESCALATION]
+## Verdict [PASS | FAIL | PARTIAL | NEEDS_ESCALATION]
 ## Evidence-graded
 - [fact] <claim> — <file:line|command>
 - [inference: <basis>] <claim> — <basis>
@@ -33,6 +33,46 @@ Give verifier: file paths, acceptance criteria, minimal background (<2KB). Not c
 - severity | file:line | issue | fix
 ## Uncertain
 - [item]: [why]
+## Partial details (U33, only if verdict = PARTIAL)
+- AC met: <count>/<total> (<percentage>%)
+- AC remaining: <list of unmet criteria>
+- Blocked by: <dependency description>
+- Next steps: <what's needed to complete>
+- Value delivered: <what's usable now>
+```
+
+## PARTIAL verdict (U33)
+
+A **PARTIAL** verdict is used when some acceptance criteria are met but others
+remain blocked by external dependencies. This enables incremental value delivery.
+
+### Criteria for PARTIAL
+1. **N% of AC met** (at least 50%)
+2. **Remaining M AC blocked** by a dependency that cannot be resolved in this session
+3. **Value delivered** — the completed portion is usable and shippable
+
+### When to use PARTIAL vs FAIL
+- **PARTIAL**: Most AC met, remaining blocked by external dependency (API unavailable,
+  upstream task not done, env not ready). Completed work has standalone value.
+- **FAIL**: Core AC not met, completed work is not usable, or issues are fixable
+  within this session.
+
+### PARTIAL report requirements
+- List which AC are met (with evidence)
+- List which AC are not met (with blocker reason)
+- State the dependency blocking completion
+- Describe what value was delivered
+- State next steps to complete
+
+### Example
+```
+## Verdict [PARTIAL]
+## Partial details
+- AC met: 3/5 (60%)
+- AC remaining: AC4 (API endpoint not deployed), AC5 (integration test needs API)
+- Blocked by: API deployment pending DevOps team (ticket #123)
+- Next steps: Deploy API, then run integration tests
+- Value delivered: Schema migration + unit tests are complete and shippable
 ```
 ## Circuit breakers (stop and ask human)
 
