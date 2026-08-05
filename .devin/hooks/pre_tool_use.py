@@ -54,29 +54,72 @@ def normalize_command(command: str) -> str:
 
     Strips backslash escaping, quotes, and expands simple $(echo X) substitutions.
     Also flags base64-piped-to-shell patterns that can hide destructive commands.
+
+    U51: Expanded encoding bypass protection:
+    - Hex escape decode (\\xNN)
+    - Octal escape decode (\\NNN)
+    - Unicode escape decode (\\uNNNN, \\UNNNNNNNN)
+    - Shell variable expansion simulation ($VAR, ${VAR})
+    - Broader base64 detection (all shell variants, redirect, heredoc)
     """
-    # 1. Remove backslash escaping (r\m -> rm)
-    normalized = re.sub(r'\\(.)', r'\1', command)
+    # U51-3. Decode hex escapes \xNN -> char (BEFORE backslash strip)
+    normalized = re.sub(
+        r'\\x([0-9a-fA-F]{2})',
+        lambda m: chr(int(m.group(1), 16)),
+        command,
+    )
+
+    # U51-4. Decode octal escapes \NNN (1-3 digits) -> char (BEFORE backslash strip)
+    normalized = re.sub(
+        r'\\([0-7]{1,3})',
+        lambda m: chr(int(m.group(1), 8)),
+        normalized,
+    )
+
+    # U51-5. Decode unicode escapes \uNNNN, \UNNNNNNNN -> char (BEFORE backslash strip)
+    normalized = re.sub(
+        r'\\U([0-9a-fA-F]{8})',
+        lambda m: chr(int(m.group(1), 16)),
+        normalized,
+    )
+    normalized = re.sub(
+        r'\\u([0-9a-fA-F]{4})',
+        lambda m: chr(int(m.group(1), 16)),
+        normalized,
+    )
+
+    # 1. Remove backslash escaping (r\m -> rm) — after hex/octal/unicode decode
+    normalized = re.sub(r'\\(.)', r'\1', normalized)
 
     # 2. Remove quote characters (r''m -> rm, r""m -> rm)
     normalized = re.sub(r"['\"]", "", normalized)
 
-    # 3. Expand simple $(echo X) command substitutions
+    # 6. Expand simple $(echo X) command substitutions
     normalized = re.sub(
         r'\$\(echo\s+(\S+)\)',
         lambda m: m.group(1),
         normalized,
     )
 
-    # 4. Expand backtick `echo X` substitutions
+    # 7. Expand backtick `echo X` substitutions
     normalized = re.sub(
         r'`echo\s+(\S+)`',
         lambda m: m.group(1),
         normalized,
     )
 
-    # 5. Detect base64 piped to shell — flag as suspicious
-    if re.search(r'base64\s+-d\s*\|\s*(bash|sh|zsh)', normalized, re.IGNORECASE):
+    # U51-8. Simulate shell variable expansion — flag any $VAR / ${VAR} usage
+    # We can't know the value, so we flag it as EXPANDED_VAR for pattern matching
+    normalized = re.sub(r'\$\{[A-Za-z_][A-Za-z0-9_]*\}', 'EXPANDED_VAR', normalized)
+    normalized = re.sub(r'\$[A-Za-z_][A-Za-z0-9_]*', 'EXPANDED_VAR', normalized)
+
+    # U51-9. Broader base64 detection — all shell variants, redirects, heredocs
+    # Covers: base64 -d | sh, base64 -d|bash, base64<d|bash, <<<$(base64...), etc.
+    if re.search(r'base64.*[\|<].*(bash|sh|zsh|python|perl)', normalized, re.IGNORECASE):
+        normalized += " BASE64_PIPE_TO_SHELL_DETECTED"
+    if re.search(r'base64.*-d.*[\|<]', normalized, re.IGNORECASE):
+        normalized += " BASE64_PIPE_TO_SHELL_DETECTED"
+    if re.search(r'<<<\$\(base64', normalized, re.IGNORECASE):
         normalized += " BASE64_PIPE_TO_SHELL_DETECTED"
 
     return normalized
@@ -280,8 +323,9 @@ def main():
 
 
 if __name__ == "__main__":
-    # U15: Internal timeout — fail open (exit 0) if hook takes too long.
-    # This prevents the config-level timeout from killing us mid-write.
+    # U52: Fail-closed default — block on timeout unless AHD_FAIL_OPEN=1.
+    # Previous behavior (U15): fail open. New default: fail closed for security.
+    # Set env AHD_FAIL_OPEN=1 to restore old fail-open behavior.
     result = {"code": 0}
 
     def _run():
@@ -290,13 +334,20 @@ if __name__ == "__main__":
         except SystemExit as e:
             result["code"] = e.code if e.code is not None else 0
         except Exception:
-            result["code"] = 0  # fail open on unexpected error
+            # U52: fail-closed on unexpected error too (was fail-open)
+            fail_open = os.environ.get("AHD_FAIL_OPEN", "0") == "1"
+            result["code"] = 0 if fail_open else 2
 
     t = threading.Thread(target=_run, daemon=True)
     t.start()
     t.join(timeout=HOOK_TIMEOUT_SECONDS)
     if t.is_alive():
-        # Timeout — fail open
-        print("[pre_tool_use] U15 timeout — allowing (fail open)", file=sys.stderr)
-        sys.exit(0)
+        # U52: Timeout — fail closed by default, fail open only if AHD_FAIL_OPEN=1
+        fail_open = os.environ.get("AHD_FAIL_OPEN", "0") == "1"
+        if fail_open:
+            print("[pre_tool_use] U52 timeout — allowing (AHD_FAIL_OPEN=1)", file=sys.stderr)
+            sys.exit(0)
+        else:
+            print("[pre_tool_use] U52 timeout — blocking (fail-closed default)", file=sys.stderr)
+            sys.exit(2)
     sys.exit(result["code"])

@@ -7,9 +7,8 @@
     "devin": 20
   },
   "permissions": {
+    "_u53_note": "Wildcards replaced with explicit script allowlist. Unknown scripts → ask.",
     "allow": [
-      "Exec(node scripts/*)",
-      "Exec(node .devin/scripts/*)",
       "Exec(npm run build)",
       "Exec(npm run test)",
       "Exec(npm run lint)",
@@ -21,8 +20,24 @@
       "Exec(git log:*)",
       "Exec(git add:*)",
       "Exec(git config:*)",
-      "Exec(python scripts/*)",
-      "Exec(python .devin/scripts/*)",
+      "Exec(python scripts/verify.py)",
+      "Exec(python scripts/test_*.py)",
+      "Exec(python .devin/scripts/hook_integrity.py:*)",
+      "Exec(python .devin/scripts/log_rotation.py:*)",
+      "Exec(python tools/cross_platform.py:*)",
+      "Exec(pwsh tools/verify-workspace.ps1)",
+      "Exec(pwsh tools/health-check.ps1)",
+      "Exec(pwsh tools/merge-config.ps1:*)",
+      "Exec(pwsh tools/aide-memory-daemon.ps1:*)",
+      "Exec(pwsh tools/risk-contract-check.ps1)",
+      "Exec(pwsh tools/backup-workspace.ps1)",
+      "Exec(pwsh tools/restore-workspace.ps1:*)",
+      "Exec(pwsh tools/clean-runtime.ps1)",
+      "Exec(pwsh tools/cleanup-orphan-sessions.ps1)",
+      "Exec(pwsh tools/init-new-project.ps1:*)",
+      "Exec(pwsh tools/package-template.ps1)",
+      "Exec(pwsh tools/deploy-template.ps1:*)",
+      "Exec(pwsh tools/rollback-deploy.ps1:*)",
       "Read(src/**)",
       "Read(.devin/**)",
       "Read(HLK/**)",
@@ -108,6 +123,7 @@
     "PreToolUse": [
       {
         "matcher": "exec",
+        "_u55_stop_on_error": true,
         "hooks": [
           {
             "type": "command",

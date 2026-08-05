@@ -46,6 +46,24 @@ const DEFAULT_PATTERNS = [
   'xox[baprs]-[0-9A-Za-z-]+',
   // U29: Stripe key
   '(sk|pk|rk)_(live|test)_[0-9a-zA-Z]{24,}',
+  // U54: Twilio API credentials (Account SID + Auth Token)
+  'AC[a-z0-9]{32}',
+  'SK[a-z0-9]{32}',
+  // U54: SendGrid API key
+  'SG\\.[a-zA-Z0-9_-]{22}\\.[a-zA-Z0-9_-]{43}',
+  // U54: Datadog API key + App key
+  'pub[a-f0-9]{32}',
+  '(?i)datadog[_-]?(api|app)[_-]?key\\s*=\\s*[\'"]?[a-f0-9]{32}',
+  // U54: Firebase web API config (longer variant)
+  'AIzaSy[A-Za-z0-9_-]{33,}',
+  // U54: AWS session token (long base64-ish after token=)
+  '(?i)aws[_-]?session[_-]?token\\s*=\\s*[\'"]?[A-Za-z0-9/+=]{40,}',
+  // U54: GitHub fine-grained PAT (github_pat_...)
+  'github_pat_[A-Za-z0-9_]{22,}',
+  // U54: GitLab PAT
+  'glpat-[A-Za-z0-9_-]{20}',
+  // U54: npm publish token
+  'npm_[A-Za-z0-9]{36}',
 ];
 
 // ---------------------------------------------------------------------------
