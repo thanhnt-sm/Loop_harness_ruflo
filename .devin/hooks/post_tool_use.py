@@ -67,6 +67,62 @@ def _extract_file_path(tool_input: dict) -> str:
     return ""
 
 
+def _compute_sha256(file_path: str, root: Path) -> str:
+    """U20: Compute SHA-256 of a file. Returns empty string if file doesn't exist."""
+    import hashlib
+    try:
+        full_path = (root / file_path) if not Path(file_path).is_absolute() else Path(file_path)
+        if full_path.exists() and full_path.is_file():
+            return hashlib.sha256(full_path.read_bytes()).hexdigest()
+    except Exception:
+        pass
+    return ""
+
+
+def _track_file_sha(session_id: str, file_path: str, tool_name: str, root: Path) -> None:
+    """U20: Track file SHA + invalidate verification status on write.
+
+    For write/edit tools: compute SHA after write, store in session_state,
+    and invalidate previous verify_status for that file.
+    """
+    if not file_path or not session_id:
+        return
+
+    write_tools = {"Write", "Edit", "write", "edit", "notebook_edit", "NotebookEdit"}
+    if tool_name not in write_tools:
+        return
+
+    sha = _compute_sha256(file_path, root)
+    if not sha:
+        return
+
+    try:
+        state = ahd_session.read_session_state(session_id, root)
+        file_shas = state.get("file_shas", {})
+        verify_status = state.get("verify_status", {})
+
+        # Update SHA
+        file_shas[file_path] = {
+            "sha": sha,
+            "updated_at": ahd_session.now_utc(),
+        }
+
+        # Invalidate verification status for this file
+        if file_path in verify_status:
+            verify_status[file_path] = {
+                "verified": False,
+                "invalidated_at": ahd_session.now_utc(),
+                "reason": "file modified after verification",
+            }
+
+        ahd_session.update_session_state(session_id, {
+            "file_shas": file_shas,
+            "verify_status": verify_status,
+        }, root)
+    except Exception:
+        pass
+
+
 def _extract_command(tool_input: dict) -> str:
     """Extract a command (truncated + redacted) for Bash-like tools."""
     cmd = tool_input.get("command", "")
@@ -190,6 +246,9 @@ def main():
     ts = ahd_session.now_utc()
     file_path = _extract_file_path(tool_input)
     command = _extract_command(tool_input) if tool_name in ("Bash", "bash", "Shell", "Execute", "exec") else ""
+
+    # U20: Track file SHA + invalidate verification on write
+    _track_file_sha(session_id, file_path, tool_name, root)
 
     # Determine success
     ok = True
