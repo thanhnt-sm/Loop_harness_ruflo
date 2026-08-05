@@ -20,13 +20,25 @@ Pattern chung: orchestrator (active model) plan/review → executor implement/te
 cd . && devin                          # Mở CLI
 devin -p -- "mô tả công việc"          # Non-interactive
 
-/lightning <task>    # Dispatch cho SWE-1.7 Lightning
-/glm <task>          # Dispatch cho GLM-5.2 (free)
-/kimi <task>         # Dispatch cho Kimi K2.7 (free)
+/plan <task>          # Phase 1: Plan (SDD + quality check + approval gate)
+/lightning <task>     # Executor SWE-1.7 Lightning
+/glm <task>           # Executor GLM-5.2 (free)
+/kimi <task>          # Executor Kimi K2.7 (free)
 /auditor             # Audit code
 /tdd                 # Test-driven development
 /gap-scan            # Scan thiếu sót
+/adversarial-consensus  # 3-persona adversarial review
 ```
+
+## 3-Phase Architecture (Plan → Approve → Execute)
+
+M-tier+ tasks bắt buộc đi qua 3 phase:
+
+1. **PLAN** (`/plan`): 5 SCOUTs song song → ARCHITECT + 3 adversarial reviewers → plan + coverage matrix → 10-D quality check
+2. **APPROVE**: Human approval gate (R0 auto-approve, R1+ require review)
+3. **EXECUTE**: DAG-based parallel dispatch → 3-layer verify (deterministic + adversarial + acceptance) → coverage + audit
+
+S-tier (<5 lines, 1 file) → skip 3-Phase, sửa trực tiếp.
 
 ## Guardrails
 

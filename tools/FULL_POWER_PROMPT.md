@@ -2,7 +2,7 @@
 
 > **Cách dùng**: Copy toàn bộ nội dung dưới đây, dán vào Devin CLI, thay `<TASK>` bằng task của bạn.
 >
-> **Kết quả**: Harness tự động BOOT → inventory → decompose → dispatch parallel subagents → integrate → verify → report.
+> **Kết quả**: Harness tự động BOOT → inventory → 3-Phase (Plan → Approve → Execute) → report. M-tier+ bắt buộc đi qua Plan phase với SDD + quality check + human approval gate.
 
 ---
 
@@ -11,26 +11,27 @@
 ```
 [FULL_POWER_MODE]
 
-Bạn đang chạy trong workspace có Agent Harness Deploy (AHD) làm động cơ chính. Thực hiện đầy đủ chain dưới đây — không skip, không rút gọn.
+Bạn đang chạy trong workspace có Agent Harness Deploy (AHD) làm động cơ chính. Thực hiện đầy đủ chain 3-Phase dưới đây — không skip, không rút gọn.
 
 ## Bước 1: BOOT
 Đọc và thực hiện `.devin/canon/BOOT_PROTOCOL.md` — 3-tier lazy-load model (U04):
-- **Tier S** (task <30 min): Steps 1-8 only (entry file, registry, profile, session_id, context flags, crashed check, start work)
-- **Tier M** (task 30min-2h): Steps 1-12 (adds pre-task audit, GoalSpec, registry update)
-- **Tier L/XL** (task 2h+): All steps 1-17 (adds deep-memory, large-repo init, gap-scan, interview-mode)
+- **Tier S** (task <30 min): Steps 1-8 only
+- **Tier M** (task 30min-2h): Steps 1-12
+- **Tier L/XL** (task 2h+): All steps 1-17
 - Nếu unclear → default M. Upgrade nếu scope grows.
-- Đọc `.devin/AGENTS.md` (entry file, 5KB summary — KHÔNG load AGENTS_full.md 186KB)
-- Đọc `.agents/loop_state.md` (registry)
+- Đọc `.devin/AGENTS.md` (entry file, ~3KB summary)
+- Đọc `.devin/loop_state.md` (registry)
 - Đọc `.agents/user_profile.md` (preferences)
 - Output GoalSpec (M/L/XL only)
 
 ## Bước 2: INVENTORY
 Kiểm tra khả dụng:
-- Skills: `ls .devin/skills/` — ghi nhận tất cả skills khả dụng
-- Agents: `ls .devin/agents/` — ghi nhận COMMANDER + personas + workers + executors
-- MCP servers: đọc `.devin/mcp_config.json` — ghi nhận aide-memory + spark-memory + deepwiki + devin
-- Hooks: `ls .devin/hooks/` — xác nhận pre_tool_use + post_tool_use + stop + ahd_session
-- Canon: `ls .devin/canon/` — xác nhận 10 protocol files
+- Skills: `ls .devin/skills/` — ghi nhận tất cả skills (gồm /plan, /adversarial-consensus)
+- Agents: `ls .devin/agents/` — COMMANDER + personas (gồm saboteur, new_hire, security_auditor) + workers + executors
+- MCP servers: đọc `.devin/mcp_config.json`
+- Hooks: `ls .devin/hooks/` — pre_tool_use, post_tool_use, schema_gate, coverage_enforce, drift_detect, self_heal, otel_instrument
+- Scripts: `ls .devin/scripts/` — plan_quality_check, coverage_matrix, approval_gate, dag_compile, dag_executor, state_router, event_bus, blackboard, spc_monitor, checkpoint
+- Canon: `ls .devin/canon/` — 10 protocol files
 
 ## Bước 3: COMMANDER MODE
 Vào vai **Commander** (xem `.devin/agents/COMMANDER.md`):
@@ -38,100 +39,130 @@ Vào vai **Commander** (xem `.devin/agents/COMMANDER.md`):
 - Bạn KHÔNG tự grep toàn repo, KHÔNG đọc 10+ files, KHÔNG batch-edit, KHÔNG verify output của chính mình
 - Bạn decompose task → dispatch workers → đọc reports → integrate
 
-## Bước 4: TASK FRAMING
-Phân tích task dưới đây, output GoalSpec:
-- Objective: (1 câu)
-- Acceptance criteria: (checklist có thể verify)
-- Constraints: (scope, style, dependencies)
-- Verification needs: (cần check gì để confirm done)
-- Risk level: S / M / L / XL (theo JUDGMENT_RUBRICS.md)
+## Bước 4: TASK FRAMING + TIER CLASSIFICATION
+Phân tích task, xác định tier:
+- **S-tier** (<5 lines, 1 file, no verification) → sửa trực tiếp, skip 3-Phase
+- **M-tier+** → bắt buộc đi qua 3-Phase (Plan → Approve → Execute)
 
 TASK:
 <TASK>
 
-## Bước 5: GAP SCAN
-Chạy `.devin/skills/gap-scan.md` — scan 1-2 scope angles cho blind spots mà GoalSpec chưa cover.
+Nếu S-tier → làm trực tiếp, skip đến Bước 14 (REPORT).
+Nếu M-tier+ → tiếp tục Bước 5.
 
-## Bước 6: DECOMPOSE + DISPATCH
-Nếu task > S-tier:
-1. Chạy `python .devin/scripts/plan_dispatch.py` để analyze dependency graph + file ownership
-2. Decompose thành subtasks disjoint (không overlap write sets)
-3. Dispatch **parallel subagents** dùng `run_subagent`:
+## Bước 5: PHASE 1 — PLAN (agent tự trị, max parallel)
 
-### Pattern dispatch (chọn theo task):
+### 5a. ANALYZE — 5 SCOUT subagents song song
+Dispatch 5 subagents (profile: subagent_explore, is_background: true):
+1. SCOUT-1: Scan codebase structure, patterns, conventions
+2. SCOUT-2: Find relevant files, dependencies, blast radius
+3. SCOUT-3: Research cutting-edge solutions (web_search)
+4. SCOUT-4: Analyze test coverage gaps
+5. SCOUT-5: Check constraints (security, performance, compatibility)
+Đợi tất cả 5 xong → aggregate findings.
 
-**Research-heavy task** →
-- SCOUT (profile: subagent_explore, background: true) — scan codebase, map dependencies, find patterns
-- Đợi SCOUT report → mới dispatch BUILDER
+### 5b. DESIGN — 1 ARCHITECT + 3 adversarial reviewers
+1. Dispatch ARCHITECT (profile: glm-executor) thiết kế theo `docs/templates/SDD_TEMPLATE.md`
+2. Dispatch 3 reviewers song song (profile: subagent_explore, background: true):
+   - SABOTEUR (`.devin/agents/personas/saboteur.md`): "How do I break this?"
+   - NEW_HIRE (`.devin/agents/personas/new_hire.md`): "Can I understand this?"
+   - SECURITY_AUDITOR (`.devin/agents/personas/security_auditor.md`): OWASP scan
+3. Aggregate findings, promote issues 2+ reviewers found
+4. ARCHITECT revise (max 3 rounds) → output: `docs/plans/SOLUTION_DESIGN_<task>.md`
 
-**Implementation task** →
-- SCOUT (subagent_explore, background: true) — research cần thiết
-- BUILDER (lightning-executor hoặc glm-executor, background: true) — implement sau khi SCOUT done
-- AUDITOR (subagent_explore, background: true) — review diff sau khi BUILDER done
+### 5c. PLAN — Decompose thành atomic tasks
+1. Decompose solution thành tasks: ID, file, function, acceptance criteria, REQ ID, risk
+2. Build dependency DAG (Mermaid)
+3. Generate coverage matrix: REQ → Task → File → Function
+4. Risk assessment (R0-R4) + rollback plan
+5. Output: `docs/plans/IMPLEMENTATION_PLAN_<task>.md` (theo `docs/templates/PLAN_TEMPLATE.md`)
 
-**Multi-file parallel task** →
-- N×BUILDER (lightning-executor, background: true) — mỗi worker 1 file set disjoint
-- 1×VERIFIER (subagent_explore, background: true) — fresh-context verify sau khi tất cả BUILDER done
+### 5d. QUALITY CHECK
+Chạy: `python .devin/scripts/plan_quality_check.py docs/plans/IMPLEMENTATION_PLAN_<task>.md`
+- 10 dimensions (D1-D10)
+- FAIL → loop lại 5b (DESIGN)
+- PASS → tiếp tục Bước 6
 
-**Security/quality review task** →
-- AUDITOR (subagent_explore, background: true) — adversarial 8-angle audit
-- SCOUT (subagent_explore, background: true) — gather evidence
+## Bước 6: PHASE 2 — HUMAN APPROVE
+Present plan summary cho user:
+```
+## Plan Summary
+- Feature: [name]
+- Complexity: [Low/Medium/High]
+- Risk Tier: [R0-R4]
+- Files to change: [count]
+- Requirements covered: [X]%
+- Quality score: [D1-D10 scorecard]
 
-### Model selection per subtask:
-- Research/exploration → `subagent_explore` (cheap)
-- Code changes fast → `lightning-executor` (SWE-1.7 Lightning, 1000 tok/s)
-- Code changes free → `glm-executor` (GLM-5.2 High, free tier)
-- High-stakes reasoning → `glm-executor` (GLM-5.2 capable tier)
-- Verification → `subagent_explore` (fresh context, cheap)
+## Approval Decision
+- [ ] Approve — proceed to execute
+- [ ] Approve with modifications
+- [ ] Reject
+- [ ] Request more information
+```
 
-### Dispatch contract (mỗi subagent phải có):
-1. Goal & motivation (tại sao task này tồn tại)
-2. Acceptance criteria (checklist verify được)
-3. Report format (expected output structure)
+**KHÔNG tiếp tục cho đến khi user approve.**
+R0 (routine) → auto-approve, skip gate.
+R1+ → bắt buộc human review.
 
-## Bước 7: INTEGRATE
-Đọc reports từ tất cả workers:
-- SCOUT → tổng hợp findings
-- BUILDER → inspect diff độc lập (treat report as evidence, not proof)
-- AUDITOR → review adversarial findings
-- VERIFIER → confirm acceptance criteria met
+## Bước 7: PHASE 3 — EXECUTE (max parallel, QC gates)
 
-Nếu conflict → ưu tiên VERIFIER (fresh context) > AUDITOR > BUILDER.
+### 7a. DISPATCH — DAG-based parallel
+```bash
+python .devin/scripts/dag_compile.py docs/plans/IMPLEMENTATION_PLAN_<task>.md
+python .devin/scripts/dag_executor.py .devin/plan_state/<task>_workflow.json --execute
+```
+- Bounded batch (N=5 parallel)
+- Worktree isolation (mỗi worker 1 worktree)
 
-## Bước 8: VERIFY
-Theo `.devin/canon/VERIFICATION_PROTOCOL.md`:
-- Maker ≠ checker — KHÔNG tự verify output của chính mình
-- Chạy `python .devin/hooks/pre_tool_use.py` style checks
-- Chạy build/lint/typecheck nếu có
-- Nếu task liên quan code → chạy `python .devin/scripts/plan_dispatch.py` verify file ownership
-- SHA discipline: ghi hash của files changed
+### 7b. EXECUTE — Workers tự trị trong boundary
+Dispatch workers theo DAG batch:
+- Code changes fast → `lightning-executor`
+- Code changes free → `glm-executor` hoặc `kimi-executor`
+- Research → `subagent_explore`
+- Verification → `subagent_explore` (fresh context)
 
-## Bước 9: NUWA COGNITIVE VERIFICATION (optional, cho L/XL tasks)
-Dùng `.devin/skills/nuwa-skill/` cho adversarial cognitive review:
-- **Munger perspective** — check cho cognitive biases trong design decisions
-- **Feynman perspective** — check có explain được đơn giản không
-- **Taleb perspective** — check robustness against black swans, tail risks
+Workers tự trị:
+- Dynamic flow: `python .devin/scripts/state_router.py --route state.json`
+- Tự retry, tự sửa within task scope
+- Boundary: KHÔNG sửa plan, KHÔNG scope creep
 
-## Bước 10: CLAIM GRADING
+### 7c. VERIFY — 3-layer
+**Layer 1: Deterministic gates** (cheap, fast)
+- `python .devin/hooks/schema_gate.py` — schema validation, secret scan, symbol verify
+- Build/lint/typecheck pass
+
+**Layer 2: Adversarial consensus** (medium cost)
+- `/adversarial-consensus` skill — 3-persona review (Saboteur + New Hire + Security)
+- Issues 2+ found → promoted severity
+
+**Layer 3: Acceptance tests** (definitive)
+- `python .devin/scripts/coverage_matrix.py docs/plans/IMPLEMENTATION_PLAN_<task>.md --verify`
+- Run acceptance tests per requirement
+- Coverage matrix: 100% plan items executed?
+
+### 7d. REPORT — Coverage + audit
+- Coverage matrix verification
+- Traceability: REQ → Task → Code → Test
+- Drift detection: `python .devin/hooks/drift_detect.py`
+- SPC: `python .devin/scripts/spc_monitor.py --check`
+- Audit trail: OTel events
+
+## Bước 8: CLAIM GRADING
 Chạy `.devin/skills/claim-grader.md` — grade mọi claim trong final report:
 - [fact] — có file:line evidence
 - [inference] — logic deduction từ facts
 - [unverified-guess] — cần verify thêm
 
-## Bước 11: SLOP CHECK
-Chạy `.devin/skills/slop-detector.md` + `.devin/skills/comment_checker.md`:
-- Detect AI-generated filler (delve, leverage, seamless, robust)
-- Detect slop comments (restating code, over-explaining)
-- Remove nếu tìm thấy
+## Bước 9: SLOP CHECK
+Chạy `.devin/skills/slop-detector.md` + `.devin/skills/comment_checker.md`
 
-## Bước 12: MEMORY WRITE-BACK
-Gọi MEMORY_KEEPER worker (hoặc tự làm nếu task nhỏ):
-- `python .devin/scripts/memory_audit.py` — merge candidate memories vào knowledge_distill.md
-- `python .devin/scripts/loop_memory_sync.py` — update loop_state.md registry
-- Nếu có lessons reusable → store vào aide-memory: `mcp__aide-memory__aide_remember`
-- Nếu task completed → append handoff letter (nếu có decisions worth recording)
+## Bước 10: MEMORY WRITE-BACK
+- `python .devin/scripts/memory_audit.py`
+- `python .devin/scripts/loop_memory_sync.py`
+- Store lessons vào aide-memory
 
-## Bước 13: REPORT
+## Bước 11: REPORT
 Output final report theo format:
 ```
 ## GoalSpec
@@ -139,31 +170,33 @@ Output final report theo format:
 - Acceptance criteria: [✓/✗] each item
 - Risk level: S/M/L/XL
 
+## Plan Reference
+- SDD: docs/plans/SOLUTION_DESIGN_<task>.md
+- Plan: docs/plans/IMPLEMENTATION_PLAN_<task>.md
+- Approval: [date + approver]
+
 ## What changed
-- Files: (list with brief description)
+- Files: (list)
 - Diff stat: (insertions/deletions)
 
-## Verification
-- Build: ✓/✗ (command + result)
-- Lint: ✓/✗
-- Tests: ✓/✗ (count pass/fail)
-- Claim grades: N fact, N inference, N unverified
-- Cross-family verification (U10, mandatory L/XL):
-  - Producer model: <family>
-  - Verifier model: <family> (must differ from producer for L/XL)
-  - Method: <fresh-context | CLI gate | test suite>
+## Coverage Matrix
+- Requirements: X/Y covered (Z%)
+- Tasks: X/Y executed
+- Symbols: X/Y verified
 
-## Subagents dispatched
-- SCOUT: (findings summary)
-- BUILDER: (changes summary)
-- AUDITOR: (issues found / clean)
-- VERIFIER: (criteria confirmed)
+## Verification
+- Deterministic gates: ✓/✗
+- Adversarial review: ✓/✗ (findings count)
+- Acceptance tests: ✓/✗ (pass/fail count)
+- Claim grades: N fact, N inference, N unverified
+
+## Enforcement
+- Drift detected: Yes/No
+- SPC violations: N
+- Self-heal triggered: Yes/No (count)
 
 ## Residual risks
 - (anything not fully verified)
-
-## Next steps (optional)
-- (follow-up tasks if any)
 ```
 
 ## Stop conditions (LUÔN áp dụng)
@@ -171,9 +204,10 @@ Output final report theo format:
 - Convergence: nếu 2 iterations liên tiếp không có progress → stop, hỏi user
 - Stuck: nếu 2 resume cùng executor không tiến triển → stop, hỏi user
 - Red line: nếu task violate bất kỳ rule trong REDLINES.md → stop, hỏi user
+- Plan adherence: nếu drift > 50% → stop, hỏi user
 
 ## Bắt đầu
-Thực hiện Bước 1 (BOOT) ngay. Output GoalSpec trước, rồi mới decompose + dispatch.
+Thực hiện Bước 1 (BOOT) ngay. Nếu M-tier+, output GoalSpec + chạy 3-Phase. Nếu S-tier, làm trực tiếp.
 ```
 
 ---
@@ -198,6 +232,6 @@ Get-Content tools/FULL_POWER_PROMPT.md | Select-String -Pattern '^\[' | ForEach-
 | Task complexity | Dùng |
 |----------------|------|
 | S-tier (<5 lines, 1 file, no verification) | Trực tiếp, skip harness |
-| M-tier (1-3 files, simple logic) | `/lightning <task>` hoặc `/glm <task>` |
-| L-tier (multiple files, needs research) | FULL_POWER_PROMPT |
-| XL-tier (architecture change, security-critical) | FULL_POWER_PROMPT + Nuwa cognitive verification |
+| M-tier (1-3 files, simple logic) | `/plan` → approve → `/lightning` hoặc `/glm` |
+| L-tier (multiple files, needs research) | FULL_POWER_PROMPT (3-Phase đầy đủ) |
+| XL-tier (architecture change, security-critical) | FULL_POWER_PROMPT + Nuwa cognitive + adversarial consensus |

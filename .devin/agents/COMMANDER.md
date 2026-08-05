@@ -5,6 +5,89 @@
 
 ---
 
+## 3-Phase Architecture (Plan → Approve → Execute)
+
+**Bắt buộc cho mọi task M-tier trở lên.** S-tier (<5 lines, 1 file) skip.
+
+```
+TASK → PHASE 1: PLAN → HUMAN APPROVE → PHASE 3: EXECUTE → REPORT
+```
+
+### Phase 1: PLAN (agent tự trị, max parallel research)
+
+Trigger: `/plan` skill hoặc task M-tier+
+
+1. **ANALYZE** — 5 SCOUT subagents song song (subagent_explore, background):
+   - Scan codebase structure, patterns, conventions
+   - Find relevant files, dependencies, blast radius
+   - Research cutting-edge solutions (web_search)
+   - Analyze test coverage gaps
+   - Check constraints (security, performance, compatibility)
+   - Aggregate findings → `analysis_findings.md`
+
+2. **DESIGN** — 1 ARCHITECT (glm-executor) + 3 adversarial reviewers song song:
+   - ARCHITECT thiết kế theo `docs/templates/SDD_TEMPLATE.md`
+   - 3 personas (subagent_explore, background): SABOTEUR, NEW_HIRE, SECURITY_AUDITOR
+   - Issues 2+ tìm thấy → promote severity
+   - Max 3 revision rounds → output: `SOLUTION_DESIGN.md`
+
+3. **PLAN** — Decompose thành atomic tasks:
+   - Mỗi task: ID, file, function, acceptance criteria, REQ ID, risk tier
+   - Build dependency DAG → `docs/templates/PLAN_TEMPLATE.md`
+   - Coverage matrix: REQ → Task → File → Function
+   - Risk assessment (R0-R4) + rollback plan
+
+4. **QUALITY CHECK** — `python .devin/scripts/plan_quality_check.py <plan.md>`
+   - 10 dimensions (D1-D10): coverage, completeness, dependencies, scope, risk, test, rollback
+   - FAIL → loop lại DESIGN. PASS → present cho human.
+
+### Phase 2: APPROVE (human gate)
+
+- Present plan summary: feature, complexity, risk tier, files, coverage %, quality score
+- Risk-based: R0 auto-approve, R1+ require review
+- `python .devin/scripts/approval_gate.py <plan.md> --approve|--reject`
+- **KHÔNG execute trước khi approved**
+
+### Phase 3: EXECUTE (max parallel, QC gates, enforcement)
+
+1. **DISPATCH** — `python .devin/scripts/dag_compile.py <plan.md>` → workflow.json
+   - `python .devin/scripts/dag_executor.py workflow.json --execute`
+   - Bounded batch (N=5 parallel), worktree isolation
+
+2. **EXECUTE** — Workers tự trị trong boundary:
+   - Dynamic flow: `python .devin/scripts/state_router.py --route state.json`
+   - Agent tự retry, tự sửa within task scope
+   - Boundary: KHÔNG sửa plan, KHÔNG scope creep
+
+3. **VERIFY** — 3-layer:
+   - Layer 1: `python .devin/hooks/schema_gate.py` (deterministic gates)
+   - Layer 2: `/adversarial-consensus` skill (3-persona review)
+   - Layer 3: `python .devin/scripts/coverage_matrix.py <plan.md> --verify`
+
+4. **REPORT** — Coverage matrix + traceability + audit trail
+   - `python .devin/scripts/coverage_matrix.py <plan.md> --verify`
+   - Drift detection: `.devin/hooks/drift_detect.py`
+   - SPC: `python .devin/scripts/spc_monitor.py --check`
+
+### Data flow (Phase D — optional, dynamic flow)
+
+- **State router**: `.devin/scripts/state_router.py` — conditional routing
+- **Event bus**: `.devin/scripts/event_bus.py` — typed pub/sub giữa agents
+- **Blackboard**: `.devin/scripts/blackboard.py` — shared memory với scoped regions
+- **DAG executor**: `.devin/scripts/dag_executor.py` — parallel execution
+
+### Enforcement (always-on)
+
+- **Schema gates**: `.devin/hooks/schema_gate.py` — deterministic validation
+- **Coverage enforce**: `.devin/hooks/coverage_enforce.py` — track plan items
+- **Drift detect**: `.devin/hooks/drift_detect.py` — behavioral fingerprinting
+- **Self-heal**: `.devin/hooks/self_heal.py` — Monitor-Detect-Diagnose-Recover
+- **OTel**: `.devin/hooks/otel_instrument.py` — observability
+- **SPC**: `.devin/scripts/spc_monitor.py` — statistical process control
+- **Checkpoint**: `.devin/scripts/checkpoint.py` — backtracking
+
+---
+
 ## Architecture overview
 
 ```
