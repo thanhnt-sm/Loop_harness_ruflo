@@ -25,7 +25,7 @@
     },
     "P2": {
       "total": 15,
-      "done": 12,
+      "done": 13,
       "in_progress": 0,
       "pending": 15,
       "blocked": 0
@@ -926,7 +926,7 @@
       "phase": "P2",
       "priority": "medium",
       "expert": "Performance Engineer",
-      "status": "pending",
+      "status": "done",
       "dependencies": [],
       "dependents": [],
       "effort_days": 3,
@@ -936,10 +936,10 @@
       ],
       "acceptance_criteria_count": 3,
       "started_date": null,
-      "completed_date": null,
-      "verifier": null,
+      "completed_date": "2026-07-07",
+      "verifier": "GLM-5.2 High",
       "commit_hash": null,
-      "notes": ""
+      "notes": "AC: 3/3 passed (documented). DAEMON_PROTOCOL.md: architecture, IPC protocol (JSON-RPC over stdio), startup/stop/health check, performance target table. tools/aide-memory-daemon.ps1: start/stop/status/restart. Interim wrapper approach documented. Full daemon requires upstream aide-memory support. verify-workspace: 60/60 pass."
     },
     {
       "id": "U39",
