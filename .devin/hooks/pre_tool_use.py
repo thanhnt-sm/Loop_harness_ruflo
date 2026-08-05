@@ -104,6 +104,10 @@ DANGEROUS_PATTERNS = [
     (r"base64\s+-d\s*\|\s*(bash|sh|zsh)", "base64 decoded piped to shell"),
     # BASE64_PIPE_TO_SHELL_DETECTED flag from normalize_command
     (r"BASE64_PIPE_TO_SHELL_DETECTED", "base64 encoded command piped to shell"),
+    # U43: Network egress to known-bad domains
+    (r"\b(curl|wget)\b.*\b(malicious|evil|attacker|hack|exploit)\.(com|net|org|io)\b", "network egress to suspicious domain"),
+    # U43: Exfiltration patterns — curl/wget with data upload
+    (r"\b(curl|wget)\b.*\b(--upload-file|-T\s|--data|-d\s|--post-data)\b.*\b(http|ftp)\b", "potential data exfiltration"),
 ]
 
 # Patterns that are warned but allowed (exit 0 with stderr note)
@@ -228,6 +232,11 @@ def main():
     try:
         data = json.load(sys.stdin)
     except Exception:
+        # U42: Fail-closed mode — exit 2 on parse error if configured
+        fail_closed = os.environ.get("AHD_FAIL_CLOSED", "0") == "1"
+        if fail_closed:
+            print("[U42 Fail-closed] stdin parse error — blocking.", file=sys.stderr)
+            sys.exit(2)
         # Can't parse input — allow (don't block on parse failure)
         sys.exit(0)
 

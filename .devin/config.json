@@ -1,5 +1,11 @@
 {
   "_u27_tier_mapping": "L0-L4 permission taxonomy in .devin/tool_registry.json. L0/L1→allow, L2→allow+logging, L3→ask, L4→deny",
+  "_u49_mcp_timeouts": {
+    "aide-memory": 10,
+    "spark-memory": 15,
+    "deepwiki": 30,
+    "devin": 20
+  },
   "permissions": {
     "allow": [
       "Exec(node scripts/*)",

@@ -97,13 +97,23 @@ def _session_lock_relpath(root: Path, session_id: str) -> Path:
     return get_config_root(root) / "tmp" / f"ahd_session.{slug}.lock"
 
 
+# U47: Cache for git rev-parse result (avoid repeated subprocess calls)
+_REPO_ROOT_CACHE: Optional[Path] = None
+
+
 def get_repo_root(start_from: Optional[Path] = None) -> Path:
     """Find the main repo root.
 
     1. Try git rev-parse --show-toplevel.
     2. Walk up from start_from (default cwd) for .git, .agents, AGENTS.md, pyproject.toml, README.md.
     3. Fallback to cwd.
+
+    U47: Caches result to avoid repeated git rev-parse subprocess calls.
     """
+    global _REPO_ROOT_CACHE
+    if _REPO_ROOT_CACHE is not None and start_from is None:
+        return _REPO_ROOT_CACHE
+
     cwd = Path(start_from) if start_from else Path.cwd()
     try:
         r = subprocess.run(
@@ -111,13 +121,20 @@ def get_repo_root(start_from: Optional[Path] = None) -> Path:
             capture_output=True, text=True, cwd=str(cwd)
         )
         if r.returncode == 0 and r.stdout.strip():
-            return Path(r.stdout.strip())
+            result = Path(r.stdout.strip())
+            if start_from is None:
+                _REPO_ROOT_CACHE = result
+            return result
     except Exception:
         pass
     for parent in [cwd, *cwd.parents]:
         for marker in (".git", ".agents", "AGENTS.md", "pyproject.toml", "README.md"):
             if (parent / marker).exists():
+                if start_from is None:
+                    _REPO_ROOT_CACHE = parent
                 return parent
+    if start_from is None:
+        _REPO_ROOT_CACHE = cwd
     return cwd
 
 

@@ -1,0 +1,10 @@
+{
+  "_description": "U41: Hook integrity verification baseline",
+  "_generated": "2026-08-05T10:19:45.042762",
+  "hooks": {
+    ".devin/hooks/ahd_session.py": "200aa564b8ef4afe8e9d7446b8af2fad6315e6c3503eb429bb29759be9a9ffd3",
+    ".devin/hooks/post_tool_use.py": "aec2f7a54a2f42c40ddae789bdded35cafa3485e7ccd555d967ff252bc1e6154",
+    ".devin/hooks/pre_tool_use.py": "28bb320e6b20f687cabc70f067978ecbc3ac295daf09bb4ca53a7b440d2f5a24",
+    ".devin/hooks/stop.py": "2ed70e00eedacf9b6fcfca476edf887dd36a7e29dd0fcbc9f8d264e070b93ce4"
+  }
+}

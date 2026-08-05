@@ -18,24 +18,25 @@ The human moves from "driving every turn" to "designing the loop, setting rules,
 
 ---
 
-## Four loop types (handoff 2×2)
+## Two loop types (U46: simplified from 4 to 2)
 
-The two questions every loop answers: **what starts a run**, and **what decides it's finished**. The four types are the 2×2 of who owns each.
+> U46: Via negativa — reduced 4 loop types to 2. Time-based and proactive
+> were special cases of goal-based and turn-based respectively.
+
+The two questions every loop answers: **what starts a run**, and **what decides it's finished**.
 
 | Type | Trigger | Done-decision | When |
 |------|---------|---------------|------|
-| **Turn-based** | Human prompt | Human reviews output | Exploratory; each output reshapes next question |
-| **Goal-based** | Human `/goal` w/ success condition + budget | Independent evaluator model | Result measurable; process not worth watching |
-| **Time-based** | Clock (interval) | Human / cap | Content known; only timing repeats |
-| **Proactive** | Event / schedule, **no human present** | Adversarial review agent | Unpredictable incoming work; standing duty |
+| **Turn-based** | Human prompt | Human reviews output | Exploratory; each output reshapes next question. Includes periodic/cadence (time-based was a special case). |
+| **Goal-based** | Human `/goal` w/ success condition + budget | Independent evaluator model | Result measurable; process not worth watching. Includes unattended/proactive (proactive was a special case with event trigger). |
 
-**Handoff ladder:** turn-based keeps both with human → goal-based automates done-decision → time-based automates trigger → proactive automates both **and** generates the workflow on the spot.
-
-**Pick by task nature, not by sophistication.** Exploratory → turn-based. Measurable → goal-based. Periodic → time-based. Standing duty with unpredictable input → proactive.
+**Pick by task nature:** Exploratory → turn-based. Measurable → goal-based.
 
 **The deeper the handoff, the higher the bar for stop conditions + guardrails.**
 
-→ Detail: `LOOP_TURN_BASED.md`, `LOOP_GOAL_BASED.md`, `LOOP_TIME_BASED.md`, `LOOP_PROACTIVE.md`
+→ Detail: `LOOP_TURN_BASED.md`, `LOOP_GOAL_BASED.md`
+→ `LOOP_TIME_BASED.md` and `LOOP_PROACTIVE.md` retained for reference but
+  their patterns are subsumed into the two primary types.
 
 ---
 
