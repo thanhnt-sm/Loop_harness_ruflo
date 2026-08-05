@@ -31,8 +31,8 @@ import threading
 import ahd_session
 
 # U15: Internal timeout — if hook runs longer than this, force-allow (fail open).
-# Config timeout is 3s; this is a safety net at 2.5s to exit before config kills us.
-HOOK_TIMEOUT_SECONDS = 2.5
+# Config timeout is 3s; this is a safety net at 2s (1s margin) to exit before config kills us.
+HOOK_TIMEOUT_SECONDS = 2.0
 
 # --- Context-oversized gate config ---
 OVERSIZED_NOTE_THRESHOLD = 0   # counter >= this -> note

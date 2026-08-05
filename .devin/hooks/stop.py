@@ -110,4 +110,23 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # U15 redteam: internal timeout — stop.py runs cleanup (memory_audit, loop_memory_sync).
+    # Config timeout is 10s; internal timeout 9s ensures we exit before config kills us.
+    import threading
+    HOOK_TIMEOUT_SECONDS = 9.0
+
+    result = {"code": 0}
+    def _run():
+        try:
+            main()
+        except SystemExit as e:
+            result["code"] = e.code if e.code is not None else 0
+        except Exception:
+            result["code"] = 0
+
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+    t.join(timeout=HOOK_TIMEOUT_SECONDS)
+    if t.is_alive():
+        print("[stop.py] U15 timeout — exiting (cleanup may be incomplete)", file=sys.stderr)
+    sys.exit(result["code"])

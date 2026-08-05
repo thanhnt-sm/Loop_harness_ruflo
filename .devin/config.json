@@ -105,7 +105,7 @@
           {
             "type": "command",
             "command": "D:\\100.Software\\Github\\Loop_harness_new\\Loop_harness_ruflo\\.tools\\node\\node.exe D:\\100.Software\\Github\\Loop_harness_new\\Loop_harness_ruflo\\HLK\\wrappers\\hlk-hook-launcher.mjs",
-            "timeout": 5
+            "timeout": 3
           },
           {
             "type": "prompt",
@@ -125,7 +125,7 @@
           {
             "type": "command",
             "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-read-recall.sh",
-            "timeout": 10
+            "timeout":  5
           }
         ]
       },
@@ -135,7 +135,7 @@
           {
             "type": "command",
             "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-edit-recall.sh",
-            "timeout": 10
+            "timeout":  5
           }
         ]
       },
@@ -145,7 +145,7 @@
           {
             "type": "command",
             "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-edit-recall.sh",
-            "timeout": 10
+            "timeout":  5
           }
         ]
       },
@@ -155,7 +155,7 @@
           {
             "type": "command",
             "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-search-nudge.sh",
-            "timeout": 10
+            "timeout":  5
           }
         ]
       },
@@ -165,7 +165,7 @@
           {
             "type": "command",
             "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-search-nudge.sh",
-            "timeout": 10
+            "timeout":  5
           }
         ]
       },
@@ -248,7 +248,7 @@
           {
             "type": "command",
             "command": "python .devin/hooks/stop.py",
-            "timeout": 5
+            "timeout": 10
           }
         ]
       }
@@ -257,3 +257,4 @@
   "_aideMemoryVersion": "0.6.4",
   "_agent_harness_deploy_note": "Agent Harness Deploy runtime layer merged. HLK security hooks + aide-memory hooks preserved. AHD pre_tool_use/post_tool_use/AgentStop hooks added alongside existing hooks."
 }
+

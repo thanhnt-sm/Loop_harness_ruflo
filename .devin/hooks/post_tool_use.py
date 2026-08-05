@@ -25,7 +25,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 # U15: Internal timeout — post-hook is non-blocking, fail silently if too slow.
-HOOK_TIMEOUT_SECONDS = 4.5
+# Config timeout is 5s; internal 4s (1s margin) to exit before config kills us.
+HOOK_TIMEOUT_SECONDS = 4.0
 
 import ahd_session
 
