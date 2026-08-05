@@ -25,7 +25,7 @@
     },
     "P2": {
       "total": 15,
-      "done": 13,
+      "done": 14,
       "in_progress": 0,
       "pending": 15,
       "blocked": 0
@@ -947,7 +947,7 @@
       "phase": "P2",
       "priority": "medium",
       "expert": "Architecture Critic",
-      "status": "pending",
+      "status": "done",
       "dependencies": [],
       "dependents": [],
       "effort_days": 7,
@@ -957,10 +957,10 @@
       ],
       "acceptance_criteria_count": 2,
       "started_date": null,
-      "completed_date": null,
-      "verifier": null,
+      "completed_date": "2026-07-07",
+      "verifier": "GLM-5.2 High",
       "commit_hash": null,
-      "notes": ""
+      "notes": "AC: 2/2 passed. tools/cross_platform.py: Python equivalents for 7 tools (verify-workspace, health-check, backup-workspace, cleanup-orphans, merge-config, risk-contract, package-template). Tested on Windows (Python 3.13). verify-workspace: 19/19 pass. health-check: 100/100 HEALTHY. verify-workspace.ps1: 60/60 pass."
     },
     {
       "id": "U40",
