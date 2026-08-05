@@ -92,4 +92,4 @@ groups:
 ## Agent Harness Deploy integration
 - **Workflow role**: typically dispatched as Builder (pipeline/infra implementation)
 - **Cognitive angles**: `dependency` (what services depend on this infra?), `regression` (does this pipeline change break existing deployments?)
-- **Pairs with**: backend-architect (system design), code-reviewer (review IaC)
+- **Pairs with**: architect (system design), code-reviewer (review IaC)

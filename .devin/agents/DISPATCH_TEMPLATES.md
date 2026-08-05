@@ -37,19 +37,18 @@ Architect = a worker that builds with backend expertise.
 
 ```
 persona: [persona name from personas/ directory, or "none" for generic tasks]
-persona_path: [path to persona file, e.g. .devin/agents/personas/backend_architect.md]
+persona_path: [path to persona file, e.g. .devin/agents/personas/architect.md]
 ```
 
 **Available personas:**
 
 | Persona | Domain | When to load |
 |---------|--------|-------------|
-| `backend-architect` | Server-side, API, DB schema, cloud | Backend implementation, API design, schema changes |
+| `architect` | System design, DDD, API, DB schema, ADRs, cloud | Architecture decisions, API design, schema changes, domain modeling |
 | `frontend-developer` | React/Vue/Angular, UI, accessibility, performance | Frontend implementation, UI components, Web Vitals |
 | `database-optimizer` | PostgreSQL/MySQL, query optimization, indexing | Schema design, query tuning, migration planning |
 | `devops-automator` | CI/CD, Docker, K8s, Terraform, monitoring | Pipeline setup, IaC, deployment strategy |
 | `code-reviewer` | Code review, security, maintainability | Fresh-context review, PR audit, security check |
-| `software-architect` | System design, DDD, ADRs, trade-offs | Architecture decisions, domain modeling, pattern selection |
 | `git-workflow-master` | Git workflows, branching, conventional commits | Branch strategy, history cleanup, PR workflow setup |
 
 **Rules:**

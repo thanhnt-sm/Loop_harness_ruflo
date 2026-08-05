@@ -67,4 +67,4 @@ export const DataTable = memo<DataTableProps>(({ data, columns, onRowClick }) =>
 ## Agent Harness Deploy integration
 - **Workflow role**: typically dispatched as Builder (implementation)
 - **Cognitive angles**: `edge-case` (what input breaks this UI?), `regression` (does this work on all browsers?)
-- **Pairs with**: code-reviewer (review), backend-architect (API integration)
+- **Pairs with**: code-reviewer (review), architect (API integration)

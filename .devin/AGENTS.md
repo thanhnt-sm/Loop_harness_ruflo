@@ -62,7 +62,7 @@ All skills in `.devin/skills/`. AHD skills (16) are `.md` files; named skills ha
 |------|---------|
 | Commander (`.devin/agents/COMMANDER.md`) | Orchestrator — dispatches, never works directly |
 | Workers: SCOUT, BUILDER, AUDITOR, VERIFIER, MEMORY_KEEPER (`.devin/agents/workers/`) | Research, implement, audit, verify, memory write-back |
-| Personas (7): backend_architect, code_reviewer, database_optimizer, devops_automator, frontend_developer, git_workflow_master, software_architect (`.devin/agents/personas/`) | Domain expertise for dispatch |
+| Personas (6): architect, code_reviewer, database_optimizer, devops_automator, frontend_developer, git_workflow_master (`.devin/agents/personas/`) | Domain expertise for dispatch |
 
 ## Runtime
 

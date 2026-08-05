@@ -18,9 +18,9 @@
     },
     "P1": {
       "total": 15,
-      "done": 7,
+      "done": 8,
       "in_progress": 0,
-      "pending": 8,
+      "pending": 7,
       "blocked": 0
     },
     "P2": {
@@ -481,7 +481,7 @@
       "phase": "P1",
       "priority": "high",
       "expert": "Architecture Critic",
-      "status": "pending",
+      "status": "done",
       "dependencies": [],
       "dependents": [
         "U26"
@@ -492,11 +492,11 @@
         ".devin/agents/personas/architect.md"
       ],
       "acceptance_criteria_count": 3,
-      "started_date": null,
-      "completed_date": null,
-      "verifier": null,
+      "started_date": "2026-07-07",
+      "completed_date": "2026-07-07",
+      "verifier": "GLM-5.2 High",
       "commit_hash": null,
-      "notes": ""
+      "notes": "AC: 3/3 passed. architect.md created with merged content (sub-specialties section preserves origin). backend_architect.md + software_architect.md deleted. DISPATCH_TEMPLATES.md: 5 architect refs, 0 old refs. AGENTS.md: 6 personas (was 7). Cross-refs updated in frontend_developer, devops_automator, database_optimizer. verify-workspace: 73/73 pass."
     },
     {
       "id": "U19",

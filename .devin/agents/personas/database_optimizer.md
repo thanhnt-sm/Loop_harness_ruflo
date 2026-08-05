@@ -82,4 +82,4 @@ CREATE INDEX idx_posts_view_count ON posts(view_count);
 ## Agent Harness Deploy integration
 - **Workflow role**: typically dispatched as Builder (schema changes) or Auditor (query review)
 - **Cognitive angles**: `edge-case` (what query pattern breaks this index?), `regression` (does this migration break existing queries?)
-- **Pairs with**: backend-architect (system design), code-reviewer (review SQL)
+- **Pairs with**: architect (system design), code-reviewer (review SQL)
