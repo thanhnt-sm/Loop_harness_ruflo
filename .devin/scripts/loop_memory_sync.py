@@ -18,6 +18,7 @@ import re
 import shutil
 import sys
 import threading
+import time
 import traceback
 from datetime import datetime, timezone
 from pathlib import Path
@@ -403,9 +404,9 @@ def regenerate(root: Path, session_id: str = "", status: str = "") -> None:
 
     # U14 redteam fix: dùng repo-level inter-process lock khi viết registry
     # U21: Retry với backoff nếu lock held (BOOT race condition)
-    import time
-    max_retries = 3
-    base_delay = 0.5  # 500ms initial backoff
+    # U21 redteam: reduced from 3→2 retries, 0.5→0.3s base to keep worst case < 3s
+    max_retries = 2
+    base_delay = 0.3  # 300ms initial backoff
     lock = None
     for attempt in range(max_retries):
         # U21: short timeout per attempt (1s) — don't block 10s on each try
@@ -413,7 +414,7 @@ def regenerate(root: Path, session_id: str = "", status: str = "") -> None:
         if lock is not None:
             break
         # Lock held — backoff
-        delay = base_delay * (2 ** attempt)  # 0.5s, 1s, 2s
+        delay = base_delay * (2 ** attempt)  # 0.3s, 0.6s
         time.sleep(delay)
     if lock is None:
         # All retries failed — write fallback registry
