@@ -37,9 +37,11 @@ except ImportError:
 
 
 # U25: ROI threshold — if Nuwa ROI below this, reduce to high-stakes only
-NUWA_ROI_THRESHOLD = 1.5
-# U25: Minimum runs before ROI is meaningful (avoid small sample noise)
-MIN_RUNS_FOR_ROI = 5
+# U25 redteam: threshold should match cost ratio. Nuwa costs ~3-5x more tokens,
+# so threshold should be at least 3x. Set to 3.0 (configurable).
+NUWA_ROI_THRESHOLD = 3.0
+# U25 redteam: increased from 5 to 20 for statistical significance
+MIN_RUNS_FOR_ROI = 20
 
 
 def record_nuwa_run(
@@ -100,6 +102,34 @@ def record_standard_run(
         nuwa_metrics["last_standard_run"] = ahd_session.now_utc()
 
         ahd_session.update_session_state(session_id, {"nuwa_metrics": nuwa_metrics}, root)
+    except Exception:
+        pass
+
+
+def reset_nuwa_metrics(session_id: str, root: Path) -> None:
+    """U25 redteam: Reset Nuwa metrics for clean experiment or project change.
+
+    Args:
+        session_id: Session ID
+        root: Repo root
+    """
+    if not session_id:
+        return
+
+    try:
+        ahd_session.update_session_state(session_id, {
+            "nuwa_metrics": {
+                "nuwa_runs": 0,
+                "nuwa_bugs_caught": 0,
+                "nuwa_token_cost": 0,
+                "standard_runs": 0,
+                "standard_bugs_caught": 0,
+                "standard_token_cost": 0,
+                "last_nuwa_run": "",
+                "last_standard_run": "",
+                "reset_at": ahd_session.now_utc(),
+            }
+        }, root)
     except Exception:
         pass
 
@@ -193,9 +223,15 @@ if __name__ == "__main__":
     ap.add_argument("--bugs", type=int, default=0, help="Bugs caught")
     ap.add_argument("--tokens", type=int, default=0, help="Token cost")
     ap.add_argument("--report", action="store_true", help="Print ROI report")
+    ap.add_argument("--reset", action="store_true", help="Reset Nuwa metrics")
 
     args = ap.parse_args()
     root = Path(args.root).resolve()
+
+    if args.reset:
+        reset_nuwa_metrics(args.session, root)
+        print("Nuwa metrics reset.")
+        sys.exit(0)
 
     if args.record_nuwa:
         record_nuwa_run(args.session, root, args.bugs, args.tokens)

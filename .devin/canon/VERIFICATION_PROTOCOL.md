@@ -534,20 +534,23 @@ Nuwa cognitive verification is expensive (tokens + time). Without ROI measuremen
 ### ROI formula
 - `bugs_per_10k_tokens = bugs_caught / (token_cost / 10000)`
 - `nuwa_roi = nuwa_bugs_per_10k / standard_bugs_per_10k`
-- If `nuwa_roi < 1.5` (threshold) → reduce Nuwa to high-stakes only
-- Minimum 5 runs before ROI is meaningful (avoid small sample noise)
+- If `nuwa_roi < 3.0` (threshold) → reduce Nuwa to high-stakes only
+- Minimum 20 runs before ROI is meaningful (statistical significance)
 
 ### Comparison logic
 1. For each task, randomly assign to Nuwa-audited or standard-audited
 2. Track bugs caught by each approach + token cost
-3. After 5+ runs, compute ROI ratio
-4. If ROI < 1.5: restrict Nuwa to high-stakes tasks (security, financial, production-critical)
-5. If ROI >= 1.5: continue using Nuwa for all verification
+3. After 20+ runs, compute ROI ratio
+4. If ROI < 3.0: restrict Nuwa to high-stakes tasks (security, financial, production-critical)
+5. If ROI >= 3.0: continue using Nuwa for all verification
+6. Use `--reset` to clear metrics when switching projects
 
 ### Threshold
-- **1.5x** — Nuwa must catch 50% more bugs per 10K tokens than standard review
-- Rationale: Nuwa costs ~3-5x more tokens than standard review, so it needs to catch proportionally more bugs to justify the cost
+- **3.0x** — Nuwa must catch 3x more bugs per 10K tokens than standard review
+- Rationale: Nuwa costs ~3-5x more tokens than standard review, so threshold
+  matches cost ratio. Below 3x = not cost-effective.
 - Adjustable via `NUWA_ROI_THRESHOLD` in `scripts/nuwa_roi.py`
+- Minimum 20 runs before ROI is meaningful (statistical significance)
 
 ### Usage
 ```bash
@@ -559,4 +562,7 @@ python .devin/scripts/nuwa_roi.py --session <sid> --record-standard --bugs 1 --t
 
 # Get ROI report
 python .devin/scripts/nuwa_roi.py --session <sid> --report
+
+# Reset metrics (when switching projects)
+python .devin/scripts/nuwa_roi.py --session <sid> --reset
 ```
