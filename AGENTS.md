@@ -54,8 +54,8 @@ AHD là **main engine**. Existing components được bảo vệ và tích hợp
 
 | Component | Vai trò | Bảo vệ |
 |-----------|---------|--------|
-| `/lightning` + `/glm` skills | Devin-native subagent orchestrators | `.devin/skills/lightning/`, `.devin/skills/glm/` — không overwrite |
-| `lightning-executor` + `glm-executor` agents | Pinned model executors | `.devin/agents/lightning-executor/`, `.devin/agents/glm-executor/` — không overwrite |
+| `/lightning` + `/glm` + `/kimi` skills | Devin-native subagent orchestrators | `.devin/skills/lightning/`, `.devin/skills/glm/`, `.devin/skills/kimi/` — không overwrite |
+| `lightning-executor` + `glm-executor` + `kimi-executor` agents | Pinned model executors | `.devin/agents/lightning-executor/`, `.devin/agents/glm-executor/`, `.devin/agents/kimi-executor/` — không overwrite |
 | HLK security layer | PreToolUse hook (sanitizer + vault-bridge) | `HLK/` — config.json hooks preserved |
 | aide-memory MCP | Persistent cross-session memory | `.devin/mcp_config.json` — không đụng |
 | aide-memory hooks | SessionStart/Stop/PreToolUse/PostToolUse | config.json hooks preserved + merged với AHD hooks |
