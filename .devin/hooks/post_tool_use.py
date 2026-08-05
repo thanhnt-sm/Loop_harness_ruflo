@@ -73,7 +73,12 @@ def _compute_sha256(file_path: str, root: Path) -> str:
     try:
         full_path = (root / file_path) if not Path(file_path).is_absolute() else Path(file_path)
         if full_path.exists() and full_path.is_file():
-            return hashlib.sha256(full_path.read_bytes()).hexdigest()
+            # U20 redteam: chunked reading for large files (64KB chunks)
+            sha256 = hashlib.sha256()
+            with open(full_path, "rb") as f:
+                for chunk in iter(lambda: f.read(65536), b""):
+                    sha256.update(chunk)
+            return sha256.hexdigest()
     except Exception:
         pass
     return ""
@@ -107,13 +112,12 @@ def _track_file_sha(session_id: str, file_path: str, tool_name: str, root: Path)
             "updated_at": ahd_session.now_utc(),
         }
 
-        # Invalidate verification status for this file
-        if file_path in verify_status:
-            verify_status[file_path] = {
-                "verified": False,
-                "invalidated_at": ahd_session.now_utc(),
-                "reason": "file modified after verification",
-            }
+        # Invalidate verification status for this file (always set on write)
+        verify_status[file_path] = {
+            "verified": False,
+            "invalidated_at": ahd_session.now_utc(),
+            "reason": "file modified after verification",
+        }
 
         ahd_session.update_session_state(session_id, {
             "file_shas": file_shas,
@@ -247,8 +251,7 @@ def main():
     file_path = _extract_file_path(tool_input)
     command = _extract_command(tool_input) if tool_name in ("Bash", "bash", "Shell", "Execute", "exec") else ""
 
-    # U20: Track file SHA + invalidate verification on write
-    _track_file_sha(session_id, file_path, tool_name, root)
+    # U20: Track file SHA + invalidate verification on write (moved after success check below)
 
     # Determine success
     ok = True
@@ -279,6 +282,10 @@ def main():
         current_state = ahd_session.read_session_state(session_id, root)
     except Exception:
         current_state = {}
+
+    # U20: Track file SHA + invalidate verification on write (only if tool succeeded)
+    if ok:
+        _track_file_sha(session_id, file_path, tool_name, root)
 
     # Update session_state heartbeat (merge, don't overwrite current_subtask)
     # U06: Fallback to file write if primary session_state write fails
