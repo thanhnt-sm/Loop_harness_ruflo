@@ -25,7 +25,7 @@
     },
     "P2": {
       "total": 15,
-      "done": 6,
+      "done": 7,
       "in_progress": 0,
       "pending": 15,
       "blocked": 0
@@ -800,7 +800,7 @@
       "phase": "P2",
       "priority": "medium",
       "expert": "Quality Auditor",
-      "status": "pending",
+      "status": "done",
       "dependencies": [],
       "dependents": [],
       "effort_days": 2,
@@ -810,10 +810,10 @@
       ],
       "acceptance_criteria_count": 2,
       "started_date": null,
-      "completed_date": null,
-      "verifier": null,
+      "completed_date": "2026-07-07",
+      "verifier": "GLM-5.2 High",
       "commit_hash": null,
-      "notes": ""
+      "notes": "AC: 2/2 passed. VERIFICATION_PROTOCOL.md: 4 new output types added (DB schema, API contracts, IaC, ML artifacts). Each with specific verification method. verify-workspace: 60/60 pass."
     },
     {
       "id": "U33",

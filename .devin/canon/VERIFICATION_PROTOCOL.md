@@ -14,6 +14,10 @@ Models grade their own work too leniently. The author has invested in the answer
 | High-risk judgment | Multi-agent debate: 2 independent agents, integrate differences |
 | Rules/docs | `read` + `grep` for version headers, link targets, referenced paths; every claim must be evidence-graded |
 | Claims | `claim-grader` skill: every worker report tags `[fact]`, `[inference]`, or `[unverified-guess]` before verification |
+| DB schema (U32) | `DESCRIBE <table>` or `\d <table>` — compare columns, types, constraints, indexes against spec. Migration files must be idempotent (reversible). Check for missing indexes on FK columns. |
+| API contracts (U32) | OpenAPI/Swagger schema validation: `swagger-cli validate <spec>`. Compare response schema against actual API response. Contract test: send request, assert response matches schema. Check status codes, error formats, pagination. |
+| IaC (U32) | `terraform plan` / `cdk diff` — review planned changes before apply. `terraform validate` for syntax. Check for drift: `terraform plan -detailed-exitcode`. Security scan: `tfsec` or `checkov`. |
+| ML artifacts (U32) | Model card exists (purpose, training data, metrics, limitations). Weights file hash verified. Inference test: run on held-out test set, compare metrics against baseline. Bias check if applicable. |
 ## Fresh-context verification (for L/XL)
 Give verifier: file paths, acceptance criteria, minimal background (<2KB). Not conversation history or author's reasoning. Verifier reads files cold.
 ## Report contract
