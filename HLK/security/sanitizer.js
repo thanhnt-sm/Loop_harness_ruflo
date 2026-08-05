@@ -22,12 +22,30 @@ const __dirname = path.dirname(__filename);
 const CONFIG_PATH = path.resolve(__dirname, '../config/hlk.config.json');
 
 // Danh sách pattern mặc định nếu không đọc được config
+// U29: Expanded with AWS, JWT, OAuth, DB connection patterns
 const DEFAULT_PATTERNS = [
+  // Existing patterns
   'sk-[a-zA-Z0-9]{32,}',
   'ghp_[a-zA-Z0-9]{36}',
   '(?i)password\\s*=\\s*[\'"]?[^\'"\\s]+',
   '(?i)api[_-]?key\\s*=\\s*[\'"]?[^\'"\\s]+',
   '-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----',
+  // U29: AWS access key ID (starts with AKIA, 20 chars total)
+  'AKIA[0-9A-Z]{16}',
+  // U29: AWS secret access key (40 chars, base64-ish after key ID)
+  '(?i)aws[_-]?secret[_-]?access[_-]?key\\s*=\\s*[\'"]?[A-Za-z0-9/+=]{40}',
+  // U29: JWT (3 base64 segments separated by dots, excluding eyJ prefix to avoid false positives)
+  '[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]{20,}',
+  // U29: OAuth Bearer token
+  '(?i)Bearer\\s+[A-Za-z0-9._-]+',
+  // U29: Database connection string with credentials
+  '[a-z]+://[^:\\s]+:[^@\\s]+@[^/\\s]+',
+  // U29: Google API key
+  'AIza[0-9A-Za-z_-]{35}',
+  // U29: Slack token
+  'xox[baprs]-[0-9A-Za-z-]+',
+  // U29: Stripe key
+  '(sk|pk|rk)_(live|test)_[0-9a-zA-Z]{24,}',
 ];
 
 // ---------------------------------------------------------------------------
