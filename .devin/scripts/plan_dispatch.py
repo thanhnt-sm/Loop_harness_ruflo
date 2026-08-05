@@ -74,6 +74,11 @@ except ImportError:  # pragma: no cover
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "hooks"))
     import ahd_session
 
+try:
+    import plan_quality_check as _pqc
+except ImportError:  # pragma: no cover
+    _pqc = None
+
 
 def _get_repo_root() -> Path:
     """Find the main repo root. Prefer git toplevel, then walk up for .git/.agents."""
@@ -134,6 +139,43 @@ def _grep_files(pattern: str, path: str = ".") -> list[str]:
         except Exception:
             continue
     return []
+
+
+def _plan_to_subtasks(plan_path: Path) -> list[dict]:
+    """Chuyển IMPLEMENTATION_PLAN.md thành danh sách subtasks để dispatch.
+
+    Dùng parser từ `plan_quality_check.py` để trích task, file path,
+    Mermaid DAG. Mỗi subtask có id, goal, files_hint, deps.
+    """
+    if _pqc is None:
+        raise RuntimeError("plan_quality_check.py not available; cannot parse plan file")
+
+    text = plan_path.read_text(encoding="utf-8-sig")
+    tasks = _pqc._parse_tasks(text)
+    edges = _pqc._parse_mermaid_edges(text)
+
+    # Xây adjacency list: task_id -> [deps] (A --> B nghĩa là B phụ thuộc A)
+    deps_map: dict[str, list[str]] = defaultdict(list)
+    for src, dst in edges:
+        if src and dst:
+            deps_map[dst].append(src)
+
+    subtasks = []
+    for t in tasks:
+        tid = t.get("id", "")
+        if not tid:
+            continue
+        files_hint = []
+        fp = t.get("file_path", "")
+        if fp:
+            files_hint.append(fp)
+        subtasks.append({
+            "id": tid,
+            "goal": t.get("raw", ""),
+            "files_hint": files_hint,
+            "deps": list(dict.fromkeys(deps_map.get(tid, []))),
+        })
+    return subtasks
 
 
 def _expand_file_hints(files_hint: list[str]) -> set[str]:
@@ -317,18 +359,18 @@ def _assign_worktrees(subtasks: list[dict], allocation: dict, session_id: str = 
 
 
 def _build_dependency_graph(subtasks: list[dict], conflicts: list[dict]) -> dict[str, list[str]]:
-    """U16: Build a dependency graph from file conflicts.
+    """U16: Build a dependency graph from explicit deps + file conflicts.
 
-    If subtask A and B share a file, and A is suggested to go first
-    (suggested_order), then B depends on A: B must wait for A to finish.
+    Nếu subtask A và B share file, và A được suggest đi trước,
+    thì B phụ thuộc A. Ngoài ra, plan Mermaid DAG cũng được tôn trọng
+    qua trường `deps` trong mỗi subtask.
 
-    U16 redteam: Active session conflicts have session_id in suggested_order,
-    which is NOT a subtask. We skip those — active session conflicts are
-    handled separately via parallel_safe flag, not via dispatch_order.
+    U16 redteam: Active session conflicts có session_id trong suggested_order,
+    không phải subtask. Bỏ qua — active session conflicts xử lý qua parallel_safe.
 
     Returns adjacency list: {subtask_id: [depends_on_ids]}.
     """
-    graph: dict[str, list[str]] = {st["id"]: [] for st in subtasks}
+    graph: dict[str, list[str]] = {st["id"]: list(st.get("deps", [])) for st in subtasks}
     for c in conflicts:
         # U16 redteam: skip active session conflicts (session_id not a subtask)
         if c.get("resolution") == "wait_for_session":
@@ -482,7 +524,8 @@ def main() -> int:
         description="Analyze subtasks for file ownership, conflicts, and Nuwa angle assignment."
     )
     ap.add_argument("--analyze", action="store_true", help="Run analysis")
-    ap.add_argument("--subtasks", required=True, help="Path to subtasks.json")
+    ap.add_argument("--subtasks", help="Path to subtasks.json")
+    ap.add_argument("--plan", help="Path to IMPLEMENTATION_PLAN.md (derive subtasks from plan)")
     ap.add_argument("--json", action="store_true", help="Output as JSON")
     ap.add_argument("--session", default="", help="Session ID to prefix worktree names")
     args = ap.parse_args()
@@ -491,12 +534,27 @@ def main() -> int:
         ap.print_help()
         return 1
 
-    subtask_path = Path(args.subtasks)
-    if not subtask_path.exists():
-        print(f"  [!] Subtasks file not found: {subtask_path}")
+    if not args.subtasks and not args.plan:
+        print("  [!] Cần --subtasks <file.json> hoặc --plan <plan.md>")
         return 1
 
-    subtasks = json.loads(subtask_path.read_text(encoding="utf-8-sig"))
+    if args.subtasks:
+        subtask_path = Path(args.subtasks)
+        if not subtask_path.exists():
+            print(f"  [!] Subtasks file not found: {subtask_path}")
+            return 1
+        subtasks = json.loads(subtask_path.read_text(encoding="utf-8-sig"))
+    else:
+        plan_path = Path(args.plan)
+        if not plan_path.exists():
+            print(f"  [!] Plan file not found: {plan_path}")
+            return 1
+        subtasks = _plan_to_subtasks(plan_path)
+
+    if not subtasks:
+        print("  [!] No subtasks found.")
+        return 1
+
     result = analyze(subtasks, args.session)
 
     if args.json:

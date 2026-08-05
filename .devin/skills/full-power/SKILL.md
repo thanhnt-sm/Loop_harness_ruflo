@@ -201,11 +201,23 @@ Sau khi user decide → write results JSON → call `--step`:
 
 ## Bước 7: PHASE 3 — EXECUTE (max parallel, QC gates, enforcement)
 
-### 7a. DISPATCH — DAG-based parallel
+### 7a. DISPATCH — Conflict detection + DAG-based parallel
+
+Trước khi dispatch, phân tích plan để phát hiện conflict và xác định worktree / parallel groups:
 
 ```bash
-python .devin/scripts/dag_compile.py docs/plans/IMPLEMENTATION_PLAN_<task>.md
-python .devin/scripts/dag_executor.py .devin/plan_state/<task>_workflow.json --execute
+python .devin/scripts/plan_dispatch.py --plan docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md --json
+```
+
+- Nếu có conflict → serialize hoặc hỏi user.
+- Nếu `deadlock_detected` → stop và escalate.
+- Dùng `parallel_groups` và `worktrees` từ output để dispatch.
+
+Sau đó biên dịch và chạy DAG:
+
+```bash
+python .devin/scripts/dag_compile.py docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md
+python .devin/scripts/dag_executor.py .devin/plan_state/<task_slug>_workflow.json --execute
 ```
 
 - Bounded batch (N=5 parallel, configurable)
