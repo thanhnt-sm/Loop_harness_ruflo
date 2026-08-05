@@ -1,6 +1,6 @@
 # Agent Harness Deploy — Canonical Harness
 
-> Auto-generated from .devin/canon/. Do not edit this generated file; edit canon and re-run `python scripts/sync.py --canon`.
+> Full AHD reference. Edit directly or mirror changes from `.devin/canon/`; run `tools/verify-workspace.ps1` to validate.
 
 
 
@@ -11,7 +11,7 @@
 # Core Canon — Tool-Agnostic Source of Truth
 
 > v1.0 | Single canonical rule set. Every tool's entry file is generated from this.
-> Reader: any AI coding assistant. Modify here, then run `python scripts/sync.py --canon`.
+> Reader: any AI coding assistant. Modify here, then mirror changes to the tool's entry files and run `tools/verify-workspace.ps1` to validate.
 
 ## 1. Identity
 
@@ -51,7 +51,7 @@ You are operating inside a **Agent Harness Deploy-distilled harness**:
 
 ## 4. Deploy contract
 
-When canon is being *installed* (not used): `python scripts/distill.py`. Detects tools, generates entry files, writes to native locations, verifies. See `docs/USAGE_GUIDE.md`.
+When canon is being *installed* (not used): follow `docs/USAGE_GUIDE.md` to set up the workspace, then run `python .devin/scripts/hook_integrity.py --generate` to baseline hooks and `tools/verify-workspace.ps1` to verify the install.
 
 ## 4b. Project-specific rules layer
 
@@ -1671,7 +1671,7 @@ slop-scan pins mature OSS to pre-AI commits (before 2025-01-01). **AI repos scor
 - **Placeholder code (`pass`, `TODO`) = AI gave up.** Worse than no function — illusion of coverage. Flag all.
 - **Hedging comments = AI uncertainty.** `# should work hopefully` → human review signal.
 - **Explanation bloat = restating the code.** `# loop through items` above `for x in items:` adds zero information, consumes tokens, rots when code changes. Detect: comment text ≈ code semantics. Source: arXiv 2605.02741 (Volume-Quality Inverse Law).
-- **Version stacking = context rot in-file.** `<!-- v2 -->`, `# v3 fixed X`, `<!-- updated 2026-07-15 -->` accumulated across edits. Version truth = git + append-only `CHANGELOG.md`, never in-file stacking. Source: arXiv 2606.09090 (Context Rot). `scripts/sync.py --canon` rejects canon files with stacked header markers.
+- **Version stacking = context rot in-file.** `<!-- v2 -->`, `# v3 fixed X`, `<!-- updated 2026-07-15 -->` accumulated across edits. Version truth = git + append-only `CHANGELOG.md`, never in-file stacking. Source: arXiv 2606.09090 (Context Rot). The verification checks reject canon files with stacked header markers.
 ## Verbatim execution gates
 > Source: Sahir619/fable-method (MIT), Steps 3-6 verbatim gates. Distilled 2026-07-17.
 > These are mechanical, auditable, anti-fabrication gates. The model must leave the named line
@@ -1976,8 +1976,8 @@ Can't write positive/negative examples? Criterion too vague → escalate to huma
 | | Example |
 |---|---------|
 | **Question** | Is there an active, crashed, or suspected-crashed session whose `owned_files`/`affected_files`/`tags` overlap the new task? |
-| **Positive** | "Session `s-20260709-abc` is `suspected_crashed` on `current_subtask: add file lock to base.py`. New task is `fix sync.py concurrency` and `owned_files` lists `scripts/sync.py` and `adapters/base.py`." |
-| **Negative** | "No active sessions, or active session `s-xyz` owns `.devin/skills/nuwa-skill/SKILL.md` while new task is `scripts/distill.py` with no file/tag overlap." |
+| **Positive** | "Session `s-20260709-abc` is `suspected_crashed` on `current_subtask: add file lock to base.py`. New task is `fix plan_enforce concurrency` and `owned_files` lists `tests/test_plan_enforce.py` and `.devin/scripts/pre_task_audit.py`." |
+| **Negative** | "No active sessions, or active session `s-xyz` owns `.devin/skills/nuwa-skill/SKILL.md` while new task is `.devin/scripts/hook_integrity.py` with no file/tag overlap." |
 | **Action +** | STOP. Read `.devin/loop_state/<session_id>.md` and `.devin/session_state/<session_id>.json`. Ask the human: "Session `s-xxx` was interrupted at `<current_subtask>`. Continue it, or start new?" |
 | **Action −** | Start a new session with a fresh `session_id`; keep the old session in `active_sessions` unless it is completed. |
 
@@ -2436,12 +2436,12 @@ Attention distribution in long context:
 1. **No overwrite without backup.** Every adapter must `.bak` an existing config before writing. No exceptions, no "it's probably fine."
 2. **No configs for undetected tools.** Detection is sacred. A tool not detected is a tool not touched. Report it in the summary, do not fabricate a default path.
 3. **No canon drift.** Entry files (AGENTS.md, CLAUDE.md, instructions.md) are generated from `.devin/canon/`. Do not edit entry files directly. Edit canon, run sync.
-4. **No hardcoded paths.** All tool paths come from `adapters/registry.json` with env expansion (`$HOME`, `%APPDATA%`, `~`). Never bake a user-specific path into canon.
+4. **No hardcoded paths.** All tool paths come from `.devin/tool_registry.json` with env expansion (`$HOME`, `%APPDATA%`, `~`). Never bake a user-specific path into canon.
 5. **No scope creep.** The deployer deploys the harness. It does not build features, refactor the user's project, or "improve" things it wasn't asked to.
 6. **No destructive ops without confirmation.** Deleting dirs, force-pushing, dropping tables, bulk-deleting — stop and describe the action, wait for human approval.
 7. **No reading the never-read list.** Large files (logs, reports >1MB) are grep-only.
 8. **No fabricating detection results.** If `detect.py` returns nothing for a tool, the summary says "not detected." It does not say "synced."
-9. **No skipping verification at the end.** Every deploy ends with `verify.py` or a fresh-context read-back. A deploy that skips verification is a failed deploy.
+9. **No skipping verification at the end.** Every deploy ends with `tools/verify-workspace.ps1` or a fresh-context read-back. A deploy that skips verification is a failed deploy.
 10. **No silent failure.** If a step fails, report the error verbatim and the path. Do not swallow exceptions and continue.
 11. **No modifying the deployer's own canon during a deploy.** A deploy installs canon into tools. It does not edit canon. Canon edits are a separate, human-approved action.
 12. **No auto-resume of a previous session.** If a session is `in_progress`, `crashed`, or `suspected_crashed`, detect it, read `session_state/<session_id>.json`, and ask the human before continuing. Never resume without explicit human approval.
@@ -2449,7 +2449,7 @@ Attention distribution in long context:
 14. **No secrets in tool log / session state / journal.** Never write keys, tokens, passwords, or API credentials into `.devin/session_state/`, `.devin/session_state/<session_id>/journal.jsonl`, or any tool log. Redact `command`/`counter` before logging.
 15. **No modifying `.devin/canon/HANDOFF_LETTER.md`.** Runtime judgment and project spirit go into `.agents/handoff_letter.md`. The canonical `HANDOFF_LETTER.md` is source-only and must not be edited by runtime scripts or sessions.
 16. **No explanatory comments in generated code.** AI-generated code must not contain comments that restate what the code already says (`# loop through items`, `// increment counter`). Comments are debt, not documentation. The only permitted comments: (a) API contracts / public-interface docs, (b) non-obvious invariants the reader cannot derive from the code, (c) `TODO`/`FIXME` with an owner or issue ref, (d) language directives (`//go:generate`, `# type: ignore`). Restating-the-code comments = slop. Source: arXiv 2605.02741 (Volume-Quality Inverse Law — comment bloat predicts structural decay); arXiv 2512.20334 (Comment Traps — commented-out/defective comments propagate defects at up to 58%). When the user asks for teaching mode, this red line relaxes for that session only.
-17. **No in-file version stacking.** Do not accumulate version markers, changelog blocks, or `<!-- updated YYYY-MM-DD -->` / `# v2 fixed X` / `# v3` lines inside source files. Version truth = git history + a single append-only `CHANGELOG.md` (one entry per release, not per edit). In-file stacking is context rot (arXiv 2606.09090) and recursive-depth debt. `scripts/sync.py --canon` rejects canon files with stacked version markers in the header. If you must record a change, write one line to `CHANGELOG.md` or rely on the git commit. Never edit a version marker inside the file body.
+17. **No in-file version stacking.** Do not accumulate version markers, changelog blocks, or `<!-- updated YYYY-MM-DD -->` / `# v2 fixed X` / `# v3` lines inside source files. Version truth = git history + a single append-only `CHANGELOG.md` (one entry per release, not per edit). In-file stacking is context rot (arXiv 2606.09090) and recursive-depth debt. the verification checks reject canon files with stacked version markers in the header. If you must record a change, write one line to `CHANGELOG.md` or rely on the git commit. Never edit a version marker inside the file body.
 18. **No new canon/skill without passing the five-question existence gate.** Before adding any canon file, skill, workflow, or orchestration component, answer all five in writing (to `.devin/loop_state/<session_id>.md` or the proposing doc): (1) *Which model gap does this compensate for?* (2) *After the next model upgrade, what remains?* (3) *After platform tooling absorbs this coordination mechanism, is it still needed?* (4) *Does an existing external solution already do this — and is there a competitive edge?* (5) *Remove this component entirely — what am I left with?* If any answer is "nothing" or "I don't know," do not build it. This gate exists because harness components on the *compensation* axis depreciate per model generation (see `HARNESS_ENGINEERING.md` §"Stronger model → bifurcated harness"); building without the gate = investing in a dying asset. Components on the *deterministic infrastructure* axis (sandbox, sync, verify, isolation) bypass this gate only if they implement something the model physically cannot do.
 
 ## Mechanical Enforcement

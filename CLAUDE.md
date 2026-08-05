@@ -19,7 +19,7 @@
 
 ### File Organization
 - NEVER save working files or tests to the root folder
-- Use `src/` for source code, `tests/` for tests, `docs/` for documentation, `scripts/` for utilities
+- Source code: `.devin/scripts/` (plan/execution scripts) and `.devin/hooks/` (hook guards); `tests/` for tests; `docs/` for documentation; `.devin/scripts/` or `tools/` for utilities
 - Files under 500 lines
 - Typed interfaces for all public APIs
 

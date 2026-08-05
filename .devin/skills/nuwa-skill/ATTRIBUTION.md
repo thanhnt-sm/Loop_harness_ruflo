@@ -25,8 +25,8 @@ The Agent Harness Deploy follows an **anti-link-rot architecture**: every extern
 dependency is committed locally so the harness works even if the upstream repo disappears.
 This is the same philosophy as `.devin/skills/assets/vault/` — no runtime fetch, no network dependency.
 
-Users install the Nuwa skill by running the deployer (`python scripts/distill.py`), which
-copies this vendored copy into each detected tool's skills directory. **Users do not need
+Users invoke the Nuwa skill through the Devin CLI skill system; the vendored copy lives
+at `.devin/skills/nuwa-skill/` and is discovered automatically. **Users do not need
 to clone or download `alchaincyf/nuwa-skill` themselves.**
 
 ## What is vendored
@@ -46,18 +46,18 @@ to clone or download `alchaincyf/nuwa-skill` themselves.**
 | `scripts/srt_to_transcript.py` | SRT → transcript converter |
 | `COMMUNITY.md` / `CONTRIBUTING.md` | Community / contribution guidelines |
 
-### Example perspectives (3 vendored, referenced by `Docs/Agents/nuwa.md`)
+### Example perspectives (3 vendored, referenced by `.devin/skills/nuwa-skill/SKILL.md`)
 | Perspective | Cognitive angle | Files |
 |-------------|-----------------|-------|
 | `munger-perspective` | Charlie Munger — inversion, mental models, 25 cognitive biases | SKILL.md + FIDELITY.md + 4 reference files |
 | `feynman-perspective` | Richard Feynman — first-principles, simple explanation, analogies | SKILL.md + FIDELITY.md + 6 reference files |
 | `taleb-perspective` | Nassim Taleb — antifragility, black swans, skin in the game | SKILL.md + FIDELITY.md + 5 reference files |
 
-These 3 are the cognitive angles explicitly referenced in `Docs/Agents/nuwa.md` as
+These 3 are the cognitive angles explicitly referenced in `.devin/skills/nuwa-skill/SKILL.md` as
 the default Nuwa Team composition. The upstream repo contains 13 perspectives total;
 the other 10 (karpathy, musk, naval, jobs, paul-graham, ilya, mrbeast, trump,
-zhang-yiming, zhangxuefeng, x-mastery-mentor) can be added on demand by re-running
-`scripts/_fetch_nuwa.py` with additional paths.
+zhang-yiming, zhangxuefeng, x-mastery-mentor) can be added on demand by copying the
+additional perspective directories from the upstream repo.
 
 ### Not vendored (intentionally skipped)
 - `*.png`, `*.gif`, `*.mp4`, `*.pdf`, `*.jpg` — promotional images / videos (not functional)
@@ -69,24 +69,20 @@ zhang-yiming, zhangxuefeng, x-mastery-mentor) can be added on demand by re-runni
 
 ## Modification policy
 
-- **This vendored copy is immutable during deploy.** The deployer copies it as-is.
-- To update: re-run `python scripts/_fetch_nuwa.py` (fetches latest from upstream),
-  then commit the updated files.
-- To add more example perspectives: edit `FILES` list in `scripts/_fetch_nuwa.py`,
-  re-run, then commit.
+- **This vendored copy is immutable during deploy.** The Devin CLI skill system uses it as-is.
+- To update: fetch the latest from the upstream repo, then commit the updated files.
+- To add more example perspectives: copy the additional perspective directories from
+  the upstream repo, then commit.
 - Upstream license (MIT) is preserved in `LICENSE`. Attribution to `alchaincyf` is
   required when redistributing.
 
-## How the deployer deploys this
+## How the Devin CLI uses this
 
-1. `scripts/distill.py` runs `detect → sync → verify`.
-2. During sync, `adapters/base.py` copies `.devin/skills/nuwa-skill/` into each
-   detected tool's skills directory (e.g., `.claude/skills/nuwa-skill/`,
-   `.devin/skills/nuwa-skill/`, `.codex/skills/nuwa-skill/`).
-3. The tool's entry file (AGENTS.md / CLAUDE.md / instructions.md) references the
-   deployed skill path so the tool's AI can invoke it.
-4. Users can then say "蒸餾一個芒格" / "distill a Munger perspective" and the tool's
-   AI loads `SKILL.md` from its local skills directory — no download needed.
+1. The Nuwa skill is vendored at `.devin/skills/nuwa-skill/`.
+2. The Devin CLI skill system loads `SKILL.md` from that path when the user invokes
+   `/nuwa-skill` or the skill is auto-triggered.
+3. Users can then say "distill a Munger perspective" and the active model loads
+   `SKILL.md` from the local path — no download needed.
 
 ## Upstream reference (preserved for attribution, not required at runtime)
 

@@ -1,7 +1,7 @@
 # Core Canon — Tool-Agnostic Source of Truth
 
 > v1.0 | Single canonical rule set. Every tool's entry file is generated from this.
-> Reader: any AI coding assistant. Modify here, then run `python scripts/sync.py --canon`.
+> Reader: any AI coding assistant. Modify here, then mirror changes to the tool's entry files (`AGENTS.md`, `CLAUDE.md`) and run `tools/verify-workspace.ps1` to validate.
 
 ## 1. Identity
 

@@ -32,7 +32,7 @@ project, reverse-engineered from its public source. No runtime fetch. No network
 
 ## How the deployer uses the vault
 
-1. `scripts/sync.py` reads the canonical body from `.devin/canon/`.
+1. The deployer reads the canonical body from `.devin/canon/`.
 2. The vault files are **referenced by** the canon (e.g., CAVEMAN_PROTOCOL.md cites the
    caveman_template.json compression levels). The vault is the **structural source**; the
    canon is the **prose rendering** of that structure for AI consumption.
@@ -45,8 +45,8 @@ project, reverse-engineered from its public source. No runtime fetch. No network
 ## Modification policy
 
 - **Vault files are immutable templates.** Do not edit them during a deploy.
-- To update a vault file: edit the source canon, update the vault file, run
-  `python scripts/sync.py --canon`, then re-deploy.
+- To update a vault file: edit the source canon, update the vault file, mirror the
+  changes to the tool's entry files, then re-deploy.
 - Vault file changes require human approval (Red Line #12 ??no modifying canon during deploy).
 
 ## Reference links (preserved for attribution, not required at runtime)

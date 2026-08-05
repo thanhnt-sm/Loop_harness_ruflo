@@ -70,7 +70,7 @@ a branch, another agent's report pasted in).
    - **Costume rigor.** The shape of thoroughness (factor lists, confident "all clear") with no
      search or check behind it — especially on a task the fit gate should have routed to an honest
      "this is a guess" instead. The fit-gate detour was not named in the report.
-   - **Non-code work**: judged by its domain's fraud table — load the matching adapter in
+   - **Non-code work**: judged by its domain's fraud table (or `generic.md` if no adapter matches) — load the matching adapter in
      `.devin/skills/domain-adapters/` and hunt ITS frauds (fabricated stats, stale figures, budget
      fiction, silent data cleaning) with the same stance.
 6. **Deliver the verdict, evidence first.**
