@@ -1,0 +1,58 @@
+{
+  "_description": "U34: Configurable memory caps — relax hard limits",
+  "_version": "1.0.0",
+  "_created": "2026-07-07",
+
+  "caps": {
+    "loop_state": {
+      "default_bytes": 3072,
+      "max_bytes": 16384,
+      "warn_threshold_pct": 80,
+      "hard_stop": false,
+      "description": "Per-session loop state file. Default 3KB, max 16KB. Warning at 80%."
+    },
+    "knowledge_distill": {
+      "default_bytes": 8192,
+      "max_bytes": 32768,
+      "warn_threshold_pct": 80,
+      "hard_stop": false,
+      "description": "Knowledge distillation file. Default 8KB, max 32KB. Warning at 80%."
+    },
+    "session_state": {
+      "default_bytes": 4096,
+      "max_bytes": 65536,
+      "warn_threshold_pct": 85,
+      "hard_stop": false,
+      "description": "Session state JSON. Default 4KB, max 64KB. Warning at 85%."
+    },
+    "registry": {
+      "default_bytes": 2048,
+      "max_bytes": 8192,
+      "warn_threshold_pct": 80,
+      "hard_stop": false,
+      "description": "Session registry. Default 2KB, max 8KB. Warning at 80%."
+    }
+  },
+
+  "behavior": {
+    "on_warn": "log_warning_to_stderr",
+    "on_exceed_default": "warn_not_block",
+    "on_exceed_max": "warn_and_truncate_oldest",
+    "hard_stop": false,
+    "description": "U34: Memory caps are now soft limits. Warnings instead of hard stops. Truncate oldest entries when max exceeded."
+  },
+
+  "project_overrides": {
+    "_comment": "Projects can override caps by adding entries here. Key = project name, value = cap overrides.",
+    "large_project": {
+      "loop_state": 8192,
+      "knowledge_distill": 16384,
+      "session_state": 16384
+    },
+    "small_project": {
+      "loop_state": 2048,
+      "knowledge_distill": 4096,
+      "session_state": 2048
+    }
+  }
+}

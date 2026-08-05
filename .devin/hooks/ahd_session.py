@@ -376,12 +376,62 @@ def write_session_state(session_id: str, data: Dict[str, Any], root: Optional[Pa
     If merge=True, merge with existing data under the same lock. This lets
     `post_tool_use` update `last_heartbeat` without overwriting `current_subtask`
     set by `loop-memory`, and prevents lost updates under concurrent writes.
+
+    U34: Warns when session_state approaches or exceeds configured cap.
     """
     path = get_session_state_path(session_id, root)
     if merge:
         _locked_json_update(path, lambda existing: {**(existing or {}), **data}, default={}, session_id=session_id)
     else:
         _locked_json_write(path, data, session_id=session_id)
+
+    # U34: Check memory cap and warn
+    _check_memory_cap(path, "session_state", root)
+
+
+def _check_memory_cap(path: Path, cap_name: str, root: Optional[Path] = None) -> None:
+    """U34: Warn when file size approaches or exceeds configured cap.
+
+    Non-blocking — only logs warning to stderr.
+    """
+    try:
+        if not path.exists():
+            return
+
+        # Load memory config
+        repo_root = root or get_repo_root()
+        config_path = repo_root / ".devin" / "memory_config.json"
+        if not config_path.exists():
+            return
+
+        import json as _json
+        config = _json.loads(config_path.read_text(encoding="utf-8"))
+        cap_entry = config.get("caps", {}).get(cap_name)
+        if not cap_entry:
+            return
+
+        file_size = path.stat().st_size
+        default_bytes = cap_entry.get("default_bytes", 4096)
+        max_bytes = cap_entry.get("max_bytes", 65536)
+        warn_pct = cap_entry.get("warn_threshold_pct", 80)
+
+        warn_threshold = int(default_bytes * warn_pct / 100)
+
+        if file_size > max_bytes:
+            print(
+                f"[U34 Memory] WARNING: {path.name} exceeds max cap "
+                f"({file_size} > {max_bytes} bytes). Consider truncating oldest entries.",
+                file=sys.stderr,
+            )
+        elif file_size > warn_threshold:
+            pct = int(file_size * 100 / default_bytes)
+            print(
+                f"[U34 Memory] WARNING: {path.name} approaching cap "
+                f"({file_size}/{default_bytes} bytes, {pct}%).",
+                file=sys.stderr,
+            )
+    except Exception:
+        pass  # non-blocking
 
 
 def update_session_state(session_id: str, fields: Dict[str, Any], root: Optional[Path] = None) -> None:

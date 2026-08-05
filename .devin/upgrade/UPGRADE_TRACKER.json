@@ -25,7 +25,7 @@
     },
     "P2": {
       "total": 15,
-      "done": 8,
+      "done": 9,
       "in_progress": 0,
       "pending": 15,
       "blocked": 0
@@ -842,7 +842,7 @@
       "phase": "P2",
       "priority": "medium",
       "expert": "Architecture Critic",
-      "status": "pending",
+      "status": "done",
       "dependencies": [],
       "dependents": [],
       "effort_days": 1,
@@ -852,10 +852,10 @@
       ],
       "acceptance_criteria_count": 3,
       "started_date": null,
-      "completed_date": null,
-      "verifier": null,
+      "completed_date": "2026-07-07",
+      "verifier": "GLM-5.2 High",
       "commit_hash": null,
-      "notes": ""
+      "notes": "AC: 3/3 passed. memory_config.json: 4 cap categories (loop_state 3KB, knowledge_distill 8KB, session_state 4KB, registry 2KB). Max caps: 16KB/32KB/64KB/8KB. Warn threshold 80-85%. Soft limits (warn not block). Project overrides support. ahd_session.py: _check_memory_cap() warns on approach/exceed. verify-workspace: 60/60 pass."
     },
     {
       "id": "U35",
