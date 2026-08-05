@@ -35,6 +35,7 @@ HOOK_TIMEOUT_SECONDS = 2.5
 # Safe zone: agent được phép ghi file vào các thư mục này
 SAFE_ZONES = (
     "src/",
+    "tests/",
     ".devin/skills/",
     ".devin/agents/personas/",
     "scripts/",
@@ -59,6 +60,12 @@ BLOCKED_ZONES = (
     # C-02: Agent KHÔNG được sửa config (will change permissions/deny list)
     ".devin/config.json",
     ".devin/config.local.json",
+    ".devin/config.minimal.json",
+    ".devin/tool_registry.json",
+    ".devin/risk_contract.json",
+    ".devin/hook_hashes.json",
+    ".devin/memory_config.json",
+    ".devin/mcp_config.json",
     # C-02: Agent KHÔNG được sửa AGENTS.md (will change own rules)
     "AGENTS.md",
     ".devin/AGENTS.md",
@@ -111,6 +118,21 @@ def _normalize_path(file_path: str) -> str:
     return norm
 
 
+def _resolve_under_root(file_path: str, root: Path) -> Path | None:
+    """Resolve đường dẫn dưới repo root. Trả None nếu nằm ngoài root."""
+    root_resolved = root.resolve()
+    p = Path(file_path).expanduser()
+    if p.is_absolute():
+        resolved = p.resolve()
+    else:
+        resolved = (root_resolved / p).resolve()
+    try:
+        resolved.relative_to(root_resolved)
+    except ValueError:
+        return None
+    return resolved
+
+
 def _gate_json_schema(tool_output) -> dict | None:
     """Cổng 1: JSON schema validation.
 
@@ -147,7 +169,10 @@ def _gate_required_fields(tool_name: str, tool_input: dict, tool_output) -> dict
     Kiểm tra tool_input có đủ các trường bắt buộc không.
     Trả về dict lỗi nếu thiếu, None nếu pass.
     """
-    required = REQUIRED_FIELDS_BY_TOOL.get(tool_name)
+    required = next(
+        (v for k, v in REQUIRED_FIELDS_BY_TOOL.items() if k.lower() == tool_name.lower()),
+        None,
+    )
     if not required:
         return None  # tool không có yêu cầu trường -> pass
     missing = [f for f in required if f not in tool_input or tool_input[f] in (None, "")]
@@ -254,7 +279,7 @@ def _gate_symbol_verification(tool_name: str, tool_input: dict, root: Path) -> d
     return None
 
 
-def _gate_file_path_validation(tool_name: str, tool_input: dict) -> dict | None:
+def _gate_file_path_validation(tool_name: str, tool_input: dict, root: Path) -> dict | None:
     """Cổng 5: File path validation — chặn path traversal và ghi ngoài safe zone.
 
     Áp dụng cho tool ghi file (Write/Edit/NotebookEdit).
@@ -266,7 +291,24 @@ def _gate_file_path_validation(tool_name: str, tool_input: dict) -> dict | None:
     file_path = _extract_file_path(tool_input)
     if not file_path:
         return None
-    norm = _normalize_path(file_path)
+
+    # Resolve đường dẫn dưới repo root; tuyệt đối ngoài root -> block
+    resolved = _resolve_under_root(file_path, root)
+    if resolved is None:
+        return {
+            "reason": "File path outside repo root is not allowed",
+            "details": {"file": file_path},
+        }
+
+    try:
+        rel = resolved.relative_to(root.resolve())
+    except ValueError:
+        return {
+            "reason": "File path outside repo root is not allowed",
+            "details": {"file": file_path},
+        }
+    norm = _normalize_path(str(rel))
+
     # Kiểm tra path traversal: .. trong đường dẫn
     if ".." in norm.split("/"):
         return {
@@ -282,16 +324,14 @@ def _gate_file_path_validation(tool_name: str, tool_input: dict) -> dict | None:
                 "details": {"file": file_path, "zone": zone},
             }
     # Kiểm tra safe zone: đường dẫn phải nằm trong ít nhất một safe zone
-    # (chỉ áp dụng nếu đường dẫn là tương đối; tuyệt đối ngoài repo -> cảnh báo)
-    if not Path(file_path).is_absolute():
-        in_safe = any(norm.startswith(sz) for sz in SAFE_ZONES)
-        if not in_safe:
-            return {
-                "reason": (
-                    f"File outside safe zone. Safe zones: {', '.join(SAFE_ZONES)}"
-                ),
-                "details": {"file": file_path, "safe_zones": list(SAFE_ZONES)},
-            }
+    in_safe = any(norm.startswith(sz) for sz in SAFE_ZONES)
+    if not in_safe:
+        return {
+            "reason": (
+                f"File outside safe zone. Safe zones: {', '.join(SAFE_ZONES)}"
+            ),
+            "details": {"file": file_path, "safe_zones": list(SAFE_ZONES)},
+        }
     return None
 
 
@@ -307,7 +347,7 @@ def _run_gates(tool_name: str, tool_input: dict, tool_output, root: Path) -> dic
         ("required_fields", lambda: _gate_required_fields(tool_name, tool_input, tool_output)),
         ("secret_scan", lambda: _gate_secret_scan(tool_output)),
         ("symbol_verification", lambda: _gate_symbol_verification(tool_name, tool_input, root)),
-        ("file_path_validation", lambda: _gate_file_path_validation(tool_name, tool_input)),
+        ("file_path_validation", lambda: _gate_file_path_validation(tool_name, tool_input, root)),
     ]
     for gate_name, gate_fn in gates:
         try:

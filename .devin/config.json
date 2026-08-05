@@ -29,6 +29,7 @@
       "Exec(python .devin/scripts/plan_orchestrator.py:*)",
       "Exec(python .devin/scripts/approval_gate.py:*)",
       "Exec(python .devin/scripts/plan_quality_check.py:*)",
+      "Exec(python .devin/scripts/*.py:*)",
       "Exec(python tools/cross_platform.py:*)",
       "Exec(pwsh tools/verify-workspace.ps1)",
       "Exec(pwsh tools/health-check.ps1)",
@@ -65,6 +66,7 @@
       "Exec(git clean -fd:*)",
       "Exec(git checkout -- .:*)",
       "Exec(git branch -D:*)",
+      "Exec(git reset --hard:*)",
       "Exec(dd:*)",
       "Exec(format:*)",
       "Exec(shred:*)",
@@ -142,6 +144,11 @@
             "type": "command",
             "command": "bash $APPDATA/nvm/v18.20.0/node_modules/aide-memory\\scripts\\hooks\\stop-remember.sh",
             "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "python .devin/hooks/stop.py",
+            "timeout": 10
           }
         ]
       }

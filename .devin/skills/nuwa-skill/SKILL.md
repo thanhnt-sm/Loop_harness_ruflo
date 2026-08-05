@@ -1,11 +1,13 @@
 ---
-name: huashu-nuwa
+name: nuwa-skill
 description: |
   女娲造人：输入人名/主题/甚至只是模糊需求，自动深度调研→思维框架提炼→生成可运行的人物Skill。
   两种入口：(1)明确人名→直接蒸馏 (2)模糊需求→诊断推荐→再蒸馏。
   触发词：「造skill」「蒸馏XX」「女娲」「造人」「XX的思维方式」「做个XX视角」「更新XX的skill」。
   模糊需求也触发：「我想提升决策质量」「有没有一种思维方式能帮我...」「我需要一个思维顾问」。
   English triggers: "distill [person]", "nuwa", "create a [person] perspective skill", "how does [person] think", "I need a thinking advisor".
+
+  **Note**: Some external tools and skills referenced in this skill (subtitle downloaders, video readers, PDF readers, etc.) are not part of the base workspace and must be provided by the user if needed.
 triggers: [user, model]
 ---
 
@@ -48,7 +50,7 @@ triggers: [user, model]
 1. **这个人/主题是谁**：确保理解正确
 2. **聚焦方向**（可选）：全面画像 vs 聚焦某个维度？
 3. **用途**：思维顾问？决策参考？角色扮演？
-4. **新建 or 更新**：是否已有该人物的Skill？（检查 `.claude/skills/` 目录）
+4. **新建 or 更新**：是否已有该人物的Skill？（检查 `.devin/skills/` 目录）
 5. **本地语料**：「你手上有没有这个人的一手素材？比如书籍PDF、演讲/访谈transcript、视频字幕、个人博客导出等。有的话直接丢给我，比网上搜的质量高得多。」
 6. **蒸馏档位**：告知用户成本量级并确认档位。完整蒸馏是多agent+多轮搜索的长任务，顶级模型单次可消耗数十美元（真实用户案例），必须在开跑前说清楚：
 
@@ -119,7 +121,7 @@ triggers: [user, model]
 - 不确定 → 推荐中同时包含两种类型，让用户选
 
 **来源A：本地已有Skill**
-扫描 `.claude/skills/*-perspective/` 目录，读取每个SKILL.md的description，匹配用户需求。已有Skill可以即插即用，不需要重新蒸馏。如果扫描结果为空（用户还没有任何perspective skill），跳过此步，只从来源B推荐。
+扫描 `.devin/skills/*-perspective/` 目录，读取每个SKILL.md的description，匹配用户需求。已有Skill可以即插即用，不需要重新蒸馏。如果扫描结果为空（用户还没有任何perspective skill），跳过此步，只从来源B推荐。
 
 **来源B：新蒸馏候选**
 基于需求维度表中的「思维框架方向」列，匹配最相关的人物或主题。推荐时说清楚：这个人的哪个思维框架能解决用户的具体问题。
@@ -152,7 +154,7 @@ triggers: [user, model]
 **收到确认后立即执行**，在调研之前完成：
 
 ```
-.claude/skills/[person-name]-perspective/
+.devin/skills/[person-name]-perspective/
 ├── SKILL.md                          # 最终产物
 ├── scripts/                          # 工具脚本（字幕下载/清洗/质量检查）
 └── references/
@@ -282,7 +284,7 @@ spawn subagent时，用以下结构给任务（以Agent 1著作为例）：
 
 #### 利用已安装的信息获取Skill
 
-Phase 1启动前，**主动扫描 `.claude/skills/` 目录**，检查是否有可用于信息获取的skill。如果有，在调研中优先调用，比WebSearch更稳定高效：
+Phase 1启动前，**主动扫描 `.devin/skills/` 目录**，检查是否有可用于信息获取的skill。如果有，在调研中优先调用，比WebSearch更稳定高效：
 
 | 已安装Skill | 用途 | 调用场景 |
 |------------|------|---------|
@@ -517,7 +519,7 @@ Phase 1启动前，**主动扫描 `.claude/skills/` 目录**，检查是否有�
 构建完成后，读取 `references/extraction-framework.md` 末尾的「质量自检清单」，逐项检查。不通过的项标注出来，回到对应Phase修复。
 
 #### Step 4: 输出
-将完成的SKILL.md写入 `.claude/skills/[person-name]-perspective/SKILL.md`。
+将完成的SKILL.md写入 `.devin/skills/[person-name]-perspective/SKILL.md`。
 
 ---
 

@@ -76,7 +76,6 @@ Agent Harness Deploy is a *deployer*, not a product. The product is the harness 
 
 ### Obvious to me, not to you
 - `.devin/` = deployer dogfooding itself. Not a template for what gets synced.
-- `Docs/02-Deployment-Guide.md` is the only Doc BOOT mandates reading. Rest are on-demand.
 
 ### Unfinished
 - deep-memory integration documented but not wired into BOOT automatically. Reason: requires venv + model download. Recommendation: leave opt-in.

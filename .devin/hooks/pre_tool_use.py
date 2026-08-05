@@ -129,9 +129,9 @@ def normalize_command(command: str) -> str:
 # Patterns that are always blocked
 DANGEROUS_PATTERNS = [
     # rm -rf with broad targets
-    (r"\brm\s+(-[a-z]*r[a-z]*f|--recursive\s+--force)\s+(/|/\*|~|\$HOME|\.\.|\*|\.)", "rm -rf with broad target"),
-    # git push --force / -f to main/master
-    (r"\bgit\s+push\s+(--force|-f)\b.*\b(main|master)\b", "force-push to main/master"),
+    (r"\brm\s+(-[a-z]*r[a-z]*f|--recursive\s+--force)\s+(/|/\*|~|\$HOME|\.\.|\*|\.|\.git|\.git/)", "rm -rf with broad target"),
+    # git push --force / -f to any branch
+    (r"\bgit\s+push\s+(--force|-f)\b", "force-push"),
     # git reset --hard to remote
     (r"\bgit\s+reset\s+--hard\b.*\b(origin|upstream)\b", "hard reset to remote"),
     # curl/wget pipe to shell

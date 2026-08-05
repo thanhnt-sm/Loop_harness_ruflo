@@ -220,6 +220,20 @@ scripts/
 .aide/recall-log.jsonl
 .aide/pending-memories.jsonl
 
+# Backup directories
+.devin.backup_*/
+
+# Runtime state directories
+.devin/plan_state/
+.devin/session_state/
+.devin/context_flags/
+.devin/loop_state_archive/
+
+# Allow current project tests and templates
+!tests/
+!tests/**
+tests/__pycache__/
+
 # Remaining ruflo artifacts
 .agents/
 .harness/

@@ -9,7 +9,7 @@ Models grade their own work too leniently. The author has invested in the answer
 |--------|--------------|
 | File write | Fresh-context agent `read(path, offset, limit)` confirms content |
 | Code | CLI gate: build / typecheck / lint / test. Pass = verified. |
-| Config sync | `scripts/verify.py` read-backs every written file and checks format/link integrity |
+| Config sync | `tools/verify-workspace.ps1` read-backs every written file and checks format/link integrity |
 | Visual output | Delegate to vision-capable agent. Never self-judge an image. |
 | High-risk judgment | Multi-agent debate: 2 independent agents, integrate differences |
 | Rules/docs | `read` + `grep` for version headers, link targets, referenced paths; every claim must be evidence-graded |
@@ -289,7 +289,7 @@ The jump from 0% to N% > N% to 100%. **Start with what you can define, even if i
 |-------------------|---|
 | AGENTS.md / CLAUDE.md / REDLINES.md / BOOT_PROTOCOL.md | Q2 |
 | pre_tool_use.py hooks / L0-L4 permission taxonomy | Q1 |
-| post_tool_use.py / verify.py / distill.py / warning keywords / security benchmark | Q3 |
+| post_tool_use.py / verify.py / memory_audit.py / warning keywords / security benchmark | Q3 |
 | Nuwa cognitive angles / Auditor skill / Fresh-context verifier | Q4 |
 ### Rule
 - **Harness must cover all four quadrants.** Missing = blind spot.
@@ -550,7 +550,7 @@ is a mechanical check, not a judgment call — `fable-judge` automates it.
 - `.devin/agents/workers/AUDITOR.md` — the Auditor worker (fresh context, adversarial).
 - `.devin/skills/fable-judge.md` — adversarial "done" gate; re-runs claimed verifications, hunts frauds, sweeps verbatim gate lines (INTENT/AUTH/TWINS/PENDING). Fires on every "done" declaration.
 - `.devin/skills/harness-sensor.md` — the computational sensor (deterministic checks).
-- `scripts/verify.py` — the deployer's own verification (read-back after sync).
+- `tools/verify-workspace.ps1` — the deployer's own verification (read-back after sync).
 ## The honest limit
 Verification can confirm: the file exists, the build passes, the criteria are met, the marker is present. It cannot confirm: the design is good, the taste is right, the choice among valid options is the best one. For those, escalate to a human. That's not a failure — it's the honest clause in action.
 

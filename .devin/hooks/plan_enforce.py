@@ -148,48 +148,43 @@ def _classify_tier(task_description: str, session_state: dict) -> str:
     return "M"
 
 
-def _is_plan_file(file_path: str) -> bool:
+def _is_plan_file(file_path: str, root: Path) -> bool:
     """Kiểm tra: file có thuộc docs/plans/ không? (cho phép viết plan)"""
     if not file_path:
         return False
-    p = Path(file_path)
-    return "docs" in p.parts and "plans" in p.parts
+    p = (root / file_path).resolve()
+    try:
+        rel = p.relative_to(root.resolve())
+    except ValueError:
+        return False
+    norm = str(rel).replace("\\", "/")
+    return norm.startswith("docs/plans/")
 
 
-def _is_template_file(file_path: str) -> bool:
+def _is_template_file(file_path: str, root: Path) -> bool:
     """Kiểm tra: file có thuộc docs/templates/ không?"""
     if not file_path:
         return False
-    p = Path(file_path)
-    return "docs" in p.parts and "templates" in p.parts
+    p = (root / file_path).resolve()
+    try:
+        rel = p.relative_to(root.resolve())
+    except ValueError:
+        return False
+    norm = str(rel).replace("\\", "/")
+    return norm.startswith("docs/templates/")
 
 
 def _extract_file_path(tool_input: dict) -> str | None:
-    """Trích file path từ tool input — kiểm tra nhiều key phổ biến."""
+    """Trích file path từ tool input — chỉ kiểm tra key chuẩn."""
     if not tool_input:
         return None
-    # Các key phổ biến cho write/edit tools
-    for key in ("file_path", "path", "filename", "file", "target", "destination"):
+    # Các key chuẩn cho write/edit/notebook_edit tools
+    for key in ("file_path", "path", "notebook_path", "filename", "file", "target", "destination"):
         if key in tool_input:
             val = tool_input[key]
             if isinstance(val, (str, os.PathLike)):
                 return str(val)
-    # Fallback: tìm string chứa dấu / hoặc \ trong nested dict
-    def _find_path(obj):
-        if isinstance(obj, str) and ("/" in obj or "\\" in obj):
-            # Ưu tiên các đường dẫn source / docs / tests
-            if any(obj.startswith(p) for p in ("src/", "tests/", ".devin/", "docs/", "HLK/")):
-                return obj
-            # Nếu kết thúc bằng extension phổ biến → cũng coi là file path
-            if any(obj.endswith(ext) for ext in (".py", ".js", ".ts", ".md", ".json", ".yml", ".yaml", ".toml")):
-                return obj
-        if isinstance(obj, dict):
-            for v in obj.values():
-                found = _find_path(v)
-                if found:
-                    return found
-        return None
-    return _find_path(tool_input)
+    return None
 
 
 def main():
@@ -224,7 +219,7 @@ def main():
     file_path = _extract_file_path(tool_input)
     if file_path:
         # Cho phép viết plan files + templates
-        if _is_plan_file(file_path) or _is_template_file(file_path):
+        if _is_plan_file(file_path, root) or _is_template_file(file_path, root):
             print(json.dumps({"allow": True, "reason": "writing plan/template file"}))
             sys.exit(0)
 

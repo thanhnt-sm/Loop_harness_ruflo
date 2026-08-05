@@ -25,10 +25,15 @@ devin -p -- "mô tả công việc"          # Non-interactive
 /lightning <task>     # Executor SWE-1.7 Lightning (sau khi plan approved)
 /glm <task>           # Executor GLM-5.2 (free, sau khi plan approved)
 /kimi <task>          # Executor Kimi K2.7 (free, sau khi plan approved)
-/auditor             # Audit code
+/adversarial-consensus <artifact>  # 3-persona adversarial review
+/aide-memory          # Persistent memory recall/remember
+/nuwa-skill <task>    # Research-heavy content tasks
+/hlk-git-tools      # Git commit/push/doctor tools
+/hlk-integrity-check  # Verify HLK layer integrity
+/assets               # Slop patterns and vault assets
+/auditor              # Audit code
 /tdd                 # Test-driven development
 /gap-scan            # Scan thiếu sót
-/adversarial-consensus <artifact>  # 3-persona adversarial review
 ```
 
 ## 3-Phase Architecture (Plan → Approve → Execute) — BẮT BUỘC
@@ -95,12 +100,12 @@ S-tier (<5 lines, 1 file, no destructive op) → orchestrator auto-skip, sửa t
 
 ## AHD components (on-demand)
 
-- **Canon**: `.devin/canon/` — 10 protocol files
-- **Skills**: `.devin/skills/` — 23 skills (auditor, tdd, gap-scan, slop-detector, v.v.)
+- **Canon**: `.devin/canon/` — 15 protocol files
+- **Skills**: `.devin/skills/` — 11 skills (plan, full-power, lightning, glm, kimi, adversarial-consensus, aide-memory, nuwa-skill, hlk-git-tools, hlk-integrity-check, assets)
 - **Agents**: `.devin/agents/` — 3 executors + COMMANDER + 6 personas + 5 workers
-- **Hooks**: `.devin/hooks/` — 7 Python hooks (pre/post tool, session start/end, stop)
-- **Scripts**: `.devin/scripts/` — 8 runtime scripts
-- **HLK**: `HLK/` — security layer (sanitizer + vault-bridge)
+- **Hooks**: `.devin/hooks/` — 13 Python hooks
+- **Scripts**: `.devin/scripts/` — 21 runtime scripts
+- **HLK**: `HLK/` — security layer
 - **Tools**: `tools/` — packaging, deploy, verify, health-check
 
 ## Red Team + Upgrades

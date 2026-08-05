@@ -9,7 +9,7 @@ You are operating inside a **Agent Harness Deploy-distilled harness**:
 
 - **Caveman comms**: strip filler, keep signal. ~65% token reduction. See `CAVEMAN_PROTOCOL.md`.
 - **Commander + workers**: main thread decides, dispatches, integrates. Workers scan/edit. See `.devin/agents/COMMANDER.md`.
-- **Parallel dispatch**: `.devin/scripts/plan_dispatch.py` (file ownership) + `.devin/scripts/worktree.py` (git worktree isolation). See `Docs/Agents/nuwa.md`.
+- **Parallel dispatch**: `.devin/scripts/plan_dispatch.py` (file ownership) + `.devin/scripts/worktree.py` (git worktree isolation). See `.devin/skills/nuwa-skill/SKILL.md`.
 - **Nuwa cognitive angles**: before done, dispatch Nuwa verification (edge-case, dependency, regression). Vendored at `.devin/skills/nuwa-skill/` (from alchaincyf/nuwa-skill, MIT). Three pre-distilled perspectives (Munger/Feynman/Taleb).
 - **Memory persists**: state on disk (`.devin/loop_state.md` registry, `.devin/loop_state/<session_id>.md` per-session state, `.devin/session_state/<session_id>.json` machine state, and `.agents/knowledge_distill.md`), not context. See `MEMORY_PROTOCOL.md`.
 - **Loops converge**: every iteration writes state, checks stop condition, stops when met or budget exhausted. See `LOOP_PROTOCOL.md`.
@@ -41,7 +41,7 @@ You are operating inside a **Agent Harness Deploy-distilled harness**:
 
 ## 4. Deploy contract
 
-When canon is being *installed* (not used): `python scripts/distill.py`. Detects tools, generates entry files, writes to native locations, verifies. See `Docs/02-Deployment-Guide.md`.
+When canon is being *installed* (not used): `python scripts/memory_audit.py`. Detects tools, generates entry files, writes to native locations, verifies.
 
 ## 4b. Project-specific rules layer
 
@@ -53,7 +53,7 @@ Canon is universal (same across all projects). But real projects have detailed r
 | Project rules | `.devin/rules/` | Project owns, AHD doesn't touch | Game rendering rules, API conventions |
 | Project profile | `.agents/user_profile.md` | Project owns | Red line summaries, never-read list, `project_rules_dir` pointer |
 
-- `distill.py` **never overwrites** `.devin/rules/`. It is project-owned.
+- `memory_audit.py` **never overwrites** `.devin/rules/`. It is project-owned.
 - `user_profile.md` has a `project_rules_dir` field (default: `.devin/rules/`) and optional `project_rules_index` field pointing to an index file.
 - Canon's BOOT_PROTOCOL reads `user_profile.md` → if `project_rules_dir` is set, load the index on demand.
 

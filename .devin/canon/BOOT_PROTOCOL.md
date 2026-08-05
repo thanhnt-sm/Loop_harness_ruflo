@@ -8,8 +8,8 @@
 > - `.devin/canon/CORE_CANON.md` (~2KB)
 > - `.devin/canon/REDLINES.md` (top 5, ~2KB)
 > - `.devin/loop_state.md` (registry, <3KB)
-> - `.devin/knowledge_distill.md` (<8KB)
-> - `.devin/user_profile.md` (<2KB)
+> - `.agents/knowledge_distill.md` (<8KB)
+> - `.agents/user_profile.md` (<2KB)
 >
 > **All other canon = ON-DEMAND ONLY.** Track in session_state.loaded_canon.
 >
@@ -46,7 +46,7 @@
 
 13. Deep-memory check (if `~/.deep-memory/.venv` exists)
 14. Large-repo init (if >50 source files → `init_deep` skill)
-15. Task keyword lookup (if `context_quick_lookup.md` exists)
+15. Task keyword lookup — optional, only if `context_quick_lookup.md` exists
 16. Project rules check (if `project_rules_dir` set)
 17. Differential gap-scan (1-2 scope angles only)
 
@@ -62,7 +62,7 @@
 
 ## U40: Minimal mode (graceful degradation)
 
-If MCP unreachable, hook error, config parse error, or state dir missing → switch to `config.minimal.json`.
+If MCP unreachable, hook error, config parse error, or state dir missing → switch to a minimal safe config (pre_tool_use, post_tool_use, stop, ahd_session only).
 
 Keeps: pre_tool_use, post_tool_use, stop, ahd_session.
 Disables: HLK, aide-memory hooks, MCP, skills, compaction, cost tracking.

@@ -86,7 +86,7 @@ Can't write positive/negative examples? Criterion too vague → escalate to huma
 |---|---------|
 | **Question** | Is there an active, crashed, or suspected-crashed session whose `owned_files`/`affected_files`/`tags` overlap the new task? |
 | **Positive** | "Session `s-20260709-abc` is `suspected_crashed` on `current_subtask: add file lock to base.py`. New task is `fix sync.py concurrency` and `owned_files` lists `scripts/sync.py` and `adapters/base.py`." |
-| **Negative** | "No active sessions, or active session `s-xyz` owns `Docs/Agents/nuwa.md` while new task is `scripts/distill.py` with no file/tag overlap." |
+| **Negative** | "No active sessions, or active session `s-xyz` owns `.devin/skills/nuwa-skill/SKILL.md` while new task is `scripts/memory_audit.py` with no file/tag overlap." |
 | **Action +** | STOP. Read `.devin/loop_state/<session_id>.md` and `.devin/session_state/<session_id>.json`. Ask the human: "Session `s-xxx` was interrupted at `<current_subtask>`. Continue it, or start new?" |
 | **Action −** | Start a new session with a fresh `session_id`; keep the old session in `active_sessions` unless it is completed. |
 
@@ -147,7 +147,7 @@ Determine whether a task is actually done — not just "looks done."
 | R-TC2 | Verified by fresh context? | Verifier (fresh) read back + ran pytest. PASS. | Builder: "I checked my changes, they look correct." | −: NOT verified. Dispatch fresh-context Verifier. Red line. |
 | R-TC3 | Full test suite run (regression check)? | Changed sync.py → ran `pytest tests/` (full). All pass. | Changed sync.py → ran only `test_sync.py`. | −: Run full suite. Any fail = NOT done (regression). |
 | R-TC4 | loop_state.md updated before declaring done? | Last action: write loop_state.md "ST-3 done, next: ST-4" | Declares done but state shows "ST-3 in progress" | −: Write state first. Done without state = red line. |
-| R-TC5 | Nuwa run for L/XL tasks? | Ran Edge Case + Dependency + Regression trees. All clean. | "I'm confident it's correct." No Nuwa. | −: Run Nuwa before declaring done. See `Docs/Agents/nuwa.md`. |
+| R-TC5 | Nuwa run for L/XL tasks? | Ran Edge Case + Dependency + Regression trees. All clean. | "I'm confident it's correct." No Nuwa. | −: Run Nuwa before declaring done. See `.devin/skills/nuwa-skill/SKILL.md`. |
 
 ### Category 3: Human Escalation Circuit Breakers (R-HE)
 

@@ -715,6 +715,9 @@ def _u62_memory_confidence(data: dict, session_id: str, root: Path) -> None:
             f"Consider escalating to human. Honest limit threshold: 70%.",
             file=sys.stderr,
         )
+
+
+if __name__ == "__main__":
     # U15: Internal timeout — post-hook always exits 0, just fail silently if too slow.
     t = threading.Thread(target=main, daemon=True)
     t.start()
