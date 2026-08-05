@@ -9,7 +9,7 @@ Workspace sử dụng **Agent Harness Deploy** (masteryee-labs/Tool.Agent-Harnes
 | Layer | Location | Mục đích |
 |-------|----------|----------|
 | Canon (universal rules) | `.devin/canon/` | 10 protocol files: BOOT, MEMORY, LOOP, VERIFICATION, CAVEMAN, REDLINES, HARNESS_ENGINEERING, JUDGMENT_RUBRICS, HANDOFF_LETTER, CORE_CANON |
-| Orchestrator | `.devin/agents/COMMANDER.md` + personas/ + workers/ | Commander + Worker persona system (backend_architect, code_reviewer, devops_automator, frontend_developer, git_workflow_master, software_architect) |
+| Orchestrator | `.devin/agents/COMMANDER.md` + personas/ + workers/ | Commander + Worker persona system (architect, code_reviewer, database_optimizer, devops_automator, frontend_developer, git_workflow_master) |
 | Skills (AHD) | `.devin/skills/*.md` + `nuwa-skill/` + `chroma-hybrid-search/` + `domain-adapters/` | 16 harness skills: auditor, claim-grader, comment_checker, context-compactor, fable-judge, gap-scan, graph-verify, harness-sensor, init_deep, loop-memory, memory-audit, slop-detector, systematic_debugging, tdd, user-preference, using-skills |
 | Runtime hooks | `.devin/hooks/` | Python hooks: pre_tool_use.py, post_tool_use.py, stop.py, ahd_session.py |
 | Runtime scripts | `.devin/scripts/` | 7 scripts: worktree.py, plan_dispatch.py, session_manager.py, loop_memory_sync.py, memory_audit.py, pre_task_audit.py, ahd_session.py |
@@ -46,7 +46,7 @@ Commander (main thread)
 └── Nuwa cognitive angles — Munger/Feynman/Taleb verification
 ```
 
-Personas: `backend_architect`, `code_reviewer`, `database_optimizer`, `devops_automator`, `frontend_developer`, `git_workflow_master`, `software_architect`
+Personas: `architect`, `code_reviewer`, `database_optimizer`, `devops_automator`, `frontend_developer`, `git_workflow_master`
 
 ## Tích hợp với existing stack
 
@@ -216,13 +216,12 @@ Cả 2 skill cùng pattern:
 | `DISPATCH_TEMPLATES.md` | Dispatch templates cho worker personas |
 | `model_tiers.md` | Model tier routing (Tier 1/2/3) |
 | `PERSONA_TEMPLATE.md` | Template để tạo persona mới |
-| `personas/backend_architect.md` | Backend architecture persona |
+| `personas/architect.md` | System + backend architecture persona (merged from backend_architect + software_architect) |
 | `personas/code_reviewer.md` | Code review persona |
 | `personas/database_optimizer.md` | Database optimization persona |
 | `personas/devops_automator.md` | DevOps automation persona |
 | `personas/frontend_developer.md` | Frontend development persona |
 | `personas/git_workflow_master.md` | Git workflow persona |
-| `personas/software_architect.md` | Software architecture persona |
 | `workers/AUDITOR.md` | Auditor worker — verify |
 | `workers/BUILDER.md` | Builder worker — implement |
 | `workers/MEMORY_KEEPER.md` | Memory keeper worker — persist state |
