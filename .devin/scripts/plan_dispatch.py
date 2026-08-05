@@ -308,15 +308,25 @@ def _build_dependency_graph(subtasks: list[dict], conflicts: list[dict]) -> dict
     If subtask A and B share a file, and A is suggested to go first
     (suggested_order), then B depends on A: B must wait for A to finish.
 
+    U16 redteam: Active session conflicts have session_id in suggested_order,
+    which is NOT a subtask. We skip those — active session conflicts are
+    handled separately via parallel_safe flag, not via dispatch_order.
+
     Returns adjacency list: {subtask_id: [depends_on_ids]}.
     """
     graph: dict[str, list[str]] = {st["id"]: [] for st in subtasks}
     for c in conflicts:
+        # U16 redteam: skip active session conflicts (session_id not a subtask)
+        if c.get("resolution") == "wait_for_session":
+            continue
         order = c.get("suggested_order", [])
         if len(order) >= 2:
             # order[0] goes first, order[1+] depend on order[0]
             for dependent in order[1:]:
-                if dependent in graph and order[0] not in graph[dependent]:
+                # U16 redteam: skip self-dependency
+                if dependent == order[0]:
+                    continue
+                if dependent in graph and order[0] in graph and order[0] not in graph[dependent]:
                     graph[dependent].append(order[0])
     return graph
 
@@ -326,19 +336,15 @@ def _topological_sort(graph: dict[str, list[str]]) -> tuple[list[str] | None, li
 
     Returns (dispatch_order, cycle_nodes):
     - dispatch_order: list of subtask IDs in dependency order (None if cycle)
-    - cycle_nodes: list of subtask IDs in a cycle (empty if no cycle)
+    - cycle_nodes: list of subtask IDs with unresolved dependencies
+      (includes nodes in cycles AND nodes depending on cycles)
     """
     from collections import deque
 
-    # Build in-degree map
-    in_degree: dict[str, int] = {node: 0 for node in graph}
-    for node, deps in graph.items():
-        for dep in deps:
-            if dep in in_degree:
-                pass  # dep is a dependency, not counted in in_degree of dep
-    # Recalculate: in_degree[node] = number of nodes that node depends on
+    # U16 redteam: in_degree = count of dependencies that exist in graph
+    in_degree: dict[str, int] = {}
     for node in graph:
-        in_degree[node] = len(graph[node])
+        in_degree[node] = sum(1 for dep in graph[node] if dep in in_degree or dep in graph)
 
     # Queue of nodes with no dependencies
     queue = deque([n for n in graph if in_degree[n] == 0])
@@ -355,7 +361,8 @@ def _topological_sort(graph: dict[str, list[str]]) -> tuple[list[str] | None, li
                     queue.append(other)
 
     if len(order) < len(graph):
-        # Cycle detected — find cycle nodes
+        # Cycle detected — find nodes with remaining dependencies
+        # Note: includes nodes in cycles AND nodes that depend on cycles
         cycle_nodes = [n for n in graph if in_degree[n] > 0]
         return None, cycle_nodes
 
