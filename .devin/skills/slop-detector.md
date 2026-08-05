@@ -3,6 +3,7 @@ name: slop-detector
 description: "Use after generating user-facing prose, docs, commit messages, naming, or code. Detects AI-generated filler, generic abstractions, and meaningless identifiers."
 version: "1.2.0"
 last_updated: "2026-07-07"
+triggers: [user, model]
 ---
 
 # Skill: slop-detector

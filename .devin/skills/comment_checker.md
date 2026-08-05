@@ -1,6 +1,7 @@
 ---
 name: comment_checker
 description: "Use after any code edit that touches comments, or before declaring a code task complete. Detects AI-slop comments — filler, over-explanation, restating the obvious, hedge words — and flags them for removal. Code should read like a senior engineer wrote it."
+triggers: [user, model]
 ---
 
 # Skill: comment_checker

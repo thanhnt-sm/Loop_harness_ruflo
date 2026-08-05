@@ -32,39 +32,15 @@ LLMs are stateless between runs. Every new session starts cold. If rules, lesson
 
 ## Deep-memory (optional, cross-project)
 
-If `~/.deep-memory/.venv` exists, the harness can retrieve cross-project experience via
-hybrid search (BM25 + vector + reranker). The search skill ships in this repo at
-`.devin/skills/chroma-hybrid-search/`.
-
-### Bootstrap
-
-Run `python scripts/init_deep_memory.py` to create the venv, install dependencies, and build an empty index.
-
-### Setup (manual)
-```bash
-# Windows
-python -m venv "$HOME\.deep-memory\.venv"
-& "$HOME\.deep-memory\.venv\Scripts\python" -m pip install -r .devin/skills/chroma-hybrid-search/requirements.txt
-
-# Linux/macOS
-python3 -m venv "$HOME/.deep-memory/.venv"
-"$HOME/.deep-memory/.venv/bin/python" -m pip install -r .devin/skills/chroma-hybrid-search/requirements.txt
-```
-
-### Retrieval
-```bash
-# <PY> = ~/.deep-memory/.venv python (Windows: & "$HOME\.deep-memory\.venv\Scripts\python")
-<PY> .devin/skills/chroma-hybrid-search/scripts/search.py \
-  --query "task keywords" --limit 3 --min-score 0.35
-```
-
-### Writing cold notes
-```bash
-<PY> .devin/skills/chroma-hybrid-search/scripts/write_cold.py \
-  --text "reusable takeaway" --tags "tag1,tag2" --project "agent-harness-deploy"
-# then rebuild index:
-<PY> .devin/skills/chroma-hybrid-search/scripts/update_db.py
-```
+> **Note**: Deep-memory via `chroma-hybrid-search` skill was removed during ruflo cleanup.
+> Cross-project memory is now handled by `aide-memory` MCP server (local stdio) and
+> `spark-memory` MCP server (shared, remote). See `.devin/config.json` MCP section.
+> The `init_deep_memory.py` bootstrap script has been removed.
+>
+> To persist cross-project knowledge, use:
+> - `mcp__aide-memory__aide_remember` — local persistent memory (per-file scope)
+> - `mcp__spark-memory__*` — shared community memory (cross-agent)
+> - `.agents/knowledge_distill.md` — hot knowledge layer (manual distillation)
 
 ### Trust grading
 

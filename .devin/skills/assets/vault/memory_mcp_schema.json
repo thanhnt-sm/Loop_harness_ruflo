@@ -78,7 +78,7 @@
     "retrieval_command": "<PY> .devin/skills/chroma-hybrid-search/scripts/search.py --query \"task keywords\" --limit 3 --min-score 0.35",
     "write_command": "<PY> .devin/skills/chroma-hybrid-search/scripts/write_cold.py --text \"reusable takeaway\" --tags \"tag1,tag2\" --project \"project-name\"",
     "rebuild_command": "<PY> .devin/skills/chroma-hybrid-search/scripts/update_db.py",
-    "py_substitution": "Windows: & \"$HOME\\.deep-memory\.venv\\Scripts\\python\" | Unix: ~/.deep-memory/.venv/bin/python",
+    "py_substitution": "Windows: & \"$HOME\\.deep-memory\\.venv\\Scripts\\python\" | Unix: ~/.deep-memory/.venv/bin/python",
     "trust_grading": {
       "score_gte_0.70": "Trust as background. Still verify against live files.",
       "score_0.35_to_0.69": "Reference only. Read/exec to confirm before acting.",

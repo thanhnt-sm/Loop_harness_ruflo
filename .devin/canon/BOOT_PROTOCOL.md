@@ -34,10 +34,10 @@
 
 1-8 same as Tier S. Then:
 
-9. **Pre-task audit** — `from pre_task_audit import run_inline; run_inline(root, files, tags, session_id)`. If stale >30min → `suspected_crashed`. Overlap → ask human.
+9. **Pre-task audit** — `python .devin/scripts/pre_task_audit.py --root <root> --session <session_id>`. If stale >30min → `suspected_crashed`. Overlap → ask human.
 10. **GoalSpec** — write to `loop_state/<session_id>.md` + `session_state/<session_id>.json`:
     `session_id, goal, complexity, scope, subtasks, acceptance_criteria, cost_cap, cumulative_cost`
-11. **Update registry** — `from loop_memory_sync import run_inline; ok, err = run_inline(root, session_id, status)`. Uses inter-process lock (U21).
+11. **Update registry** — `python .devin/scripts/loop_memory_sync.py --root <root> --session <session_id> --status <status>`. Uses inter-process lock (U21).
 12. **Start work**
 
 ## Tier L/XL — Full (steps 1-17)

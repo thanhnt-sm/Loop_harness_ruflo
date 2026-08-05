@@ -1,6 +1,7 @@
 ---
 name: harness-sensor
 description: "Use when code or files have been modified. Runs structural, build, and syntax checks deterministically. Code changes trigger full sensor; doc-only changes trigger SENSOR-3 only."
+triggers: [model]
 ---
 
 # Skill: harness-sensor

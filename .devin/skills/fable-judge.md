@@ -1,6 +1,7 @@
 ---
 name: fable-judge
 description: "Adversarial verification of finished work. Fires on every 'done' declaration — re-runs claimed verifications, diffs what actually changed, detects weakened tests and false completion, sweeps verbatim gate lines (INTENT/AUTH/TWINS/PENDING). Use after any agent or worker claims work is complete: 'fable-judge', 'judge this work', 'verify what it did', 'did that actually work?'."
+triggers: [user, model]
 ---
 
 # Skill: fable-judge

@@ -1,6 +1,7 @@
 ---
 name: using-skills
 description: "Use before responding to any user request. Enforces skill-first methodology: check if a skill matches the request, invoke it before acting. Prevents ad-hoc work that bypasses the harness."
+triggers: [model]
 ---
 
 # Skill: using-skills — Meta-Skill

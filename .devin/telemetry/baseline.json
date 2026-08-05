@@ -1,0 +1,32 @@
+{
+  "samples": [
+    {
+      "tool_sequence": "exec",
+      "decision_pattern": "read",
+      "latency_distribution": 0.0,
+      "output_length": 17.0,
+      "loop_depth": 0.0,
+      "retry_count": 0.0,
+      "error_rate": 0.0,
+      "file_diversity": 0.0,
+      "command_diversity": 1.0,
+      "context_usage": 0.00425,
+      "token_consumption": 4.25,
+      "plan_adherence": 1.0
+    },
+    {
+      "tool_sequence": "write",
+      "decision_pattern": "write",
+      "latency_distribution": 0.0,
+      "output_length": 17.0,
+      "loop_depth": 0.0,
+      "retry_count": 0.0,
+      "error_rate": 0.0,
+      "file_diversity": 1.0,
+      "command_diversity": 2.0,
+      "context_usage": 0.00425,
+      "token_consumption": 4.25,
+      "plan_adherence": 1.0
+    }
+  ]
+}
