@@ -31,13 +31,20 @@ $sessionStateDir = Join-Path $repoRoot ".devin\session_state"
 $registryPath = Join-Path $repoRoot ".devin\loop_state.md"
 $archiveDir = Join-Path $repoRoot ".devin\loop_state_archive"
 
+# U22 redteam: validate MaxAge to prevent accidental deletion of recent sessions
+if ($MaxAge -lt 3) {
+    Write-Host "[ERROR] MaxAge must be at least 3 days to avoid deleting recent sessions." -ForegroundColor Red
+    exit 1
+}
+
 # --- Parse registry to get known session IDs ---
 $knownSessions = @{}
 if (Test-Path $registryPath) {
     $registryContent = Get-Content $registryPath -Encoding UTF8
     foreach ($line in $registryContent) {
         # Match table rows: | session_id | ... |
-        if ($line -match '^\|\s*([a-zA-Z0-9_-]+)\s*\|') {
+        # U22 redteam: use [^\s|]+ to match any non-space/non-pipe chars
+        if ($line -match '^\|\s*([^\s|]+)\s*\|') {
             $sid = $matches[1]
             if ($sid -notin @("session_id", "---", "Active", "Completed", "Recent")) {
                 $knownSessions[$sid] = $true
@@ -148,24 +155,34 @@ if ($orphans.Count -eq 0) {
         $archived = 0
         foreach ($orphan in $orphans) {
             try {
-                if ($orphan.Status -eq "orphan_dir_expired") {
-                    # Archive directory then delete
-                    $archivePath = Join-Path $archiveDir "$($orphan.SessionId).zip"
-                    if (Test-Path $orphan.Path) {
-                        Compress-Archive -Path "$($orphan.Path)\*" -DestinationPath $archivePath -Force
-                        Remove-Item $orphan.Path -Recurse -Force
-                        $archived++
-                    }
-                } else {
-                    # Archive file then delete
-                    $archivePath = Join-Path $archiveDir "$($orphan.SessionId).json"
-                    if (Test-Path $orphan.Path) {
-                        Copy-Item $orphan.Path $archivePath -Force
-                        Remove-Item $orphan.Path -Force
-                        $archived++
+                # U22 redteam: check file lock before deleting
+                $fullPath = $orphan.Path
+                if (Test-Path $fullPath) {
+                    try {
+                        if ($orphan.Status -eq "orphan_dir_expired") {
+                            # Archive directory then delete
+                            $archivePath = Join-Path $archiveDir "$($orphan.SessionId).zip"
+                            $hasContent = (Get-ChildItem $fullPath -Recurse -File -ErrorAction SilentlyContinue | Measure-Object).Count
+                            if ($hasContent -gt 0) {
+                                Compress-Archive -Path (Join-Path $fullPath "*") -DestinationPath $archivePath -Force
+                            } else {
+                                # Empty directory — create empty archive marker
+                                New-Item -ItemType File -Path $archivePath -Force | Out-Null
+                            }
+                            Remove-Item $fullPath -Recurse -Force
+                            $archived++
+                        } else {
+                            # Archive file then delete
+                            $archivePath = Join-Path $archiveDir "$($orphan.SessionId).json"
+                            Copy-Item $fullPath $archivePath -Force
+                            Remove-Item $fullPath -Force
+                            $archived++
+                        }
+                        $deleted++
+                    } catch [System.IO.IOException] {
+                        Write-Host "[SKIP] File locked, possibly in use: $($orphan.SessionId)" -ForegroundColor Yellow
                     }
                 }
-                $deleted++
             } catch {
                 Write-Host "[ERROR] Failed to clean $($orphan.SessionId): $_" -ForegroundColor Red
             }
