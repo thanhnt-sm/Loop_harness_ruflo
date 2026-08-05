@@ -27,33 +27,46 @@ the lesson from scratch — usually worse. The skill exists because:
 
 Skipping skills = paying the lesson's cost again every time.
 
+## Recursion guard (U35)
+
+> Prevents skill invocation deadlock from nested skill calls.
+
+**Max invocation depth: 3**
+- Depth 1: meta-skill (using-skills) → invokes skill
+- Depth 2: skill → invokes sub-skill
+- Depth 3: sub-skill → must NOT invoke further skills
+
+**Enforcement:**
+1. Track `skill_invocation_depth` in session_state
+2. Before invoking a skill, check current depth
+3. If depth >= 3 → stop, log error to stderr: `[U35 Recursion Guard] Max depth (3) exceeded. Skill: <name>`
+4. Do NOT invoke the skill — proceed without it
+5. Reset depth to 0 when top-level skill invocation completes
+
+**Why depth 3?**
+- Depth 1: using-skills decides which skill to use
+- Depth 2: that skill may need a sub-skill (e.g., auditor uses comment_checker)
+- Depth 3: sub-skill should be terminal (no further nesting)
+- Beyond 3 = likely infinite loop or over-engineering
+
 ## The skill list (scan this)
+
+> U26: Reduced to core skills (via negativa). Removed skills are archived.
 
 | Skill | Use when... |
 |-------|-------------|
-| `gap-scan` | BOOT complete, GoalSpec written, before first work action |
 | `harness-sensor` | Code or files have been modified |
-| `auditor` | 5 iterations passed, or large output, or before declaring done |
-| `loop-memory` | BOOTing a session, or end of an iteration |
-| `chroma-hybrid-search` | High-accuracy code/solution retrieval needed, hallucination must be minimized |
-| `init_deep` | Repository is too large to explain from memory, or codebase shape has changed |
 | `comment_checker` | After code edits that touch comments, or before declaring a code task complete |
 | `slop-detector` | After generating user-facing prose, docs, naming, or abstractions |
-| `claim-grader` | Before finalizing any worker report or analysis |
-| `graph-verify` | Answering structural questions (who calls X, who imports Y, blast radius) |
-| `context-compactor` | Context fill >70%, large tool output, or before reading large files |
-| `memory-audit` | Every 5 iterations, scope change, or before session end |
-| `user-preference` | At BOOT, or whenever a user preference is discovered |
-| `tdd` | Implementing any feature or bugfix, before writing implementation code |
-| `systematic-debugging` | Encountering any bug, test failure, or unexpected behavior, before proposing fixes |
+| `fable-judge` | Before declaring "done" — adversarial done gate |
 | `using-skills` | (this skill) Before responding to any request |
 
 ## Process vs Implementation skills
 
 | Type | What it does | Examples |
 |------|-------------|----------|
-| **Process** | Sets the *approach* — how to think about the task | gap-scan, auditor, using-skills, comment_checker, slop-detector, claim-grader, tdd, systematic-debugging |
-| **Implementation** | Does the *work* — executes a specific capability | harness-sensor, loop-memory, chroma-hybrid-search, init_deep, context-compactor, graph-verify, memory-audit, user-preference |
+| **Process** | Sets the *approach* — how to think about the task | using-skills, comment_checker, slop-detector, fable-judge |
+| **Implementation** | Does the *work* — executes a specific capability | harness-sensor |
 
 Process skills run first. They shape the approach. Implementation skills run when their
 trigger condition is met during execution.
