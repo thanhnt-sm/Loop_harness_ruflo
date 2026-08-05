@@ -40,11 +40,12 @@ Workspace yêu cầu comment tiếng Việt — slop patterns cũng cần detect
 |---|---------|---------|-----|
 | V1 | **Filler transition** | `# Bước 1: Lấy danh sách` | Delete — code self-evident |
 | V2 | **Filler transition** | `# Tiếp theo, xử lý kết quả` | Delete — structure is clear |
-| V3 | **Filler note** | `# Lưu ý: cần kiểm tra null` | Delete or rewrite as guard comment |
+| V3 | **Filler note** | `# Lưu ý: biến này không null` (trên null-check obvious) | Delete |
 | V4 | **Summary filler** | `# Tóm lại, hàm này làm 3 việc` | Delete — function name should convey |
 | V5 | **Apologetic** | `# Tạm thời làm vậy, sau fix sau` | Add TODO(@owner) with reason |
 | V6 | **Hedge / uncertainty** | `# Có thể xử lý edge case này` | Confirm or delete |
 | V7 | **AI signature** | `# Chúng ta có thể thấy` | Delete or rewrite in imperative |
+| V8 | **Over-explaining stdlib** | `# hàm len() trả về độ dài` | Delete — assumed knowledge |
 
 ### Restating-code tiếng Việt (3+ patterns)
 
@@ -111,6 +112,9 @@ doesn't convey.
   `# TODO(@user): fix this because [reason], tracked in [issue]`.
 - **Caveman mode applies to comments too.** If a comment survives review, it should be
   terse: one line, no filler, no hedging.
+- **U19: Tutorial-style comments** (e.g., "Bước 1:", "Step 1:") are slop in production
+  code but may be acceptable in `docs/`, `examples/`, or tutorial files. Use context
+  judgment — if the file is a tutorial, skip V1 pattern.
 
 ## Relationship to slop-detector
 
