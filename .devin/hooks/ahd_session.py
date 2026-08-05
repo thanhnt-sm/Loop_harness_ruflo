@@ -93,7 +93,7 @@ def _session_lock_relpath(root: Path, session_id: str) -> Path:
     Per-session locks eliminate contention when multiple sessions
     write to different session_state files concurrently.
     """
-    slug = slugify_session_id(session_id) if session_id else "unknown"
+    slug = slugify_session_id(session_id)
     return get_config_root(root) / "tmp" / f"ahd_session.{slug}.lock"
 
 
@@ -122,15 +122,21 @@ def get_repo_root(start_from: Optional[Path] = None) -> Path:
 
 
 def slugify_session_id(sid: str, max_len: int = 64) -> str:
-    """Make a filesystem-safe session id slug."""
+    """Make a filesystem-safe session id slug.
+
+    U14 redteam: empty session_id gets random UUID suffix to avoid
+    collision on per-session lock files.
+    """
     if not sid:
-        sid = "unknown"
+        import uuid
+        sid = f"unknown-{uuid.uuid4().hex[:8]}"
     # Replace separators and illegal chars
     sid = re.sub(r"[:/\\\s|<>\"'?*\"]+", "-", sid)
     sid = re.sub(r"-+", "-", sid)
     sid = sid.strip("-.")
     if not sid:
-        sid = "unknown"
+        import uuid
+        sid = f"unknown-{uuid.uuid4().hex[:8]}"
     sid = sid[:max_len]
     return sid
 

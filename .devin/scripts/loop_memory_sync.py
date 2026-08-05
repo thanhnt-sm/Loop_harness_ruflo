@@ -401,9 +401,14 @@ def regenerate(root: Path, session_id: str = "", status: str = "") -> None:
     lines.append("- session_archive: .devin/loop_state_archive.md")
     lines.append("- session_archive_dir: .devin/loop_state_archive/")
 
-    tmp = registry_path.with_suffix(".tmp")
-    tmp.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    tmp.replace(registry_path)
+    # U14 redteam fix: dùng repo-level inter-process lock khi viết registry
+    lock = ahd_session._acquire_lock(ahd_session._get_lock_path(root))
+    try:
+        tmp = registry_path.with_suffix(".tmp")
+        tmp.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        tmp.replace(registry_path)
+    finally:
+        ahd_session._release_lock(lock)
 
     # Build status map for loop_state cleanup
     status_map = {s.get("session_id", ""): s.get("status", "") for s in sessions}
