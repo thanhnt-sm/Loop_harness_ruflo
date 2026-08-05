@@ -509,3 +509,54 @@ is a mechanical check, not a judgment call — `fable-judge` automates it.
 - `scripts/verify.py` — the deployer's own verification (read-back after sync).
 ## The honest limit
 Verification can confirm: the file exists, the build passes, the criteria are met, the marker is present. It cannot confirm: the design is good, the taste is right, the choice among valid options is the best one. For those, escalate to a human. That's not a failure — it's the honest clause in action.
+
+## U25: Nuwa ROI measurement
+
+### Problem
+Nuwa cognitive verification is expensive (tokens + time). Without ROI measurement, we can't justify the cost or know when to reduce usage.
+
+### Metrics tracked in session_state
+```json
+{
+  "nuwa_metrics": {
+    "nuwa_runs": 0,
+    "nuwa_bugs_caught": 0,
+    "nuwa_token_cost": 0,
+    "standard_runs": 0,
+    "standard_bugs_caught": 0,
+    "standard_token_cost": 0,
+    "last_nuwa_run": "",
+    "last_standard_run": ""
+  }
+}
+```
+
+### ROI formula
+- `bugs_per_10k_tokens = bugs_caught / (token_cost / 10000)`
+- `nuwa_roi = nuwa_bugs_per_10k / standard_bugs_per_10k`
+- If `nuwa_roi < 1.5` (threshold) → reduce Nuwa to high-stakes only
+- Minimum 5 runs before ROI is meaningful (avoid small sample noise)
+
+### Comparison logic
+1. For each task, randomly assign to Nuwa-audited or standard-audited
+2. Track bugs caught by each approach + token cost
+3. After 5+ runs, compute ROI ratio
+4. If ROI < 1.5: restrict Nuwa to high-stakes tasks (security, financial, production-critical)
+5. If ROI >= 1.5: continue using Nuwa for all verification
+
+### Threshold
+- **1.5x** — Nuwa must catch 50% more bugs per 10K tokens than standard review
+- Rationale: Nuwa costs ~3-5x more tokens than standard review, so it needs to catch proportionally more bugs to justify the cost
+- Adjustable via `NUWA_ROI_THRESHOLD` in `scripts/nuwa_roi.py`
+
+### Usage
+```bash
+# Record a Nuwa run
+python .devin/scripts/nuwa_roi.py --session <sid> --record-nuwa --bugs 3 --tokens 5000
+
+# Record a standard run
+python .devin/scripts/nuwa_roi.py --session <sid> --record-standard --bugs 1 --tokens 1500
+
+# Get ROI report
+python .devin/scripts/nuwa_roi.py --session <sid> --report
+```

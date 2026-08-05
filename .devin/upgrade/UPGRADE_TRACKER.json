@@ -18,9 +18,9 @@
     },
     "P1": {
       "total": 15,
-      "done": 14,
+      "done": 15,
       "in_progress": 0,
-      "pending": 1,
+      "pending": 0,
       "blocked": 0
     },
     "P2": {
@@ -636,7 +636,7 @@
       "phase": "P1",
       "priority": "high",
       "expert": "Quality Auditor",
-      "status": "pending",
+      "status": "done",
       "dependencies": [],
       "dependents": [],
       "effort_days": 2,
@@ -645,11 +645,11 @@
         ".devin/scripts/session_manager.py"
       ],
       "acceptance_criteria_count": 3,
-      "started_date": null,
-      "completed_date": null,
-      "verifier": null,
+      "started_date": "2026-07-07",
+      "completed_date": "2026-07-07",
+      "verifier": "GLM-5.2 High",
       "commit_hash": null,
-      "notes": ""
+      "notes": "AC: 3/3 passed. nuwa_roi.py: record_nuwa_run(), record_standard_run(), compute_roi(), get_recommendation(). Tracks nuwa_runs, nuwa_bugs_caught, nuwa_token_cost, standard_runs, standard_bugs_caught, standard_token_cost in session_state.nuwa_metrics. ROI formula: bugs_per_10k_tokens = bugs_caught / (token_cost/10000). Threshold: 1.5x (Nuwa must catch 50% more bugs per 10K tokens). Min 5 runs before ROI meaningful. Test: 1 Nuwa run (3 bugs, 5K tokens) + 1 standard run (1 bug, 1.5K tokens) → ROI 0.9, recommendation: insufficient_data. VERIFICATION_PROTOCOL.md: comparison logic + threshold documented. verify-workspace: 73/73 pass."
     },
     {
       "id": "U26",
