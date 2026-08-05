@@ -30,6 +30,32 @@ AI-generated code comes with comments that scream "a machine wrote this": restat
 | 5 | **Apologetic / self-deprecating** | `# hacky but works` | Fix code, or add TODO with owner + ticket |
 | 6 | **AI signature phrases** | "Let's", "I'll", "We can see" | Delete or rewrite in imperative |
 
+## Vietnamese slop patterns (U19)
+
+Workspace yêu cầu comment tiếng Việt — slop patterns cũng cần detect bằng tiếng Việt.
+
+### Filler / transition tiếng Việt (5+ patterns)
+
+| # | Pattern | Example | Fix |
+|---|---------|---------|-----|
+| V1 | **Filler transition** | `# Bước 1: Lấy danh sách` | Delete — code self-evident |
+| V2 | **Filler transition** | `# Tiếp theo, xử lý kết quả` | Delete — structure is clear |
+| V3 | **Filler note** | `# Lưu ý: cần kiểm tra null` | Delete or rewrite as guard comment |
+| V4 | **Summary filler** | `# Tóm lại, hàm này làm 3 việc` | Delete — function name should convey |
+| V5 | **Apologetic** | `# Tạm thời làm vậy, sau fix sau` | Add TODO(@owner) with reason |
+| V6 | **Hedge / uncertainty** | `# Có thể xử lý edge case này` | Confirm or delete |
+| V7 | **AI signature** | `# Chúng ta có thể thấy` | Delete or rewrite in imperative |
+
+### Restating-code tiếng Việt (3+ patterns)
+
+| # | Pattern | Example | Fix |
+|---|---------|---------|-----|
+| R1 | **Restating assignment** | `# gán x bằng 5` → `x = 5` | Delete |
+| R2 | **Restating loop** | `# tăng biến đếm i lên 1` → `i += 1` | Delete |
+| R3 | **Restating condition** | `# nếu n lớn hơn 0 thì` → `if n > 0:` | Delete |
+| R4 | **Restating return** | `# trả về kết quả` → `return result` | Delete |
+| R5 | **Restating import** | `# import thư viện json` → `import json` | Delete |
+
 ## How
 
 ### Step 1: Identify all comments in the edited file(s)

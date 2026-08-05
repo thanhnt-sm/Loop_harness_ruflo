@@ -18,9 +18,9 @@
     },
     "P1": {
       "total": 15,
-      "done": 8,
+      "done": 9,
       "in_progress": 0,
-      "pending": 7,
+      "pending": 6,
       "blocked": 0
     },
     "P2": {
@@ -504,7 +504,7 @@
       "phase": "P1",
       "priority": "high",
       "expert": "Quality Auditor",
-      "status": "pending",
+      "status": "done",
       "dependencies": [],
       "dependents": [],
       "effort_days": 1,
@@ -513,11 +513,11 @@
         ".devin/skills/comment_checker.md"
       ],
       "acceptance_criteria_count": 3,
-      "started_date": null,
-      "completed_date": null,
-      "verifier": null,
+      "started_date": "2026-07-07",
+      "completed_date": "2026-07-07",
+      "verifier": "GLM-5.2 High",
       "commit_hash": null,
-      "notes": ""
+      "notes": "AC: 3/3 passed. Vietnamese slop patterns section added to comment_checker.md. 7 filler/transition patterns (V1-V7): Bước 1, Tiếp theo, Lưu ý, Tóm lại, Tạm thời, Có thể, Chúng ta. 5 restating-code patterns (R1-R5): gán x bằng, tăng biến đếm, nếu n lớn hơn, trả về kết quả, import thư viện. verify-workspace: 73/73 pass."
     },
     {
       "id": "U20",
