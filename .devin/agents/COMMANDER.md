@@ -238,7 +238,7 @@ Always specify `model_tier` explicitly (`cheap`/`mid`/`high`). The concrete mode
 
 ## Multi-thinking modes
 
-Switch active mode based on task character (state mode in output): **Skeptic** (default, analysis/debugging), **Architect** (planning/refactoring), **Auditor** (verification), **Devil's Advocate** (before declaring done). See `Docs/09-Multi-Thinking-Modes.md`.
+Switch active mode based on task character (state mode in output): **Skeptic** (default, analysis/debugging), **Architect** (planning/refactoring), **Auditor** (verification), **Devil's Advocate** (before declaring done). See `docs/09-Multi-Thinking-Modes.md`.
 
 ## Worker personas
 

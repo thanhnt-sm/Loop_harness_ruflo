@@ -19,7 +19,7 @@ You are operating inside a **Agent Harness Deploy-distilled harness**:
 
 - **Caveman comms**: strip filler, keep signal. ~65% token reduction. See `CAVEMAN_PROTOCOL.md`.
 - **Commander + workers**: main thread decides, dispatches, integrates. Workers scan/edit. See `.devin/agents/COMMANDER.md`.
-- **Parallel dispatch**: `.devin/scripts/plan_dispatch.py` (file ownership) + `.devin/scripts/worktree.py` (git worktree isolation). See `Docs/Agents/nuwa.md`.
+- **Parallel dispatch**: `.devin/scripts/plan_dispatch.py` (file ownership) + `.devin/scripts/worktree.py` (git worktree isolation). See `.devin/skills/nuwa-skill/SKILL.md`.
 - **Nuwa cognitive angles**: before done, dispatch Nuwa verification (edge-case, dependency, regression). Vendored at `.devin/skills/nuwa-skill/` (from alchaincyf/nuwa-skill, MIT). Three pre-distilled perspectives (Munger/Feynman/Taleb).
 - **Memory persists**: state on disk (`.devin/loop_state.md` registry, `.devin/loop_state/<session_id>.md` per-session state, `.devin/session_state/<session_id>.json` machine state, and `.agents/knowledge_distill.md`), not context. See `MEMORY_PROTOCOL.md`.
 - **Loops converge**: every iteration writes state, checks stop condition, stops when met or budget exhausted. See `LOOP_PROTOCOL.md`.
@@ -51,7 +51,7 @@ You are operating inside a **Agent Harness Deploy-distilled harness**:
 
 ## 4. Deploy contract
 
-When canon is being *installed* (not used): `python scripts/distill.py`. Detects tools, generates entry files, writes to native locations, verifies. See `Docs/02-Deployment-Guide.md`.
+When canon is being *installed* (not used): `python scripts/distill.py`. Detects tools, generates entry files, writes to native locations, verifies. See `docs/USAGE_GUIDE.md`.
 
 ## 4b. Project-specific rules layer
 
@@ -199,7 +199,7 @@ Interview-mode: **mandatory XL**, **recommended L**, **optional M**, **skipped S
 
 ## Multi-thinking mode activation
 
-At BOOT, activate the default thinking mode set (see `Docs/09-Multi-Thinking-Modes.md`):
+At BOOT, activate the default thinking mode set (see `docs/09-Multi-Thinking-Modes.md`):
 - **Skeptic** — default. Every claim needs evidence.
 - **Architect** — for planning/decomposition tasks.
 - **Auditor** — for verification/completion tasks.
@@ -760,7 +760,7 @@ See §"The 5+1 components" above for the component blueprint.
 | **Maker ≠ checker** | 15 | Fresh-context or CLI verification, not self-approval | Does verify.py exist? Separate verifier role? |
 | **Memory safety** | 10 | No secrets in any layer; cold layer grep-only | `grep -r "key\|token\|password" .devin/` = nothing |
 | **Red lines** | 10 | REDLINES.md exists, referenced in entry file | `grep REDLINES AGENTS.md` or `CLAUDE.md` |
-| **Skills loaded** | 10 | ≥1 skill deployed (auditor, gap-scan, etc.) | `ls .claude/skills/` or equivalent |
+| **Skills loaded** | 10 | ≥1 skill deployed (auditor, gap-scan, etc.) | `ls .devin/skills/` or equivalent |
 | **Warning signals** | 5 | Warning signal table exists in canon | `grep "Warning signals" LOOP_PROTOCOL.md` |
 
 ### Score interpretation
@@ -1303,7 +1303,7 @@ Models grade their own work too leniently. The author has invested in the answer
 |--------|--------------|
 | File write | Fresh-context agent `read(path, offset, limit)` confirms content |
 | Code | CLI gate: build / typecheck / lint / test. Pass = verified. |
-| Config sync | `scripts/verify.py` read-backs every written file and checks format/link integrity |
+| Config sync | `tools/verify-workspace.ps1` read-backs every written file and checks format/link integrity |
 | Visual output | Delegate to vision-capable agent. Never self-judge an image. |
 | High-risk judgment | Multi-agent debate: 2 independent agents, integrate differences |
 | Rules/docs | `read` + `grep` for version headers, link targets, referenced paths; every claim must be evidence-graded |
@@ -1764,7 +1764,7 @@ is a mechanical check, not a judgment call — `fable-judge` automates it.
 - `.devin/agents/workers/AUDITOR.md` — the Auditor worker (fresh context, adversarial).
 - `.devin/skills/fable-judge.md` — adversarial "done" gate; re-runs claimed verifications, hunts frauds, sweeps verbatim gate lines (INTENT/AUTH/TWINS/PENDING). Fires on every "done" declaration.
 - `.devin/skills/harness-sensor.md` — the computational sensor (deterministic checks).
-- `scripts/verify.py` — the deployer's own verification (read-back after sync).
+- `tools/verify-workspace.ps1` — the deployer's own verification (read-back after sync).
 ## The honest limit
 Verification can confirm: the file exists, the build passes, the criteria are met, the marker is present. It cannot confirm: the design is good, the taste is right, the choice among valid options is the best one. For those, escalate to a human. That's not a failure — it's the honest clause in action.
 
@@ -1977,7 +1977,7 @@ Can't write positive/negative examples? Criterion too vague → escalate to huma
 |---|---------|
 | **Question** | Is there an active, crashed, or suspected-crashed session whose `owned_files`/`affected_files`/`tags` overlap the new task? |
 | **Positive** | "Session `s-20260709-abc` is `suspected_crashed` on `current_subtask: add file lock to base.py`. New task is `fix sync.py concurrency` and `owned_files` lists `scripts/sync.py` and `adapters/base.py`." |
-| **Negative** | "No active sessions, or active session `s-xyz` owns `Docs/Agents/nuwa.md` while new task is `scripts/distill.py` with no file/tag overlap." |
+| **Negative** | "No active sessions, or active session `s-xyz` owns `.devin/skills/nuwa-skill/SKILL.md` while new task is `scripts/distill.py` with no file/tag overlap." |
 | **Action +** | STOP. Read `.devin/loop_state/<session_id>.md` and `.devin/session_state/<session_id>.json`. Ask the human: "Session `s-xxx` was interrupted at `<current_subtask>`. Continue it, or start new?" |
 | **Action −** | Start a new session with a fresh `session_id`; keep the old session in `active_sessions` unless it is completed. |
 
@@ -2038,7 +2038,7 @@ Determine whether a task is actually done — not just "looks done."
 | R-TC2 | Verified by fresh context? | Verifier (fresh) read back + ran pytest. PASS. | Builder: "I checked my changes, they look correct." | −: NOT verified. Dispatch fresh-context Verifier. Red line. |
 | R-TC3 | Full test suite run (regression check)? | Changed sync.py → ran `pytest tests/` (full). All pass. | Changed sync.py → ran only `test_sync.py`. | −: Run full suite. Any fail = NOT done (regression). |
 | R-TC4 | loop_state.md updated before declaring done? | Last action: write loop_state.md "ST-3 done, next: ST-4" | Declares done but state shows "ST-3 in progress" | −: Write state first. Done without state = red line. |
-| R-TC5 | Nuwa run for L/XL tasks? | Ran Edge Case + Dependency + Regression trees. All clean. | "I'm confident it's correct." No Nuwa. | −: Run Nuwa before declaring done. See `Docs/Agents/nuwa.md`. |
+| R-TC5 | Nuwa run for L/XL tasks? | Ran Edge Case + Dependency + Regression trees. All clean. | "I'm confident it's correct." No Nuwa. | −: Run Nuwa before declaring done. See `.devin/skills/nuwa-skill/SKILL.md`. |
 
 ### Category 3: Human Escalation Circuit Breakers (R-HE)
 

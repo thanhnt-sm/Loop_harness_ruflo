@@ -8,7 +8,7 @@
 > 1. `python .devin/scripts/plan_dispatch.py --analyze --subtasks subtasks.json`
 > 2. `python .devin/scripts/worktree.py create <worker_id>` (per worker)
 > 3. Fill `owned_files` and `worktree_path` in the template below.
-> See `Docs/Agents/nuwa.md` for the full parallel dispatch workflow.
+> See `.devin/skills/nuwa-skill/SKILL.md` for the full parallel dispatch workflow.
 
 ---
 
@@ -86,7 +86,7 @@ angles. `plan_dispatch.py` suggests which angles apply based on the subtask goal
 **Extended angles (if user has distilled perspective skills via nuwa-skill):**
 
 If the user has installed perspective skills (e.g. `munger-perspective`, `taleb-perspective`),
-the Commander can assign them as additional cognitive angles. See `Docs/Agents/nuwa.md`
+the Commander can assign them as additional cognitive angles. See `.devin/skills/nuwa-skill/SKILL.md`
 for the full cognitive diversity framework.
 
 ```

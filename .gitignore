@@ -229,9 +229,11 @@ scripts/
 .devin/context_flags/
 .devin/loop_state_archive/
 
-# Allow current project tests and templates
+# Allow current project tests and scripts
 !tests/
 !tests/**
+!.devin/scripts/
+!.devin/scripts/**
 tests/__pycache__/
 
 # Remaining ruflo artifacts
