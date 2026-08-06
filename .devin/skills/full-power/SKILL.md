@@ -296,7 +296,7 @@ python .devin/hooks/schema_gate.py    # Schema validation, secret scan, symbol v
 
 **Layer 3: Acceptance Tests** (definitive)
 ```bash
-python .devin/scripts/coverage_matrix.py docs/plans/IMPLEMENTATION_PLAN_<task>.md --verify
+python .devin/scripts/coverage_matrix.py docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md --verify
 ```
 - Run acceptance tests per requirement
 - Coverage matrix: 100% plan items executed?
@@ -366,9 +366,9 @@ Output final report:
 - Risk level: S/M/L/XL
 
 ## Plan Reference
-- SDD: docs/plans/SOLUTION_DESIGN_<task>.md
-- Plan: docs/plans/IMPLEMENTATION_PLAN_<task>.md
-- Quality report: docs/plans/QUALITY_REPORT_<task>.md
+- SDD: docs/plans/<task_slug>/SOLUTION_DESIGN.md
+- Plan: docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md
+- Quality report: docs/plans/<task_slug>/QUALITY_REPORT.md
 - Approval: [date + approver]
 
 ## What changed
@@ -428,7 +428,7 @@ Output final report:
 
 1. **KHÔNG skip Plan phase** cho M-tier+ → RED LINE
 2. **KHÔNG skip quality check** (10-D) → RED LINE
-3. **KHÔNG skip human approval** cho R1+ → RED LINE
+3. **KHÔNG skip human approval** (SDD + plan) cho R1+ → RED LINE
 4. **KHÔNG skip adversarial review** (min 3 personas) → RED LINE
 5. **KHÔNG execute trước approval** → RED LINE
 6. **KHÔNG sửa plan trong khi execute** → RED LINE

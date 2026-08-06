@@ -4,7 +4,7 @@
 > **Cách dùng 2**: Copy toàn bộ nội dung dưới đây, dán vào Devin CLI, thay `<TASK>` bằng task của bạn.
 >
 > **Kết quả**: Harness tự động BOOT → inventory → 3-Phase (Plan → Approve → Execute) → report.
-> M-tier+ bắt buộc đi qua Plan phase với SDD + quality check + human approval gate.
+> M-tier+ bắt buộc đi qua Plan phase với SDD + SDD approval + quality check + plan approval gate.
 > **Plan phase BẮT BUỘC** — hook `plan_enforce.py` sẽ block execute nếu chưa có approved plan.
 
 ---
@@ -71,23 +71,29 @@ Dispatch 5 subagents (profile: subagent_explore, is_background: true):
    - NEW_HIRE (`.devin/agents/personas/new_hire.md`): "Can I understand this?"
    - SECURITY_AUDITOR (`.devin/agents/personas/security_auditor.md`): OWASP scan
 3. Aggregate findings, promote issues 2+ reviewers found
-4. ARCHITECT revise (max 3 rounds) → output: `docs/plans/SOLUTION_DESIGN_<task>.md`
+4. ARCHITECT revise (max 3 rounds) → output: `docs/plans/<task_slug>/SOLUTION_DESIGN.md`
 
-### 5c. PLAN — Decompose thành atomic tasks
+### 5c. SDD APPROVAL
+- Present `docs/plans/<task_slug>/SOLUTION_DESIGN.md` cho user approval
+- `python .devin/scripts/approval_gate.py docs/plans/<task_slug>/SOLUTION_DESIGN.md --interactive --artifact sd`
+- Approved → tiếp tục 5d
+- Changes requested → loop lại 5b
+
+### 5d. PLAN — Decompose thành atomic tasks
 1. Decompose solution thành tasks: ID, file, function, acceptance criteria, REQ ID, risk
 2. Build dependency DAG (Mermaid)
 3. Generate coverage matrix: REQ → Task → File → Function
 4. Risk assessment (R0-R4) + rollback plan
-5. Output: `docs/plans/IMPLEMENTATION_PLAN_<task>.md` (theo `docs/templates/PLAN_TEMPLATE.md`)
+5. Output: `docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md` (theo `docs/templates/PLAN_TEMPLATE.md`)
 
-### 5d. QUALITY CHECK
-Chạy: `python .devin/scripts/plan_quality_check.py docs/plans/IMPLEMENTATION_PLAN_<task>.md`
+### 5e. QUALITY CHECK
+Chạy: `python .devin/scripts/plan_quality_check.py docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md`
 - 10 dimensions (D1-D10)
-- FAIL → loop lại 5b (DESIGN)
+- FAIL → loop lại 5d (PLAN)
 - PASS → tiếp tục Bước 6
 
-## Bước 6: PHASE 2 — HUMAN APPROVE
-Present plan summary cho user:
+## Bước 6: PHASE 2 — PLAN APPROVAL
+Present `docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md` + quality report cho user:
 ```
 ## Plan Summary
 - Feature: [name]
@@ -104,15 +110,21 @@ Present plan summary cho user:
 - [ ] Request more information
 ```
 
+Chạy:
+```bash
+python .devin/scripts/approval_gate.py docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md --interactive --quality-report docs/plans/<task_slug>/QUALITY_REPORT.md --artifact plan
+```
+
 **KHÔNG tiếp tục cho đến khi user approve.**
-R0 (routine) → auto-approve, skip gate.
-R1+ → bắt buộc human review.
+- Approved → ghi plan state, chuyển Bước 7
+- Changes requested (plan) → loop lại 5d
+- Changes requested (SDD) → loop lại 5b
 
 ## Bước 7: PHASE 3 — EXECUTE (max parallel, QC gates)
 
 ### 7a. DISPATCH — DAG-based parallel
 ```bash
-python .devin/scripts/dag_compile.py docs/plans/IMPLEMENTATION_PLAN_<task>.md
+python .devin/scripts/dag_compile.py docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md
 python .devin/scripts/dag_executor.py .devin/plan_state/<task>_workflow.json --execute
 ```
 - Bounded batch (N=5 parallel)
@@ -140,7 +152,7 @@ Workers tự trị:
 - Issues 2+ found → promoted severity
 
 **Layer 3: Acceptance tests** (definitive)
-- `python .devin/scripts/coverage_matrix.py docs/plans/IMPLEMENTATION_PLAN_<task>.md --verify`
+- `python .devin/scripts/coverage_matrix.py docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md --verify`
 - Run acceptance tests per requirement
 - Coverage matrix: 100% plan items executed?
 
@@ -174,8 +186,8 @@ Output final report theo format:
 - Risk level: S/M/L/XL
 
 ## Plan Reference
-- SDD: docs/plans/SOLUTION_DESIGN_<task>.md
-- Plan: docs/plans/IMPLEMENTATION_PLAN_<task>.md
+- SDD: docs/plans/<task_slug>/SOLUTION_DESIGN.md
+- Plan: docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md
 - Approval: [date + approver]
 
 ## What changed

@@ -42,7 +42,7 @@ Default khi user chỉ đưa task (không gõ slash skill):
 - User override bằng `/lightning`, `/glm`, `/kimi`, `/plan`, v.v.
 
 `full-power` — 3-Phase đầy đủ (Plan→Approve→Execute), FORCE Plan bắt buộc
-`plan` — Phase 1: Plan (SDD + 10-D quality check + approval gate)
+`plan` — Phase 1: Plan (SDD + SDD approval + 10-D QC + plan approval gate)
 `adversarial-consensus` — 3-persona adversarial review (C3 pattern)
 `lightning`, `glm`, `kimi` — executors
 `auditor`, `fable-judge`, `claim-grader` — verification

@@ -21,7 +21,7 @@ description: "Adversarial Consensus Protocol (C3) — 3-persona review đối kh
 
 **Ví dụ:**
 ```
-/adversarial-consensus docs/plans/SOLUTION_DESIGN_auth.md
+/adversarial-consensus docs/plans/auth/SOLUTION_DESIGN.md
 /adversarial-consensus review the auth module
 /adversarial-consensus review src/checkout/ for security issues
 ```

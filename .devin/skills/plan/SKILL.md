@@ -3,7 +3,7 @@ name: plan
 triggers:
   - user
   - model
-description: "Plan Phase — Tự động orchestrate qua plan_orchestrator.py. Phân tích → Thiết kế → Plan → Quality Check → Approval. Human approval gate bắt buộc."
+description: "Plan Phase — Tự động orchestrate qua plan_orchestrator.py. Phân tích → Thiết kế → SDD Approval → Plan → Quality Check → Plan Approval. Human approval gate bắt buộc."
 ---
 
 # AUTO-ACTIVATION — Kích hoạt ngay lập tức
@@ -22,13 +22,14 @@ python .devin/scripts/plan_orchestrator.py --init --task "<task>"
 
 2. Đọc `next_action` từ JSON output. Thực hiện action đó:
    - `skip` → S-tier, Plan phase không cần. Báo user và kết thúc.
-   - `dispatch_scouts` → Dispatch 5 SCOUT subagents (xem Step 2 bên dưới)
+   - `dispatch_scouts` → Dispatch 5 SCOUT subagents (xem Step 2)
    - `dispatch_architect` → Dispatch 1 ARCHITECT (xem Step 3)
    - `dispatch_reviewers` → Dispatch 3 reviewers (xem Step 4)
-   - `decompose_plan` → Decompose SDD thành tasks (xem Step 5)
-   - `run_qc` → Run quality check (xem Step 6)
-   - `present_approval` → Run approval gate (xem Step 7)
-   - `write_plan_state` → Write plan state (xem Step 8)
+   - `present_sdd_approval` → Run SDD approval gate (xem Step 5)
+   - `decompose_plan` → Decompose SDD thành tasks (xem Step 6)
+   - `run_qc` → Run quality check (xem Step 7)
+   - `present_plan_approval` → Run plan approval gate (xem Step 8)
+   - `write_plan_state` → Write plan state (xem Step 9)
    - `done` → Plan phase hoàn thành
    - `escalate` → Present unresolved issues to user
 

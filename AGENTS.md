@@ -21,7 +21,7 @@ cd . && devin                          # Mở CLI
 devin -p -- "mô tả công việc"          # Non-interactive
 
 /full-power <task>    # 3-Phase đầy đủ (Plan→Approve→Execute) — FORCE Plan bắt buộc
-/plan <task>          # Chỉ Phase 1: Plan (SDD + quality check + approval gate)
+/plan <task>          # Chỉ Phase 1: Plan (SDD + SDD approval + quality check + plan approval gate)
 /lightning <task>     # Executor SWE-1.7 Lightning (sau khi plan approved)
 /glm <task>           # Executor GLM-5.2 (free, sau khi plan approved)
 /kimi <task>          # Executor Kimi K2.7 (free, sau khi plan approved)
@@ -67,10 +67,11 @@ devin -p -- "mô tả công việc"          # Non-interactive
    - Dispatch 5 SCOUTs song song → collect findings
    - Dispatch 1 ARCHITECT → write SDD
    - Dispatch 3 adversarial reviewers → aggregate findings
-   - Decompose SDD thành atomic tasks → write IMPLEMENTATION_PLAN.md
-   - Run 10-D quality check → QUALITY_REPORT.md
-   - Present plan cho user approval
-2. **APPROVE**: Interactive approval gate (`approval_gate.py --interactive`)
+   - **SDD approval gate** — duyệt `SOLUTION_DESIGN.md` trước
+   - Decompose SDD thành atomic tasks → write `IMPLEMENTATION_PLAN.md`
+   - Run 10-D quality check → `QUALITY_REPORT.md`
+   - **Plan approval gate** — duyệt `IMPLEMENTATION_PLAN.md`
+2. **APPROVE**: 2 interactive approval gates (`approval_gate.py --interactive --artifact sd|plan`)
 3. **EXECUTE**: DAG-based parallel dispatch → 3-layer verify → coverage + audit
 
 S-tier (<5 lines, 1 file, no destructive op) → orchestrator auto-skip, sửa trực tiếp.

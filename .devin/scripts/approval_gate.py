@@ -1,29 +1,30 @@
 #!/usr/bin/env python3
-"""approval_gate.py — quản lý human approval gate cho implementation plan.
+"""approval_gate.py — human approval gate cho Solution Design và Implementation Plan.
 
-Script này theo dõi trạng thái phê duyệt của một plan qua state file JSON.
-Có 5 thao tác:
+Hỗ trợ 2 artifact:
+  --artifact sd      : Duyệt SOLUTION_DESIGN.md -> state <task_slug>_sd_approved.json
+  --artifact plan    : Duyệt IMPLEMENTATION_PLAN.md -> state <task_slug>_approved.json (default)
+
+Thao tác:
   --status           : Kiểm tra trạng thái phê duyệt hiện tại
-  --approve          : Đánh dấu plan đã được phê duyệt
-  --reject           : Đánh dấu plan bị từ chối (kèm lý do)
-  --request-changes  : Đánh dấu plan cần sửa đổi (kèm feedback)
-  --interactive      : Present plan summary + hỏi user approve/reject (interactive mode)
+  --approve          : Đánh dấu artifact đã được phê duyệt
+  --reject           : Đánh dấu artifact bị từ chối (kèm lý do)
+  --request-changes  : Đánh dấu artifact cần sửa đổi (kèm feedback)
+  --interactive      : Present summary + hỏi user approve/reject/modify
 
-State file: .devin/plan_state/<plan_name>.json
-Cấu trúc state:
-  {plan_file, status: pending|approved|rejected|changes_requested,
-   reviewer, date, comments}
+State file: .devin/plan_state/<task_slug>[_<artifact>]_approved.json
 
 Usage:
-    python .devin/scripts/approval_gate.py <plan_file.md> --status
-    python .devin/scripts/approval_gate.py <plan_file.md> --approve --reviewer "Nguyen Van A"
+    python .devin/scripts/approval_gate.py <plan_file.md> --status [--artifact sd|plan]
+    python .devin/scripts/approval_gate.py <plan_file.md> --approve --artifact plan
+    python .devin/scripts/approval_gate.py <sdd_file.md> --approve --artifact sd
     python .devin/scripts/approval_gate.py <plan_file.md> --reject --reason "Thiếu test"
     python .devin/scripts/approval_gate.py <plan_file.md> --request-changes --reason "Cần thêm D9"
-    python .devin/scripts/approval_gate.py <plan_file.md> --interactive
-    python .devin/scripts/approval_gate.py <plan_file.md> --interactive --quality-report <qr.md>
+    python .devin/scripts/approval_gate.py <plan_file.md> --interactive --quality-report <qr.md> --artifact plan
+    python .devin/scripts/approval_gate.py <sdd_file.md> --interactive --artifact sd
 
 Exit codes:
-    0 = plan đã approved
+    0 = approved
     1 = pending / rejected / changes_requested
 """
 from __future__ import annotations
@@ -213,8 +214,17 @@ def _parse_plan_summary(plan_path: Path) -> dict:
     # Đếm file paths (đường dẫn có / hoặc \)
     file_paths = re.findall(r"`([^`]*[/\\][^`]*)`", text)
     summary["files_count"] = len(set(file_paths))
-    # Feature = tên file (fallback)
-    summary["feature"] = plan_path.stem.replace("IMPLEMENTATION_PLAN_", "").replace("_", " ")
+    # Feature = task_slug nếu file nằm trong docs/plans/<task_slug>/; fallback = tên file
+    parts = plan_path.parts
+    if "docs" in parts and "plans" in parts:
+        try:
+            idx = parts.index("plans")
+            if idx + 1 < len(parts):
+                summary["feature"] = parts[idx + 1].replace("-", " ")
+                return summary
+        except ValueError:
+            pass
+    summary["feature"] = plan_path.stem.replace("IMPLEMENTATION_PLAN_", "").replace("SOLUTION_DESIGN_", "").replace("_", " ")
     return summary
 
 
