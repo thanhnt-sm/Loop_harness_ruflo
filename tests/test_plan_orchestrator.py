@@ -41,7 +41,7 @@ def _state(state_file):
 
 
 def _fast_forward_to_qc(state_file):
-    # Đẩy FSM từ ANALYZE → DESIGN → REVIEW → PLAN → QC
+    # Đẩy FSM từ ANALYZE → DESIGN → REVIEW → SDD_APPROVAL → PLAN → QC
     s = _state(state_file)["state"]
     if s == "ANALYZE":
         _step(state_file, "wait_scouts", {"scout_results": []})
@@ -51,6 +51,9 @@ def _fast_forward_to_qc(state_file):
     s = _state(state_file)["state"]
     if s == "REVIEW":
         _step(state_file, "dispatch_reviewers", {"findings": []})
+    s = _state(state_file)["state"]
+    if s == "SDD_APPROVAL":
+        _step(state_file, "present_sdd_approval", {"decision": "approved"})
     s = _state(state_file)["state"]
     if s == "PLAN":
         _step(state_file, "decompose_plan", {"plan_path": str(PLANS_DIR / "__test__" / "IMPLEMENTATION_PLAN.md")})
@@ -100,16 +103,17 @@ def test_init_xl_tier():
 
 
 def test_full_happy_path():
-    # Luồng hoàn chỉnh: ANALYZE → DESIGN → REVIEW → PLAN → QC → APPROVAL → WRITE_STATE → DONE
+    # Luồng hoàn chỉnh: ANALYZE → DESIGN → REVIEW → SDD_APPROVAL → PLAN → QC → PLAN_APPROVAL → WRITE_STATE → DONE
     res = _run(["--init", "--task", "full happy path test"])
     data = json.loads(res.stdout)
     state_file = data["state_file"]
     _step(state_file, "wait_scouts", {"scout_results": []})
     _step(state_file, "dispatch_architect", {"sdd_path": str(PLANS_DIR / "__test__" / "SOLUTION_DESIGN.md")})
     _step(state_file, "dispatch_reviewers", {"findings": []})
+    _step(state_file, "present_sdd_approval", {"decision": "approved"})
     _step(state_file, "decompose_plan", {"plan_path": str(PLANS_DIR / "__test__" / "IMPLEMENTATION_PLAN.md")})
     _step(state_file, "run_qc", {"qc_result": {"all_pass": True, "report_path": "qr.md"}})
-    _step(state_file, "present_approval", {"decision": "approved"})
+    _step(state_file, "present_plan_approval", {"decision": "approved"})
     final = _step(state_file, "write_plan_state")
     assert final["current_state"] == "DONE"
     assert final["next_action"]["action"] == "done"
@@ -122,23 +126,23 @@ def test_rejection_path():
     state_file = data["state_file"]
     _fast_forward_to_qc(state_file)
     _step(state_file, "run_qc", {"qc_result": {"all_pass": True, "report_path": "qr.md"}})
-    final = _step(state_file, "present_approval", {"decision": "rejected", "reason": "scope too large"})
+    final = _step(state_file, "present_plan_approval", {"decision": "rejected", "reason": "scope too large"})
     assert final["current_state"] == "REJECTED"
 
 
 def test_changes_requested_path():
-    # User yêu cầu sửa -> quay lại DESIGN
+    # User yêu cầu sửa plan -> quay lại PLAN
     res = _run(["--init", "--task", "changes requested path test"])
     data = json.loads(res.stdout)
     state_file = data["state_file"]
     _fast_forward_to_qc(state_file)
     _step(state_file, "run_qc", {"qc_result": {"all_pass": True, "report_path": "qr.md"}})
-    final = _step(state_file, "present_approval", {"decision": "changes_requested", "modifications": "add rollback"})
-    assert final["current_state"] == "DESIGN"
+    final = _step(state_file, "present_plan_approval", {"decision": "changes_requested", "modifications": "add rollback"})
+    assert final["current_state"] == "PLAN"
 
 
 def test_revision_loop_then_pass():
-    # Review phát hiện BLOCKING, revision, rồi pass
+    # Review phát hiện BLOCKING, revision, rồi pass -> chuyển SDD_APPROVAL
     res = _run(["--init", "--task", "revision loop pass test"])
     data = json.loads(res.stdout)
     state_file = data["state_file"]
@@ -147,7 +151,7 @@ def test_revision_loop_then_pass():
     _step(state_file, "dispatch_reviewers", {"findings": [{"severity": "BLOCKING", "issue": "missing auth"}]})
     _step(state_file, "dispatch_revision", {"sdd_path": str(PLANS_DIR / "__test__" / "SOLUTION_DESIGN.md")})
     final = _step(state_file, "dispatch_reviewers", {"findings": []})
-    assert final["current_state"] == "PLAN"
+    assert final["current_state"] == "SDD_APPROVAL"
 
 
 def test_qc_max_rounds_escalate():

@@ -109,7 +109,7 @@ Do not trade thoroughness for speed. A bad plan costs more in rework than a slow
 The orchestrator runs a state machine with these states:
 
 ```
-INIT → CLASSIFY → ANALYZE → DESIGN → REVIEW → PLAN → QC → APPROVAL → WRITE_STATE → DONE
+INIT → CLASSIFY → ANALYZE → DESIGN → REVIEW → SDD_APPROVAL → PLAN → QC → PLAN_APPROVAL → WRITE_STATE → DONE
                               ↑          |              |
                               |--- REVISION (max 3)     |
                               |                         |
@@ -201,9 +201,35 @@ python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results
 
 **If BLOCKING issues + revision rounds < 3** → orchestrator transitions to REVISION → dispatch architect with issues to fix → re-review.
 **If BLOCKING issues + revision rounds >= 3** → orchestrator transitions to ESCALATE → present unresolved issues to human.
-**If no BLOCKING issues** → orchestrator transitions to PLAN.
+**If no BLOCKING issues** → orchestrator transitions to SDD_APPROVAL.
 
-## Step 5 — PLAN: Decompose thành atomic tasks
+## Step 5 — SDD_APPROVAL: Human approve the Solution Design
+
+The orchestrator returns `action: present_sdd_approval` with the SDD path.
+
+Run the interactive approval gate for the Solution Design:
+
+```bash
+python .devin/scripts/approval_gate.py docs/plans/<task_slug>/SOLUTION_DESIGN.md --interactive --artifact sd
+```
+
+The gate presents:
+- SDD summary (feature, risk tier, options, trade-offs, recommendation)
+- Key design decisions
+- Options: [y] Approve, [n] Reject, [m] Modify, [i] Info
+
+Wait for user decision, then write results JSON and call `--step`:
+
+```bash
+# Format: {"action": "present_sdd_approval", "decision": "approved"/"rejected"/"changes_requested", "reason": "...", "modifications": "..."}
+python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
+```
+
+**If approved** → orchestrator transitions to PLAN (Step 6).
+**If rejected** → orchestrator transitions to REJECTED → stop.
+**If changes_requested** → orchestrator loops back to DESIGN.
+
+## Step 6 — PLAN: Decompose thành atomic tasks
 
 The orchestrator returns `action: decompose_plan` with plan template path.
 
@@ -223,7 +249,7 @@ python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results
 
 The orchestrator transitions to QC.
 
-## Step 6 — QC: Run quality check (10 dimensions)
+## Step 7 — QC: Run quality check (10 dimensions)
 
 The orchestrator returns `action: run_qc` with the command to run.
 
@@ -253,18 +279,18 @@ Write results JSON and call `--step`:
 python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
 ```
 
-**If all PASS** → orchestrator transitions to APPROVAL.
-**If FAIL + QC rounds < 3** → orchestrator loops back to DESIGN.
+**If all PASS** → orchestrator transitions to PLAN_APPROVAL.
+**If FAIL + QC rounds < 3** → orchestrator loops back to PLAN.
 **If FAIL + QC rounds >= 3** → orchestrator transitions to ESCALATE.
 
-## Step 7 — APPROVAL: Human approval gate
+## Step 8 — PLAN_APPROVAL: Human approve the Implementation Plan
 
-The orchestrator returns `action: present_approval` with the command to run.
+The orchestrator returns `action: present_plan_approval` with the plan and quality report paths.
 
-Run the interactive approval gate:
+Run the interactive approval gate for the Implementation Plan:
 
 ```bash
-python .devin/scripts/approval_gate.py docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md --interactive --quality-report docs/plans/<task_slug>/QUALITY_REPORT.md
+python .devin/scripts/approval_gate.py docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md --interactive --quality-report docs/plans/<task_slug>/QUALITY_REPORT.md --artifact plan
 ```
 
 The gate presents:
@@ -275,20 +301,22 @@ The gate presents:
 Wait for user decision, then write results JSON and call `--step`:
 
 ```bash
-# Format: {"action": "present_approval", "decision": "approved"/"rejected"/"changes_requested", "reason": "...", "modifications": "..."}
+# Format: {"action": "present_plan_approval", "decision": "approved"/"rejected"/"changes_requested", "reason": "...", "modifications": "...", "target": "plan"/"sdd"}
 python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
 ```
 
 **If approved** → orchestrator transitions to WRITE_STATE.
 **If rejected** → orchestrator transitions to REJECTED → stop.
-**If changes_requested** → orchestrator loops back to DESIGN.
+**If changes_requested** →
+- `target: "plan"` → loop back to PLAN.
+- `target: "sdd"` → loop back to DESIGN.
 
-## Step 8 — WRITE_STATE: Activate enforcement hook
+## Step 9 — WRITE_STATE: Activate enforcement hook
 
 The orchestrator returns `action: write_plan_state` with the command to run.
 
 ```bash
-python .devin/scripts/approval_gate.py docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md --approve
+python .devin/scripts/approval_gate.py docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md --approve --artifact plan
 ```
 
 This writes the plan state file that activates `plan_enforce.py` hook — allowing execution to proceed.
@@ -307,10 +335,11 @@ The orchestrator transitions to DONE. Plan phase complete.
 | File | Purpose | Step |
 |------|---------|------|
 | `docs/plans/<task_slug>/SOLUTION_DESIGN.md` | Solution Design Document — architecture, components, data flow | Step 3 |
-| `docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md` | Implementation Plan — atomic tasks, DAG, coverage matrix, test + rollback | Step 5 |
-| `docs/plans/<task_slug>/QUALITY_REPORT.md` | Quality Report — D1–D10 scorecard, pass/fail per dimension | Step 6 |
+| `docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md` | Implementation Plan — atomic tasks, DAG, coverage matrix, test + rollback | Step 6 |
+| `docs/plans/<task_slug>/QUALITY_REPORT.md` | Quality Report — D1–D10 scorecard, pass/fail per dimension | Step 7 |
 | `.devin/plan_state/<task_slug>_orchestrator.json` | Orchestrator state — FSM state, history, all paths | All steps |
-| `.devin/plan_state/<task_slug>_approved.json` | Approval state — activates enforcement hook (for plans under `docs/plans/<task_slug>/`) | Step 8 |
+| `.devin/plan_state/<task_slug>_approved.json` | Approval state — activates enforcement hook (for plans under `docs/plans/<task_slug>/`) | Step 9 |
+| `.devin/plan_state/<task_slug>_sd_approved.json` | SDD approval state | Step 5 |
 
 # Guardrails
 

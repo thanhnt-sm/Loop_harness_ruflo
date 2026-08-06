@@ -142,120 +142,67 @@ python .devin/scripts/pre_task_audit.py --tags "<task_slug>" --session <session_
 
 ---
 
-## Bước 5: PHASE 1 — PLAN (BẮT BUỘC, KHÔNG SKIP)
+## Bước 5: PHASE 1 — PLAN / TÀI LIỆU GIẢI PHÁP (BẮT BUỘC, KHÔNG SKIP)
 
 > **RED LINE**: Skip Plan phase cho M-tier+ = violation. Hook `plan_enforce.py` sẽ block.
-> Plan phase chạy qua `plan_orchestrator.py` — FSM state machine tự động orchestrate toàn bộ flow.
+> **DOCUMENT FIRST**: Mọi task M-tier+ phải hoàn thành tài liệu giải pháp (SDD) và kế hoạch triển khai được human duyệt trước khi code.
 
-### 5a. AUTO-ACTIVATE Orchestrator
+### 5a. INVOKE `/plan` skill
 
-> **ĐIỀU ĐẦU TIÊN PHẢI LÀM khi xác định M-tier+.**
-> Không hỏi user. Không chờ xác nhận. Chỉ chạy orchestrator.
-
-**NGAY LẬP TỨC** chạy:
+Kích hoạt `/plan <task>` — skill này chạy toàn bộ Phase 1 qua `plan_orchestrator.py`:
 
 ```bash
-python .devin/scripts/plan_orchestrator.py --init --task "<task description>"
-```
-
-Đọc `next_action` từ JSON output. Thực hiện action:
-- `skip` → S-tier, skip Plan phase
-- `dispatch_scouts` → Dispatch 5 SCOUTs (xem 5b)
-- `dispatch_architect` → Dispatch ARCHITECT (xem 5c)
-- `dispatch_reviewers` → Dispatch reviewers (xem 5c)
-- `decompose_plan` → Decompose SDD (xem 5d)
-- `run_qc` → Run quality check (xem 5e)
-- `present_approval` → Run approval gate (xem Bước 6)
-- `write_plan_state` → Write plan state (xem Bước 6)
-- `done` → Plan phase hoàn thành
-- `escalate` → Present issues to user
-
-Sau mỗi action, viết results vào temp JSON, rồi gọi:
-
-```bash
+python .devin/scripts/plan_orchestrator.py --init --task "<task>"
+# sau mỗi action:
 python .devin/scripts/plan_orchestrator.py --step --state <state_file> --results <results_file>
 ```
 
-Lặp lại cho đến khi `state` = `DONE` hoặc `REJECTED` hoặc `ESCALATE`.
+FSM: `INIT → CLASSIFY → ANALYZE → DESIGN → REVIEW → REVISION(max 3) → SDD_APPROVAL → PLAN → QC → PLAN_APPROVAL → WRITE_STATE → DONE`
 
-### 5b. ANALYZE — 5 SCOUT subagents song song (max parallel)
+Sau **mỗi step** chạy:
+- `python .devin/scripts/session_manager.py heartbeat <session_id>`
+- `python .devin/scripts/cost_tracker.py --session <session_id> --check`
 
-Orchestrator trả `action: dispatch_scouts` với 5 scout missions. Dispatch ALL 5 trong 1 response (background, subagent_explore). Collect results → write results JSON → call `--step`.
+### 5b. CỔNG 1 — DUYỆT TÀI LIỆU GIẢI PHÁP (SDD)
 
-### 5c. DESIGN — 1 ARCHITECT + 3 adversarial reviewers (C3 pattern)
-
-Orchestrator trả `action: dispatch_architect`. Dispatch ARCHITECT (foreground, glm-executor). Sau architect xong → call `--step` → orchestrator trả `action: dispatch_reviewers`.
-
-Dispatch 3 reviewers ĐỒNG THỜI (background, subagent_explore):
-- **SABOTEUR** (`.devin/agents/personas/saboteur.md`): "How do I break this in production?"
-- **NEW_HIRE** (`.devin/agents/personas/new_hire.md`): "Can I understand this with zero context?"
-- **SECURITY_AUDITOR** (`.devin/agents/personas/security_auditor.md`): OWASP-informed vulnerability scan
-
-Collect reviews → aggregate (deduplicate, promote 2+ found, classify BLOCKING/ADVISORY/INFO) → call `--step`.
-
-**Nếu BLOCKING + revision rounds < 3** → orchestrator trả `action: dispatch_revision` → resume architect → re-review.
-**Nếu BLOCKING + revision rounds >= 3** → orchestrator escalate to human.
-**Nếu không BLOCKING** → orchestrator tiếp tục PLAN.
-
-### 5d. PLAN — Decompose thành atomic tasks
-
-Orchestrator trả `action: decompose_plan`. Decompose SDD thành atomic tasks:
-- Mỗi task: Task ID, description, file path(s), function(s), acceptance criteria, REQ ID, risk tier (R0-R4)
-- Build dependency DAG (Mermaid graph)
-- Generate coverage matrix: REQ ID → Task ID → File Path → Function → Status
-- Risk assessment (R0-R4) + mitigation + rollback plan
-- Test strategy: unit, integration, E2E per requirement
-- Output: `docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md` (theo `docs/templates/PLAN_TEMPLATE.md`)
-
-Call `--step` → orchestrator transitions to QC.
-
-### 5e. QUALITY CHECK (BẮT BUỘC, KHÔNG SKIP)
-
-Orchestrator trả `action: run_qc`:
+Sau khi `SOLUTION_DESIGN.md` được viết và review xong, mở gate:
 
 ```bash
-python .devin/scripts/plan_quality_check.py docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md
+python .devin/scripts/approval_gate.py docs/plans/<task_slug>/SOLUTION_DESIGN.md --interactive --artifact sd
 ```
 
-10 dimensions (D1-D10): D1-D10 như mô tả trong `/plan` skill.
+- **y** → `SDD_APPROVED`, chuyển sang decompose plan.
+- **m** → quay về `DESIGN` sửa SDD.
+- **n** → `REJECTED`, dừng.
 
-Call `--step` với QC result:
-- **PASS tất cả** → orchestrator transitions to APPROVAL
-- **FAIL + QC rounds < 3** → orchestrator loops back to DESIGN
-- **FAIL + QC rounds >= 3** → orchestrator escalate to human
+### 5c. CỔNG 2 — DUYỆT KẾ HOẠCH TRIỂN KHAI (PLAN)
 
-**ENFORCEMENT**: Nếu agent cố skip quality check → RED LINE violation.
+Sau khi `IMPLEMENTATION_PLAN.md` + `QUALITY_REPORT.md` PASS 10-D QC:
+
+```bash
+python .devin/scripts/approval_gate.py docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md --interactive --artifact plan
+```
+
+- **y** → `PLAN_APPROVED`, ghi state, kích hoạt enforcement hook.
+- **m** → quay về `PLAN` (target=plan) hoặc `DESIGN` (target=sdd) sửa.
+- **n** → `REJECTED`, dừng.
+
+### 5d. KẾT QUẢ PHASE 1
+
+Khi `plan_orchestrator` trả `state=DONE`, có:
+- `docs/plans/<task_slug>/SOLUTION_DESIGN.md` (đã duyệt)
+- `docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md` (đã duyệt)
+- `docs/plans/<task_slug>/QUALITY_REPORT.md`
+- `.devin/plan_state/<task_slug>_orchestrator.json`
+- `.devin/plan_state/<task_slug>_approved.json`
+
+**CHỈ khi có plan approved mới được EXECUTE.**
 
 ---
 
-## Bước 6: PHASE 2 — HUMAN APPROVE (BẮT BUỘC cho R1+)
+## Bước 6: PHASE 3 — EXECUTE (max parallel, QC gates, enforcement)
 
-Orchestrator trả `action: present_approval`. Chạy interactive approval gate:
-
-```bash
-python .devin/scripts/approval_gate.py docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md --interactive --quality-report docs/plans/<task_slug>/QUALITY_REPORT.md
-```
-
-Gate tự động present:
-- Plan summary (feature, risk tier, tasks, requirements, files)
-- Quality scorecard (D1-D10 pass/fail)
-- Options: [y] Approve, [n] Reject, [m] Modify, [i] Info
-
-**KHÔNG TIẾP TỤC CHO ĐẾN KHI USER APPROVE.**
-
-Sau khi user decide → write results JSON → call `--step`:
-- **Approved** → orchestrator transitions to WRITE_STATE
-- **Rejected** → orchestrator transitions to REJECTED → stop
-- **Changes requested** → orchestrator loops back to DESIGN
-
-**ENFORCEMENT**: Nếu agent cố execute trước approval → RED LINE violation.
-`python .devin/scripts/approval_gate.py <plan.md> --status` phải trả về `approved`.
-
----
-
-## Bước 7: PHASE 3 — EXECUTE (max parallel, QC gates, enforcement)
-
-### 7a. DISPATCH — Conflict detection + DAG-based parallel
+### 6a. DISPATCH — Conflict detection + DAG-based parallel
 
 Trước khi dispatch, phân tích plan để phát hiện conflict và xác định worktree / parallel groups:
 
@@ -287,7 +234,7 @@ python .devin/scripts/dag_executor.py .devin/plan_state/<task_slug>_workflow.jso
 - Worktree isolation (mỗi worker 1 worktree — `python .devin/scripts/worktree.py create <worker_id>`)
 - Topological sort: independent tasks chạy song song, dependent tasks đợi
 
-### 7b. EXECUTE — Workers tự trị trong boundary
+### 6b. EXECUTE — Workers tự trị trong boundary
 
 Dispatch workers theo DAG batch:
 
@@ -322,7 +269,7 @@ Workers tự trị (max power trong boundary):
 - Sau mỗi batch: `python .devin/scripts/cost_tracker.py --session <session_id> --check`
 - Trước khi chạy DAG executor: `python .devin/scripts/checkpoint.py .devin/plan_state/<task_slug>_workflow.json --save pre-execute .devin/plan_state/<task_slug>_orchestrator.json`
 
-### 7c. VERIFY — 3-layer (BẮT BUỘC)
+### 6c. VERIFY — 3-layer (BẮT BUỘC)
 
 **Layer 1: Deterministic Gates** (cheap, fast, không thể bypass)
 ```bash
@@ -358,7 +305,7 @@ python .devin/scripts/coverage_matrix.py docs/plans/IMPLEMENTATION_PLAN_<task>.m
 
 **Layer 3 FAIL → escalate to human.**
 
-### 7d. REPORT — Coverage + audit trail
+### 6d. REPORT — Coverage + audit trail
 
 - Coverage matrix verification (all plan items executed?)
 - Traceability matrix (REQ → Task → Code → Test)
@@ -369,21 +316,21 @@ python .devin/scripts/coverage_matrix.py docs/plans/IMPLEMENTATION_PLAN_<task>.m
 
 ---
 
-## Bước 8: CLAIM GRADING
+## Bước 7: CLAIM GRADING
 
 Chạy `.devin/skills/claim-grader.md` — grade mọi claim trong final report:
 - `[fact]` — có file:line evidence
 - `[inference]` — logic deduction từ facts
 - `[unverified-guess]` — cần verify thêm
 
-## Bước 9: SLOP CHECK
+## Bước 8: SLOP CHECK
 
 Chạy `.devin/skills/slop-detector.md` + `.devin/skills/comment_checker.md`:
 - Detect AI-generated filler (delve, leverage, seamless, robust)
 - Detect slop comments (restating code, over-explaining)
 - Remove nếu tìm thấy
 
-## Bước 10: NUWA COGNITIVE VERIFICATION (L/XL only)
+## Bước 9: NUWA COGNITIVE VERIFICATION (L/XL only)
 
 Chạy `.devin/skills/nuwa-skill/` cho adversarial cognitive review:
 - **Munger perspective** — check cognitive biases trong design decisions
@@ -399,7 +346,7 @@ python .devin/scripts/nuwa_roi.py --session <session_id> --report
 
 Nếu recommendation = `reduce` → giảm tần suất Nuwa, chỉ dùng cho high-stakes tasks.
 
-## Bước 11: MEMORY WRITE-BACK + SESSION CLOSE
+## Bước 10: MEMORY WRITE-BACK + SESSION CLOSE
 
 - `python .devin/scripts/memory_audit.py` — merge candidate memories
 - `python .devin/scripts/loop_memory_sync.py` — update registry
@@ -408,7 +355,7 @@ Nếu recommendation = `reduce` → giảm tần suất Nuwa, chỉ dùng cho hi
 - Store lessons vào aide-memory: `mcp__aide-memory__aide_remember`
 - Append handoff letter nếu có decisions worth recording
 
-## Bước 12: REPORT
+## Bước 11: REPORT
 
 Output final report:
 

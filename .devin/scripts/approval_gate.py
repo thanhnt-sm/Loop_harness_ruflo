@@ -64,30 +64,31 @@ def _state_dir(repo_root: Path) -> Path:
     return sd
 
 
-def _plan_state_name(plan_path: Path) -> str:
+def _plan_state_name(plan_path: Path, artifact: str = "plan") -> str:
     """
-    Tạo tên state file duy nhất cho plan.
+    Tạo tên state file duy nhất cho artifact.
 
-    Nếu plan nằm trong docs/plans/<task_slug>/ → dùng <task_slug>_approved.json
-    để tránh conflict giữa các plan có cùng stem (ví dụ: IMPLEMENTATION_PLAN.md).
+    Nếu plan/SDD nằm trong docs/plans/<task_slug>/ → dùng <task_slug>[_<artifact>]_approved.json.
+    - artifact='plan' → <task_slug>_approved.json (backward compatible)
+    - artifact='sd'   → <task_slug>_sd_approved.json
     Fallback: dùng plan_path.stem.
     """
+    suffix = f"_{artifact}" if artifact and artifact != "plan" else ""
     parts = plan_path.parts
     if "docs" in parts and "plans" in parts:
-        # Tìm thư mục con ngay sau docs/plans/ — đó là task_slug
         try:
             idx = parts.index("plans")
             if idx + 1 < len(parts):
                 task_slug = parts[idx + 1]
-                return f"{task_slug}_approved"
+                return f"{task_slug}{suffix}_approved"
         except ValueError:
             pass
-    return plan_path.stem
+    return f"{plan_path.stem}{suffix}"
 
 
-def _state_path(repo_root: Path, plan_path: Path) -> Path:
-    """Trả về đường dẫn state file cho plan."""
-    return _state_dir(repo_root) / f"{_plan_state_name(plan_path)}.json"
+def _state_path(repo_root: Path, plan_path: Path, artifact: str = "plan") -> Path:
+    """Trả về đường dẫn state file cho artifact."""
+    return _state_dir(repo_root) / f"{_plan_state_name(plan_path, artifact)}.json"
 
 
 def _load_state(state_path: Path) -> dict:
@@ -125,34 +126,37 @@ def _save_state(state_path: Path, state: dict) -> None:
     state_path.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def _init_state_if_needed(repo_root: Path, plan_path: Path) -> dict:
-    """Khởi tạo state pending nếu chưa có, gắn plan_file. Trả state hiện tại."""
-    sp = _state_path(repo_root, plan_path)
+def _init_state_if_needed(repo_root: Path, plan_path: Path, artifact: str) -> dict:
+    """Khởi tạo state pending nếu chưa có, gắn plan_file/artifact. Trả state hiện tại."""
+    sp = _state_path(repo_root, plan_path, artifact)
     state = _load_state(sp)
     if not state.get("plan_file"):
         state["plan_file"] = str(plan_path.relative_to(repo_root)) if plan_path.exists() else str(plan_path)
+        state["artifact"] = artifact
         _save_state(sp, state)
     return state
 
 
-def cmd_status(plan_path: Path) -> dict:
+def cmd_status(plan_path: Path, artifact: str = "plan") -> dict:
     """--status: Trả trạng thái phê duyệt hiện tại."""
     if not plan_path.exists():
         return {"error": f"Không tìm thấy plan file: {plan_path}", "status": STATUS_PENDING}
     root = _repo_root(plan_path)
-    state = _init_state_if_needed(root, plan_path)
+    state = _init_state_if_needed(root, plan_path, artifact)
+    state["artifact"] = artifact
     return state
 
 
-def cmd_approve(plan_path: Path, reviewer: str, comments: str) -> dict:
-    """--approve: Đánh dấu plan approved."""
+def _write_approval_state(plan_path: Path, artifact: str, status: str, reviewer: str, comments: str) -> dict:
+    """Helper ghi approval state cho plan hoặc SDD."""
     if not plan_path.exists():
-        return {"error": f"Không tìm thấy plan file: {plan_path}"}
+        return {"error": f"Không tìm thấy file: {plan_path}"}
     root = _repo_root(plan_path)
-    sp = _state_path(root, plan_path)
+    sp = _state_path(root, plan_path, artifact)
     state = {
         "plan_file": str(plan_path.relative_to(root)),
-        "status": STATUS_APPROVED,
+        "artifact": artifact,
+        "status": status,
         "reviewer": reviewer,
         "date": datetime.now(timezone.utc).isoformat(),
         "comments": comments,
@@ -161,38 +165,19 @@ def cmd_approve(plan_path: Path, reviewer: str, comments: str) -> dict:
     return state
 
 
-def cmd_reject(plan_path: Path, reviewer: str, reason: str) -> dict:
-    """--reject: Đánh dấu plan rejected (kèm lý do)."""
-    if not plan_path.exists():
-        return {"error": f"Không tìm thấy plan file: {plan_path}"}
-    root = _repo_root(plan_path)
-    sp = _state_path(root, plan_path)
-    state = {
-        "plan_file": str(plan_path.relative_to(root)),
-        "status": STATUS_REJECTED,
-        "reviewer": reviewer,
-        "date": datetime.now(timezone.utc).isoformat(),
-        "comments": reason,
-    }
-    _save_state(sp, state)
-    return state
+def cmd_approve(plan_path: Path, reviewer: str, comments: str, artifact: str = "plan") -> dict:
+    """--approve: Đánh dấu plan/SDD approved."""
+    return _write_approval_state(plan_path, artifact, STATUS_APPROVED, reviewer, comments)
 
 
-def cmd_request_changes(plan_path: Path, reviewer: str, feedback: str) -> dict:
-    """--request-changes: Đánh dấu plan cần sửa đổi (kèm feedback)."""
-    if not plan_path.exists():
-        return {"error": f"Không tìm thấy plan file: {plan_path}"}
-    root = _repo_root(plan_path)
-    sp = _state_path(root, plan_path)
-    state = {
-        "plan_file": str(plan_path.relative_to(root)),
-        "status": STATUS_CHANGES_REQUESTED,
-        "reviewer": reviewer,
-        "date": datetime.now(timezone.utc).isoformat(),
-        "comments": feedback,
-    }
-    _save_state(sp, state)
-    return state
+def cmd_reject(plan_path: Path, reviewer: str, reason: str, artifact: str = "plan") -> dict:
+    """--reject: Đánh dấu plan/SDD rejected (kèm lý do)."""
+    return _write_approval_state(plan_path, artifact, STATUS_REJECTED, reviewer, reason)
+
+
+def cmd_request_changes(plan_path: Path, reviewer: str, feedback: str, artifact: str = "plan") -> dict:
+    """--request-changes: Đánh dấu plan/SDD cần sửa đổi (kèm feedback)."""
+    return _write_approval_state(plan_path, artifact, STATUS_CHANGES_REQUESTED, reviewer, feedback)
 
 
 def _parse_plan_summary(plan_path: Path) -> dict:
@@ -255,10 +240,10 @@ def _parse_quality_report(qr_path: Path) -> dict:
     return result
 
 
-def cmd_interactive(plan_path: Path, reviewer: str, quality_report_path: str = "") -> dict:
-    """--interactive: Present plan summary + hỏi user approve/reject/modify."""
+def cmd_interactive(plan_path: Path, reviewer: str, quality_report_path: str = "", artifact: str = "plan") -> dict:
+    """--interactive: Present plan/SDD summary + hỏi user approve/reject/modify."""
     if not plan_path.exists():
-        return {"error": f"Không tìm thấy plan file: {plan_path}"}
+        return {"error": f"Không tìm thấy file: {plan_path}"}
 
     root = _repo_root(plan_path)
     summary = _parse_plan_summary(plan_path)
@@ -267,12 +252,15 @@ def cmd_interactive(plan_path: Path, reviewer: str, quality_report_path: str = "
         qr_path = Path(quality_report_path).resolve()
         qr_summary = _parse_quality_report(qr_path)
 
-    # Bước 1: Present plan summary
+    title = "SDD APPROVAL GATE — Human Review Required" if artifact == "sd" else "PLAN APPROVAL GATE — Human Review Required"
+    artifact_label = "Solution Design" if artifact == "sd" else "Plan"
+
+    # Bước 1: Present summary
     print("\n" + "=" * 60)
-    print("  PLAN APPROVAL GATE — Human Review Required")
+    print(f"  {title}")
     print("=" * 60)
     print()
-    print("## Plan Summary")
+    print(f"## {artifact_label} Summary")
     print(f"  Feature:           {summary.get('feature', 'N/A')}")
     print(f"  Risk Tier:         {summary.get('risk_tier', 'N/A')}")
     print(f"  Tasks:             {summary.get('tasks_count', 0)}")
@@ -282,15 +270,15 @@ def cmd_interactive(plan_path: Path, reviewer: str, quality_report_path: str = "
         print(f"  Quality scorecard: {qr_summary.get('scorecard', 'N/A')}")
         print(f"  Overall:           {'PASS' if qr_summary.get('all_pass') else 'FAIL'}")
     print()
-    print(f"  Plan file:         {plan_path}")
+    print(f"  {artifact_label} file:    {plan_path}")
     if quality_report_path:
         print(f"  Quality report:    {quality_report_path}")
     print()
     print("-" * 60)
     print("  Options:")
-    print("    [y]     Approve — proceed to execute")
-    print("    [n]     Reject — stop, do not execute")
-    print("    [m]     Approve with modifications — specify changes")
+    print("    [y]     Approve")
+    print("    [n]     Reject")
+    print("    [m]     Approve with modifications")
     print("    [i]     Request more information")
     print("-" * 60)
 
@@ -302,16 +290,17 @@ def cmd_interactive(plan_path: Path, reviewer: str, quality_report_path: str = "
         return {"status": STATUS_PENDING, "reason": "User aborted"}
 
     # Bước 3: Xử lý response
+    label = "SDD" if artifact == "sd" else "Plan"
     if response == "y":
-        state = cmd_approve(plan_path, reviewer, "Approved via interactive mode")
-        print(f"\n  [APPROVED] Plan state written: {plan_path.stem}.json")
+        state = cmd_approve(plan_path, reviewer, "Approved via interactive mode", artifact=artifact)
+        print(f"\n  [APPROVED] {label} state written: {_plan_state_name(plan_path, artifact)}.json")
         return state
     elif response == "n":
         try:
             reason = input("  Reason for rejection (optional): ").strip()
         except (EOFError, KeyboardInterrupt):
             reason = "Rejected via interactive mode"
-        state = cmd_reject(plan_path, reviewer, reason or "Rejected via interactive mode")
+        state = cmd_reject(plan_path, reviewer, reason or "Rejected via interactive mode", artifact=artifact)
         print(f"\n  [REJECTED] Reason: {reason}")
         return state
     elif response == "m":
@@ -319,7 +308,7 @@ def cmd_interactive(plan_path: Path, reviewer: str, quality_report_path: str = "
             modifications = input("  Specify modifications needed: ").strip()
         except (EOFError, KeyboardInterrupt):
             modifications = "Modifications requested via interactive mode"
-        state = cmd_request_changes(plan_path, reviewer, modifications)
+        state = cmd_request_changes(plan_path, reviewer, modifications, artifact=artifact)
         print(f"\n  [CHANGES REQUESTED] {modifications}")
         return state
     elif response == "i":
@@ -337,7 +326,7 @@ def cmd_interactive(plan_path: Path, reviewer: str, quality_report_path: str = "
 def _parse_args(argv: list[str]) -> dict:
     """Parse CLI args thủ công (không dùng argparse để giữ stdlib tối giản).
 
-    Hỗ trợ: --status, --approve, --reject, --request-changes,
+    Hỗ trợ: --status, --approve, --reject, --request-changes, --artifact <sd|plan>
             --reviewer <name>, --reason <text>, --comments <text>
     """
     args = {
@@ -351,6 +340,7 @@ def _parse_args(argv: list[str]) -> dict:
         "reason": "",
         "comments": "",
         "quality_report": "",
+        "artifact": "plan",
     }
     i = 0
     # Bước 1: Tìm plan_file (đối số đầu tiên không phải flag)
@@ -383,6 +373,10 @@ def _parse_args(argv: list[str]) -> dict:
             i += 1
             if i < len(argv):
                 args["quality_report"] = argv[i]
+        elif a in ("--artifact",):
+            i += 1
+            if i < len(argv):
+                args["artifact"] = argv[i]
         elif a.startswith("--"):
             # Flag không nhận dạng -> bỏ qua
             pass
@@ -401,30 +395,32 @@ def main() -> int:
     """Entry point CLI. Trả 0 nếu approved, 1 nếu pending/rejected/changes_requested."""
     args = _parse_args(sys.argv[1:])
     if not args["plan_file"]:
-        print("Usage: python approval_gate.py <plan_file.md> [--approve|--reject|--request-changes|--status]",
+        print("Usage: python approval_gate.py <plan_file.md> [--approve|--reject|--request-changes|--status] [--artifact sd|plan]",
               file=sys.stderr)
         return 2
 
     plan_path = Path(args["plan_file"]).resolve()
 
     # Bước 1: Chọn thao tác theo flag
+    artifact = args.get("artifact", "plan")
     if args["status"]:
-        result = cmd_status(plan_path)
+        result = cmd_status(plan_path, artifact)
     elif args["approve"]:
-        result = cmd_approve(plan_path, args["reviewer"], args["comments"])
+        result = cmd_approve(plan_path, args["reviewer"], args["comments"], artifact)
     elif args["reject"]:
-        result = cmd_reject(plan_path, args["reviewer"], args["comments"])
+        result = cmd_reject(plan_path, args["reviewer"], args["comments"], artifact)
     elif args["request_changes"]:
-        result = cmd_request_changes(plan_path, args["reviewer"], args["comments"])
+        result = cmd_request_changes(plan_path, args["reviewer"], args["comments"], artifact)
     elif args["interactive"]:
         result = cmd_interactive(
             plan_path,
             args["reviewer"] or "human",
             args["quality_report"],
+            artifact,
         )
     else:
         # Mặc định: status
-        result = cmd_status(plan_path)
+        result = cmd_status(plan_path, artifact)
 
     # Bước 2: In JSON ra stdout
     print(json.dumps(result, ensure_ascii=False, indent=2))
