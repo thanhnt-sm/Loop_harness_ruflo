@@ -42,11 +42,22 @@ devin -p -- "mô tả công việc"          # Non-interactive
 
 ### Auto-activation mechanism
 
-Khi user gõ `/plan <task>` hoặc `/full-power <task>`:
+#### Khi user gõ slash skill (`/plan <task>` hoặc `/full-power <task>`)
+
 1. Skill được inject vào agent context
 2. Agent đọc **AUTO-ACTIVATION directive** (section đầu tiên của skill)
 3. Agent **NGAY LẬP TỨC** chạy `python .devin/scripts/plan_orchestrator.py --init --task "<task>"`
 4. Orchestrator trả `next_action` → agent thực hiện → báo results qua `--step` → lặp lại cho đến DONE
+
+#### Khi user chỉ đưa ra task (không gõ slash skill)
+
+1. Phân tích ý định trước:
+   - Nếu là câu hỏi, giải thích, yêu cầu thông tin → **trả lời trực tiếp**, KHÔNG kích hoạt skill.
+   - Nếu là task cần thực hiện → tiếp tục classify tier.
+2. Classify tier:
+   - **S-tier** (<5 dòng, 1 file, không verification, không destructive) → sửa trực tiếp, sau đó report.
+   - **M/L/XL** → **mặc định gọi `/full-power <task>`** để chạy full chain: PREFLIGHT → Plan → Approve → Execute → Nuwa (L/XL) → Memory → Report.
+3. User có thể override bằng cách gõ slash skill rõ ràng: `/lightning`, `/glm`, `/kimi`, `/plan`, `/adversarial-consensus`, v.v.
 
 **Không cần manually chạy CLI. Skill tự động kích hoạt orchestrator.**
 
