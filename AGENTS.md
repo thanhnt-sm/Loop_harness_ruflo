@@ -118,7 +118,7 @@ S-tier (<5 lines, 1 file, no destructive op) → orchestrator auto-skip, sửa t
 - **Hooks**: `.devin/hooks/` — 13 Python hooks
 - **Scripts**: `.devin/scripts/` — 21 runtime scripts
 - **HLK**: `HLK/` — security layer
-- **Tools**: `tools/` — packaging, deploy, verify, health-check
+- **Tools**: `tools/` — packaging, deploy, init-new-project, verify, health-check
 
 ## Red Team + Upgrades
 
