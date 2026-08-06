@@ -146,6 +146,26 @@ def _parse_coverage_table(text: str) -> dict[str, list[str]]:
     return mapping
 
 
+def _extract_file_path(raw: str) -> str:
+    """Trích file path từ trường `file:` hoặc `path:` trong task raw.
+
+    Ưu tiên trường `file:` / `path:` chính xác. Nếu không có,
+    fallback tìm đường dẫn file-like đầu tiên.
+    """
+    m = re.search(r"(?:file|file_path|path)\s*[:=]\s*`?([^`\s,;]+)", raw, re.IGNORECASE)
+    if m:
+        return m.group(1).strip().strip("'\"\u201c\u201d")
+    # Fallback cũ, mở rộng để bắt dấu . đầu path và extension dài hơn.
+    file_m = re.search(r"[\w.\/\\-]+\.\w{1,10}", raw)
+    return file_m.group(0) if file_m else ""
+
+
+def _extract_function(raw: str) -> str:
+    """Trích function name từ trường `func:` hoặc `function:`."""
+    m = re.search(r"func(?:tion)?\s*[:=]\s*([A-Za-z_][\w]*)\s*\(?", raw, re.IGNORECASE)
+    return m.group(1) if m else ""
+
+
 def _parse_tasks(text: str) -> list[dict]:
     """Trích danh sách task từ plan.
 
@@ -172,12 +192,10 @@ def _parse_tasks(text: str) -> list[dict]:
     for m in task_pattern.finditer(text):
         tid = m.group(1)
         raw = m.group(2).strip()
-        # Trích file path (đường dẫn có .py / .js / .ts / .md ...)
-        file_m = re.search(r"[\w/\\]+\.\w{1,6}", raw)
-        file_path = file_m.group(0) if file_m else ""
-        # Trích function (func: name() hoặc function: name)
-        func_m = re.search(r"func(?:tion)?:\s*([A-Za-z_][\w]*)\s*\(", raw, re.IGNORECASE)
-        function = func_m.group(1) if func_m else ""
+        # Trích file path từ trường file: / path:
+        file_path = _extract_file_path(raw)
+        # Trích function từ trường func: / function:
+        function = _extract_function(raw)
         # Trích acceptance criteria (AC: ...)
         ac_m = re.search(r"AC\s*:\s*(.+?)(?:\s+R\d|$)", raw, re.IGNORECASE)
         ac = ac_m.group(1).strip() if ac_m else ""
