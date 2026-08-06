@@ -1,13 +1,15 @@
-﻿<#
+<#
 .SYNOPSIS
   Deploy harness template vào dự án mới — resolve placeholders, git init, verify.
 .DESCRIPTION
-  1. Giải nén template zip vào target directory
+  1. Giải nén template zip vào target directory (safe extraction, chống path traversal)
   2. Phát hiện aide-memory global path, node.exe path
   3. Resolve placeholders trong config.json + mcp_config.json
-  4. Tạo .aide/memories subdirs rỗng
-  5. Git init + initial commit
-  6. Chạy verify-workspace.ps1
+  4. Xóa TEMPLATE_MANIFEST.json (metadata đóng gói, không cần ở target)
+  5. Tạo .aide/memories subdirs rỗng và docs/plans
+  6. (Optional) Clean runtime nếu target đã có dữ liệu cũ
+  7. Git init + initial commit
+  8. Chạy verify-workspace.ps1
 .PARAMETER TemplatePath
   Đường dẫn template zip (từ package-template.ps1).
 .PARAMETER TargetPath
@@ -16,58 +18,98 @@
   Tên dự án (cho git + package.json). Mặc định: tên thư mục TargetPath.
 .PARAMETER SkipGitInit
   Bỏ qua git init (nếu target đã có git repo).
+.PARAMETER CleanRuntime
+  Chạy clean-runtime.ps1 sau khi extract để xóa runtime data cũ trong target.
+.PARAMETER DryRun
+  Không tạo target, chỉ in báo cáo các bước sẽ làm.
 .EXAMPLE
   .\tools\deploy-template.ps1 -TemplatePath .\harness-template.zip -TargetPath D:\projects\my-app
-  .\tools\deploy-template.ps1 -TemplatePath .\harness-template.zip -TargetPath D:\projects\my-app -ProjectName "My App"
+  .\tools\deploy-template.ps1 -TemplatePath .\harness-template.zip -TargetPath D:\projects\my-app -ProjectName "My App" -CleanRuntime
+  .\tools\deploy-template.ps1 -TemplatePath .\harness-template.zip -TargetPath D:\projects\my-app -DryRun
 #>
 param(
   [Parameter(Mandatory)][string]$TemplatePath,
   [Parameter(Mandatory)][string]$TargetPath,
   [string]$ProjectName,
-  [switch]$SkipGitInit
+  [switch]$SkipGitInit,
+  [switch]$CleanRuntime,
+  [switch]$DryRun
 )
 
 $ErrorActionPreference = 'Continue'
 
 Write-Host "`n=== Deploy Template ===" -ForegroundColor Cyan
 Write-Host "Template: $TemplatePath" -ForegroundColor Gray
-Write-Host "Target:   $TargetPath`n" -ForegroundColor Gray
+Write-Host "Target:   $TargetPath" -ForegroundColor Gray
+if ($DryRun) { Write-Host "Mode:     DRY-RUN (no files written)" -ForegroundColor Yellow } else { Write-Host "Mode:     deploy" -ForegroundColor Gray }
+Write-Host ""
 
 # --- 1. Validate template ---
 if (-not (Test-Path $TemplatePath)) {
   throw "Template not found: $TemplatePath"
 }
+$templateItem = Get-Item $TemplatePath
+if ($templateItem.Length -eq 0) { throw "Template file is empty: $TemplatePath" }
 
-# --- 2. Tạo target dir ---
-if (-not (Test-Path $TargetPath)) {
-  New-Item -ItemType Directory -Path $TargetPath -Force | Out-Null
+# --- 2. Resolve target path and validate ---
+$target = [System.IO.Path]::GetFullPath($TargetPath)
+if (-not (Test-Path $target) -and -not $DryRun) {
+  New-Item -ItemType Directory -Path $target -Force | Out-Null
 }
-$target = (Resolve-Path $TargetPath).Path
 if (-not $ProjectName) { $ProjectName = (Split-Path $target -Leaf) }
 
+# U09: Validate workspaceRoot for path traversal
+if ($target -match '\.\.') {
+  throw "WORKSPACE_ROOT contains path traversal characters: $target — refusing to deploy"
+}
+
 # --- 3. Kiểm tra target rỗng (hoặc chỉ có .git) ---
-$existing = Get-ChildItem $target -Force | Where-Object { $_.Name -ne '.git' }
-if ($existing) {
-  Write-Host "  [warn] Target không rỗng — files hiện có sẽ được merge`n" -ForegroundColor Yellow
+if (Test-Path $target) {
+  $existing = Get-ChildItem $target -Force -ErrorAction SilentlyContinue | Where-Object { $_.Name -ne '.git' }
+  if ($existing) {
+    if ($DryRun) {
+      Write-Host "  [dry-run] Target exists with files; would merge (or clean with -CleanRuntime)" -ForegroundColor Yellow
+    } else {
+      Write-Host "  [warn] Target không rỗng — files hiện có sẽ được merge`n" -ForegroundColor Yellow
+    }
+  }
 }
 
 # --- 4. Giải nén template ---
-Write-Host "  [extract] Template → target..." -ForegroundColor Gray
+if ($DryRun) {
+  # Liệt kê nội dung zip mà không extract
+  Add-Type -AssemblyName System.IO.Compression.FileSystem
+  $zip = [System.IO.Compression.ZipFile]::OpenRead($TemplatePath)
+  Write-Host "  [dry-run] Zip contains $($zip.Entries.Count) entries" -ForegroundColor Gray
+  $topDirs = $zip.Entries | ForEach-Object { ($_.FullName -split '/')[0] } | Select-Object -Unique
+  Write-Host "  [dry-run] Top-level entries: $($topDirs -join ', ')" -ForegroundColor Gray
+  $zip.Dispose()
+
+  Write-Host "  [dry-run] Would resolve placeholders:" -ForegroundColor Gray
+  Write-Host "    WORKSPACE_ROOT       = $target" -ForegroundColor DarkGray
+  $npmRoot = (npm root -g 2>$null)
+  if ($npmRoot) { $npmRoot = $npmRoot.Trim() }
+  $node = (Get-Command node -ErrorAction SilentlyContinue).Source
+  Write-Host "    AIDE_MEMORY_GLOBAL   = $(if ($npmRoot) { Join-Path $npmRoot 'aide-memory' } else { '(unknown)' })" -ForegroundColor DarkGray
+  Write-Host "    AIDE_MEMORY_CLI      = $(if ($npmRoot) { Join-Path $npmRoot 'aide-memory\dist\memory\cli.js' } else { '(unknown)' })" -ForegroundColor DarkGray
+  Write-Host "    NODE_EXE             = $(if ($node) { $node } else { '(unknown)' })" -ForegroundColor DarkGray
+
+  Write-Host "`n[DryRun] Deploy would complete at: $target" -ForegroundColor Yellow
+  return
+}
+
 $tempExtract = Join-Path $env:TEMP "harness-extract-$(Get-Date -Format 'yyyyMMddHHmmss')"
 if (Test-Path $tempExtract) { Remove-Item $tempExtract -Recurse -Force }
 New-Item -ItemType Directory -Path $tempExtract -Force | Out-Null
 
-# Dùng .NET ZipFile để extract (tránh Expand-Archive bug)
 Add-Type -AssemblyName System.IO.Compression.FileSystem
-
-# U09: Safe zip extraction — validate entry paths to prevent path traversal
 $tempExtractFull = [System.IO.Path]::GetFullPath($tempExtract)
 $zip = [System.IO.Compression.ZipFile]::OpenRead($TemplatePath)
 foreach ($entry in $zip.Entries) {
-  $targetPath = [System.IO.Path]::GetFullPath(
+  $targetEntryPath = [System.IO.Path]::GetFullPath(
     [System.IO.Path]::Combine($tempExtractFull, $entry.FullName)
   )
-  if (-not $targetPath.StartsWith($tempExtractFull, [System.StringComparison]::OrdinalIgnoreCase)) {
+  if (-not $targetEntryPath.StartsWith($tempExtractFull, [System.StringComparison]::OrdinalIgnoreCase)) {
     Write-Host "  [BLOCKED] Path traversal detected in zip entry: $($entry.FullName)" -ForegroundColor Red
     $zip.Dispose()
     throw "Path traversal detected in zip entry: $($entry.FullName) — refusing to extract"
@@ -82,11 +124,9 @@ $items = Get-ChildItem $tempExtract -Force
 foreach ($item in $items) {
   $dest = Join-Path $target $item.Name
   if ($item.PSIsContainer) {
-    # Copy dir (merge) — dùng Copy-Item -Recurse cho tin cậy
     if (-not (Test-Path $dest)) {
       Copy-Item $item.FullName $dest -Recurse -Force
     } else {
-      # Merge: copy từng file/dir con
       Get-ChildItem $item.FullName -Recurse -Force | ForEach-Object {
         $rel = $_.FullName.Substring($item.FullName.Length + 1)
         $d = Join-Path $dest $rel
@@ -104,25 +144,42 @@ foreach ($item in $items) {
   }
 }
 Remove-Item $tempExtract -Recurse -Force -ErrorAction SilentlyContinue
-Write-Host "  [done] Extracted`n" -ForegroundColor Green
+Write-Host "  [done] Extracted to target`n" -ForegroundColor Green
 
-# --- 5. Phát hiện paths ---
+# --- 5. Xóa TEMPLATE_MANIFEST.json khỏi target ---
+$manifestPath = Join-Path $target 'TEMPLATE_MANIFEST.json'
+if (Test-Path $manifestPath) {
+  Remove-Item $manifestPath -Force
+  Write-Host "  [removed] TEMPLATE_MANIFEST.json (packaging metadata)" -ForegroundColor Green
+}
+
+# --- 6. Clean runtime nếu được yêu cầu ---
+if ($CleanRuntime) {
+  $cleanScript = Join-Path $PSScriptRoot 'clean-runtime.ps1'
+  if (Test-Path $cleanScript) {
+    Write-Host "  [clean] Running clean-runtime.ps1..." -ForegroundColor Cyan
+    & $cleanScript -WorkspaceRoot $target
+  } else {
+    Write-Host "  [warn] clean-runtime.ps1 not found — skipping" -ForegroundColor Yellow
+  }
+}
+
+# --- 7. Phát hiện paths ---
 Write-Host "  [detect] Resolving placeholders..." -ForegroundColor Gray
 
-# 5a. Node.exe path
+# 7a. Node.exe path
 $nodeExe = (Get-Command node -ErrorAction SilentlyContinue).Source
 if (-not $nodeExe) {
-  # Fallback: tìm trong .tools\node
   $toolsNode = Join-Path $target '.tools\node\node.exe'
   if (Test-Path $toolsNode) { $nodeExe = $toolsNode }
   else { throw "node.exe not found. Install Node.js hoặc đặt vào .tools\node\" }
 }
 Write-Host "    NODE_EXE = $nodeExe" -ForegroundColor DarkGray
 
-# 5b. Aide-memory global path
-$npmRoot = (npm root -g 2>$null).Trim()
+# 7b. Aide-memory global path
+$npmRoot = (npm root -g 2>$null)
+if ($npmRoot) { $npmRoot = $npmRoot.Trim() }
 if (-not $npmRoot) {
-  # Fallback: đoán từ node path
   $npmRoot = Split-Path (Split-Path $nodeExe -Parent) -Parent
   $npmRoot = Join-Path $npmRoot 'node_modules'
 }
@@ -138,50 +195,77 @@ if (-not (Test-Path $aideMemoryCli)) {
   Write-Host "    AIDE_MEMORY_CLI = $aideMemoryCli" -ForegroundColor DarkGray
 }
 
-# 5c. Workspace root
+# 7c. Workspace root
 $workspaceRoot = $target
-# U09: Validate workspaceRoot for path traversal
-if ($workspaceRoot -match '\.\.') {
-  throw "WORKSPACE_ROOT contains path traversal characters: $workspaceRoot — refusing to deploy"
-}
-$workspaceRoot = [System.IO.Path]::GetFullPath($workspaceRoot)
 Write-Host "    WORKSPACE_ROOT = $workspaceRoot`n" -ForegroundColor DarkGray
 
-# --- 6. Resolve placeholders trong config.json + mcp_config.json ---
+# --- 8. Resolve placeholders trong config.json + mcp_config.json ---
 $utf8NoBom = New-Object System.Text.UTF8Encoding $false
-$configPath = Join-Path $target '.devin\config.json'
-if (Test-Path $configPath) {
-  $content = Get-Content $configPath -Raw
-  $content = $content -replace '\{\{WORKSPACE_ROOT\}\}', ($workspaceRoot -replace '\\', '\\')
-  $content = $content -replace '\{\{AIDE_MEMORY_GLOBAL\}\}', ($aideMemoryGlobal -replace '\\', '\\')
-  $content = $content -replace '\{\{AIDE_MEMORY_CLI\}\}', ($aideMemoryCli -replace '\\', '\\')
-  $content = $content -replace '\{\{NODE_EXE\}\}', ($nodeExe -replace '\\', '\\')
-  [System.IO.File]::WriteAllText($configPath, $content, $utf8NoBom)
-  # U09: Check for unresolved placeholders
-  $unresolved = [regex]::Matches($content, '\{\{.*?\}\}')
-  if ($unresolved.Count -gt 0) {
-    Write-Host "  [WARN] Unresolved placeholders in config.json: $($unresolved.Count)" -ForegroundColor Yellow
-    $unresolved | ForEach-Object { Write-Host "    $($_.Value)" -ForegroundColor Yellow }
+
+function Find-Strings($node, [ref]$out) {
+  if ($node -is [string]) {
+    if ($out.Value -notcontains $node) { $out.Value += $node }
+  } elseif ($node -is [array]) {
+    foreach ($el in $node) { Find-Strings $el $out }
+  } elseif ($node -is [PSCustomObject]) {
+    foreach ($prop in $node.PSObject.Properties) { Find-Strings $prop.Value $out }
   }
-  Write-Host "  [resolved] .devin/config.json" -ForegroundColor Green
 }
 
-$mcpPath = Join-Path $target '.devin\mcp_config.json'
-if (Test-Path $mcpPath) {
-  $content = Get-Content $mcpPath -Raw
-  $content = $content -replace '\{\{WORKSPACE_ROOT\}\}', ($workspaceRoot -replace '\\', '\\')
-  $content = $content -replace '\{\{AIDE_MEMORY_CLI\}\}', ($aideMemoryCli -replace '\\', '\\')
-  [System.IO.File]::WriteAllText($mcpPath, $content, $utf8NoBom)
-  # U09: Check for unresolved placeholders
-  $unresolvedMcp = [regex]::Matches($content, '\{\{.*?\}\}')
-  if ($unresolvedMcp.Count -gt 0) {
-    Write-Host "  [WARN] Unresolved placeholders in mcp_config.json: $($unresolvedMcp.Count)" -ForegroundColor Yellow
-    $unresolvedMcp | ForEach-Object { Write-Host "    $($_.Value)" -ForegroundColor Yellow }
+function Resolve-ConfigPlaceholders($path, $replacements) {
+  if (-not (Test-Path $path)) { return }
+  $content = Get-Content $path -Raw
+  foreach ($kv in $replacements.GetEnumerator()) {
+    $escaped = $kv.Value -replace '\\', '\\'
+    $content = $content -replace [regex]::Escape($kv.Key), $escaped
   }
-  Write-Host "  [resolved] .devin/mcp_config.json" -ForegroundColor Green
+  [System.IO.File]::WriteAllText($path, $content, $utf8NoBom)
+
+  $json = $content | ConvertFrom-Json
+  $strings = @()
+  Find-Strings $json ([ref]$strings)
+
+  # Check unresolved placeholders
+  $unresolved = $strings | Where-Object { $_ -match '\{\{.*?\}\}' }
+  if ($unresolved) {
+    Write-Host "  [WARN] Unresolved placeholders in $([System.IO.Path]::GetFileName($path)): $($unresolved.Count)" -ForegroundColor Yellow
+    $unresolved | ForEach-Object { Write-Host "    $_" -ForegroundColor Yellow }
+  }
+
+  # Quote paths with spaces in HLK hook launcher command
+  if (([System.IO.Path]::GetFileName($path)) -eq 'config.json') {
+    $jsonObj = $content | ConvertFrom-Json
+    foreach ($entry in $jsonObj.hooks.PreToolUse) {
+      foreach ($hook in $entry.hooks) {
+        if ($hook.command -and $hook.command -match 'hlk-hook-launcher\.mjs') {
+          if ($hook.command -match '^(.+?)\s+([A-Za-z]:\\.+hlk-hook-launcher\.mjs)$') {
+            $node = $matches[1].Trim()
+            $script = $matches[2].Trim()
+            if ($node -match '^[A-Za-z]:\\') { $node = '"' + $node + '"' }
+            if ($script -match '^[A-Za-z]:\\') { $script = '"' + $script + '"' }
+            $hook.command = "$node $script"
+          }
+        }
+      }
+    }
+    $content = $jsonObj | ConvertTo-Json -Depth 100
+    [System.IO.File]::WriteAllText($path, $content, $utf8NoBom)
+  }
+
+  Write-Host "  [resolved] $([System.IO.Path]::GetFileName($path))" -ForegroundColor Green
 }
 
-# --- 7. Tạo .aide/memories subdirs rỗng ---
+$allReplacements = [ordered]@{
+  '{{WORKSPACE_ROOT}}'       = $workspaceRoot
+  '{{AIDE_MEMORY_GLOBAL}}'   = $aideMemoryGlobal
+  '{{AIDE_MEMORY_CLI}}'      = $aideMemoryCli
+  '{{NODE_EXE}}'             = $nodeExe
+}
+
+Resolve-ConfigPlaceholders (Join-Path $target '.devin\config.json') $allReplacements
+Resolve-ConfigPlaceholders (Join-Path $target '.devin\mcp_config.json') $allReplacements
+
+# --- 9. Ensure .aide/memories + docs/plans subdirs ---
 $memBase = Join-Path $target '.aide\memories'
 foreach ($sub in @('area_context', 'guidelines', 'preferences', 'technical')) {
   New-Item -ItemType Directory -Path (Join-Path $memBase $sub) -Force | Out-Null
@@ -191,7 +275,11 @@ foreach ($sub in @('personal', 'shared')) {
 }
 Write-Host "  [ensured] .aide/memories/ subdirs" -ForegroundColor Green
 
-# --- 8. Update package.json name ---
+$docsPlans = Join-Path $target 'docs\plans'
+New-Item -ItemType Directory -Path $docsPlans -Force | Out-Null
+Write-Host "  [ensured] docs/plans/" -ForegroundColor Green
+
+# --- 10. Update package.json name ---
 $pkgPath = Join-Path $target 'package.json'
 if (Test-Path $pkgPath) {
   $pkg = Get-Content $pkgPath -Raw | ConvertFrom-Json
@@ -201,12 +289,11 @@ if (Test-Path $pkgPath) {
   Write-Host "  [updated] package.json name → $($pkg.name)" -ForegroundColor Green
 }
 
-# --- 9. Git init ---
+# --- 11. Git init ---
 if (-not $SkipGitInit) {
   $gitDir = Join-Path $target '.git'
   if (-not (Test-Path $gitDir)) {
     Write-Host "`n  [git] Initializing git repo..." -ForegroundColor Gray
-    $gitEnv = @{ GIT_TERMINAL_PROMPT = '0'; GIT_QUIET = '1' }
     git -C $target init 2>$null | Out-Null
     git -C $target -c core.autocrlf=false add -A 2>$null | Out-Null
     $commitMsg = "feat: init project with Agent Harness Deploy template`n`nDeployed from harness template. See REPOS.md for full source attributions.`n`nGenerated with [Devin](https://devin.ai)`n`nCo-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>"
@@ -217,7 +304,7 @@ if (-not $SkipGitInit) {
   }
 }
 
-# --- 10. Verify ---
+# --- 12. Verify ---
 Write-Host "  [verify] Running integrity check...`n" -ForegroundColor Gray
 & (Join-Path $PSScriptRoot 'verify-workspace.ps1') -WorkspaceRoot $target
 

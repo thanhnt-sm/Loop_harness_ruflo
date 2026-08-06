@@ -1,8 +1,8 @@
-﻿<#
+<#
 .SYNOPSIS
   Xóa runtime state — biến workspace về trạng thái "sạch" như mới deploy.
 .DESCRIPTION
-  Wipe các thư mục/file runtime (session state, memories, loop state, context flags)
+  Wipe các thư mục/file runtime (session state, memories, loop state, context flags, plan state, reports, telemetry, tmp)
   và reset registry files về trạng thái rỗng. Giữ nguyên tất cả config, canon, skills,
   agents, hooks, scripts, vault — chỉ xóa dữ liệu sinh ra trong quá trình chạy.
 .PARAMETER WorkspaceRoot
@@ -27,6 +27,10 @@ $runtimeDirs = @(
   '.devin/loop_state',
   '.devin/loop_state_archive',
   '.devin/context_flags',
+  '.devin/plan_state',
+  '.devin/reports',
+  '.devin/telemetry',
+  '.devin/tmp',
   '.aide/memories',
   '.aide/cache'
 )
