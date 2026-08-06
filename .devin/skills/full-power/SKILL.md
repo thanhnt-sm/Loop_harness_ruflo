@@ -133,6 +133,10 @@ python .devin/scripts/pre_task_audit.py --tags "<task_slug>" --session <session_
 | `worktree.py` | Phase 3 | `create` |
 | `spc_monitor.py` | Phase 3/7d | `--check` |
 | `checkpoint.py` | Trước DAG execute | `--save` |
+| `state_router.py` | Phase 3 per worker | `--route <state.json>` |
+| `event_bus.py` | Phase 3 per task result | `--publish execute.results <result.json>` |
+| `blackboard.py` | Phase 3 evidence sharing | `--write evidence <task_id> <value.json>` |
+| `coverage_matrix.py` | Phase 3 Layer 3 | `<plan.md> --verify` |
 | `nuwa_roi.py` | Bước 10 | `--record-nuwa`, `--report` |
 | `memory_audit.py` / `loop_memory_sync.py` | Bước 11 | merge + sync |
 
@@ -296,10 +300,11 @@ Dispatch workers theo DAG batch:
 | Verification | `subagent_explore` | SWE-1.6 (fresh context) |
 
 Workers tự trị (max power trong boundary):
-- Dynamic flow: `python .devin/scripts/state_router.py --route state.json`
-- Tự retry, tự sửa within task scope
-- Reflexion: học từ mistake, retry smarter
-- Event bus: `python .devin/scripts/event_bus.py --publish execute.results <result.json>`
+- Mỗi worker ghi state `.devin/state/<task_id>.json`, rồi gọi `python .devin/scripts/state_router.py --route .devin/state/<task_id>.json` để xác định bước tiếp.
+- Tự retry, tự sửa within task scope.
+- Reflexion: học từ mistake, retry smarter.
+- Sau mỗi task: `python .devin/scripts/event_bus.py --publish execute.results .devin/state/<task_id>_result.json`
+- Ghi evidence chia sẻ: `python .devin/scripts/blackboard.py --write evidence <task_id> .devin/state/<task_id>_evidence.json`
 
 **Boundary (KHÔNG được vượt)**:
 - KHÔNG sửa plan (plan = contract)

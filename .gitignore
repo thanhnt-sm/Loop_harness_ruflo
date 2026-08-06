@@ -228,6 +228,10 @@ scripts/
 .devin/session_state/
 .devin/context_flags/
 .devin/loop_state_archive/
+.devin/blackboard/
+.devin/event_bus/
+.devin/state/
+.devin/telemetry/
 
 # Allow current project tests and scripts
 !tests/
