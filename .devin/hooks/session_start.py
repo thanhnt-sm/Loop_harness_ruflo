@@ -90,15 +90,27 @@ def main() -> None:
     check_hlk_status(hlk_config)
 
     # Initialize boot_complete=false — must be set true by BOOT protocol
+    # Pentest fix: chỉ reset boot_complete khi session mới hoặc chưa có; giữ nguyên nếu session đang resume.
+    prompt_id = data.get("prompt_id", "")
     state_path = get_session_state_path(session_id, root)
+
+    def _boot_update(existing: dict | None) -> dict:
+        existing = existing or {}
+        is_fresh = not state_path.exists()
+        # Nếu prompt_id đổi -> session mới -> reset boot_complete.
+        if existing.get("prompt_id") != prompt_id:
+            is_fresh = True
+        return {
+            **existing,
+            "boot_complete": False if is_fresh else existing.get("boot_complete", False),
+            "prompt_id": prompt_id,
+            "boot_started_at": _now_iso(),
+            "boot_steps_verified": existing.get("boot_steps_verified", []) if not is_fresh else [],
+        }
+
     _locked_json_update(
         state_path,
-        lambda existing: {
-            **(existing or {}),
-            "boot_complete": False,
-            "boot_started_at": data.get("prompt_id", ""),
-            "boot_steps_verified": [],
-        },
+        _boot_update,
         default={},
         session_id=session_id,
     )

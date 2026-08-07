@@ -167,10 +167,21 @@ def detect_hack(trace: list[dict[str, Any]]) -> list[Exploit]:
 
 
 def _cli() -> int:
-    """CLI stub: đọc JSON {base_score, actions, cost, security_events} từ stdin."""
+    """CLI stub: đọc JSON {base_score, actions, cost, security_events} từ stdin.
+
+    Pentest fix: xử lý stdin rỗng/sai JSON (trả 1 thay vì crash).
+    """
     import json
 
-    payload = json.loads(sys.stdin.read())
+    raw = sys.stdin.read()
+    try:
+        payload = json.loads(raw) if raw.strip() else {}
+    except json.JSONDecodeError as e:
+        print(f"[reward_shaping] lỗi parse JSON stdin: {e}", file=sys.stderr)
+        return 1
+    if "base_score" not in payload:
+        print("[reward_shaping] lỗi: thiếu trường 'base_score' trong payload", file=sys.stderr)
+        return 1
     score = shape(
         float(payload["base_score"]),
         payload.get("actions", []),

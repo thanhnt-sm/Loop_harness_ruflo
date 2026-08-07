@@ -221,8 +221,18 @@ def critique(cot: CoT) -> CRVScore:
 
 
 def _cli() -> int:
-    """CLI stub: đọc problem từ argv, in CoT + CRVScore dạng JSON."""
+    """CLI stub: đọc problem từ argv, in CoT + CRVScore dạng JSON.
+
+    Pentest fix: ép stdout/stderr dùng UTF-8 (tránh UnicodeEncodeError trên
+    Windows cp1258 khi in tiếng Việt trong CoT/critique).
+    """
     import json
+    # Ép stdout/stderr dùng UTF-8 để in tiếng Việt an toàn trên Windows console
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8")
+        except (AttributeError, OSError):
+            pass
     problem = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else sys.stdin.read()
     profile = ModelProfile(
         name="small-fixture",

@@ -151,11 +151,21 @@ def judge(
 
 
 def _cli() -> int:
-    """CLI stub: đọc JSON results + spec từ stdin, in Verdict JSON."""
+    """CLI stub: đọc JSON results + spec từ stdin, in Verdict JSON.
+
+    Pentest fix: xử lý stdin rỗng/sai JSON (trả 1 thay vì crash).
+    """
     import json
 
     raw = sys.stdin.read()
-    payload = json.loads(raw)
+    try:
+        payload = json.loads(raw) if raw.strip() else {}
+    except json.JSONDecodeError as e:
+        print(f"[swarm_judge] lỗi parse JSON stdin: {e}", file=sys.stderr)
+        return 1
+    if "spec" not in payload:
+        print("[swarm_judge] lỗi: thiếu trường 'spec' trong payload", file=sys.stderr)
+        return 1
     results = [WorkerResult.model_validate(r) for r in payload.get("results", [])]
     spec = SwarmSpec.model_validate(payload["spec"])
     v = judge(results, spec, seed=int(payload.get("seed", DEFAULT_SEED)))

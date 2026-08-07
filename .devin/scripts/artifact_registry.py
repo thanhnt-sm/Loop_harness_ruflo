@@ -115,11 +115,15 @@ def _lock_path(path: Path) -> Path:
     return path.with_suffix(".lock")
 
 
-def _acquire_lock(lock_path: Path, timeout: float = 5.0) -> Any:
-    """Lấy file-lock liên tiến trình (race-safe)."""
+def _acquire_lock(lock_path: Path, timeout: float = 5.0) -> tuple[Path, Any, bool]:
+    """Lấy file-lock liên tiến trình (race-safe).
+
+    Trả về (lock_path, handle, is_sentinel).
+    """
     try:
         import ahd_session
-        return ahd_session._acquire_lock(lock_path, timeout=timeout)
+        handle = ahd_session._acquire_lock(lock_path, timeout=timeout)
+        return (lock_path, handle, False)
     except Exception:
         # Fallback: không có ahd_session -> dùng sentinel đơn giản
         lock_path.parent.mkdir(parents=True, exist_ok=True)
@@ -129,26 +133,38 @@ def _acquire_lock(lock_path: Path, timeout: float = 5.0) -> Any:
                 fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
                 os.write(fd, str(os.getpid()).encode("utf-8"))
                 os.close(fd)
-                return lock_path
+                return (lock_path, lock_path, True)
             except FileExistsError:
                 time.sleep(0.05)
-        return None
+        return (lock_path, None, True)
 
 
-def _release_lock(handle: Any) -> None:
-    """Giải phóng file-lock."""
+def _release_lock(lock_handle: tuple[Path, Any, bool]) -> None:
+    """Giải phóng file-lock.
+
+    Đảm bảo release đúng loại (ahd_session handle hoặc sentinel file).
+    """
+    if lock_handle is None:
+        return
+    lock_path, handle, is_sentinel = lock_handle
     if handle is None:
+        return
+    if is_sentinel:
+        try:
+            if isinstance(handle, Path) and handle.exists():
+                handle.unlink()
+        except Exception:
+            pass
         return
     try:
         import ahd_session
         ahd_session._release_lock(handle)
         return
     except Exception:
-        pass
-    # Fallback: sentinel lock
-    if isinstance(handle, Path):
+        # Nếu ahd release thất bại, xóa sentinel file nếu nó tồn tại để tránh leak.
         try:
-            handle.unlink()
+            if lock_path.exists():
+                lock_path.unlink()
         except Exception:
             pass
 
@@ -181,8 +197,11 @@ def register(
 
     path = _artifact_path(type, id, root)
     lock = _lock_path(path)
-    handle = _acquire_lock(lock)
-    if handle is None:
+    lock_result = _acquire_lock(lock)
+    if lock_result is None:
+        raise TimeoutError(f"Không thể lấy lock cho artifact {type}/{id}")
+    _lock_path_val, lock_handle, _is_sentinel = lock_result
+    if lock_handle is None:
         raise TimeoutError(f"Không thể lấy lock cho artifact {type}/{id}")
 
     try:
@@ -216,7 +235,7 @@ def register(
         )
         tmp.replace(path)
     finally:
-        _release_lock(handle)
+        _release_lock((_lock_path_val, lock_handle, _is_sentinel))
 
 
 def get(type: str, id: str, root: Path | None = None) -> Optional[Artifact]:

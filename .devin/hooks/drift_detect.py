@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import sys
 from collections import Counter, deque
 from pathlib import Path
@@ -115,7 +116,8 @@ def _to_histogram(values, bins: int = 10) -> dict:
     lo = min(values)
     hi = max(values)
     if hi == lo:
-        return {f"bin_0": len(values)}
+        # Pentest fix: các hằng số khác nhau phải có bin khác nhau để phát hiện drift.
+        return {f"bin_const_{lo}": len(values)}
     width = (hi - lo) / bins
     hist = Counter()
     for v in values:
@@ -246,16 +248,22 @@ def _load_json(path: Path, default):
 
 
 def _save_json(path: Path, data) -> None:
-    """Ghi JSON an toan."""
+    """Ghi JSON an toan (atomic tmp + rename, tên tmp duy nhất theo pid)."""
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        pid = os.getpid()
+        tmp = path.with_suffix(f"{path.suffix}.{pid}.tmp")
+        tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        tmp.replace(path)
     except Exception as e:
         print(f"[drift_detect] khong the ghi {path}: {e}", file=sys.stderr)
 
 
-def _update_state(root: Path, state: dict, features: dict) -> None:
-    """Cap nhat trang thai drift (luu cua so truot + lich su)."""
+def _update_state(state: dict, features: dict) -> None:
+    """Cap nhat trang thai drift trong bộ nhớ (không ghi file).
+
+    Ghi file được tập trung ở cuối detect_drift để tránh double-write.
+    """
     state.setdefault("samples", []).append(features)
     # Giu cua so truot trong WINDOW_SIZE
     if len(state["samples"]) > WINDOW_SIZE * 2:
@@ -266,7 +274,6 @@ def _update_state(root: Path, state: dict, features: dict) -> None:
     # file_path duoc truyen rieng qua state (cap nhat tu caller)
     state["recent_files"] = state.get("recent_files", [])[-WINDOW_SIZE:]
     state["recent_commands"] = state.get("recent_commands", [])[-WINDOW_SIZE:]
-    _save_json(root / STATE_FILE, state)
 
 
 def detect_drift(root: Path, data: dict) -> dict:
@@ -303,23 +310,28 @@ def detect_drift(root: Path, data: dict) -> dict:
     baseline_samples = baseline.get("samples", []) if isinstance(baseline, dict) else []
     baseline_count = len(baseline_samples)
 
-    # Bước 4: neu chua du sample baseline -> tich luy vao baseline
+    # Bước 4: neu chua du sample baseline -> tich luy vao baseline (có giới hạn)
     if baseline_count < BASELINE_MIN_SAMPLES:
         baseline.setdefault("samples", []).append(features)
+        # Pentest fix: giới hạn baseline samples để tránh file tăng không kiểm soát.
+        if len(baseline["samples"]) > BASELINE_MIN_SAMPLES:
+            baseline["samples"] = baseline["samples"][-BASELINE_MIN_SAMPLES:]
         _save_json(baseline_path, baseline)
-        _update_state(root, state, features)
+        _update_state(state, features)
+        _save_json(state_path, state)
         return {
             "drift_detected": False,
             "dimension": "none",
             "divergence": 0.0,
             "threshold": 0.0,
-            "reason": f"baseline_dang_tich_luy ({baseline_count + 1}/{BASELINE_MIN_SAMPLES})",
+            "reason": f"baseline_dang_tich_luy ({min(baseline_count + 1, BASELINE_MIN_SAMPLES)}/{BASELINE_MIN_SAMPLES})",
         }
 
     # Bước 5: cap nhat state + lay cua so hien tai
-    _update_state(root, state, features)
+    _update_state(state, features)
     window = state.get("samples", [])[-WINDOW_SIZE:]
     if len(window) < BASELINE_MIN_SAMPLES:
+        _save_json(state_path, state)
         return {
             "drift_detected": False,
             "dimension": "none",
@@ -339,6 +351,7 @@ def detect_drift(root: Path, data: dict) -> dict:
     # Luu lich su divergence de tinh sigma
     state.setdefault("divergence_history", []).append(divergences)
     state["divergence_history"] = state["divergence_history"][-100:]
+    # Pentest fix: ghi state một lần duy nhất ở cuối, tránh double-write giữa các bước.
     _save_json(state_path, state)
 
     # Tinh trung binh + std cua lich su divergence (de co 3 sigma threshold)

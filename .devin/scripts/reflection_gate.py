@@ -24,6 +24,8 @@ _SCRIPT_DIR = Path(__file__).resolve().parent
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
+from urllib.parse import urlparse
+
 from data_models import Action, ReflectVerdict  # noqa: E402
 
 
@@ -98,7 +100,12 @@ def _check_foresight(action: Action) -> tuple[bool, str, bool]:
         )
     if action.category == "external_call":
         # Kiểm tra host có trong allowlist mặc định không
-        host = action.target.split("/")[2] if "://" in action.target else action.target
+        # Dùng urllib.parse thay vì split thủ công để tránh miss với URL lạ.
+        if "://" in action.target:
+            parsed = urlparse(action.target)
+            host = parsed.hostname or ""
+        else:
+            host = action.target.split("/")[0]
         allowlist = {"example.com", "api.github.com", "api.openai.com"}
         is_allowed = any(host == h or host.endswith(f".{h}") for h in allowlist)
         if not is_allowed:

@@ -32,6 +32,7 @@ Trang thai:
 from __future__ import annotations
 
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -96,10 +97,13 @@ def _load_json(path: Path, default):
 
 
 def _save_json(path: Path, data) -> None:
-    """Ghi JSON an toan."""
+    """Ghi JSON an toan (atomic tmp + rename, tên tmp duy nhất theo pid)."""
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        pid = os.getpid()
+        tmp = path.with_suffix(f"{path.suffix}.{pid}.tmp")
+        tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        tmp.replace(path)
     except Exception as e:
         print(f"[self_heal] khong the ghi {path}: {e}", file=sys.stderr)
 
@@ -206,8 +210,9 @@ def self_heal(root: Path, data: dict) -> dict:
 
     # Cap nhat state
     if action_short == "escalate":
-        # Reset so lan thu sau khi escalate
-        attempts[tool_name] = 0
+        # Pentest fix: không reset attempts về 0 để tránh retry storm / livelock.
+        # Giữ attempts ở budget để lần sau tiếp tục escalate.
+        attempts[tool_name] = budget
     else:
         attempts[tool_name] = attempt + 1
     state["attempts"] = attempts

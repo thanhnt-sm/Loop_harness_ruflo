@@ -59,6 +59,8 @@ SAFE_ZONES: tuple[str, ...] = (
     "docs/plans/",
     "docs/templates/",
     "docs/research/",
+    # Worktrees: worker cần ghi trong worktree của mình (schema_gate nên scope theo worker).
+    ".worktrees/",
 )
 
 
@@ -88,12 +90,13 @@ def is_blocked(file_path: str) -> bool:
         file_path — đường dẫn cần kiểm tra (relative hoặc absolute).
 
     Trả về True nếu đường dẫn bắt đầu bằng một blocked zone.
+    So sánh không phân biệt hoa thường để chống bypass trên FS case-sensitive.
     """
     if not file_path:
         return False
-    norm = normalize_path(file_path)
+    norm = normalize_path(file_path).lower()
     for zone in BLOCKED_ZONES:
-        zone_norm = zone.replace("\\", "/")
+        zone_norm = zone.replace("\\", "/").lower()
         if norm.startswith(zone_norm) or norm == zone_norm.rstrip("/"):
             return True
     return False
@@ -109,8 +112,8 @@ def is_safe(file_path: str) -> bool:
     """
     if not file_path:
         return False
-    norm = normalize_path(file_path)
-    return any(norm.startswith(sz) for sz in SAFE_ZONES)
+    norm = normalize_path(file_path).lower()
+    return any(norm.startswith(sz.lower()) for sz in SAFE_ZONES)
 
 
 def validate_path(file_path: str) -> tuple[bool, str]:
@@ -125,17 +128,17 @@ def validate_path(file_path: str) -> tuple[bool, str]:
     """
     if not file_path:
         return (False, "đường dẫn rỗng")
-    norm = normalize_path(file_path)
+    norm = normalize_path(file_path).lower()
     # Kiểm tra path traversal
     if ".." in norm.split("/"):
         return (False, f"Path traversal blocked: '..' detected in path")
     # Kiểm tra blocked zone
     for zone in BLOCKED_ZONES:
-        zone_norm = zone.replace("\\", "/")
+        zone_norm = zone.replace("\\", "/").lower()
         if norm.startswith(zone_norm) or norm == zone_norm.rstrip("/"):
             return (False, f"Blocked zone: writing to '{zone}' is not allowed")
     # Kiểm tra safe zone
-    if not is_safe(norm):
+    if not is_safe(file_path):
         return (False, f"File outside safe zone. Safe zones: {', '.join(SAFE_ZONES)}")
     return (True, "")
 

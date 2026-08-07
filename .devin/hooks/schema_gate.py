@@ -23,6 +23,7 @@ Exit codes:
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 import threading
@@ -219,9 +220,10 @@ def _gate_secret_scan(tool_output) -> dict | None:
         text = tool_output
     else:
         text = str(tool_output)
-    # Cắt bớt nếu quá lớn (tránh quét file khổng lồ)
-    if len(text) > SCAN_TRUNCATE_CHARS:
-        text = text[:SCAN_TRUNCATE_CHARS]
+    # Pentest fix: secret có thể nằm ở cuối file (padding bypass).
+    # Quét đầu và cuối text; nếu vừa khít giới hạn thì giữ nguyên.
+    if len(text) > SCAN_TRUNCATE_CHARS * 2:
+        text = text[:SCAN_TRUNCATE_CHARS] + text[-SCAN_TRUNCATE_CHARS:]
     # Quét từng pattern
     for pattern in SECRET_PATTERNS:
         match = pattern.search(text)
@@ -388,6 +390,8 @@ def _gate_file_path_validation(tool_name: str, tool_input: dict, root: Path) -> 
         }
     norm = _normalize_path(str(rel))
 
+    # Chuẩn hóa lowercase để so khớp zone không phân biệt hoa thường (case-sensitive FS bypass).
+    norm_lower = norm.lower()
     # Kiểm tra path traversal: .. trong đường dẫn
     if ".." in norm.split("/"):
         return {
@@ -396,14 +400,14 @@ def _gate_file_path_validation(tool_name: str, tool_input: dict, root: Path) -> 
         }
     # Kiểm tra blocked zone: nếu đường dẫn bắt đầu bằng zone cấm -> fail
     for zone in BLOCKED_ZONES:
-        zone_norm = zone.replace("\\", "/")
-        if norm.startswith(zone_norm) or norm == zone_norm.rstrip("/"):
+        zone_norm = zone.replace("\\", "/").lower()
+        if norm_lower.startswith(zone_norm) or norm_lower == zone_norm.rstrip("/"):
             return {
                 "reason": f"Blocked zone: writing to '{zone}' is not allowed",
                 "details": {"file": file_path, "zone": zone},
             }
     # Kiểm tra safe zone: đường dẫn phải nằm trong ít nhất một safe zone
-    in_safe = any(norm.startswith(sz) for sz in SAFE_ZONES)
+    in_safe = any(norm_lower.startswith(sz.lower()) for sz in SAFE_ZONES)
     if not in_safe:
         return {
             "reason": (
@@ -457,10 +461,14 @@ def main():
     try:
         data = json.load(sys.stdin)
     except Exception:
-        # Không parse được stdin -> cho phép (không block vì lỗi parse)
-        result = {"passed": True, "gate": "none", "reason": "stdin parse error, skipped", "details": {}}
+        # Pentest fix: parse error ở cổng an ninh phải fail-closed (block).
+        result = {"passed": False, "gate": "none", "reason": "stdin parse error, blocked", "details": {}}
         print(json.dumps(result, ensure_ascii=False))
-        sys.exit(0)
+        print(
+            f"[schema_gate] BLOCKED at gate 'none': stdin parse error",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     tool_name = data.get("tool_name", "")
     tool_input = data.get("tool_input", {}) or {}
@@ -497,7 +505,9 @@ def main():
 
 
 if __name__ == "__main__":
-    # U15/U52: Timeout nội bộ — fail-open nếu hết giờ (không block workflow)
+    # U15/U52: Timeout nội bộ — schema_gate phải nhanh (deterministic).
+    # Pentest fix: cổng an ninh timeout phải fail-closed mặc định (block).
+    # Cho phép opt-in fail-open qua env AHD_SCHEMA_GATE_FAIL_OPEN=1.
     result = {"code": 0}
 
     def _run():
@@ -513,6 +523,11 @@ if __name__ == "__main__":
     t.start()
     t.join(timeout=HOOK_TIMEOUT_SECONDS)
     if t.is_alive():
-        print("[schema_gate] timeout - allowing (fail-open)", file=sys.stderr)
-        result["code"] = 0
+        fail_open = os.environ.get("AHD_SCHEMA_GATE_FAIL_OPEN", "") in ("1", "true", "yes")
+        if fail_open:
+            print("[schema_gate] timeout - allowing (AHD_SCHEMA_GATE_FAIL_OPEN=1)", file=sys.stderr)
+            result["code"] = 0
+        else:
+            print("[schema_gate] timeout - blocking (fail-closed)", file=sys.stderr)
+            result["code"] = 1
     sys.exit(result["code"])

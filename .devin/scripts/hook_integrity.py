@@ -88,7 +88,7 @@ def generate_baseline(root: Path) -> int:
     baseline_path = root / BASELINE_FILE
     baseline_data = {
         "_description": "U41: Hook integrity verification baseline",
-        "_generated": str(Path.now() if hasattr(Path, 'now') else ""),
+        "_generated": "",
         "hooks": baseline,
     }
 

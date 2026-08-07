@@ -124,14 +124,21 @@ def compress_schema(
 
 
 def _cli() -> int:
-    """CLI stub: đọc list tool JSON từ stdin, in ra list đã nén."""
+    """CLI stub: đọc list tool JSON từ stdin, in ra list đã nén.
+
+    Pentest fix: xử lý stdin rỗng/sai JSON (trả 1 thay vì crash).
+    """
     import argparse
 
     ap = argparse.ArgumentParser(description="Tool-Schema Compression (T3.3)")
     ap.add_argument("--budget", type=int, default=DEFAULT_BUDGET_TOKENS)
     args = ap.parse_args()
     data = sys.stdin.read()
-    payload = json.loads(data)
+    try:
+        payload = json.loads(data) if data.strip() else {}
+    except json.JSONDecodeError as e:
+        print(f"[tscg] lỗi parse JSON stdin: {e}", file=sys.stderr)
+        return 1
     tools = [ToolDef.model_validate(t) for t in payload.get("tools", [])]
     out = compress_schema(tools, budget_tokens=args.budget)
     sys.stdout.write(

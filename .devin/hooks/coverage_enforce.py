@@ -32,11 +32,18 @@ Exit code: 0 luôn (advisory, không block)
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
 import threading
 from pathlib import Path
+
+# Import ahd_session từ cùng thư mục hooks để dùng file-lock cho coverage state.
+try:
+    import ahd_session
+except Exception:  # pragma: no cover
+    ahd_session = None  # type: ignore[assignment]
 
 # T4.13: Import shared path_zones (single source of truth cho blocked/safe zones).
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
@@ -145,9 +152,26 @@ def _load_coverage_state(state_path: Path, plan_name: str) -> dict:
 
 
 def _save_coverage_state(state_path: Path, state: dict) -> None:
-    """Ghi coverage state ra file JSON (atomic-ish, ghi tạm rồi rename)."""
+    """Ghi coverage state ra file JSON (atomic + lock để tránh race giữa các hook).
+
+    Dùng ahd_session._locked_json_update để đảm bảo chỉ có một tiến trình ghi tại một thời điểm.
+    Fallback: ghi tạm + rename với tên file tmp duy nhất theo pid/thread.
+    """
     try:
-        tmp = state_path.with_suffix(".tmp")
+        if ahd_session is not None:
+            ahd_session._locked_json_update(
+                state_path,
+                lambda _existing: state,
+                default=state,
+                session_id="",
+            )
+            return
+    except Exception:
+        pass
+    # Fallback: ghi tạm với tên duy nhất để tránh đè nhau giữa các hook song song.
+    try:
+        tmp_name = f"{state_path.stem}_{os.getpid()}_{threading.current_thread().ident or 0}.tmp"
+        tmp = state_path.with_name(tmp_name)
         tmp.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
         tmp.replace(state_path)
     except Exception:
@@ -174,8 +198,14 @@ def _grep_symbol_in_file(file_path: Path, symbol: str) -> bool:
 
 
 def _normalize_path(p: str) -> str:
-    """Chuẩn hóa đường dẫn để so khớp."""
-    return p.replace("\\", "/").lstrip("./")
+    """Chuẩn hóa đường dẫn để so khớp.
+
+    Pentest fix: dùng while loop thay lstrip để chỉ bỏ prefix './' thay vì mọi ký tự '.'/'/'.
+    """
+    norm = p.replace("\\", "/")
+    while norm.startswith("./"):
+        norm = norm[2:]
+    return norm
 
 
 def _is_path_in_safe_zone(file_path: str) -> bool:

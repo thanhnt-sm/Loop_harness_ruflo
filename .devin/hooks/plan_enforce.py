@@ -25,6 +25,10 @@ import re
 from pathlib import Path
 from datetime import datetime
 
+# Import ahd_session để lấy đường dẫn session_state cụ thể theo session_id.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import ahd_session  # noqa: E402
+
 
 def _repo_root() -> Path:
     """Tìm repo root — đi lên cho đến khi thấy .devin/"""
@@ -35,8 +39,21 @@ def _repo_root() -> Path:
     return p
 
 
-def _get_session_state(root: Path) -> dict:
-    """Đọc session state mới nhất"""
+def _get_session_state(root: Path, session_id: str = "") -> dict:
+    """Đọc session state cụ thể theo session_id.
+
+    Nếu có session_id: load file session_state tương ứng.
+    Nếu không có hoặc file lỗi: fallback về file mới nhất (backward compat).
+    Pentest fix: tránh nhầm session khi chạy song song.
+    """
+    if session_id:
+        state_path = ahd_session.get_session_state_path(session_id, root)
+        if state_path.exists():
+            try:
+                return json.loads(state_path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                pass
+
     state_dir = root / ".devin" / "session_state"
     if not state_dir.exists():
         return {}
@@ -129,20 +146,25 @@ def _classify_tier(task_description: str, session_state: dict) -> str:
     if not task_description:
         return "M"  # Fail-closed: default M
     desc_lower = task_description.lower().strip()
-    # S-tier indicators: rất ngắn, 1 file, no verification
+    # S-tier indicators: chỉ dựa trên từ khóa rõ ràng, KHÔNG dùng độ dài.
+    # Pentest fix: mô tả ngắn kết hợp keyword có thể bypass plan cho task nhạy cảm.
+    s_keywords = ("typo", "rename", "update date", "fix spelling",
+                  "s-tier", "trivial", "one line", "1 line")
+    # destructive keyword -> bắt buộc tối thiểu M (không cho phép tự động S)
+    destructive_keywords = ("rm -rf", "drop", "delete", "force_push", "force-push")
+    if any(kw in desc_lower for kw in destructive_keywords):
+        return "M"
     s_indicators = [
-        len(desc_lower) < 50,  # Very short description
-        any(kw in desc_lower for kw in ["typo", "rename", "update date", "fix spelling"]),
-        any(kw in desc_lower for kw in ["s-tier", "trivial", "one line", "1 line"]),
+        any(kw in desc_lower for kw in s_keywords),
     ]
-    # Nếu session state có complexity field
+    # Nếu session state có complexity field (single source of truth)
     complexity = session_state.get("complexity", "")
     if complexity in ("S", "s"):
         return "S"
     if complexity in ("M", "L", "XL"):
         return complexity
-    # Nếu có S indicators rõ ràng
-    if sum(s_indicators) >= 2:
+    # Nếu có S keyword rõ ràng -> S
+    if sum(s_indicators) >= 1:
         return "S"
     # Default: M (fail-closed)
     return "M"
@@ -198,14 +220,17 @@ def main():
 
     tool_name = hook_input.get("tool_name", "")
     tool_input = hook_input.get("tool_input", {})
+    session_id = hook_input.get("session_id", "")
 
-    # Chỉ enforce cho Write/Edit — không enforce cho read/grep/glob/exec
-    if tool_name not in ("write", "edit", "notebook_edit"):
+    # Chỉ enforce cho Write/Edit — hỗ trợ cả chữ hoa/thường và các biến thể.
+    # Pentest fix: Claude/Devin gửi tool_name dạng "Write"/"Edit"; so sánh lower-case.
+    write_tools = {"write", "edit", "notebook_edit", "write_file", "edit_file"}
+    if tool_name.lower() not in write_tools:
         print(json.dumps({"allow": True, "reason": "not a write tool"}))
         sys.exit(0)
 
     root = _repo_root()
-    session_state = _get_session_state(root)
+    session_state = _get_session_state(root, session_id)
     task_desc = session_state.get("goal", "") or hook_input.get("task", "")
     task_slug = _slugify(task_desc)
     tier = _classify_tier(task_desc, session_state)

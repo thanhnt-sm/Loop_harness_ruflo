@@ -126,10 +126,29 @@ def evaluate(
 
 
 def _cli() -> int:
-    """CLI stub: đọc JSON {task, result, trace} từ stdin, in ABCReport JSON."""
+    """CLI stub: đọc JSON {task, result, trace} từ stdin, in ABCReport JSON.
+
+    Pentest fix: xử lý stdin rỗng/sai JSON (trả 1 thay vì crash) và ép stdout
+    dùng UTF-8 (tránh UnicodeEncodeError trên Windows cp1258 khi in tiếng Việt).
+    """
     import json
 
-    payload = json.loads(sys.stdin.read())
+    # Ép stdout/stderr dùng UTF-8 để in tiếng Việt an toàn trên Windows console
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8")
+        except (AttributeError, OSError):
+            pass
+
+    raw = sys.stdin.read()
+    try:
+        payload = json.loads(raw) if raw.strip() else {}
+    except json.JSONDecodeError as e:
+        print(f"[abc_checklist] lỗi parse JSON stdin: {e}", file=sys.stderr)
+        return 1
+    if not payload.get("task"):
+        print("[abc_checklist] lỗi: thiếu trường 'task' trong payload", file=sys.stderr)
+        return 1
     report = evaluate(
         payload["task"],
         payload.get("result"),

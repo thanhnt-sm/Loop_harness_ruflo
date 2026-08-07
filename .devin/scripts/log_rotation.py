@@ -21,7 +21,7 @@ LOG_PATTERNS = ["*.log", "*.jsonl"]
 
 
 def rotate_log(log_path: Path, max_rotated: int = MAX_ROTATED_FILES) -> bool:
-    """Rotate a single log file if it exceeds size limit."""
+    """Rotate a single log file if it exceeds size limit (atomic rename + O_TRUNC)."""
     if not log_path.exists():
         return False
 
@@ -29,23 +29,45 @@ def rotate_log(log_path: Path, max_rotated: int = MAX_ROTATED_FILES) -> bool:
     if size <= MAX_LOG_SIZE_BYTES:
         return False
 
-    # Rotate: log → log.1, log.1 → log.2, etc.
-    for i in range(max_rotated - 1, 0, -1):
-        old = log_path.with_suffix(f".{i}.log" if not log_path.suffix else f".{i}{log_path.suffix}")
-        new = log_path.with_suffix(f".{i+1}.log" if not log_path.suffix else f".{i+1}{log_path.suffix}")
-        if old.exists():
-            new.write_bytes(old.read_bytes())
-            old.unlink()
+    # Lock để tránh appender ghi trong quá trình rotate.
+    lock_path = log_path.with_suffix(f"{log_path.suffix}.lock" if log_path.suffix else ".lock")
+    lock = None
+    try:
+        # Thử dùng ahd_session lock nếu có; nếu không thì bỏ qua (best-effort).
+        try:
+            sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "hooks"))
+            import ahd_session
+            lock = ahd_session._acquire_lock(lock_path, timeout=5.0)
+        except Exception:
+            lock = None
 
-    # Move current to .1
-    rotated = log_path.with_suffix(f".1{log_path.suffix}" if log_path.suffix else ".1.log")
-    rotated.write_bytes(log_path.read_bytes())
+        # Rotate: log → log.1, log.1 → log.2, etc. dùng os.replace (atomic trên cùng FS).
+        for i in range(max_rotated - 1, 0, -1):
+            old = log_path.with_suffix(f".{i}.log" if not log_path.suffix else f".{i}{log_path.suffix}")
+            new = log_path.with_suffix(f".{i+1}.log" if not log_path.suffix else f".{i+1}{log_path.suffix}")
+            if old.exists():
+                os.replace(old, new)
 
-    # Truncate original
-    log_path.write_text("", encoding="utf-8")
+        # Move current to .1 bằng os.replace (atomic)
+        rotated = log_path.with_suffix(f".1{log_path.suffix}" if log_path.suffix else ".1.log")
+        os.replace(log_path, rotated)
 
-    print(f"[ROTATED] {log_path} ({size} bytes → rotated to {rotated})")
-    return True
+        # Truncate original bằng open O_TRUNC (atomic create empty file)
+        with open(log_path, "w", encoding="utf-8") as _:
+            pass
+
+        print(f"[ROTATED] {log_path} ({size} bytes → rotated to {rotated})")
+        return True
+    except Exception as e:
+        print(f"[log_rotation] ERROR rotating {log_path}: {e}", file=sys.stderr)
+        return False
+    finally:
+        if lock is not None:
+            try:
+                import ahd_session
+                ahd_session._release_lock(lock)
+            except Exception:
+                pass
 
 
 def rotate_all(root: Path) -> int:

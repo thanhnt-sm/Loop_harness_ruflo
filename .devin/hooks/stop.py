@@ -31,19 +31,43 @@ import ahd_session
 SESSION_MARKER = "<!-- Agent Harness Deploy-stop-hook -->"
 
 
-def _call_script(root: Path, script: str, *args) -> None:
-    """Call a helper script in .devin/scripts/ or scripts/."""
+# Thời điểm bắt đầu cleanup, dùng để tính remaining timeout cho từng lệnh con.
+_STOP_START_TIME: float = 0.0
+
+
+def _call_script(root: Path, script: str, *args) -> int:
+    """Call a helper script in .devin/scripts/ or scripts/.
+
+    Dùng Popen để có thể kill con khi hết thời gian; trả returncode.
+    """
     for script_dir in (ahd_session.get_config_root(root) / "scripts", root / "scripts"):
         candidate = script_dir / script
         if candidate.exists():
+            # Tính remaining time dựa trên tổng budget 9s của stop.py.
+            global _STOP_START_TIME
+            elapsed = time.time() - _STOP_START_TIME
+            remaining = max(1.0, 9.0 - elapsed)
             try:
-                subprocess.run(
+                proc = subprocess.Popen(
                     [sys.executable, str(candidate), *args],
-                    cwd=str(root), capture_output=True, timeout=30
+                    cwd=str(root), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 )
-            except Exception:
-                pass
-            return
+                try:
+                    outs, errs = proc.communicate(timeout=remaining)
+                    return proc.returncode or 0
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    try:
+                        proc.communicate(timeout=1)
+                    except Exception:
+                        pass
+                    print(f"[stop.py] WARNING: {script} timed out and was killed", file=sys.stderr)
+                    return 124
+            except Exception as e:
+                print(f"[stop.py] ERROR: cannot run {script}: {e}", file=sys.stderr)
+                return 1
+    print(f"[stop.py] WARNING: helper script {script} not found", file=sys.stderr)
+    return 127
 
 
 def _clean_tmp(tmp_dir: Path) -> None:
@@ -60,6 +84,9 @@ def _clean_tmp(tmp_dir: Path) -> None:
 
 
 def main():
+    global _STOP_START_TIME
+    _STOP_START_TIME = time.time()
+
     try:
         data = json.load(sys.stdin)
     except Exception:
@@ -75,9 +102,13 @@ def main():
     session_state = ahd_session.read_session_state(session_id, root)
     state_written = session_state.get("state_written", False)
     last_state_write = session_state.get("last_state_write", "")
+    # Pentest fix: ưu tiên flag session_completed thay vì chỉ dựa vào 30 phút.
+    session_completed = session_state.get("session_completed", False)
 
     completed = False
-    if state_written and last_state_write:
+    if session_completed:
+        completed = True
+    elif state_written and last_state_write:
         try:
             last_ts = datetime.fromisoformat(last_state_write)
             elapsed = (datetime.now(timezone.utc) - last_ts).total_seconds()
@@ -86,20 +117,30 @@ def main():
         except Exception:
             pass
 
+    cleanup_failed = False
     if completed:
         # Merge candidate memory before archiving
-        _call_script(root, "memory_audit.py", "--session", session_id)
+        rc1 = _call_script(root, "memory_audit.py", "--session", session_id)
         # Archive and update registry
-        _call_script(root, "loop_memory_sync.py", "--session", session_id, "--status", "completed")
+        rc2 = _call_script(root, "loop_memory_sync.py", "--session", session_id, "--status", "completed")
+        cleanup_failed = (rc1 != 0 or rc2 != 0)
     else:
         # Mark as suspected crashed; do not delete session_state
-        _call_script(root, "loop_memory_sync.py", "--session", session_id, "--status", "suspected_crashed")
+        rc = _call_script(root, "loop_memory_sync.py", "--session", session_id, "--status", "suspected_crashed")
+        cleanup_failed = (rc != 0)
+
+    # Ghi nhãn cleanup_failed vào session_state để session sau phát hiện.
+    if cleanup_failed:
+        try:
+            ahd_session.update_session_state(session_id, {"cleanup_failed": True}, root)
+        except Exception:
+            pass
 
     # Append session-end marker to cold archive
     try:
         archive_path.parent.mkdir(parents=True, exist_ok=True)
         with open(archive_path, "a", encoding="utf-8") as f:
-            f.write(f"\n{SESSION_MARKER} session_end ts={ts} session_id={session_id} status={'completed' if completed else 'crashed'}\n")
+            f.write(f"\n{SESSION_MARKER} session_end ts={ts} session_id={session_id} status={'completed' if completed else 'crashed'} cleanup_failed={cleanup_failed}\n")
     except Exception:
         pass
 

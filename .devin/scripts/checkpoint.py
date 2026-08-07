@@ -355,7 +355,8 @@ def cmd_save(root: Path, workflow: dict, workflow_id: str, step_id: str, state_f
     ckpt_dir = _checkpoints_root(root, workflow_id)
     ckpt_dir.mkdir(parents=True, exist_ok=True)
     # Luu theo step_id + timestamp de giu lich su
-    safe_step = step_id.replace("/", "_")
+    # Pentest fix: dùng _sanitize_step_id (allowlist) thay vì chỉ thay '/' để chống backslash traversal.
+    safe_step = _sanitize_step_id(step_id)
     ckpt_path = ckpt_dir / f"{safe_step}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     _save_json(ckpt_path, checkpoint)
     # Cap nhat index

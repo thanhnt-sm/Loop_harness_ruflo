@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -68,21 +69,62 @@ WORKTREE_DIR = ROOT / ".worktrees"
 WORKTREE_STATE = WORKTREE_DIR / ".worktree_state.json"
 
 
-def _git(*args, cwd=ROOT) -> tuple[int, str, str]:
-    """Run a git command, return (returncode, stdout, stderr)."""
-    r = subprocess.run(["git", *args], capture_output=True, text=True, cwd=str(cwd))
-    return r.returncode, r.stdout.strip(), r.stderr.strip()
+def _git(*args, cwd=ROOT, timeout: float = 30.0) -> tuple[int, str, str]:
+    """Run a git command, return (returncode, stdout, stderr).
+
+    Dùng timeout và vô hiệu hóa git credential prompt để tránh treo vô hạn.
+    """
+    env = os.environ.copy()
+    env["GIT_TERMINAL_PROMPT"] = "0"
+    try:
+        r = subprocess.run(
+            ["git", *args],
+            capture_output=True, text=True, cwd=str(cwd), timeout=timeout, env=env,
+        )
+        return r.returncode, r.stdout.strip(), r.stderr.strip()
+    except subprocess.TimeoutExpired:
+        return (1, "", f"git timeout after {timeout}s")
 
 
 def _load_state() -> dict:
+    """Đọc worktree state, dùng ahd_session._locked_json_update để đọc an toàn (lock)."""
+    try:
+        result = ahd_session._locked_json_update(
+            WORKTREE_STATE,
+            lambda existing: existing if isinstance(existing, dict) else {"worktrees": {}},
+            default={"worktrees": {}},
+            session_id="",
+        )
+        if isinstance(result, dict):
+            return result
+    except Exception:
+        pass
     if WORKTREE_STATE.exists():
-        return json.loads(WORKTREE_STATE.read_text(encoding="utf-8"))
+        try:
+            return json.loads(WORKTREE_STATE.read_text(encoding="utf-8"))
+        except Exception:
+            pass
     return {"worktrees": {}}
 
 
 def _save_state(state: dict):
+    """Ghi worktree state dưới lock + atomic tmp/rename."""
     WORKTREE_DIR.mkdir(parents=True, exist_ok=True)
-    WORKTREE_STATE.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
+    try:
+        ahd_session._locked_json_update(
+            WORKTREE_STATE,
+            lambda _existing: state,
+            default=state,
+            session_id="",
+        )
+    except Exception:
+        # Fallback ghi trực tiếp nếu lock helper không khả dụng.
+        try:
+            tmp = WORKTREE_STATE.with_suffix(".tmp")
+            tmp.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
+            tmp.replace(WORKTREE_STATE)
+        except Exception:
+            pass
 
 
 def _update_session_state_worktrees(session_id: str, worktree_id: str, add: bool = True) -> None:
@@ -218,7 +260,7 @@ def cmd_merge(worker_id: str) -> int:
     return 0
 
 
-def cmd_remove(worker_id: str) -> int:
+def cmd_remove(worker_id: str, force_discard: bool = False) -> int:
     """Remove a worktree without merging (discard changes)."""
     state = _load_state()
     if worker_id not in state["worktrees"]:
@@ -229,6 +271,14 @@ def cmd_remove(worker_id: str) -> int:
     branch = info["branch"]
     wt_path = Path(info["path"])
 
+    # Pentest fix: không xóa nhánh chưa merge nếu đang ở trạng thái merge-conflict.
+    if info.get("status") == "merge-conflict" and not force_discard:
+        print(
+            f"  [!] Worktree {worker_id} has merge-conflict. "
+            f"Resolve conflicts and merge manually, or use --force-discard to discard.",
+        )
+        return 1
+
     # Remove worktree
     if wt_path.exists():
         rc, out, err = _git("worktree", "remove", str(wt_path), "--force")
@@ -236,8 +286,11 @@ def cmd_remove(worker_id: str) -> int:
             import shutil
             shutil.rmtree(wt_path, ignore_errors=True)
 
-    # Delete branch
-    _git("branch", "-D", branch)
+    # Delete branch (dùng -d an toàn nếu có thể; nếu unmerged thì cần --force-discard)
+    if force_discard:
+        _git("branch", "-D", branch)
+    else:
+        _git("branch", "-d", branch)
 
     # Update state
     session_id = info.get("session_id", "")

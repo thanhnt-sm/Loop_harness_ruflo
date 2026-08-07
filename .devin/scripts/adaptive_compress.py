@@ -236,11 +236,18 @@ def prefix_stable_hash(before: list[Turn], after: list[Turn]) -> bool:
 
 
 def _cli() -> int:
-    """CLI stub: đọc history JSON từ stdin, in ra list[Turn] đã nén."""
+    """CLI stub: đọc history JSON từ stdin, in ra list[Turn] đã nén.
+
+    Pentest fix: xử lý stdin rỗng/sai JSON (trả 1 thay vì crash).
+    """
     import json
 
     data = sys.stdin.read()
-    payload = json.loads(data)
+    try:
+        payload = json.loads(data) if data.strip() else {}
+    except json.JSONDecodeError as e:
+        print(f"[adaptive_compress] lỗi parse JSON stdin: {e}", file=sys.stderr)
+        return 1
     history = [Turn.model_validate(t) for t in payload.get("history", [])]
     query = payload.get("query", "")
     mode = payload.get("mode", "auto")

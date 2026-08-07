@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -59,6 +60,11 @@ def _repo_root() -> Path:
     """Tìm thư mục gốc repo (chứa thư mục .devin)."""
     here = Path(__file__).resolve().parent  # .../.devin/scripts
     return here.parent.parent               # repo root
+
+
+def _now_iso() -> str:
+    """Trả về timestamp hiện tại ở định dạng ISO 8601 UTC."""
+    return datetime.now(timezone.utc).isoformat()
 
 
 # Thư mục lưu trữ event bus
@@ -115,21 +121,56 @@ TOPIC_SCHEMAS: dict[str, dict | None] = {
 # Hàm tiện ích
 # ---------------------------------------------------------------------------
 
-def _now_iso() -> str:
-    """Trả về timestamp ISO 8601 hiện tại (UTC)."""
-    return datetime.now(timezone.utc).isoformat()
+# Pattern allowlist cho topic: chỉ chữ số, chữ cái, dấu chấm, gạch dưới, gạch ngang.
+# Giới hạn độ dài 64 ký tự để tránh tên file quá dài và path traversal.
+_TOPIC_PATTERN = re.compile(r"^[a-zA-Z0-9._-]{1,64}$")
+
+
+def _sanitize_topic(topic: str) -> str:
+    """Làm sạch topic để chống path traversal qua tên file.
+
+    Bước 1: Thay các ký tự path separator ('/', '\\') bằng '_'.
+    Bước 2: Loại bỏ ký tự ngoài allowlist.
+    Bước 3: Sụp đổ nhiều dấu '_' liên tiếp và cắt đầu/cuối.
+    Bước 4: Nếu sau làm sạch topic chứa '..' hoặc không khớp pattern -> đổi thành 'invalid'.
+    """
+    if not topic:
+        return "invalid"
+    safe = topic.replace("/", "_").replace("\\", "_")
+    safe = re.sub(r"[^a-zA-Z0-9._-]", "_", safe)
+    safe = re.sub(r"_+", "_", safe).strip("_-. ")
+    if not safe or ".." in safe or not _TOPIC_PATTERN.match(safe):
+        return "invalid"
+    return safe
 
 
 def _topic_file(topic: str) -> Path:
-    """Trả về đường dẫn file JSONL cho topic. Tạo thư mục nếu thiếu."""
-    return _bus_dir() / f"{topic}.jsonl"
+    """Trả về đường dẫn file JSONL cho topic. Tạo thư mục nếu thiếu.
+
+    Pentest fix: sanitize topic trước khi join path; đảm bảo file nằm trong _bus_dir().
+    """
+    safe = _sanitize_topic(topic)
+    bus = _bus_dir()
+    f = bus / f"{safe}.jsonl"
+    # Kiểm tra path traversal phòng trường hợp sanitize bị bypass (vd symlink).
+    try:
+        f.resolve().relative_to(bus.resolve())
+    except ValueError:
+        return bus / "invalid.jsonl"
+    return f
 
 
 def _topic_lock_path(topic: str) -> Path:
     """Trả về đường dẫn file-lock cho một topic."""
+    safe = _sanitize_topic(topic)
     d = _bus_dir() / ".locks"
     d.mkdir(parents=True, exist_ok=True)
-    return d / f"{topic}.lock"
+    f = d / f"{safe}.lock"
+    try:
+        f.resolve().relative_to(d.resolve())
+    except ValueError:
+        return d / "invalid.lock"
+    return f
 
 
 def _validate_topic(topic: str) -> bool:

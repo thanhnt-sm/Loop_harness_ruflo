@@ -65,9 +65,18 @@ def generate_exploits() -> list[Exploit]:
 
 
 def _cli() -> int:
-    """CLI stub: in danh sách exploit JSON."""
-    import json
+    """CLI stub: in danh sách exploit JSON.
 
+    Pentest fix: ép stdout/stderr dùng UTF-8 (tránh UnicodeEncodeError trên
+    Windows cp1258 khi in tiếng Việt trong description).
+    """
+    import json
+    # Ép stdout/stderr dùng UTF-8 để in tiếng Việt an toàn trên Windows console
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8")
+        except (AttributeError, OSError):
+            pass
     exploits = generate_exploits()
     out = [e.model_dump(by_alias=True) for e in exploits]
     sys.stdout.write(json.dumps(out, ensure_ascii=False, indent=2))

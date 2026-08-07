@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -67,9 +68,41 @@ def _bb_dir() -> Path:
     return d
 
 
+# Pattern allowlist cho region: chỉ chữ số, chữ cái, dấu chấm, gạch dưới, gạch ngang.
+_REGION_PATTERN = re.compile(r"^[a-zA-Z0-9._-]{1,64}$")
+
+
+def _sanitize_region(region: str) -> str:
+    """Làm sạch region để chống path traversal qua tên file.
+
+    Bước 1: Thay path separator ('/', '\\') bằng '_'.
+    Bước 2: Loại bỏ ký tự ngoài allowlist.
+    Bước 3: Sụp đổ nhiều dấu '_' liên tiếp và cắt đầu/cuối.
+    Bước 4: Nếu chứa '..' hoặc không khớp pattern -> 'invalid'.
+    """
+    if not region:
+        return "invalid"
+    safe = region.replace("/", "_").replace("\\", "_")
+    safe = re.sub(r"[^a-zA-Z0-9._-]", "_", safe)
+    safe = re.sub(r"_+", "_", safe).strip("_-. ")
+    if not safe or ".." in safe or not _REGION_PATTERN.match(safe):
+        return "invalid"
+    return safe
+
+
 def _region_file(region: str) -> Path:
-    """Trả về đường dẫn file JSON cho region."""
-    return _bb_dir() / f"{region}.json"
+    """Trả về đường dẫn file JSON cho region.
+
+    Pentest fix: sanitize region trước khi join path; đảm bảo file nằm trong _bb_dir().
+    """
+    safe = _sanitize_region(region)
+    bb = _bb_dir()
+    f = bb / f"{safe}.json"
+    try:
+        f.resolve().relative_to(bb.resolve())
+    except ValueError:
+        return bb / "invalid.json"
+    return f
 
 
 def _write_log_file() -> Path:
@@ -86,7 +119,14 @@ def _lock_dir() -> Path:
 
 def _region_lock_path(region: str) -> Path:
     """Trả về đường dẫn file-lock cho một region."""
-    return _lock_dir() / f"{region}.lock"
+    safe = _sanitize_region(region)
+    d = _lock_dir()
+    f = d / f"{safe}.lock"
+    try:
+        f.resolve().relative_to(d.resolve())
+    except ValueError:
+        return d / "invalid.lock"
+    return f
 
 
 def _write_log_lock_path() -> Path:

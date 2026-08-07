@@ -69,14 +69,9 @@ def audit(root: Path, new_files: list[str], new_tags: list[str], session_id: str
         if sid and sid == session_id:
             continue
 
-        # Treat stale in-progress sessions as suspected_crashed for the audit
+        # Detect stale in-progress sessions but do NOT mutate session_state here.
+        # Pentest fix: read-only audit should not have write side-effects.
         is_stale = _is_stale(s)
-        if s.get("status") == "in_progress" and is_stale:
-            s["status"] = "suspected_crashed"
-            try:
-                ahd_session.update_session_state(sid, {"status": "suspected_crashed"}, root)
-            except Exception:
-                pass
 
         owned = set(s.get("owned_files", []))
         affected = set(s.get("affected_files", []))

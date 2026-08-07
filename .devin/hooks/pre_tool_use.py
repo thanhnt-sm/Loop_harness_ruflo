@@ -450,10 +450,10 @@ def _check_cost_cap_gate(data: dict) -> None:
 
 
 def _check_ssrf_gate(data: dict) -> None:
-    """T2.9: Kiểm tra SSRF trong command hoặc tool_input.
+    """T2.9: Kiểm tra SSRF trong command hoặc các trường URL rõ ràng.
 
-    - Trích URL từ command (nếu Bash/Shell) và các trường string trong tool_input.
-    - Kiểm tra mỗi URL qua check_ssrf.
+    - Trích URL từ command (Bash/Shell) và các trường URL rõ ràng (url, endpoint, host).
+    - Bỏ qua content/new_string/old_string của Write/Edit để tránh false positive.
     - URL private/loopback/link-local -> block (exit 2) + ghi OTel log.
     """
     try:
@@ -461,13 +461,15 @@ def _check_ssrf_gate(data: dict) -> None:
         tool_name = data.get("tool_name", "")
         tool_input = data.get("tool_input", {}) or {}
 
-        # Nguồn text cần quét: command (Bash/Shell) hoặc bất kỳ trường string nào
+        # Pentest fix: chỉ quét nguồn có khả năng chứa URL đích thực sự.
         sources: list[str] = []
         command = tool_input.get("command", "")
         if command:
             sources.append(command)
-        for value in tool_input.values():
-            if isinstance(value, str) and value not in sources:
+        # Các trường URL rõ ràng
+        for url_field in ("url", "endpoint", "host", "base_url", "api_url"):
+            value = tool_input.get(url_field, "")
+            if isinstance(value, str) and value and value not in sources:
                 sources.append(value)
 
         allowlist = _ssrf_allowlist()
@@ -541,11 +543,12 @@ def _check_reflection_gate(data: dict) -> None:
         if not command:
             return
 
-        # Suy ra category từ command pattern
+        # Suy ra category từ command pattern (dùng normalized command để phát hiện đúng cờ).
         category = "read"
         destructive = False
-        cmd_lower = command.lower()
-        if "rm -rf" in cmd_lower or "rm -r" in cmd_lower or "del /f" in cmd_lower or "rmdir" in cmd_lower:
+        cmd_lower = normalize_command(command).lower()
+        # Chỉ coi là delete nguy hiểm khi rm có cả -r và -f hoặc các dạng tương đương.
+        if "rm -rf" in cmd_lower or "rm -fr" in cmd_lower or "del /f" in cmd_lower or "rmdir" in cmd_lower:
             category = "delete"
             destructive = True
         elif "git push --force" in cmd_lower or "git push -f" in cmd_lower:
