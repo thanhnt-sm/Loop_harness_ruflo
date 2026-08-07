@@ -92,7 +92,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\session-start-clear.sh",
+            "command": "bash ${USER_HOME}\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\session-start-clear.sh",
             "timeout": 10
           }
         ]
@@ -114,7 +114,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\detect-correction.sh",
+            "command": "bash ${USER_HOME}\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\detect-correction.sh",
             "timeout": 5
           }
         ]
@@ -125,7 +125,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-compact-save.sh",
+            "command": "bash ${USER_HOME}\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-compact-save.sh",
             "timeout": 30
           }
         ]
@@ -136,7 +136,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\stop-remember.sh",
+            "command": "bash ${USER_HOME}\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\stop-remember.sh",
             "timeout": 30
           }
         ]
@@ -149,7 +149,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "D:\\100.Software\\Github\\Loop_harness_new\\Loop_harness_ruflo\\.tools\\node\\node.exe D:\\100.Software\\Github\\Loop_harness_new\\Loop_harness_ruflo\\HLK\\wrappers\\hlk-hook-launcher.mjs",
+            "command": "${REPO_ROOT}\\.tools\\node\\node.exe ${REPO_ROOT}\\HLK\\wrappers\\hlk-hook-launcher.mjs",
             "timeout": 3
           },
           {
@@ -169,7 +169,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-read-recall.sh",
+            "command": "bash ${USER_HOME}\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-read-recall.sh",
             "timeout": 10
           }
         ]
@@ -184,7 +184,7 @@
           },
           {
             "type": "command",
-            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-edit-recall.sh",
+            "command": "bash ${USER_HOME}\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-edit-recall.sh",
             "timeout": 10
           }
         ]
@@ -199,7 +199,7 @@
           },
           {
             "type": "command",
-            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-edit-recall.sh",
+            "command": "bash ${USER_HOME}\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-edit-recall.sh",
             "timeout": 10
           }
         ]
@@ -209,7 +209,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-search-nudge.sh",
+            "command": "bash ${USER_HOME}\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-search-nudge.sh",
             "timeout": 10
           }
         ]
@@ -219,7 +219,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-search-nudge.sh",
+            "command": "bash ${USER_HOME}\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-search-nudge.sh",
             "timeout": 10
           }
         ]
@@ -229,7 +229,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\track-recall.sh",
+            "command": "bash ${USER_HOME}\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\track-recall.sh",
             "timeout": 5
           }
         ]
@@ -296,7 +296,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\track-recall-post.sh",
+            "command": "bash ${USER_HOME}\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\track-recall-post.sh",
             "timeout": 5
           }
         ]
@@ -306,7 +306,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\track-remember.sh",
+            "command": "bash ${USER_HOME}\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\track-remember.sh",
             "timeout": 5
           }
         ]
@@ -316,7 +316,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\track-remember.sh",
+            "command": "bash ${USER_HOME}\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\track-remember.sh",
             "timeout": 5
           }
         ]
@@ -326,7 +326,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\track-remember.sh",
+            "command": "bash ${USER_HOME}\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\track-remember.sh",
             "timeout": 5
           }
         ]
@@ -336,7 +336,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\track-search.sh",
+            "command": "bash ${USER_HOME}\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\track-search.sh",
             "timeout": 5
           }
         ]

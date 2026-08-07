@@ -33,7 +33,7 @@ ENV_TEMPLATE_NAME = ".env.template"
 # - Linux/POSIX: `/home/...`, `/Users/...`, `/var/...`, `/opt/...`, `/tmp/...`
 # POSIX dùng negative lookbehind `(?<![A-Za-z}:])` để không khớp `/Users` bên trong
 # đường dẫn Windows `C:/Users/...` hoặc sau placeholder `${DRIVE_X}`.
-_WIN_PATH_RE = re.compile(r"([A-Za-z]:)(?:[\\/][^\"'\s,]*)?")
+_WIN_PATH_RE = re.compile(r"([A-Za-z]:)([\\/][^\"'\s,]*)")
 _POSIX_PATH_RE = re.compile(
     r"(?<![A-Za-z}:])/(?:home|Users|var|opt|tmp|root|mnt|etc|usr|srv|data|workspace)(?:[/\w.\-]+)*"
 )
@@ -123,12 +123,15 @@ def _replace_paths_in_string(value: str, placeholders: dict[str, str]) -> tuple[
     # Bước 2: Thay đường dẫn Windows còn sót — thay cả cụm `X:/rest` hoặc `X:\rest`
     # bằng `${DRIVE_X}` + rest (giữ rest nguyên vẹn, không để POSIX regex bắt nốt).
     def _win_replace(match: re.Match) -> str:
-        drive_letter = match.group(1).upper()
+        # Lấy ký tự ổ đĩa (không lấy dấu :) và phần còn lại sau dấu hai chấm
+        drive_letter = match.group(1)[0].upper()
         var = f"DRIVE_{drive_letter}"
         used.setdefault(var, f"{drive_letter}:\\")
         return "${" + var + "}" + match.group(2)
 
-    result = re.sub(r"([A-Za-z]:)((?:[\\/][^\"'\s,]*)?)", _win_replace, result)
+    # Chỉ khớp đường dẫn Windows khi có ký tự phân cách \ hoặc / sau ổ đĩa,
+    # tránh ăn nhầm pattern dạng `git diff:*` hay `npm test:*`.
+    result = re.sub(r"([A-Za-z]:)([\\/][^\"'\s,]*)", _win_replace, result)
 
     # Bước 3: Thay POSIX path còn sót (đã có lookbehind tránh khớp sau `}` hoặc `X:`)
     def _posix_replace(match: re.Match) -> str:

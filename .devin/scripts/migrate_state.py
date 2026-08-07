@@ -199,6 +199,13 @@ def migrate(old_root: Path) -> Path:
 
 def main() -> int:
     """CLI stub: nhận --old-root, chạy migrate, in ra new root."""
+    # Ép stdout/stderr dùng UTF-8 để in tiếng Việt an toàn trên Windows console
+    # (tránh UnicodeEncodeError khi argparse in --help chứa tiếng Việt).
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8")
+        except (AttributeError, OSError):
+            pass
     ap = argparse.ArgumentParser(
         description="T1.3: Gộp state legacy về unified state/ layout."
     )

@@ -178,6 +178,26 @@ def test_migrate_preserves_non_path_strings(tmp_path, monkeypatch):
     assert json.loads(after) == json.loads(original), "Config không-path bị thay đổi"
 
 
+def test_migrate_preserves_wildcards(tmp_path, monkeypatch):
+    # Các pattern dạng `Exec(git diff:*)` hoặc `Exec(npm test:*)` không bị ăn nhầm thành đường dẫn Windows
+    monkeypatch.setattr(Path, "home", lambda: tmp_path / "home")
+    payload = {
+        "permissions": {
+            "allow": [
+                "Exec(npm test:*)",
+                "Exec(git diff:*)",
+                "Exec(python .devin/scripts/plan_orchestrator.py:*)",
+            ],
+            "deny": ["Exec(git push --force:*)", "Exec(rm -rf:*)", "Exec(git clean -fd:*)"],
+        }
+    }
+    cfg = _make_temp_config(tmp_path, payload)
+    original = json.loads(cfg.read_text(encoding="utf-8"))
+    migrate_config.migrate(cfg)
+    after = json.loads(cfg.read_text(encoding="utf-8"))
+    assert after == original, f"Wildcard pattern bị thay đổi: {after}"
+
+
 def test_migrate_missing_file_raises(tmp_path):
     # File không tồn tại phải raise FileNotFoundError
     import pytest
