@@ -219,7 +219,9 @@ class TestArtifactRegistryFallbackLock:
         ahd_session._acquire_lock = lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("nope"))
         try:
             handle = _acquire_lock(lock_path, timeout=0.2)
-            assert handle is None
+            # _acquire_lock trả tuple (lock_path, handle, is_sentinel)
+            # Khi timeout, handle[1] is None
+            assert handle[1] is None
         finally:
             ahd_session._acquire_lock = original_acquire
 

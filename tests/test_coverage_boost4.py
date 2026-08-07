@@ -315,10 +315,11 @@ class TestSchemaGate:
         try:
             main()
         except SystemExit as e:
-            assert e.code == 0
+            # Pentest fix: parse error ở cổng an ninh phải fail-closed (block).
+            assert e.code == 1
         out = capsys.readouterr().out
         data = json.loads(out)
-        assert data["passed"] is True
+        assert data["passed"] is False
 
 
 # ===========================================================================
