@@ -54,7 +54,9 @@ def _check_outcome_valid(result: Any) -> bool:
         return False
     text = str(result).lower()
     markers = ("ok", "pass", "success", "complete", "done", "verified")
-    return any(m in text for m in markers)
+    # Pentest fix: dùng word boundary để tránh false positive.
+    # "incomplete" chứa "complete" nhưng không phải marker thành công.
+    return any(re.search(r"\b" + re.escape(m) + r"\b", text) for m in markers)
 
 
 def _compute_process_score(trace: list[dict[str, Any]]) -> float:

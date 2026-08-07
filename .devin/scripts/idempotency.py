@@ -11,11 +11,33 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from pathlib import Path
 from typing import Any, Callable, Optional
 
 _LEDGER_DIR = "idempotency"
+
+_RUN_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
+
+
+def _sanitize_run_id(run_id: str) -> str:
+    """Làm sạch run_id theo allowlist, chống path traversal (../../HLK/evil).
+
+    Thay path separator bằng _, chỉ giữ [a-zA-Z0-9_-], giới hạn 64 ký tự.
+    """
+    if not run_id:
+        return "default"
+    rid = run_id.replace("/", "_").replace("\\", "_")
+    rid = re.sub(r"[^a-zA-Z0-9_-]", "_", rid)
+    rid = re.sub(r"_+", "_", rid)
+    rid = rid.strip("_-.")
+    if not rid:
+        return "default"
+    rid = rid[:64]
+    if not _RUN_ID_PATTERN.match(rid):
+        return "default"
+    return rid
 
 
 def _repo_root() -> Path:
@@ -44,6 +66,8 @@ def ledger_path(run_id: str, root: Path | None = None) -> Path:
     """Trả về đường dẫn ledger cho run_id."""
     if not run_id:
         run_id = "default"
+    # Pentest fix: sanitize run_id để chống path traversal (../../HLK/evil).
+    run_id = _sanitize_run_id(run_id)
     root = root or _repo_root()
     return _config_root(root) / _LEDGER_DIR / f"{run_id}.ledger.jsonl"
 
@@ -112,12 +136,36 @@ def register(
     path = ledger_path(run_id)
     lock = _lock_path(path)
 
-    # Lấy lock để tránh race condition
+    # Lấy lock để tránh race condition.
+    # Pentest fix: khi ahd_session._acquire_lock fail, fallback sang filelock
+    # trực tiếp. Nếu vẫn fail -> raise, KHÔNG proceed unlocked (tránh duplicate).
+    handle = None
+    lock_acquired = False
     try:
         import ahd_session
         handle = ahd_session._acquire_lock(lock, timeout=5.0)
+        lock_acquired = handle is not None
     except Exception:
         handle = None
+
+    if not lock_acquired:
+        # Fallback: dùng filelock trực tiếp
+        try:
+            from filelock import FileLock, Timeout  # type: ignore
+            fl = FileLock(str(lock))
+            fl.acquire(timeout=5.0)
+            handle = fl
+            lock_acquired = True
+        except ImportError:
+            # filelock không có -> không thể đảm bảo an toàn, raise
+            raise RuntimeError(
+                "idempotency.register: không lấy được lock và filelock không có sẵn; "
+                "từ chối chạy unlocked để tránh race condition"
+            )
+        except Exception as exc:
+            raise RuntimeError(
+                f"idempotency.register: không lấy được lock cho run_id={run_id}: {exc}"
+            ) from exc
 
     try:
         ledger = _read_ledger(path)
@@ -143,4 +191,13 @@ def register(
         return result
     finally:
         if handle is not None:
-            ahd_session._release_lock(handle)
+            try:
+                import ahd_session
+                ahd_session._release_lock(handle)
+            except Exception:
+                # Pentest fix: handle có thể là filelock FileLock trực tiếp
+                # (fallback) — thử release() trực tiếp.
+                try:
+                    handle.release()
+                except Exception:
+                    pass

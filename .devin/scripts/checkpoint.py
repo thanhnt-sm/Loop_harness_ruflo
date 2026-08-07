@@ -75,7 +75,28 @@ def _save_json(path: Path, data) -> None:
 
 def _checkpoints_root(root: Path, workflow_id: str) -> Path:
     """Duong dan thu muc checkpoint cho workflow."""
+    # Pentest fix: sanitize workflow_id để chống path traversal (../../HLK/evil).
+    workflow_id = _sanitize_workflow_id(workflow_id)
     return root / CHECKPOINTS_DIR / workflow_id
+
+
+def _sanitize_workflow_id(workflow_id: str) -> str:
+    """Làm sạch workflow_id theo allowlist, chống path traversal.
+
+    Thay path separator bằng _, chỉ giữ [a-zA-Z0-9_-], giới hạn 64 ký tự.
+    """
+    if not workflow_id:
+        return "default"
+    wid = workflow_id.replace("/", "_").replace("\\", "_")
+    wid = re.sub(r"[^a-zA-Z0-9_-]", "_", wid)
+    wid = re.sub(r"_+", "_", wid)
+    wid = wid.strip("_-.")
+    if not wid:
+        return "default"
+    wid = wid[:64]
+    if not _STEP_ID_PATTERN.match(wid):
+        return "default"
+    return wid
 
 
 # --- T2.6: Checkpoint schema + sanitize + redact ---
@@ -88,7 +109,14 @@ def _default_redact_patterns() -> list[str]:
     default_patterns = [
         r"sk-[a-zA-Z0-9]{32,}",
         r"ghp_[a-zA-Z0-9]{36}",
+        # Pentest fix: bổ sung các pattern secret còn thiếu (gho_, AIza, Bearer, xox).
+        r"gho_[a-zA-Z0-9]{36}",
+        r"ghs_[a-zA-Z0-9]{36}",
+        r"ghu_[a-zA-Z0-9]{36}",
         r"AKIA[A-Z0-9]{16}",
+        r"AIza[A-Za-z0-9_-]{35}",
+        r"xox[baprs]-[A-Za-z0-9-]{10,}",
+        r"(?i)Bearer\s+[A-Za-z0-9_-]{20,}",
         r"(?i)password\s*=\s*['\"]?[^'\"\s]+",
         r"(?i)api[_-]?key\s*=\s*['\"]?[^'\"\s]+",
         r"(?i)secret\s*[:=]\s*['\"]?[^'\"\s]+",
@@ -98,7 +126,15 @@ def _default_redact_patterns() -> list[str]:
         hlk_path = _repo_root() / "HLK" / "config" / "hlk.config.json"
         if hlk_path.exists():
             hlk = json.loads(hlk_path.read_text(encoding="utf-8"))
-            return hlk.get("security_rules", {}).get("redact_patterns", default_patterns)
+            hlk_patterns = hlk.get("security_rules", {}).get("redact_patterns", [])
+            # Pentest fix: merge HLK patterns vào default (union) thay vì thay thế.
+            # Tránh trường hợp HLK config thiếu pattern (vd gho_) -> secret leak.
+            # Default patterns luôn áp dụng; HLK chỉ bổ sung thêm pattern chuyên biệt.
+            merged = list(default_patterns)
+            for p in hlk_patterns:
+                if p not in merged:
+                    merged.append(p)
+            return merged
     except Exception:
         pass
     return default_patterns

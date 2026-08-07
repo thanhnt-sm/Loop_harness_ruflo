@@ -63,6 +63,14 @@ def _check_inter(action: Action) -> tuple[bool, str, bool]:
     Mô phỏng: nếu action là write lên file đang được đọc (target trùng) ->
     cảnh báo nhưng không block. Nếu action là delete lên target vừa write -> block.
     """
+    # Pentest fix: action destructive (delete, force_push, drop, reset_hard)
+    # phải bị block ở mọi cấp reflection, kể cả inter.
+    if action.category in DESTRUCTIVE_CATEGORIES or action.destructive:
+        return (
+            True,
+            f"Action '{action.category}' is destructive - blocked at inter level.",
+            True,
+        )
     # Không có state action trước trong fixture -> mặc định an toàn
     # nhưng nếu target chứa pattern nhạy cảm -> cảnh báo
     sensitive_patterns = (".env", "HLK/", "credentials/", "secrets/", ".git/")

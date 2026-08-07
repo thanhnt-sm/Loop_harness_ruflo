@@ -1,6 +1,6 @@
 {
   "_description": "U41: Hook integrity verification baseline",
-  "_generated": "2026-08-07T10:13:29.111930",
+  "_generated": "2026-08-07T11:16:39.710541",
   "hooks": {
     ".devin/hooks/ahd_session.py": "951760e46cf40d86b34a55f8caffac907cbf82b137d83028ec202345d34e6e1f",
     ".devin/hooks/coverage_enforce.py": "6e17ca220c6877a678e0badcbfd3b58a671688752a286ec78f101b96bf959f57",
@@ -8,7 +8,7 @@
     ".devin/hooks/otel_instrument.py": "023d518b7a3e01296148c3fc34699c4ef1f15bffb57603300f43f583a71f313a",
     ".devin/hooks/plan_enforce.py": "9cfb54ebc91b5f5fbf17c2c60e743534cd6c9591a61c16284c5cba1a8882223f",
     ".devin/hooks/post_tool_use.py": "f221a811ba91d4bfaafc2a1d87f36cc9f8c384544624fd41fbcc1ea15143148f",
-    ".devin/hooks/pre_tool_use.py": "b6aef57a60257876216c7df27b0d74fdbaa0a328b4ea8d5b28fbba859303e9d9",
+    ".devin/hooks/pre_tool_use.py": "d71cbd1ccc11aa80e1f40f9429b1bcada3f6801b1e62656eb9061cb242622f8c",
     ".devin/hooks/schema_gate.py": "9f334092d8d694be77c290f48fe0455232afbb93cc624c20e751a72a038a9d56",
     ".devin/hooks/self_heal.py": "452183b0abc08c5f608432291a4deb6698c76045905f31bf8d1d63eb0cc7107a",
     ".devin/hooks/session_end.py": "bd78c4cd2493000eb6d0abf36aa6d3eceb1793c62508a4b468b9a7cff68b4a3a",

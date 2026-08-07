@@ -493,8 +493,11 @@ class TestCostTracker:
 
     def test_check_cost_cap_zero_cap(self):
         from cost_tracker import check_cost_cap
-        assert check_cost_cap({"cumulative_cost": 100, "cost_cap": 0}) == 0
-        assert check_cost_cap({"cumulative_cost": 100, "cost_cap": -1}) == 0
+        # Pentest fix: cap=0 hoặc cap âm với cost>0 phải block (không bypass).
+        assert check_cost_cap({"cumulative_cost": 100, "cost_cap": 0}) == 2
+        assert check_cost_cap({"cumulative_cost": 100, "cost_cap": -1}) == 2
+        # cap=0, cost=0 -> OK (chưa tiêu gì)
+        assert check_cost_cap({"cumulative_cost": 0, "cost_cap": 0}) == 0
 
     def test_check_cost_cap_defaults(self):
         from cost_tracker import check_cost_cap, DEFAULT_COST_CAP

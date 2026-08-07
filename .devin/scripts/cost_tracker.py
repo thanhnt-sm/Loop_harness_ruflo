@@ -15,6 +15,7 @@ Usage (inline):
 """
 from __future__ import annotations
 
+import math
 import sys
 from pathlib import Path
 
@@ -59,6 +60,10 @@ def track_tool_cost(root: Path, session_id: str, tool_name: str, response_size: 
     if not session_id:
         return {"tracked": False, "reason": "no session_id"}
 
+    # Pentest fix: response_size âm không hợp lệ — không cho giảm cumulative cost.
+    if response_size < 0:
+        response_size = 0
+
     cost = _estimate_cost(tool_name, response_size)
 
     # Read current state
@@ -98,8 +103,17 @@ def check_cost_cap(state: dict) -> int:
     """
     cumulative = float(state.get("cumulative_cost", 0.0))
     cost_cap = float(state.get("cost_cap", DEFAULT_COST_CAP))
-    if cost_cap <= 0:
-        return 0
+    # Pentest fix: cap âm hoặc NaN là giá trị không hợp lệ — không được bypass.
+    # Cap <= 0 với cumulative > 0 nghĩa là đã vượt cap -> block.
+    # Cap NaN: mọi so sánh đều False -> phải block để tránh bypass.
+    if math.isnan(cost_cap) or math.isinf(cost_cap) and cost_cap < 0:
+        return 2
+    if cost_cap < 0:
+        # Cap âm không hợp lệ; nếu đã tiêu cost thì block.
+        return 2 if cumulative > 0 else 2
+    if cost_cap == 0:
+        # Cap 0: nếu đã tiêu bất kỳ cost nào -> đã vượt cap -> block.
+        return 2 if cumulative > 0 else 0
     ratio = cumulative / cost_cap
     if cumulative >= cost_cap or ratio >= 1.0:
         return 2

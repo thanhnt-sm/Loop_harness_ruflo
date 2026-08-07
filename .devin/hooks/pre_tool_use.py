@@ -183,13 +183,37 @@ def normalize_command(command: str) -> str:
     if re.search(r'<<<\$\(base64', normalized, re.IGNORECASE):
         normalized += " BASE64_PIPE_TO_SHELL_DETECTED"
 
+    # Pentest fix: gộp split short flags của rm thành một flag duy nhất theo thứ tự chuẩn.
+    # "rm -r -f /" -> "rm -rf /", "rm -f -r /" -> "rm -rf /", "rm -fr /" -> "rm -rf /".
+    # Tránh bypass khi -r và -f nằm ở hai flag group riêng (rm -r -f /).
+    def _merge_rm_flags(match: "re.Match[str]") -> str:
+        # match.group(1) = chuỗi các flag riêng "-r -f -v" ...
+        flags = re.findall(r'-([a-zA-Z])', match.group(1))
+        unique = []
+        for f in flags:
+            if f not in unique:
+                unique.append(f)
+        # Sắp xếp: r trước f (chuẩn -rf), các flag khác giữ nguyên phía sau
+        ordered = sorted(unique, key=lambda c: ({'r': 0, 'f': 1}.get(c, 2), c))
+        return 'rm -' + ''.join(ordered) + ' '
+
+    normalized = re.sub(
+        r'\brm\s+((?:-[a-zA-Z]\s+){2,})',
+        _merge_rm_flags,
+        normalized,
+    )
+
     return normalized
 
 
 # Patterns that are always blocked
 DANGEROUS_PATTERNS = [
     # rm -rf with broad targets
-    (r"\brm\s+(-[a-z]*r[a-z]*f|--recursive\s+--force)\s+(/|/\*|~|\$HOME|\.\.|\*|\.|\.git|\.git/)", "rm -rf with broad target"),
+    # Pentest fix: thêm EXPANDED_VAR (sau khi $HOME được normalize) và
+    # chấp nhận cả -fr (f trước r) vì normalize_command đã gộp split flags.
+    (r"\brm\s+(-[a-z]*r[a-z]*f|--recursive\s+--force)\s+(/|/\*|~|\$HOME|EXPANDED_VAR|\.\.|\*|\.|\.git|\.git/)", "rm -rf with broad target"),
+    # Pentest fix: rm -fr (f trước r, gộp trong một flag) cũng phải block
+    (r"\brm\s+-[a-z]*f[a-z]*r[a-z]*\s+(/|/\*|~|\$HOME|EXPANDED_VAR|\.\.|\*|\.|\.git|\.git/)", "rm -fr with broad target"),
     # git push --force / -f to any branch
     (r"\bgit\s+push\s+(--force|-f)\b", "force-push"),
     # git reset --hard to remote
