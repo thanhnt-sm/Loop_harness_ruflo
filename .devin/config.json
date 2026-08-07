@@ -7,7 +7,11 @@
     "devin": 20
   },
   "_u68_adaptive_model": "Devin Adaptive Router selects best model per task. Set agent.model=adaptive in user config to enable.",
-  "_u68_free_executors": ["lightning-executor (SWE-1.7)", "glm-executor (GLM-5.2)", "kimi-executor (Kimi K2.7, free until 2026-07-05)"],
+  "_u68_free_executors": [
+    "lightning-executor (SWE-1.7)",
+    "glm-executor (GLM-5.2)",
+    "kimi-executor (Kimi K2.7, free until 2026-07-05)"
+  ],
   "permissions": {
     "_u53_note": "Wildcards replaced with explicit script allowlist. Unknown scripts → ask.",
     "allow": [
@@ -88,13 +92,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash $APPDATA/nvm/v18.20.0/node_modules/aide-memory\\scripts\\hooks\\session-start-clear.sh",
+            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\session-start-clear.sh",
             "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "python .devin/hooks/session_start.py",
-            "timeout": 5
           }
         ]
       }
@@ -115,12 +114,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python .devin/hooks/user_prompt_submit.py",
-            "timeout": 3
-          },
-          {
-            "type": "command",
-            "command": "bash $APPDATA/nvm/v18.20.0/node_modules/aide-memory\\scripts\\hooks\\detect-correction.sh",
+            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\detect-correction.sh",
             "timeout": 5
           }
         ]
@@ -131,7 +125,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash $APPDATA/nvm/v18.20.0/node_modules/aide-memory\\scripts\\hooks\\pre-compact-save.sh",
+            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-compact-save.sh",
             "timeout": 30
           }
         ]
@@ -142,13 +136,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash $APPDATA/nvm/v18.20.0/node_modules/aide-memory\\scripts\\hooks\\stop-remember.sh",
+            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\stop-remember.sh",
             "timeout": 30
-          },
-          {
-            "type": "command",
-            "command": "python .devin/hooks/stop.py",
-            "timeout": 10
           }
         ]
       }
@@ -180,8 +169,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash $APPDATA/nvm/v18.20.0/node_modules/aide-memory\\scripts\\hooks\\pre-read-recall.sh",
-            "timeout":  5
+            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-read-recall.sh",
+            "timeout": 10
           }
         ]
       },
@@ -190,13 +179,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash $APPDATA/nvm/v18.20.0/node_modules/aide-memory\\scripts\\hooks\\pre-edit-recall.sh",
-            "timeout":  5
+            "command": "python .devin/hooks/plan_enforce.py",
+            "timeout": 3
           },
           {
             "type": "command",
-            "command": "python .devin/hooks/plan_enforce.py",
-            "timeout": 3
+            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-edit-recall.sh",
+            "timeout": 10
           }
         ]
       },
@@ -205,13 +194,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash $APPDATA/nvm/v18.20.0/node_modules/aide-memory\\scripts\\hooks\\pre-edit-recall.sh",
-            "timeout":  5
+            "command": "python .devin/hooks/plan_enforce.py",
+            "timeout": 3
           },
           {
             "type": "command",
-            "command": "python .devin/hooks/plan_enforce.py",
-            "timeout": 3
+            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-edit-recall.sh",
+            "timeout": 10
           }
         ]
       },
@@ -220,8 +209,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash $APPDATA/nvm/v18.20.0/node_modules/aide-memory\\scripts\\hooks\\pre-search-nudge.sh",
-            "timeout":  5
+            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-search-nudge.sh",
+            "timeout": 10
           }
         ]
       },
@@ -230,8 +219,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash $APPDATA/nvm/v18.20.0/node_modules/aide-memory\\scripts\\hooks\\pre-search-nudge.sh",
-            "timeout":  5
+            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-search-nudge.sh",
+            "timeout": 10
           }
         ]
       },
@@ -240,7 +229,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash $APPDATA/nvm/v18.20.0/node_modules/aide-memory\\scripts\\hooks\\track-recall.sh",
+            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\track-recall.sh",
             "timeout": 5
           }
         ]
@@ -307,7 +296,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash $APPDATA/nvm/v18.20.0/node_modules/aide-memory\\scripts\\hooks\\track-recall-post.sh",
+            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\track-recall-post.sh",
             "timeout": 5
           }
         ]
@@ -317,7 +306,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash $APPDATA/nvm/v18.20.0/node_modules/aide-memory\\scripts\\hooks\\track-remember.sh",
+            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\track-remember.sh",
             "timeout": 5
           }
         ]
@@ -327,7 +316,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash $APPDATA/nvm/v18.20.0/node_modules/aide-memory\\scripts\\hooks\\track-remember.sh",
+            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\track-remember.sh",
             "timeout": 5
           }
         ]
@@ -337,7 +326,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash $APPDATA/nvm/v18.20.0/node_modules/aide-memory\\scripts\\hooks\\track-remember.sh",
+            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\track-remember.sh",
             "timeout": 5
           }
         ]
@@ -347,7 +336,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash $APPDATA/nvm/v18.20.0/node_modules/aide-memory\\scripts\\hooks\\track-search.sh",
+            "command": "bash C:\\Users\\thant\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\track-search.sh",
             "timeout": 5
           }
         ]
@@ -370,7 +359,10 @@
   "_u69_smart_mode": "Devin Smart Permission Mode — AI judges safety of shell/fetch/write. High-risk always prompts. Enable via /smart command. Rules (deny/ask) override smart judgment.",
   "_u69_plugin_governance": {
     "requiredPlugins": [],
-    "optionalPlugins": ["yellow-devin", "spark-mcp"],
+    "optionalPlugins": [
+      "yellow-devin",
+      "spark-mcp"
+    ],
     "forbiddenPlugins": []
   },
   "_u69_mcp_disabled_tools": {
@@ -381,23 +373,39 @@
   },
   "_u69_autonomous_mode": "Available with --sandbox flag. Shell/fetch auto-approve, file edits still prompt. Only mode available when sandbox active.",
   "_u70_devin_features": {
-    "hook_events_covered": ["PreToolUse", "PostToolUse", "SessionStart", "Stop", "AgentStop", "PostCompaction"],
-    "hook_events_pending": ["SessionEnd", "UserPromptSubmit", "PermissionRequest"],
-    "hook_types": ["command", "prompt"],
-    "skill_features": ["triggers", "model_override", "subagent_mode", "permissions_override"],
-    "subagent_features": ["model_pinning", "max_nesting"],
-    "mcp_features": ["dedicated_config", "disabled_tools", "prompts_as_commands"],
+    "hook_events_covered": [
+      "PreToolUse",
+      "PostToolUse",
+      "SessionStart",
+      "Stop",
+      "AgentStop",
+      "PostCompaction"
+    ],
+    "hook_events_pending": [
+      "SessionEnd",
+      "UserPromptSubmit",
+      "PermissionRequest"
+    ],
+    "hook_types": [
+      "command",
+      "prompt"
+    ],
+    "skill_features": [
+      "triggers",
+      "model_override",
+      "subagent_mode",
+      "permissions_override"
+    ],
+    "subagent_features": [
+      "model_pinning",
+      "max_nesting"
+    ],
+    "mcp_features": [
+      "dedicated_config",
+      "disabled_tools",
+      "prompts_as_commands"
+    ],
     "cross_tool_import": "read_config_from supported (cursor, windsurf, claude, copilot, opencode, vscode, zed)",
     "personal_rules": "AGENTS.local.md supported (gitignored)"
   }
 }
-
-
-
-
-
-
-
-
-
-

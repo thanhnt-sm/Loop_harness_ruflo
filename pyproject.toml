@@ -1,0 +1,59 @@
+# pyproject.toml — metadata dự án và khai báo dependency cho AHD.
+# File này tuân theo chuẩn PEP 518/621, dùng bởi pip và các công cụ build.
+# Giữ tối giản: chỉ khai báo metadata tối thiểu + dependency tùy chọn cho nhóm test.
+
+[build-system]
+# Dùng setuptools làm backend build (phổ biến, ổn định).
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ahd-loop-harness"
+version = "0.1.0"
+description = "Agent Harness Deploy (AHD) — loop harness cho Devin CLI."
+readme = "AGENTS.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+    { name = "AHD Team" },
+]
+keywords = ["agent", "harness", "devin", "loop"]
+
+# Dependency bắt buộc: giữ tối thiểu để không tăng khối lượng cài đặt.
+dependencies = [
+    "pydantic>=2.0",
+]
+
+# Dependency tùy chọn theo nhóm:
+# - [test] : chạy pytest, đo coverage, property-based test (hypothesis), khóa file (filelock).
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "hypothesis>=6.0",
+    "pydantic>=2.0",
+    "filelock>=3.0",
+]
+
+# Cấu hình công cụ (tùy chọn, không bắt buộc phải có để chạy test).
+
+# mypy: kiểm tra kiểu tĩnh (static type checking) — tắt strict để không chặn CI.
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+warn_unused_ignores = false
+
+# ruff: linter + formatter nhanh, quy tắc nhẹ nhàng.
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+# Chỉ bật nhóm quy tắc cơ bản (E/pycodestyle, F/pyflakes) để tránh ồn.
+select = ["E", "F"]
+ignore = ["E501"]
+
+# Hypothesis: cấu hình profile mặc định cho property-based test.
+[tool.hypothesis]
+max_examples = 100
+deadline = "disabled"

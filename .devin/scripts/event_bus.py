@@ -36,7 +36,14 @@ import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 from uuid import uuid4
+
+
+# Đưa thư mục hooks vào sys.path để tái sử dụng file-lock từ ahd_session.py.
+_Here = Path(__file__).resolve().parent
+sys.path.insert(0, str(_Here.parent / "hooks"))
+from ahd_session import _acquire_lock, _release_lock, LockAcquireError  # noqa: E402
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -116,6 +123,13 @@ def _now_iso() -> str:
 def _topic_file(topic: str) -> Path:
     """Trả về đường dẫn file JSONL cho topic. Tạo thư mục nếu thiếu."""
     return _bus_dir() / f"{topic}.jsonl"
+
+
+def _topic_lock_path(topic: str) -> Path:
+    """Trả về đường dẫn file-lock cho một topic."""
+    d = _bus_dir() / ".locks"
+    d.mkdir(parents=True, exist_ok=True)
+    return d / f"{topic}.lock"
 
 
 def _validate_topic(topic: str) -> bool:
@@ -209,41 +223,59 @@ def publish(topic: str, publisher: str, payload: Any,
     }
 
     f = _topic_file(topic)
+    lock = None
     try:
+        lock = _acquire_lock(_topic_lock_path(topic), timeout=5.0)
         with f.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(message, ensure_ascii=False) + "\n")
+    except LockAcquireError as exc:
+        print(f"[event_bus] Không lấy được khóa topic {topic}: {exc}", file=sys.stderr)
+        return {"published": False, "reason": f"Không lấy được khóa: {exc}"}
     except OSError as exc:
         print(f"[event_bus] Lỗi ghi file topic {topic}: {exc}", file=sys.stderr)
         return {"published": False, "reason": str(exc)}
+    finally:
+        _release_lock(lock)
 
     return {"published": True, "message": message}
 
 
 def subscribe(topic: str, last_read: int = 0) -> dict:
-    """Lấy các tin nhắn chưa đọc cho topic (chế độ polling).
-
-    Bước 1: Đọc toàn bộ lịch sử.
-    Bước 2: Trả các tin nhắn từ chỉ mục last_read trở đi.
-    Bước 3: Trả kèm next_offset để lần sau tiếp tục.
-    """
-    messages = _read_all_messages(topic)
-    unread = messages[last_read:]
-    return {
-        "topic": topic,
-        "unread_count": len(unread),
-        "messages": unread,
-        "next_offset": len(messages),
-    }
+    """Lấy các tin nhắn chưa đọc cho topic, có file-lock khi đọc."""
+    lock = None
+    try:
+        lock = _acquire_lock(_topic_lock_path(topic), timeout=5.0)
+        messages = _read_all_messages(topic)
+        unread = messages[last_read:]
+        return {
+            "topic": topic,
+            "unread_count": len(unread),
+            "messages": unread,
+            "next_offset": len(messages),
+        }
+    except LockAcquireError as exc:
+        print(f"[event_bus] Không lấy được khóa topic {topic}: {exc}", file=sys.stderr)
+        return {"topic": topic, "unread_count": 0, "messages": [], "next_offset": 0, "error": str(exc)}
+    finally:
+        _release_lock(lock)
 
 
 def history(topic: str) -> dict:
-    """Lấy toàn bộ lịch sử tin nhắn của topic."""
-    messages = _read_all_messages(topic)
-    return {
-        "topic": topic,
-        "total": len(messages),
-        "messages": messages,
-    }
+    """Lấy toàn bộ lịch sử tin nhắn của topic, có file-lock."""
+    lock = None
+    try:
+        lock = _acquire_lock(_topic_lock_path(topic), timeout=5.0)
+        messages = _read_all_messages(topic)
+        return {
+            "topic": topic,
+            "total": len(messages),
+            "messages": messages,
+        }
+    except LockAcquireError as exc:
+        print(f"[event_bus] Không lấy được khóa topic {topic}: {exc}", file=sys.stderr)
+        return {"topic": topic, "total": 0, "messages": [], "error": str(exc)}
+    finally:
+        _release_lock(lock)
 
 
 def list_topics() -> dict:

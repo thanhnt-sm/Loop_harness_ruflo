@@ -36,7 +36,14 @@ import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 from uuid import uuid4
+
+
+# Đưa thư mục hooks vào sys.path để tái sử dụng file-lock từ ahd_session.py.
+_Here = Path(__file__).resolve().parent
+sys.path.insert(0, str(_Here.parent / "hooks"))
+from ahd_session import _acquire_lock, _release_lock, LockAcquireError  # noqa: E402
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -68,6 +75,23 @@ def _region_file(region: str) -> Path:
 def _write_log_file() -> Path:
     """Trả về đường dẫn file nhật ký ghi (write log)."""
     return _bb_dir() / "_write_log.jsonl"
+
+
+def _lock_dir() -> Path:
+    """Thư mục chứa file-lock của từng region + write log."""
+    d = _bb_dir() / ".locks"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _region_lock_path(region: str) -> Path:
+    """Trả về đường dẫn file-lock cho một region."""
+    return _lock_dir() / f"{region}.lock"
+
+
+def _write_log_lock_path() -> Path:
+    """Trả về đường dẫn file-lock cho write log."""
+    return _lock_dir() / "_write_log.lock"
 
 
 # Định nghĩa region + quy tắc giải quyết xung đột.
@@ -139,11 +163,15 @@ def _log_write(region: str, key: str, agent: str,
         "resolution": resolution,
     }
     f = _write_log_file()
+    lock = None
     try:
+        lock = _acquire_lock(_write_log_lock_path())
         with f.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
     except OSError as exc:
         print(f"[blackboard] Lỗi ghi write log: {exc}", file=sys.stderr)
+    finally:
+        _release_lock(lock)
 
 
 # ---------------------------------------------------------------------------
@@ -306,55 +334,68 @@ RESOLVERS = {
 # ---------------------------------------------------------------------------
 
 def read_value(region: str, key: str) -> dict:
-    """Đọc giá trị của key trong region.
-
-    Bước 1: Tải region. Bước 2: Lấy giá trị. Bước 3: Trả về (hoặc None).
-    """
-    data = _load_region(region)
-    if key not in data:
-        return {"region": region, "key": key, "value": None, "exists": False}
-    value = data[key]
-    # Với single_writer, trả value bên trong wrapper.
-    if isinstance(value, dict) and "_owner" in value:
-        value = value.get("value")
-    # Với versioned, trả current.
-    if isinstance(value, dict) and "current" in value and "versions" in value:
-        value = value.get("current")
-    return {"region": region, "key": key, "value": value, "exists": True}
+    """Đọc giá trị của key trong region, có file-lock để tránh đọc giữa chừng."""
+    lock = None
+    try:
+        lock = _acquire_lock(_region_lock_path(region), timeout=5.0)
+        data = _load_region(region)
+        if key not in data:
+            return {"region": region, "key": key, "value": None, "exists": False}
+        value = data[key]
+        # Với single_writer, trả value bên trong wrapper.
+        if isinstance(value, dict) and "_owner" in value:
+            value = value.get("value")
+        # Với versioned, trả current.
+        if isinstance(value, dict) and "current" in value and "versions" in value:
+            value = value.get("current")
+        return {"region": region, "key": key, "value": value, "exists": True}
+    except LockAcquireError as exc:
+        print(f"[blackboard] Không lấy được khóa region {region}: {exc}", file=sys.stderr)
+        return {"region": region, "key": key, "value": None, "exists": False, "error": str(exc)}
+    finally:
+        _release_lock(lock)
 
 
 def write_value(region: str, key: str, value: Any, agent: str = "unknown") -> dict:
-    """Ghi giá trị vào region với quy tắc giải quyết xung đột tương ứng.
-
-    Bước 1: Xác định quy tắc của region. Nếu region chưa định nghĩa →
-            tạo region mới với quy tắc last_write_wins mặc định.
-    Bước 2: Tải dữ liệu region hiện tại.
-    Bước 3: Gọi hàm giải quyết xung đột tương ứng.
-    Bước 4: Lưu region nếu ghi thành công.
-    Bước 5: Trả về kết quả.
-    """
-    rule = REGION_RULES.get(region, "last_write_wins")
-    resolver = RESOLVERS.get(rule, _resolve_last_write_wins)
-    data = _load_region(region)
-    ok, reason, data = resolver(region, key, agent, data, value)
-    if ok:
-        saved = _save_region(region, data)
-        if not saved:
-            return {"written": False, "reason": "Lỗi lưu file region"}
-    return {
-        "written": ok,
-        "region": region,
-        "key": key,
-        "rule": rule,
-        "reason": reason,
-    }
+    """Ghi giá trị vào region với quy tắc giải quyết xung đột + file-lock."""
+    lock = None
+    try:
+        lock = _acquire_lock(_region_lock_path(region), timeout=5.0)
+        rule = REGION_RULES.get(region, "last_write_wins")
+        resolver = RESOLVERS.get(rule, _resolve_last_write_wins)
+        data = _load_region(region)
+        ok, reason, data = resolver(region, key, agent, data, value)
+        if ok:
+            saved = _save_region(region, data)
+            if not saved:
+                return {"written": False, "region": region, "key": key, "rule": rule, "reason": "Lỗi lưu file region"}
+        return {
+            "written": ok,
+            "region": region,
+            "key": key,
+            "rule": rule,
+            "reason": reason,
+        }
+    except LockAcquireError as exc:
+        print(f"[blackboard] Không lấy được khóa region {region}: {exc}", file=sys.stderr)
+        return {"written": False, "region": region, "key": key, "reason": f"Không lấy được khóa: {exc}"}
+    finally:
+        _release_lock(lock)
 
 
 def list_keys(region: str) -> dict:
-    """Liệt kê tất cả key trong region."""
-    data = _load_region(region)
-    keys = list(data.keys())
-    return {"region": region, "keys": keys, "count": len(keys)}
+    """Liệt kê tất cả key trong region (có khóa)."""
+    lock = None
+    try:
+        lock = _acquire_lock(_region_lock_path(region), timeout=5.0)
+        data = _load_region(region)
+        keys = list(data.keys())
+        return {"region": region, "keys": keys, "count": len(keys)}
+    except LockAcquireError as exc:
+        print(f"[blackboard] Không lấy được khóa region {region}: {exc}", file=sys.stderr)
+        return {"region": region, "keys": [], "count": 0, "error": str(exc)}
+    finally:
+        _release_lock(lock)
 
 
 def list_regions() -> dict:

@@ -63,6 +63,16 @@ if ($target -match '\.\.') {
   throw "WORKSPACE_ROOT contains path traversal characters: $target — refusing to deploy"
 }
 
+# T4.13: Validate target path against shared path_zones (single source of truth).
+# Gọi path_zones.py để kiểm tra target không nằm trong blocked zone.
+$pathZonesScript = Join-Path $PSScriptRoot '..\.devin\scripts\path_zones.py'
+if (Test-Path $pathZonesScript) {
+  $pathZonesResult = & python $pathZonesScript check $target 2>&1
+  if ($LASTEXITCODE -eq 2) {
+    throw "Target path blocked by path_zones: $pathZonesResult"
+  }
+}
+
 # --- 3. Kiểm tra target rỗng (hoặc chỉ có .git) ---
 if (Test-Path $target) {
   $existing = Get-ChildItem $target -Force -ErrorAction SilentlyContinue | Where-Object { $_.Name -ne '.git' }

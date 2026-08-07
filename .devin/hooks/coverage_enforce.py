@@ -38,6 +38,14 @@ import sys
 import threading
 from pathlib import Path
 
+# T4.13: Import shared path_zones (single source of truth cho blocked/safe zones).
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+try:
+    from path_zones import is_blocked as _pathzones_is_blocked, is_safe as _pathzones_is_safe
+except Exception:
+    _pathzones_is_blocked = None
+    _pathzones_is_safe = None
+
 # U15: Timeout nội bộ — coverage_enforce chạy grep nên cần dư thời gian.
 HOOK_TIMEOUT_SECONDS = 4.0
 
@@ -168,6 +176,33 @@ def _grep_symbol_in_file(file_path: Path, symbol: str) -> bool:
 def _normalize_path(p: str) -> str:
     """Chuẩn hóa đường dẫn để so khớp."""
     return p.replace("\\", "/").lstrip("./")
+
+
+def _is_path_in_safe_zone(file_path: str) -> bool:
+    """T4.13: Kiểm tra file edit có nằm trong safe zone (dùng shared path_zones).
+
+    Advisory-only — không block, chỉ dùng cho logging/coverage tracking.
+    Trả True nếu file nằm trong safe zone hoặc path_zones không khả dụng.
+    """
+    if _pathzones_is_safe is None:
+        return True  # fallback: không path_zones -> mặc định an toàn
+    try:
+        return _pathzones_is_safe(file_path)
+    except Exception:
+        return True
+
+
+def _is_path_blocked(file_path: str) -> bool:
+    """T4.13: Kiểm tra file edit có nằm trong blocked zone (dùng shared path_zones).
+
+    Advisory-only — không block (schema_gate đã block), chỉ dùng cho logging.
+    """
+    if _pathzones_is_blocked is None:
+        return False
+    try:
+        return _pathzones_is_blocked(file_path)
+    except Exception:
+        return False
 
 
 def _update_coverage(

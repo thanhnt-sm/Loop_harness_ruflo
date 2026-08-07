@@ -257,3 +257,13 @@ plugin/
 
 # Backups (U07: disaster recovery)
 backups/
+
+# Runtime/test artifacts generated during AHD pytest runs
+.coverage
+.serena/
+state/
+.devin/artifact_registry/
+.devin/checkpoints/
+.devin/idempotency/
+.devin/hook_order.json
+

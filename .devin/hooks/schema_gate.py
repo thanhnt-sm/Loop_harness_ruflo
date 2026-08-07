@@ -28,48 +28,68 @@ import sys
 import threading
 from pathlib import Path
 
+# T4.13: Import shared path_zones (single source of truth cho blocked/safe zones).
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+try:
+    from path_zones import (
+        BLOCKED_ZONES as _PATHZONES_BLOCKED,
+        SAFE_ZONES as _PATHZONES_SAFE,
+        normalize_path as _pathzones_normalize,
+    )
+except Exception:
+    _PATHZONES_BLOCKED = None
+    _PATHZONES_SAFE = None
+    _pathzones_normalize = None
+
 # U15: Timeout nội bộ — schema_gate phải nhanh (deterministic). Config timeout 3s.
 HOOK_TIMEOUT_SECONDS = 2.5
 
 # --- Cấu hình safe zone / blocked zone ---
+# T4.13: Dùng shared path_zones làm source of truth; fallback về local nếu import fail.
 # Safe zone: agent được phép ghi file vào các thư mục này
 SAFE_ZONES = (
-    "src/",
-    "tests/",
-    ".devin/skills/",
-    ".devin/agents/personas/",
-    "scripts/",
-    "docs/plans/",
-    "docs/templates/",
-    "docs/research/",
+    _PATHZONES_SAFE if _PATHZONES_SAFE is not None else
+    (
+        "src/",
+        "tests/",
+        ".devin/skills/",
+        ".devin/agents/personas/",
+        "scripts/",
+        "docs/plans/",
+        "docs/templates/",
+        "docs/research/",
+    )
 )
 
 # Blocked zone: KHÔNG bao giờ cho phép ghi vào các thư mục/file này
 # C-02 fix: Block agent từ việc sửa hooks, canon, config, AGENTS.md —
 # nếu agent sửa được hooks thì toàn bộ enforcement bị vô hiệu hóa
 BLOCKED_ZONES = (
-    "HLK/",
-    ".env",
-    ".git/",
-    "credentials/",
-    "secrets/",
-    # C-02: Agent KHÔNG được sửa hooks (sẽ vô hiệu hóa enforcement)
-    ".devin/hooks/",
-    # C-02: Agent KHÔNG được sửa canon (will change red lines)
-    ".devin/canon/",
-    # C-02: Agent KHÔNG được sửa config (will change permissions/deny list)
-    ".devin/config.json",
-    ".devin/config.local.json",
-    ".devin/config.minimal.json",
-    ".devin/tool_registry.json",
-    ".devin/risk_contract.json",
-    ".devin/hook_hashes.json",
-    ".devin/memory_config.json",
-    ".devin/mcp_config.json",
-    # C-02: Agent KHÔNG được sửa AGENTS.md (will change own rules)
-    "AGENTS.md",
-    ".devin/AGENTS.md",
-    "CLAUDE.md",
+    _PATHZONES_BLOCKED if _PATHZONES_BLOCKED is not None else
+    (
+        "HLK/",
+        ".env",
+        ".git/",
+        "credentials/",
+        "secrets/",
+        # C-02: Agent KHÔNG được sửa hooks (sẽ vô hiệu hóa enforcement)
+        ".devin/hooks/",
+        # C-02: Agent KHÔNG được sửa canon (will change red lines)
+        ".devin/canon/",
+        # C-02: Agent KHÔNG được sửa config (will change permissions/deny list)
+        ".devin/config.json",
+        ".devin/config.local.json",
+        ".devin/config.minimal.json",
+        ".devin/tool_registry.json",
+        ".devin/risk_contract.json",
+        ".devin/hook_hashes.json",
+        ".devin/memory_config.json",
+        ".devin/mcp_config.json",
+        # C-02: Agent KHÔNG được sửa AGENTS.md (will change own rules)
+        "AGENTS.md",
+        ".devin/AGENTS.md",
+        "CLAUDE.md",
+    )
 )
 
 # --- Regex quét secret (không bao giờ cho phép trong output) ---
@@ -279,6 +299,65 @@ def _gate_symbol_verification(tool_name: str, tool_input: dict, root: Path) -> d
     return None
 
 
+def detect_encoding_bypass(text: str) -> list[str]:
+    """T2.10: Phát hiện các kỹ thuật encoding bypass trong text.
+
+    Trả về danh sách các loại bypass phát hiện được (rỗng nếu sạch).
+    """
+    if not text:
+        return []
+    findings: list[str] = []
+
+    if re.search(r'\+[A-Za-z0-9+/]+-', text):
+        findings.append("utf7")
+
+    if re.search(r'\bxn--[a-zA-Z0-9-]+\b', text):
+        findings.append("punycode")
+
+    if re.search(r'&#[xX]?[0-9a-fA-F]+;', text):
+        findings.append("html_entity")
+
+    if re.search(r'\\x[0-9a-fA-F]{2}', text):
+        findings.append("hex_escape")
+
+    if re.search(r'\\u[0-9a-fA-F]{4}', text) or re.search(r'\\U[0-9a-fA-F]{8}', text):
+        findings.append("unicode_escape")
+
+    if re.search(r'\\[0-7]{1,3}', text):
+        findings.append("octal_escape")
+
+    if re.search(r'base64.*[\|<].*(bash|sh|zsh|python|perl)', text, re.IGNORECASE) or \
+       re.search(r'base64.*-d.*[\|<]', text, re.IGNORECASE):
+        findings.append("base64_pipe")
+
+    return findings
+
+
+def _gate_encoding_bypass(tool_name: str, tool_input: dict, tool_output) -> dict | None:
+    """T2.10: Phát hiện encoding bypass trong output hoặc content đầu vào."""
+    sources: list[str] = []
+
+    if isinstance(tool_output, str):
+        sources.append(tool_output)
+    elif isinstance(tool_output, dict):
+        sources.append(json.dumps(tool_output, ensure_ascii=False))
+
+    if isinstance(tool_input, dict):
+        for key in ("content", "new_string", "command", "old_string"):
+            value = tool_input.get(key)
+            if isinstance(value, str):
+                sources.append(value)
+
+    for text in sources:
+        findings = detect_encoding_bypass(text)
+        if findings:
+            return {
+                "reason": f"Encoding bypass detected: {', '.join(findings)}",
+                "details": {"findings": findings, "source": text[:200]},
+            }
+    return None
+
+
 def _gate_file_path_validation(tool_name: str, tool_input: dict, root: Path) -> dict | None:
     """Cổng 5: File path validation — chặn path traversal và ghi ngoài safe zone.
 
@@ -346,6 +425,7 @@ def _run_gates(tool_name: str, tool_input: dict, tool_output, root: Path) -> dic
         ("json_schema", lambda: _gate_json_schema(tool_output)),
         ("required_fields", lambda: _gate_required_fields(tool_name, tool_input, tool_output)),
         ("secret_scan", lambda: _gate_secret_scan(tool_output)),
+        ("encoding_bypass", lambda: _gate_encoding_bypass(tool_name, tool_input, tool_output)),
         ("symbol_verification", lambda: _gate_symbol_verification(tool_name, tool_input, root)),
         ("file_path_validation", lambda: _gate_file_path_validation(tool_name, tool_input, root)),
     ]

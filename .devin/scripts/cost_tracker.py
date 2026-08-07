@@ -9,9 +9,9 @@ Cost estimation is rough (based on token counts in tool response) —
 not a billing system, just a guardrail against budget overrun.
 
 Usage (inline):
-    from cost_tracker import track_tool_cost, check_cost_cap
+    from cost_tracker import track_tool_cost, check_cost_cap_session
     track_tool_cost(root, session_id, tool_name, response_size)
-    exceeded, msg = check_cost_cap(root, session_id)
+    exceeded, msg = check_cost_cap_session(root, session_id)
 """
 from __future__ import annotations
 
@@ -88,33 +88,51 @@ def track_tool_cost(root: Path, session_id: str, tool_name: str, response_size: 
     }
 
 
-def check_cost_cap(root: Path, session_id: str) -> tuple[bool, str]:
-    """U17: Check if cumulative cost exceeds cap.
+def check_cost_cap(state: dict) -> int:
+    """U17/T2.4: Kiểm tra cost cap từ state.
 
-    Returns (exceeded, message). If exceeded, sets cost_cap_exceeded flag
-    in session_state so the agent can check and stop escalation.
+    Trả về mã:
+      0 — OK (dưới 80%)
+      1 — WARN (từ 80% đến dưới 100%)
+      2 — BLOCK (đã đạt hoặc vượt cost_cap)
+    """
+    cumulative = float(state.get("cumulative_cost", 0.0))
+    cost_cap = float(state.get("cost_cap", DEFAULT_COST_CAP))
+    if cost_cap <= 0:
+        return 0
+    ratio = cumulative / cost_cap
+    if cumulative >= cost_cap or ratio >= 1.0:
+        return 2
+    if ratio >= 0.8:
+        return 1
+    return 0
+
+
+def check_cost_cap_session(root: Path, session_id: str) -> tuple[bool, str]:
+    """U17: Kiểm tra cumulative cost theo root + session_id.
+
+    Giữ lại để tương thích với post_tool_use.py. Trả (exceeded, message).
     """
     if not session_id:
         return False, ""
 
     state = ahd_session.read_session_state(session_id, root)
-    cumulative = state.get("cumulative_cost", 0.0)
-    cost_cap = state.get("cost_cap", DEFAULT_COST_CAP)
+    status = check_cost_cap(state)
+    cumulative = float(state.get("cumulative_cost", 0.0))
+    cost_cap = float(state.get("cost_cap", DEFAULT_COST_CAP))
 
-    if cumulative >= cost_cap:
+    if status == 2:
         msg = (
             f"COST CAP EXCEEDED: ${cumulative:.4f} >= ${cost_cap:.4f} cap. "
             f"Stop escalation. Ask human whether to continue or stop. "
             f"Session: {session_id}, calls tracked: {state.get('cost_tracked_calls', 0)}"
         )
-        # U17 redteam: set flag so agent can check before escalating
         ahd_session.update_session_state(session_id, {
             "cost_cap_exceeded": True,
         }, root)
         return True, msg
 
-    # Warning at 80%
-    if cumulative >= cost_cap * 0.8:
+    if status == 1:
         msg = (
             f"COST CAP WARNING: ${cumulative:.4f} approaching ${cost_cap:.4f} cap (80%). "
             f"Consider wrapping up or asking human for budget increase."
@@ -147,7 +165,7 @@ if __name__ == "__main__":
         set_cost_cap(root, args.session, args.set_cap)
         print(f"Cost cap set to ${args.set_cap:.2f} for session {args.session}")
     if args.check:
-        exceeded, msg = check_cost_cap(root, args.session)
+        exceeded, msg = check_cost_cap_session(root, args.session)
         if exceeded:
             print(f"[!] {msg}")
             sys.exit(1)

@@ -13,15 +13,22 @@
   Workspace cần đóng gói. Mặc định: thư mục hiện tại.
 .PARAMETER DryRun
   Không tạo zip, chỉ in báo cáo những gì sẽ làm.
+.PARAMETER RolloutStage
+  T5.10: Cổng rollout P1 Canary / P2 Pilot / P3 GA. Mặc định Skip (không chặn).
+  - P1: pytest 100% + bench >=25% + red-team 0 critical.
+  - P2: E2E pass + user approval (interactive).
+  - P3: CI green 7 ngay + 0 P0/P1 bug (manual sign-off).
 .EXAMPLE
   .\tools\package-template.ps1
   .\tools\package-template.ps1 -OutputPath D:\templates\my-harness.zip
   .\tools\package-template.ps1 -DryRun
+  .\tools\package-template.ps1 -RolloutStage P1
 #>
 param(
   [string]$OutputPath = (Join-Path (Get-Location).Path 'harness-template.zip'),
   [string]$WorkspaceRoot = (Get-Location).Path,
-  [switch]$DryRun
+  [switch]$DryRun,
+  [ValidateSet('P1','P2','P3','Skip')][string]$RolloutStage = 'Skip'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -34,7 +41,112 @@ Write-Host "Source:      $root" -ForegroundColor Gray
 Write-Host "Staging:     $staging" -ForegroundColor Gray
 Write-Host "Output:      $OutputPath" -ForegroundColor Gray
 if ($DryRun) { Write-Host "Mode:        DRY-RUN (no zip created)" -ForegroundColor Yellow } else { Write-Host "Mode:        package" -ForegroundColor Gray }
+if ($RolloutStage -ne 'Skip') { Write-Host "Rollout:     $RolloutStage (Canary=P1, Pilot=P2, GA=P3)" -ForegroundColor Magenta }
 Write-Host ""
+
+# ---------------------------------------------------------------------------
+# T5.10: Rollout gates — P1 Canary -> P2 Pilot -> P3 GA
+# ---------------------------------------------------------------------------
+# P1 (Canary): P0 100% + bench token reduction >=25% + 0 critical exploit.
+# P2 (Pilot) : E2E pass + user approval (interactive gate).
+# P3 (GA)    : CI green 7 ngay + 0 P0/P1 bug (manual sign-off).
+# Gate chỉ chay khi -RolloutStage khac Skip. Khi pass, ghi vao manifest.
+function Invoke-RolloutGate {
+  param([string]$Stage, [string]$SourceRoot)
+  Write-Host "`n=== Rollout Gate: $Stage ===" -ForegroundColor Magenta
+  $gateOk = $true
+  $gateDetails = @()
+
+  switch ($Stage) {
+    'P1' {
+      # P1 Canary: chay pytest (P0 100%) + bench + red-team (0 critical).
+      Write-Host "  [P1] Running pytest (P0 must be 100%)..." -ForegroundColor Gray
+      $pytestOut = & python -m pytest -q --no-header 2>&1 | Out-String
+      $pytestExit = $LASTEXITCODE
+      if ($pytestExit -ne 0) {
+        Write-Host "  [P1] FAIL: pytest exited $pytestExit" -ForegroundColor Red
+        $gateOk = $false
+      } else {
+        # Extract pass count.
+        if ($pytestOut -match '(\d+) passed') {
+          $passed = [int]$Matches[1]
+          Write-Host "  [P1] OK: $passed tests passed" -ForegroundColor Green
+          $gateDetails += "pytest: $passed passed"
+        }
+      }
+      # Bench: token reduction >=25%.
+      Write-Host "  [P1] Running bench (token reduction >=25%)..." -ForegroundColor Gray
+      $benchOut = & python tests/bench_upgrade_success.py 2>&1 | Out-String
+      $benchExit = $LASTEXITCODE
+      if ($benchExit -ne 0) {
+        Write-Host "  [P1] FAIL: bench exited $benchExit" -ForegroundColor Red
+        $gateOk = $false
+      } else {
+        Write-Host "  [P1] OK: bench all metrics pass" -ForegroundColor Green
+        $gateDetails += "bench: all pass"
+      }
+      # Red-team: 0 critical exploit (test_red_team_suite pass).
+      Write-Host "  [P1] Running red-team suite (0 critical exploit)..." -ForegroundColor Gray
+      $rtOut = & python -m pytest tests/test_red_team_suite.py -q --no-header 2>&1 | Out-String
+      $rtExit = $LASTEXITCODE
+      if ($rtExit -ne 0) {
+        Write-Host "  [P1] FAIL: red-team suite exited $rtExit" -ForegroundColor Red
+        $gateOk = $false
+      } else {
+        Write-Host "  [P1] OK: 0 critical exploit" -ForegroundColor Green
+        $gateDetails += "red-team: 0 critical"
+      }
+    }
+    'P2' {
+      # P2 Pilot: E2E pass + user approval (interactive).
+      Write-Host "  [P2] Running E2E full-power test..." -ForegroundColor Gray
+      $e2eOut = & python -m pytest tests/test_e2e_full_power.py -q --no-header 2>&1 | Out-String
+      $e2eExit = $LASTEXITCODE
+      if ($e2eExit -ne 0) {
+        Write-Host "  [P2] FAIL: E2E exited $e2eExit" -ForegroundColor Red
+        $gateOk = $false
+      } else {
+        Write-Host "  [P2] OK: E2E pass" -ForegroundColor Green
+        $gateDetails += "e2e: pass"
+      }
+      # User approval gate (interactive).
+      Write-Host "  [P2] User approval required for Pilot rollout." -ForegroundColor Yellow
+      $resp = Read-Host "  [P2] Approve Pilot rollout? (y/N)"
+      if ($resp -ne 'y' -and $resp -ne 'Y') {
+        Write-Host "  [P2] FAIL: user did not approve" -ForegroundColor Red
+        $gateOk = $false
+      } else {
+        Write-Host "  [P2] OK: user approved" -ForegroundColor Green
+        $gateDetails += "user_approval: yes"
+      }
+    }
+    'P3' {
+      # P3 GA: CI green 7 ngay + 0 P0/P1 bug (manual sign-off).
+      Write-Host "  [P3] GA requires: CI green for 7 consecutive days." -ForegroundColor Yellow
+      Write-Host "  [P3] GA requires: 0 open P0/P1 bugs (manual sign-off)." -ForegroundColor Yellow
+      $resp = Read-Host "  [P3] Confirm CI green 7 days + 0 P0/P1 bugs? (y/N)"
+      if ($resp -ne 'y' -and $resp -ne 'Y') {
+        Write-Host "  [P3] FAIL: manual sign-off denied" -ForegroundColor Red
+        $gateOk = $false
+      } else {
+        Write-Host "  [P3] OK: GA sign-off confirmed" -ForegroundColor Green
+        $gateDetails += "ga_signoff: yes"
+      }
+    }
+  }
+
+  if (-not $gateOk) {
+    Write-Host "`n  [Rollout] Gate $Stage FAILED - abort packaging." -ForegroundColor Red
+    throw "Rollout gate $Stage failed. Fix issues before retry."
+  }
+  Write-Host "  [Rollout] Gate $Stage PASSED." -ForegroundColor Green
+  return @{ stage = $Stage; passed = $true; details = $gateDetails }
+}
+
+$rolloutResult = $null
+if ($RolloutStage -ne 'Skip') {
+  $rolloutResult = Invoke-RolloutGate -Stage $RolloutStage -SourceRoot $root
+}
 
 # --- 1. Thư mục/file cần copy ---
 $includeDirs = @('.devin', '.agents', '.aide', 'HLK', 'tools')
@@ -361,6 +473,10 @@ $manifest = @{
     '{{AIDE_MEMORY_CLI}} — aide-memory dist/memory/cli.js path',
     '{{NODE_EXE}} — node.exe path for HLK hook launcher'
   )
+}
+# T5.10: Ghi rollout gate result vao manifest neu co.
+if ($rolloutResult) {
+  $manifest.rollout = $rolloutResult
 }
 $manifestDest = Join-Path $staging 'TEMPLATE_MANIFEST.json'
 $manifest | ConvertTo-Json -Depth 5 | Set-Content -Path $manifestDest -Encoding UTF8

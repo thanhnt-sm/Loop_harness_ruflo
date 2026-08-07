@@ -20,6 +20,11 @@ from pathlib import Path
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
+
+class LockAcquireError(Exception):
+    """Ném khi không thể lấy được file lock trong thời gian chờ."""
+
+
 def get_config_root(root: Path) -> Path:
     """Determine the config root directory for runtime state files.
 
@@ -218,50 +223,95 @@ def _get_session_lock_path(root: Path, session_id: str) -> Path:
 
 
 def _acquire_lock(lock_path: Path, timeout: float = 10.0) -> Any:
-    """Acquire an inter-process lock. Prefer filelock, fallback to fcntl/msvcrt/lockfile."""
-    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    """Lấy một khóa liên tiến trình (inter-process lock).
 
-    # Prefer filelock (cross-platform, reliable)
+    Thứ tự ưu tiên:
+    1. filelock (đa nền tảng, đáng tin cậy).
+    2. fcntl (Linux/macOS) hoặc msvcrt (Windows) với giới hạn thời gian.
+    3. file sentinel với cờ O_CREAT|O_EXCL như giải pháp cuối cùng.
+
+    Nếu hết thời gian chờ hoặc gặp lỗi nghiêm trọng, ném ``LockAcquireError``.
+    """
+    import time
+
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    deadline = time.time() + timeout
+
+    # Bước 1: Thử dùng filelock nếu có.
     try:
         from filelock import FileLock, Timeout
-        lock = FileLock(str(lock_path))
+
+        fl = FileLock(str(lock_path))
         try:
-            lock.acquire(timeout=timeout)
-            return lock
+            fl.acquire(timeout=timeout)
+            return fl
         except Timeout:
-            pass
+            raise LockAcquireError(
+                f"Không thể lấy khóa {lock_path} sau {timeout}s (filelock)"
+            )
+    except LockAcquireError:
+        raise
     except Exception:
         pass
 
-    # Fallback: OS-specific advisory locking
+    # Bước 2: Dùng khóa gợi ý của hệ điều hành, có thời gian chờ.
     if sys.platform == "win32":
         try:
             import msvcrt
+
             f = open(lock_path, "wb")
             f.write(b"lock")
             f.flush()
-            msvcrt.locking(f.fileno(), msvcrt.LK_LOCK, 1)
-            return f
-        except Exception:
+            f.seek(0)
+            while time.time() < deadline:
+                try:
+                    msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
+                    return f
+                except (OSError, IOError):
+                    time.sleep(0.05)
+            f.close()
+            raise LockAcquireError(
+                f"Không thể lấy khóa {lock_path} sau {timeout}s (msvcrt)"
+            )
+        except LockAcquireError:
+            raise
+        except Exception as exc:
             try:
                 f.close()
             except Exception:
                 pass
+            raise LockAcquireError(
+                f"Không thể lấy khóa {lock_path} (msvcrt): {exc}"
+            ) from exc
     else:
         try:
             import fcntl
+
             f = open(lock_path, "w+")
-            fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-            return f
-        except Exception:
+            f.seek(0)
+            while time.time() < deadline:
+                try:
+                    fcntl.flock(f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    return f
+                except (OSError, IOError):
+                    time.sleep(0.05)
+            f.close()
+            raise LockAcquireError(
+                f"Không thể lấy khóa {lock_path} sau {timeout}s (fcntl)"
+            )
+        except LockAcquireError:
+            raise
+        except Exception as exc:
             try:
                 f.close()
             except Exception:
                 pass
+            raise LockAcquireError(
+                f"Không thể lấy khóa {lock_path} (fcntl): {exc}"
+            ) from exc
 
-    # Last resort: atomic lockfile sentinel via O_CREAT|O_EXCL
+    # Bước 3: Giải pháp cuối cùng — sentinel O_CREAT|O_EXCL.
     try:
-        import time
         pid = os.getpid()
         start = time.time()
         while time.time() - start < timeout:
@@ -274,31 +324,46 @@ def _acquire_lock(lock_path: Path, timeout: float = 10.0) -> Any:
                 time.sleep(0.05)
             except Exception:
                 break
-        return None
-    except Exception:
-        return None
+        raise LockAcquireError(
+            f"Không thể lấy khóa {lock_path} sau {timeout}s (sentinel)"
+        )
+    except LockAcquireError:
+        raise
+    except Exception as exc:
+        raise LockAcquireError(
+            f"Không thể lấy khóa {lock_path} (sentinel): {exc}"
+        ) from exc
 
 
 def _release_lock(handle: Any) -> None:
-    """Release a lock handle from _acquire_lock."""
+    """Giải phóng một khóa được tạo bởi ``_acquire_lock``."""
     if handle is None:
         return
     try:
         if hasattr(handle, "release"):
+            # Bước 1: filelock handle có method release() riêng.
             handle.release()
         elif hasattr(handle, "close"):
+            # Bước 2: Đưa con trỏ về đầu file trước khi mở khóa (Windows cần vị trí cố định).
+            try:
+                handle.seek(0)
+            except Exception:
+                pass
             try:
                 import fcntl
+
                 fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
             except Exception:
                 pass
             try:
                 import msvcrt
+
                 msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
             except Exception:
                 pass
             handle.close()
         elif isinstance(handle, Path):
+            # Bước 3: sentinel lock được biểu diễn bằng đường dẫn.
             try:
                 handle.unlink()
             except Exception:

@@ -24,9 +24,16 @@
   Bỏ qua bước verify HLK và AHD.
 .PARAMETER SkipGitInit
   Truyền sang deploy-template.ps1: không tạo git repo ở target.
+.PARAMETER RolloutStage
+  T5.10: Cổng rollout P1 Canary / P2 Pilot / P3 GA. Mặc định Skip (không chặn).
+  - P1: pytest 100% + bench >=25% + red-team 0 critical.
+  - P2: E2E pass + user approval (interactive).
+  - P3: CI green 7 ngay + 0 P0/P1 bug (manual sign-off).
+  Gate chạy trên SOURCE workspace trước khi deploy sang target.
 .EXAMPLE
   .\tools\init-new-project.ps1 -TemplatePath .\harness-template.zip -TargetPath D:\projects\my-app -Cli devin
   .\tools\init-new-project.ps1 -TargetPath D:\projects\my-app -Cli all
+  .\tools\init-new-project.ps1 -TargetPath D:\projects\my-app -RolloutStage P1
 #>
 param(
   [string]$TemplatePath,
@@ -36,7 +43,8 @@ param(
   [switch]$DryRun,
   [switch]$SkipHlk,
   [switch]$NoVerify,
-  [switch]$SkipGitInit
+  [switch]$SkipGitInit,
+  [ValidateSet('P1','P2','P3','Skip')][string]$RolloutStage = 'Skip'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -53,6 +61,67 @@ Write-Host "Source workspace: $sourceRoot" -ForegroundColor Gray
 Write-Host "Target path:      $TargetPath" -ForegroundColor Gray
 Write-Host "CLI:              $Cli" -ForegroundColor Gray
 if ($DryRun) { Write-Host "Mode:             DRY-RUN" -ForegroundColor Yellow }
+if ($RolloutStage -ne 'Skip') { Write-Host "Rollout:          $RolloutStage (Canary=P1, Pilot=P2, GA=P3)" -ForegroundColor Magenta }
+
+# ---------------------------------------------------------------------------
+# T5.10: Rollout gate — chạy trên SOURCE workspace trước khi deploy.
+# P1 (Canary): P0 100% + bench >=25% + 0 critical exploit.
+# P2 (Pilot) : E2E pass + user approval (interactive).
+# P3 (GA)    : CI green 7 ngay + 0 P0/P1 bug (manual sign-off).
+# ---------------------------------------------------------------------------
+function Invoke-InitRolloutGate {
+  param([string]$Stage, [string]$SourceRoot)
+  Write-Host "`n=== Rollout Gate: $Stage (source workspace) ===" -ForegroundColor Magenta
+  $gateOk = $true
+  Push-Location $SourceRoot
+  try {
+    switch ($Stage) {
+      'P1' {
+        Write-Host "  [P1] Running pytest (P0 100%)..." -ForegroundColor Gray
+        & python -m pytest -q --no-header 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) { Write-Host "  [P1] FAIL: pytest" -ForegroundColor Red; $gateOk = $false }
+        else { Write-Host "  [P1] OK: pytest pass" -ForegroundColor Green }
+
+        Write-Host "  [P1] Running bench (token reduction >=25%)..." -ForegroundColor Gray
+        & python tests/bench_upgrade_success.py 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) { Write-Host "  [P1] FAIL: bench" -ForegroundColor Red; $gateOk = $false }
+        else { Write-Host "  [P1] OK: bench pass" -ForegroundColor Green }
+
+        Write-Host "  [P1] Running red-team suite (0 critical)..." -ForegroundColor Gray
+        & python -m pytest tests/test_red_team_suite.py -q --no-header 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) { Write-Host "  [P1] FAIL: red-team" -ForegroundColor Red; $gateOk = $false }
+        else { Write-Host "  [P1] OK: 0 critical exploit" -ForegroundColor Green }
+      }
+      'P2' {
+        Write-Host "  [P2] Running E2E full-power test..." -ForegroundColor Gray
+        & python -m pytest tests/test_e2e_full_power.py -q --no-header 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) { Write-Host "  [P2] FAIL: E2E" -ForegroundColor Red; $gateOk = $false }
+        else { Write-Host "  [P2] OK: E2E pass" -ForegroundColor Green }
+
+        $resp = Read-Host "  [P2] Approve Pilot rollout? (y/N)"
+        if ($resp -ne 'y' -and $resp -ne 'Y') { Write-Host "  [P2] FAIL: user denied" -ForegroundColor Red; $gateOk = $false }
+        else { Write-Host "  [P2] OK: user approved" -ForegroundColor Green }
+      }
+      'P3' {
+        Write-Host "  [P3] GA requires: CI green 7 consecutive days + 0 P0/P1 bugs." -ForegroundColor Yellow
+        $resp = Read-Host "  [P3] Confirm CI green 7 days + 0 P0/P1 bugs? (y/N)"
+        if ($resp -ne 'y' -and $resp -ne 'Y') { Write-Host "  [P3] FAIL: sign-off denied" -ForegroundColor Red; $gateOk = $false }
+        else { Write-Host "  [P3] OK: GA sign-off confirmed" -ForegroundColor Green }
+      }
+    }
+  } finally {
+    Pop-Location
+  }
+  if (-not $gateOk) {
+    Write-Host "`n  [Rollout] Gate $Stage FAILED - abort init." -ForegroundColor Red
+    throw "Rollout gate $Stage failed. Fix issues before retry."
+  }
+  Write-Host "  [Rollout] Gate $Stage PASSED." -ForegroundColor Green
+}
+
+if ($RolloutStage -ne 'Skip') {
+  Invoke-InitRolloutGate -Stage $RolloutStage -SourceRoot $sourceRoot
+}
 
 # ---------------------------------------------------------------------------
 # Bước 1: Validate các file/thư mục cần thiết trong source

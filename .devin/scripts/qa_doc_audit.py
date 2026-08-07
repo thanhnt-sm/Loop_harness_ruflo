@@ -16,6 +16,13 @@ import re
 import sys
 from pathlib import Path
 
+# Ép stdout/stderr dùng UTF-8 (tránh lỗi cp1258 trên Windows console với tiếng Việt)
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 MD_GLOB = ["*.md", ".devin/**/*.md", "docs/**/*.md"]

@@ -50,11 +50,19 @@ Mã thoát:
 from __future__ import annotations
 
 import argparse
+import copy
 import json
+import os
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
+
+import checkpoint as checkpoint_module
+import idempotency as idempotency_module
+from data_models import CheckpointState, Turn
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -271,8 +279,8 @@ def _get_status_summary(state: dict) -> dict:
 # Các thao tác chính
 # ---------------------------------------------------------------------------
 
-def execute(workflow: dict, batch_size: int) -> dict:
-    """Thực thi: lấy lô task sẵn sàng, đánh dấu "running", trả về lô.
+def get_batch(workflow: dict, batch_size: int) -> dict:
+    """Lấy lô task sẵn sàng, đánh dấu "running", trả về lô.
 
     Bước 1: Tải hoặc khởi tạo trạng thái.
     Bước 2: Đánh dấu task sẵn sàng.
@@ -337,6 +345,220 @@ def get_next(workflow: dict, batch_size: int) -> dict:
         "batch_size": len(batch),
         "status": _get_status_summary(state),
     }
+
+
+# ---------------------------------------------------------------------------
+# T2.7: Durable execution API
+# ---------------------------------------------------------------------------
+
+@dataclass
+class ExecResult:
+    """Kết quả thực thi DAG hoàn chỉnh."""
+    success: bool
+    status: dict
+    results: dict[str, Any]
+    error: str | None = None
+
+
+def _transient_exception(exc: Exception) -> bool:
+    """Coi hầu hết exception trong runner là transient (có thể retry).
+
+    Có thể mở rộng sau này để phân biệt fatal vs transient.
+    """
+    return True
+
+
+def _default_runner(task_id: str, goal: str) -> Any:
+    """Runner mặc định — trả về ok nếu không có runner tùy chỉnh."""
+    return {"ok": True, "task_id": task_id, "goal": goal}
+
+
+def _current_run_id() -> str:
+    """Lấy run_id từ env hoặc module."""
+    return os.environ.get("AHD_RUN_ID", "")
+
+
+def _state_to_workflow(state: dict) -> dict:
+    """Tái tạo workflow dict từ trạng thái đã lưu để resume."""
+    tasks = []
+    for tid, info in state.get("tasks", {}).items():
+        tasks.append({
+            "id": tid,
+            "dependencies": info.get("dependencies", []),
+            "goal": info.get("goal", ""),
+            "agent": info.get("agent", ""),
+        })
+    return {"workflow_id": state.get("workflow_id", "default"), "tasks": tasks}
+
+
+def _save_checkpoint_for_state(state: dict) -> None:
+    """T2.7: Lưu checkpoint sau mỗi batch bằng checkpoint.save."""
+    try:
+        wf_id = state.get("workflow_id", "default")
+        step_id = state.get("last_executed_step", "batch") or "batch"
+        ts = datetime.now(timezone.utc)
+        ckpt = CheckpointState(
+            version=2,
+            run_id=wf_id,
+            conversation=[],
+            side_effects_ledger=[],
+            run_metadata={"dag_state": copy.deepcopy(state)},
+            external_handles=[],
+            timestamp=ts,
+            step_id=step_id,
+        )
+        checkpoint_module.save(ckpt, workflow_id=wf_id, root=_repo_root())
+    except Exception:
+        pass
+
+
+def execute(
+    workflow: dict,
+    checkpoint: CheckpointState | dict | None = None,
+    batch_size: int = DEFAULT_BATCH_SIZE,
+    runner: Callable[[str, str], Any] | None = None,
+    max_retries: int = 2,
+) -> ExecResult:
+    """T2.7: Thực thi DAG hoàn chỉnh, checkpoint mỗi batch, retry transient.
+
+    - Nếu checkpoint là CheckpointState/dict: resume từ đó.
+    - Chạy từng batch song song (trong batch) theo dependency.
+    - Gọi runner(task_id, goal) cho mỗi task; retry nếu exception transient.
+    - Gọi on_node_complete sau mỗi task.
+    - Trả về ExecResult khi hoàn thành hoặc thất bại.
+    """
+    if runner is None:
+        runner = _default_runner
+
+    # Khởi tạo hoặc resume state
+    if checkpoint is not None:
+        if isinstance(checkpoint, CheckpointState):
+            state = checkpoint.run_metadata.get("dag_state", {})
+        elif isinstance(checkpoint, dict):
+            if "dag_state" in checkpoint:
+                state = checkpoint["dag_state"]
+            else:
+                state = checkpoint
+        else:
+            return ExecResult(success=False, status={}, results={}, error="checkpoint invalid")
+    else:
+        state = _load_state(workflow["workflow_id"])
+
+    if state is None or not state:
+        state = _init_state(workflow)
+        if not state:
+            return ExecResult(success=False, status={}, results={}, error="cannot init state (cycle?)")
+
+    wf_id = state.get("workflow_id", workflow["workflow_id"])
+    os.environ["AHD_RUN_ID"] = wf_id
+
+    # T2.7/T3.5: khi resume (có checkpoint/state đã lưu), reset các task đang
+    # "running" về "pending" — giả định process bị kill giữa chừng. Idempotency
+    # ledger sẽ đảm bảo task đã thực sự hoàn thành không bị re-run (cache hit).
+    if checkpoint is not None:
+        for tid, info in state.get("tasks", {}).items():
+            if info.get("status") == "running":
+                info["status"] = "pending"
+
+    iteration = 0
+    while True:
+        _mark_ready(state)
+        batch = _get_ready_tasks(state, batch_size)
+        if not batch:
+            summary = _get_status_summary(state)
+            if summary.get("all_complete"):
+                _save_state(state)
+                _save_checkpoint_for_state(state)
+                return ExecResult(success=True, status=summary, results={tid: state["tasks"][tid].get("result") for tid in state["tasks"]})
+            if summary.get("any_failed"):
+                _save_state(state)
+                _save_checkpoint_for_state(state)
+                failed = [tid for tid, info in state["tasks"].items() if info.get("status") == "failed"]
+                return ExecResult(success=False, status=summary, results={}, error=f"failed tasks: {failed}")
+            # Deadlock: có task đang running hoặc pending nhưng không ready
+            _save_state(state)
+            return ExecResult(success=False, status=summary, results={}, error="deadlock or waiting for running tasks")
+
+        iteration += 1
+        # Đánh dấu running
+        for tid in batch:
+            state["tasks"][tid]["status"] = "running"
+        _save_state(state)
+
+        # Chạy batch song song
+        results: dict[str, Any] = {}
+        with ThreadPoolExecutor(max_workers=min(len(batch), 8)) as pool:
+            futures = {pool.submit(_run_task, tid, state["tasks"][tid], runner, max_retries, wf_id): tid for tid in batch}
+            for future in as_completed(futures):
+                tid = futures[future]
+                try:
+                    result = future.result()
+                    results[tid] = result
+                    state["tasks"][tid]["status"] = "complete"
+                    state["tasks"][tid]["result"] = result
+                    state["tasks"][tid]["completed_at"] = datetime.now(timezone.utc).isoformat()
+                except Exception as exc:
+                    state["tasks"][tid]["status"] = "failed"
+                    state["tasks"][tid]["result"] = {"error": str(exc)}
+                    state["tasks"][tid]["completed_at"] = datetime.now(timezone.utc).isoformat()
+
+        state["last_executed_step"] = f"batch_{iteration}"
+        _save_state(state)
+        _save_checkpoint_for_state(state)
+
+
+def _run_task(task_id: str, task_info: dict, runner: Callable[[str, str], Any], max_retries: int, run_id: str) -> Any:
+    """T2.7: Chạy một task với idempotency + retry."""
+    goal = task_info.get("goal", "")
+    attempts = 0
+    last_exc: Exception | None = None
+
+    # Idempotency: cùng (run_id, task_id) chỉ thực sự chạy một lần
+    def _op():
+        return runner(task_id, goal)
+
+    while attempts <= max_retries:
+        try:
+            return idempotency_module.register(
+                f"{run_id}:{task_id}",
+                _op,
+                run_id=run_id,
+            )
+        except Exception as exc:
+            last_exc = exc
+            if not _transient_exception(exc):
+                break
+            attempts += 1
+
+    raise last_exc or RuntimeError(f"task {task_id} failed after {max_retries} retries")
+
+
+def on_node_complete(node_id: str, result: Any, run_id: str | None = None) -> None:
+    """T2.7: Callback đánh dấu node hoàn thành và cập nhật DAG."""
+    if run_id is None:
+        run_id = _current_run_id()
+    if not run_id:
+        return
+    state = _load_state(run_id)
+    if state is None:
+        return
+    if node_id not in state.get("tasks", {}):
+        return
+    state["tasks"][node_id]["status"] = "complete"
+    state["tasks"][node_id]["result"] = result
+    state["tasks"][node_id]["completed_at"] = datetime.now(timezone.utc).isoformat()
+    _mark_ready(state)
+    _save_state(state)
+    _save_checkpoint_for_state(state)
+
+
+def resume(run_id: str, runner: Callable[[str, str], Any] | None = None, max_retries: int = 2) -> ExecResult:
+    """T2.7: Resume DAG từ run_id."""
+    state = _load_state(run_id)
+    if state is None:
+        return ExecResult(success=False, status={}, results={}, error=f"no state for run_id {run_id}")
+    workflow = _state_to_workflow(state)
+    return execute(workflow, checkpoint=state, runner=runner, max_retries=max_retries)
 
 
 def get_status(workflow: dict) -> dict:
@@ -475,7 +697,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     if args.execute:
-        out = execute(workflow, args.batch_size)
+        out = get_batch(workflow, args.batch_size)
         print(json.dumps(out, ensure_ascii=False, indent=2))
         if not out.get("executed"):
             return 1

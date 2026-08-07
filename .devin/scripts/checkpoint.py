@@ -30,11 +30,15 @@ Ma thoat:
 """
 from __future__ import annotations
 
+import copy
 import json
+import re
 import shutil
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
+
+from data_models import CheckpointState
 
 # Cau hinh
 CHECKPOINTS_DIR = ".devin/checkpoints"
@@ -64,7 +68,7 @@ def _save_json(path: Path, data) -> None:
     """Ghi JSON an toan."""
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+        path.write_text(json.dumps(data, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
     except Exception as e:
         print(f"[checkpoint] khong the ghi {path}: {e}", file=sys.stderr)
 
@@ -72,6 +76,166 @@ def _save_json(path: Path, data) -> None:
 def _checkpoints_root(root: Path, workflow_id: str) -> Path:
     """Duong dan thu muc checkpoint cho workflow."""
     return root / CHECKPOINTS_DIR / workflow_id
+
+
+# --- T2.6: Checkpoint schema + sanitize + redact ---
+
+_STEP_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
+
+
+def _default_redact_patterns() -> list[str]:
+    """Tải patterns redact từ HLK config nếu có, nếu không dùng danh sách mặc định."""
+    default_patterns = [
+        r"sk-[a-zA-Z0-9]{32,}",
+        r"ghp_[a-zA-Z0-9]{36}",
+        r"AKIA[A-Z0-9]{16}",
+        r"(?i)password\s*=\s*['\"]?[^'\"\s]+",
+        r"(?i)api[_-]?key\s*=\s*['\"]?[^'\"\s]+",
+        r"(?i)secret\s*[:=]\s*['\"]?[^'\"\s]+",
+        r"(?i)token\s*[:=]\s*['\"]?[^'\"\s]+",
+    ]
+    try:
+        hlk_path = _repo_root() / "HLK" / "config" / "hlk.config.json"
+        if hlk_path.exists():
+            hlk = json.loads(hlk_path.read_text(encoding="utf-8"))
+            return hlk.get("security_rules", {}).get("redact_patterns", default_patterns)
+    except Exception:
+        pass
+    return default_patterns
+
+
+def _sanitize_step_id(step_id: str) -> str:
+    """T2.6: Làm sạch step_id theo allowlist ^[a-zA-Z0-9_-]{1,64}$.
+
+    Đảm bảo Path(step_id).name == step_id, không chứa path separator.
+    """
+    if not step_id:
+        return "unnamed"
+    # Thay path separator bằng _ rồi dùng allowlist
+    step_id = step_id.replace("/", "_").replace("\\", "_")
+    step_id = re.sub(r"[^a-zA-Z0-9_-]", "_", step_id)
+    step_id = re.sub(r"_+", "_", step_id)
+    step_id = step_id.strip("_-.")
+    if not step_id:
+        return "unnamed"
+    step_id = step_id[:64]
+    if not _STEP_ID_PATTERN.match(step_id):
+        return "unnamed"
+    return step_id
+
+
+def _redact_snapshot(state: CheckpointState) -> CheckpointState:
+    """T2.6: Redact secret khỏi state trước khi lưu.
+
+    Quét đệ quy các string trong state và thay thế pattern secret bằng [REDACTED].
+    """
+    patterns = _default_redact_patterns()
+    compiled = [re.compile(p) for p in patterns]
+    replacement = "[REDACTED]"
+
+    def _redact_value(value):
+        if isinstance(value, str):
+            for pat in compiled:
+                value = pat.sub(replacement, value)
+            return value
+        if isinstance(value, dict):
+            return {k: _redact_value(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [_redact_value(item) for item in value]
+        return value
+
+    data = state.model_dump(by_alias=True, mode="json")
+    redacted = _redact_value(data)
+    return CheckpointState.model_validate(redacted)
+
+
+def _to_checkpoint_state(state) -> CheckpointState:
+    """Chuyển dict/Pydantic model thành CheckpointState, sanitize step_id trước."""
+    if isinstance(state, CheckpointState):
+        data = state.model_dump(by_alias=True, mode="json")
+        data["step_id"] = _sanitize_step_id(data.get("step_id", "unknown"))
+        return CheckpointState.model_validate(data)
+    if isinstance(state, dict):
+        data = dict(state)
+        data["step_id"] = _sanitize_step_id(data.get("step_id", "unknown"))
+        if data.get("version", 0) != 2:
+            data = migrate(data, target_version=2)
+        return CheckpointState.model_validate(data)
+    raise TypeError(f"state phải là dict hoặc CheckpointState, nhận {type(state)}")
+
+
+def save(state, workflow_id: str = "", root: Path | None = None) -> Path:
+    """T2.6: Lưu checkpoint dưới dạng CheckpointState.
+
+    - Sanitize step_id.
+    - Redact secret trước khi lưu.
+    - Trả về đường dẫn file checkpoint.
+    """
+    ckpt = _to_checkpoint_state(state)
+    if not workflow_id:
+        workflow_id = ckpt.run_id or "default"
+    root = root or _repo_root()
+
+    step_id = _sanitize_step_id(ckpt.step_id)
+    ckpt = ckpt.model_copy(update={"step_id": step_id})
+    ckpt = _redact_snapshot(ckpt)
+
+    ckpt_dir = _checkpoints_root(root, workflow_id)
+    ckpt_dir.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
+    ckpt_path = ckpt_dir / f"{step_id}_{ts}.json"
+
+    _save_json(ckpt_path, ckpt.model_dump(by_alias=True, mode="json"))
+
+    # Cập nhật index
+    index_path = ckpt_dir / "index.json"
+    index = _load_json(index_path, {"checkpoints": []})
+    if not isinstance(index, dict):
+        index = {"checkpoints": []}
+    index.setdefault("checkpoints", []).append({
+        "step_id": step_id,
+        "file": ckpt_path.name,
+        "timestamp": ckpt.timestamp.isoformat() if ckpt.timestamp else datetime.now(timezone.utc).isoformat(),
+    })
+    _save_json(index_path, index)
+
+    return ckpt_path
+
+
+def load(path: Path) -> CheckpointState:
+    """T2.6: Đọc checkpoint và trả CheckpointState.
+
+    Tự động migrate nếu version cũ.
+    """
+    data = _load_json(path, {})
+    if not data:
+        raise ValueError(f"Không thể đọc checkpoint: {path}")
+    if data.get("version", 0) != 2:
+        data = migrate(data, target_version=2)
+    return CheckpointState.model_validate(data)
+
+
+def migrate(old: dict, target_version: int = 2) -> dict:
+    """T2.6: Migrate old checkpoint dict lên target_version.
+
+    Thêm các field mặc định còn thiếu, giữ nguyên dữ liệu cũ.
+    """
+    if not isinstance(old, dict):
+        old = {}
+    new = copy.deepcopy(old)
+    current = new.get("version", 0)
+
+    if current < 2:
+        new.setdefault("run_id", new.get("run_id", "default"))
+        new.setdefault("conversation", [])
+        new.setdefault("side_effects_ledger", [])
+        new.setdefault("run_metadata", {})
+        new.setdefault("external_handles", [])
+        new.setdefault("timestamp", datetime.now(timezone.utc).isoformat())
+        new.setdefault("step_id", new.get("step_id", "unknown"))
+
+    new["version"] = target_version
+    return new
 
 
 def _load_workflow(root: Path, workflow_path: Path) -> dict | None:

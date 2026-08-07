@@ -166,20 +166,150 @@ def _extract_function(raw: str) -> str:
     return m.group(1) if m else ""
 
 
+def _strip_backticks(s: str) -> str:
+    """Bỏ dấu backtick bao quanh và trim khoảng trắng."""
+    return s.strip().strip("`").strip()
+
+
+# Map nhãn risk dạng chữ (Low/Med/High) sang mức số 1/2/3
+_RISK_LABELS = {"high": 3, "h": 3, "r3": 3, "r4": 3, "med": 2, "medium": 2, "m": 2, "r2": 2,
+                 "low": 1, "l": 1, "r1": 1, "1": 1, "2": 2, "3": 3, "4": 4}
+
+
+def _risk_label_to_int(label: str) -> int:
+    """Map nhãn risk (Low/Med/High hoặc R1-R4 hoặc số) sang mức số."""
+    return _RISK_LABELS.get(label.strip().lower(), 0)
+
+
+# Map tên cột (lower) → key nội bộ trong task dict
+_COL_KEYS = {
+    "task id": "id", "description": "desc", "file path": "file", "function": "func",
+    "acceptance criteria": "ac", "req id": "req", "risk": "risk",
+    "mitigation": "mit", "rollback": "rb",
+}
+
+
+def _parse_risk_table(text: str) -> dict[str, tuple[str, str]]:
+    """Trích mitigation/rollback fallback từ bảng §7 Risk & Mitigation.
+
+    Trả về dict {tier: (mitigation, rollback)} cho tier đầu tiên khớp (P0/P1/P2/P3).
+    """
+    section = _extract_section(text, "Risk & Mitigation") or _extract_section(text, "Risk")
+    if not section:
+        return {}
+    result: dict[str, tuple[str, str]] = {}
+    for line in section.splitlines():
+        line = line.strip()
+        if not line.startswith("|") or "---" in line:
+            continue
+        cells = [c.strip() for c in line.strip("|").split("|")]
+        # Bỏ qua header (cột đầu là "Risk") và dòng thiếu cột
+        if len(cells) < 4 or cells[0].lower() == "risk":
+            continue
+        tier = cells[1].strip().upper()
+        if tier and tier not in result:
+            result[tier] = (cells[2].strip(), cells[3].strip())
+    return result
+
+
+def _risk_fallback(risk: int, risk_table: dict[str, tuple[str, str]]) -> tuple[str, str]:
+    """Chọn mitigation/rollback fallback theo mức risk: High→P0, Med→P1, Low→P2/P3."""
+    if risk >= 3:
+        return risk_table.get("P0", ("", ""))
+    if risk == 2:
+        return risk_table.get("P1", ("", ""))
+    if risk == 1:
+        return risk_table.get("P2", risk_table.get("P3", ("", "")))
+    return ("", "")
+
+
+def _parse_task_tables(text: str, risk_table: dict[str, tuple[str, str]]) -> list[dict]:
+    """Trích task từ bảng Markdown có header chứa 'Task ID' (định dạng PLAN_TEMPLATE.md).
+
+    Các cột: Task ID | Description | File Path | Function | Acceptance Criteria | REQ ID | Risk
+    (có thể có thêm Mitigation / Rollback). Bỏ qua bảng chỉ có Task ID nhưng không có cột
+    định nghĩa task (File Path/Function/Acceptance Criteria) — ví dụ bảng test case §8.1.
+    """
+    tasks: list[dict] = []
+    lines = text.splitlines()
+    i, n = 0, len(lines)
+    while i < n:
+        line = lines[i].strip()
+        # Bước 1: Tìm dòng header bảng có chứa "Task ID"
+        if not (line.startswith("|") and "task id" in line.lower()):
+            i += 1
+            continue
+        # Bước 2: Lập bản đồ cột (tên cột → index)
+        col_map: dict[str, int] = {}
+        for idx, h in enumerate(c.strip().lower() for c in line.strip("|").split("|")):
+            key = _COL_KEYS.get(h.strip())
+            if key:
+                col_map[key] = idx
+        # Chỉ xử lý nếu có cột Task ID VÀ ít nhất một cột định nghĩa task
+        if "id" not in col_map or not ({"file", "func", "ac"} & col_map.keys()):
+            i += 1
+            continue
+        max_col = max(col_map.values())
+        i += 1
+        # Bước 3: Bỏ qua dòng separator (---)
+        if i < n and "---" in lines[i] and re.match(r"^\s*\|?[\s\-:|]+\|?\s*$", lines[i]):
+            i += 1
+        # Bước 4: Đọc các dòng data cho đến khi hết bảng
+        while i < n:
+            row = lines[i].strip()
+            if not row.startswith("|"):
+                break
+            if "---" in row:
+                i += 1
+                continue
+            cells = [c.strip() for c in row.strip("|").split("|")]
+            if len(cells) <= max_col:
+                i += 1
+                continue
+            tid = cells[col_map["id"]].strip()
+            # Bước 5: Chỉ nhận dòng có Task ID dạng T< số >
+            if not re.match(r"^T\d", tid):
+                i += 1
+                continue
+            # Trích các trường theo cột (nếu cột thiếu để rỗng)
+            def _cell(key: str) -> str:
+                return cells[col_map[key]].strip() if key in col_map else ""
+            desc, ac = _cell("desc"), _cell("ac")
+            file_path = _strip_backticks(_cell("file"))
+            function = _strip_backticks(_cell("func"))
+            risk = _risk_label_to_int(_cell("risk"))
+            req_cell = _cell("req")
+            mitigation, rollback = _cell("mit"), _cell("rb")
+            # Bước 6: Fallback mitigation/rollback từ §7 Risk & Mitigation nếu thiếu
+            if not mitigation or not rollback:
+                fb_mit, fb_rb = _risk_fallback(risk, risk_table)
+                mitigation = mitigation or fb_mit
+                rollback = rollback or fb_rb
+            # Trích REQ ID từ cột REQ ID
+            req_ids = [f"REQ-{int(num):03d}" for num in re.findall(r"\bREQ[-_]?(\d+)\b", req_cell, re.IGNORECASE)]
+            # raw dùng cho D4 (Key Links Planned) — gom description + AC + REQ
+            tasks.append({
+                "id": tid, "raw": f"{desc} {ac} {req_cell}".strip(),
+                "file_path": file_path, "function": function, "ac": ac, "risk": risk,
+                "mitigation": mitigation, "rollback": rollback, "req_ids": req_ids,
+            })
+            i += 1
+        continue
+    return tasks
+
+
 def _parse_tasks(text: str) -> list[dict]:
     """Trích danh sách task từ plan.
 
-    Mỗi task được mô tả dạng:
-      - **T1**: ... file: src/foo.py func: bar() AC: ...
+    Hỗ trợ 2 định dạng:
+      1. Bullet task dạng: `- **T1**: ... file: src/foo.py func: bar() AC: ...`
+      2. Markdown task table (header chứa 'Task ID') theo PLAN_TEMPLATE.md.
+
     Trả về list dict với các key: id, raw, file_path, function, ac, risk, mitigation, rollback, req_ids.
     """
-    tasks = []
-    # Tìm các dòng task dạng "- **T1**:" hoặc "- T1:" hoặc "1. T1:"
-    task_pattern = re.compile(
-        r"^\s*[-\d.\*]+\s*\*{0,2}(T\d+)\*{0,2}\s*[:\-]?\s*(.*)$",
-        re.MULTILINE,
-    )
-    # Bước 0: Parse coverage table để bổ sung req_ids cho task nếu thiếu
+    # Bước 0: Parse bảng §7 Risk & Mitigation để fallback mitigation/rollback
+    risk_table = _parse_risk_table(text)
+    # Bước 1: Parse coverage table để bổ sung req_ids cho task nếu thiếu
     coverage_map = _parse_coverage_table(text)
     # Đảo ngược: task_id -> [req_ids]
     task_to_reqs: dict[str, list[str]] = {}
@@ -189,41 +319,45 @@ def _parse_tasks(text: str) -> list[dict]:
             if rid not in task_to_reqs[tid]:
                 task_to_reqs[tid].append(rid)
 
+    # Bước 2: Parse Markdown task tables (định dạng chính thức PLAN_TEMPLATE.md)
+    tasks = _parse_task_tables(text, risk_table)
+    seen_ids = {t["id"] for t in tasks}
+
+    # Bước 3: Parse bullet task (định dạng cũ) — không trùng ID với table
+    task_pattern = re.compile(
+        r"^\s*[-\d.\*]+\s*\*{0,2}(T\d+)\*{0,2}\s*[:\-]?\s*(.*)$",
+        re.MULTILINE,
+    )
     for m in task_pattern.finditer(text):
         tid = m.group(1)
+        if tid in seen_ids:
+            continue
         raw = m.group(2).strip()
-        # Trích file path từ trường file: / path:
         file_path = _extract_file_path(raw)
-        # Trích function từ trường func: / function:
         function = _extract_function(raw)
-        # Trích acceptance criteria (AC: ...)
         ac_m = re.search(r"AC\s*:\s*(.+?)(?:\s+R\d|$)", raw, re.IGNORECASE)
         ac = ac_m.group(1).strip() if ac_m else ""
-        # Trích risk level (R1/R2/R3/R4)
         risk_m = re.search(r"\bR([1-4])\b", raw)
         risk = int(risk_m.group(1)) if risk_m else 0
-        # Trích mitigation (mitigation: ...)
         mit_m = re.search(r"mitig(?:ation)?:\s*(.+?)(?:\s+rollback:|\s+R\d|$)", raw, re.IGNORECASE)
         mitigation = mit_m.group(1).strip() if mit_m else ""
-        # Trích rollback (rollback: ...)
         rb_m = re.search(r"rollback:\s*(.+?)(?:\s+R\d|$)", raw, re.IGNORECASE)
         rollback = rb_m.group(1).strip() if rb_m else ""
-        # Trích REQ ID liên quan từ dòng task
+        # Fallback mitigation/rollback từ §7 nếu thiếu
+        if not mitigation or not rollback:
+            fb_mit, fb_rb = _risk_fallback(risk, risk_table)
+            mitigation = mitigation or fb_mit
+            rollback = rollback or fb_rb
         req_ids = [f"REQ-{int(n):03d}" for n in re.findall(r"\bREQ[-_]?(\d+)\b", raw, re.IGNORECASE)]
         # Bước bổ sung: Nếu task không có REQ trong dòng, lấy từ coverage table
         if not req_ids and tid in task_to_reqs:
             req_ids = task_to_reqs[tid]
         tasks.append({
-            "id": tid,
-            "raw": raw,
-            "file_path": file_path,
-            "function": function,
-            "ac": ac,
-            "risk": risk,
-            "mitigation": mitigation,
-            "rollback": rollback,
+            "id": tid, "raw": raw, "file_path": file_path, "function": function,
+            "ac": ac, "risk": risk, "mitigation": mitigation, "rollback": rollback,
             "req_ids": req_ids,
         })
+        seen_ids.add(tid)
     return tasks
 
 
@@ -290,8 +424,12 @@ def _is_falsifiable(ac: str) -> bool:
     if not ac or len(ac.strip()) < 5:
         return False
     low = ac.lower()
-    # Bước 1: Có từ khóa xác nhận/khẳng định
-    has_assertion = any(k in low for k in ["should", "must", "shall", "will", "phải", "tại", "trả về", "return"])
+    # Bước 1: Có từ khóa xác nhận/khẳng định (tiếng Anh + tiếng Việt thường gặp trong AC)
+    has_assertion = any(k in low for k in [
+        "should", "must", "shall", "will", "phải", "tại", "trả về", "return",
+        "pass", "exit", "thành công", "đạt", "block", "chặn", "no corrupt",
+        "no interleave", "no duplicate", "no lost",
+    ])
     # Bước 2: Có chỉ số đo lường (số, %, giây, ms) hoặc từ "test"
     has_measure = bool(re.search(r"\d|test|verify|assert|giây|ms|%", low))
     # Bước 3: Không chứa quá nhiều từ mơ hồ
@@ -413,7 +551,14 @@ def _check_d8(tasks: list[dict]) -> dict:
 
 def _check_d9(text: str, req_ids: list[str]) -> dict:
     """D9: Test Coverage — mọi requirement có test case."""
-    test_section = _extract_section(text, "Test") or _extract_section(text, "Acceptance Test")
+    # Ưu tiên section Test-Requirement Mapping (ánh xạ REQ → test file rõ ràng),
+    # sau đó fallback sang section Test / Acceptance Test tổng quát.
+    test_section = (
+        _extract_section(text, "Test-Requirement Mapping")
+        or _extract_section(text, "Test Requirement")
+        or _extract_section(text, "Acceptance Test")
+        or _extract_section(text, "Test")
+    )
     if not test_section:
         return {"id": "D9", "name": "Test Coverage", "pass": False,
                 "detail": "Không có section Test / Acceptance Test"}

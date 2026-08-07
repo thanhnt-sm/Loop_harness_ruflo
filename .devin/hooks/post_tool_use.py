@@ -312,7 +312,7 @@ def main():
     # U17: Track cumulative cost — merge into same update dict (avoid double write)
     try:
         sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
-        from cost_tracker import _estimate_cost, check_cost_cap
+        from cost_tracker import _estimate_cost, check_cost_cap_session
         response_size = len(str(tool_response)) if tool_response else 0
         cost = _estimate_cost(tool_name, response_size)
         cumulative = round(current_state.get("cumulative_cost", 0.0) + cost, 6)
@@ -340,7 +340,7 @@ def main():
 
     # U17: Check cost cap after state write (separate check, not write)
     try:
-        exceeded, cost_msg = check_cost_cap(root, session_id)
+        exceeded, cost_msg = check_cost_cap_session(root, session_id)
         if exceeded:
             print(f"[U17 COST CAP] {cost_msg}", file=sys.stderr)
         elif cost_msg:

@@ -23,13 +23,30 @@ This is a safety net, not a replacement for the canon's red lines. The agent
 should already know not to do these things; this hook catches it if the agent
 doesn't.
 """
+import ipaddress
 import json
 import os
 import re
 import sys
 import threading
+import urllib.parse
+from datetime import datetime, timezone
+from pathlib import Path
 
 import ahd_session
+
+# T2.4: Import cost_tracker từ .devin/scripts.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+try:
+    from cost_tracker import check_cost_cap
+except Exception:
+    check_cost_cap = None  # type: ignore[assignment]
+
+# T4.9: Import reflection_gate từ .devin/scripts.
+try:
+    from reflection_gate import check_reflection as _check_reflection
+except Exception:
+    _check_reflection = None  # type: ignore[assignment]
 
 # U15: Internal timeout — if hook runs longer than this, force-allow (fail open).
 # Config timeout is 3s; this is a safety net at 2s (1s margin) to exit before config kills us.
@@ -48,6 +65,49 @@ COMPACTION_SAFE_TOOLS = frozenset({
     "todo_write", "TodoWrite",
     "skill", "Skill",
 })
+
+
+def detect_encoding_bypass(text: str) -> list[str]:
+    """T2.10: Phát hiện các kỹ thuật encoding bypass trong text.
+
+    Trả về danh sách các loại bypass phát hiện được (rỗng nếu sạch).
+    Các loại: utf7, punycode, html_entity, hex_escape, unicode_escape,
+    octal_escape, base64_pipe.
+    """
+    if not text:
+        return []
+    findings: list[str] = []
+
+    # UTF-7: +AGY- hay +Base64-
+    if re.search(r'\+[A-Za-z0-9+/]+-', text):
+        findings.append("utf7")
+
+    # Punycode: xn-- prefix
+    if re.search(r'\bxn--[a-zA-Z0-9-]+\b', text):
+        findings.append("punycode")
+
+    # HTML entities: &#65; hoặc &#x41;
+    if re.search(r'&#[xX]?[0-9a-fA-F]+;', text):
+        findings.append("html_entity")
+
+    # Hex escapes \xNN
+    if re.search(r'\\x[0-9a-fA-F]{2}', text):
+        findings.append("hex_escape")
+
+    # Unicode escapes \uNNNN, \UNNNNNNNN
+    if re.search(r'\\u[0-9a-fA-F]{4}', text) or re.search(r'\\U[0-9a-fA-F]{8}', text):
+        findings.append("unicode_escape")
+
+    # Octal escapes \NNN
+    if re.search(r'\\[0-7]{1,3}', text):
+        findings.append("octal_escape")
+
+    # Base64 pipe-to-shell (U02, U51 already detect but reinforce here)
+    if re.search(r'base64.*[\|<].*(bash|sh|zsh|python|perl)', text, re.IGNORECASE) or \
+       re.search(r'base64.*-d.*[\|<]', text, re.IGNORECASE):
+        findings.append("base64_pipe")
+
+    return findings
 
 
 def normalize_command(command: str) -> str:
@@ -154,6 +214,98 @@ DANGEROUS_PATTERNS = [
     (r"\b(curl|wget)\b.*\b(--upload-file|-T\s|--data|-d\s|--post-data)\b.*\b(http|ftp)\b", "potential data exfiltration"),
 ]
 
+# T2.9: SSRF URL extraction regex
+URL_RE = re.compile(r'https?://[^\s\'"<>\)\]\}]+', re.IGNORECASE)
+
+# T2.9: Default allowlist for outbound URLs (expandable via env AHD_SSRF_ALLOWLIST)
+DEFAULT_SSRF_ALLOWLIST = {"example.com", "api.github.com", "api.openai.com"}
+
+
+def _ssrf_allowlist() -> set[str]:
+    """Trả về tập allowlist từ env hoặc default."""
+    env = os.environ.get("AHD_SSRF_ALLOWLIST", "")
+    if not env:
+        return set(DEFAULT_SSRF_ALLOWLIST)
+    return set(item.strip() for item in env.split(",") if item.strip())
+
+
+def check_ssrf(url: str, allowlist: set[str] | None = None) -> int:
+    """T2.9: Kiểm tra URL có dẫn đến SSRF không.
+
+    Trả về:
+      0 — URL an toàn hoặc nằm trong allowlist.
+      2 — URL trỏ tới private/loopback/link-local -> block.
+    """
+    if not url:
+        return 0
+
+    if allowlist is None:
+        allowlist = _ssrf_allowlist()
+
+    try:
+        parsed = urllib.parse.urlparse(url)
+    except Exception:
+        return 0
+
+    host = (parsed.hostname or "").lower().strip()
+    if not host:
+        return 0
+
+    # Allowlist: khớp chính xác hoặc subdomain
+    for allowed in allowlist:
+        allowed = allowed.lower().strip()
+        if not allowed:
+            continue
+        if host == allowed or host.endswith(f".{allowed}"):
+            return 0
+
+    # Block localhost / loopback names
+    if host in ("localhost", "127.0.0.1", "::1", "0.0.0.0"):
+        return 2
+    if host.endswith(".local") or host.endswith(".localhost"):
+        return 2
+    if "metadata" in host and ".internal" in host:
+        return 2
+
+    # IP literal check
+    try:
+        ip = ipaddress.ip_address(host)
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+            return 2
+    except ValueError:
+        pass
+
+    # Optional: DNS resolution to private IP would go here; disabled to keep hook fast.
+    return 0
+
+
+def _extract_urls(text: str) -> list[str]:
+    """Trích các URL http/https từ chuỗi."""
+    if not text:
+        return []
+    return URL_RE.findall(text)
+
+
+def _log_ssrf_block(url: str, reason: str, session_id: str) -> None:
+    """T2.9: Ghi OTel-style log khi SSRF bị block."""
+    try:
+        root = ahd_session.get_repo_root()
+        tel_dir = ahd_session.get_config_root(root) / "telemetry"
+        tel_dir.mkdir(parents=True, exist_ok=True)
+        log_path = tel_dir / "ssrf_blocks.jsonl"
+        entry = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "event.name": "ssrf.block",
+            "url": url,
+            "reason": reason,
+            "session_id": session_id,
+        }
+        with log_path.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+
+
 # Patterns that are warned but allowed (exit 0 with stderr note)
 WARN_PATTERNS = [
     (r"\bgit\s+push\b(?!.*--force)", "git push (not force)"),
@@ -229,6 +381,193 @@ def _check_context_oversized_gate(data: dict) -> None:
         pass  # don't block on internal errors
 
 
+def _check_cost_cap_gate(data: dict) -> None:
+    """T2.4: Kiểm tra cost cap trước khi gọi tool.
+
+    - Dưới 80%: cho phép.
+    - Từ 80% đến dưới 100%: in cảnh báo stderr, vẫn cho phép.
+    - Đạt/vượt 100%: block (exit 2), set flag cost_cap_exceeded.
+    """
+    try:
+        session_id = ahd_session.get_session_id(data)
+        if not session_id:
+            return
+
+        root = ahd_session.get_repo_root()
+        state = ahd_session.read_session_state(session_id, root)
+        status = check_cost_cap(state)
+        if status == 0:
+            return
+
+        cumulative = float(state.get("cumulative_cost", 0.0))
+        cost_cap = float(state.get("cost_cap", 5.0))
+        pct = (cumulative / cost_cap * 100) if cost_cap > 0 else 0
+
+        if status == 2:
+            print(
+                f"[U17 COST CAP] BLOCKED: ${cumulative:.4f} >= ${cost_cap:.4f} cap "
+                f"({pct:.0f}%). Stop escalation.",
+                file=sys.stderr,
+            )
+            ahd_session.update_session_state(session_id, {
+                "cost_cap_exceeded": True,
+            }, root)
+            sys.exit(2)
+
+        # status == 1
+        print(
+            f"[U17 COST CAP] WARNING: ${cumulative:.4f} is {pct:.0f}% of ${cost_cap:.4f} cap.",
+            file=sys.stderr,
+        )
+    except SystemExit:
+        raise
+    except Exception:
+        pass
+
+
+def _check_ssrf_gate(data: dict) -> None:
+    """T2.9: Kiểm tra SSRF trong command hoặc tool_input.
+
+    - Trích URL từ command (nếu Bash/Shell) và các trường string trong tool_input.
+    - Kiểm tra mỗi URL qua check_ssrf.
+    - URL private/loopback/link-local -> block (exit 2) + ghi OTel log.
+    """
+    try:
+        session_id = ahd_session.get_session_id(data)
+        tool_name = data.get("tool_name", "")
+        tool_input = data.get("tool_input", {}) or {}
+
+        # Nguồn text cần quét: command (Bash/Shell) hoặc bất kỳ trường string nào
+        sources: list[str] = []
+        command = tool_input.get("command", "")
+        if command:
+            sources.append(command)
+        for value in tool_input.values():
+            if isinstance(value, str) and value not in sources:
+                sources.append(value)
+
+        allowlist = _ssrf_allowlist()
+        seen: set[str] = set()
+        for text in sources:
+            for url in _extract_urls(text):
+                if url in seen:
+                    continue
+                seen.add(url)
+                status = check_ssrf(url, allowlist)
+                if status == 2:
+                    print(
+                        f"[U43/T2.9 SSRF guard] BLOCKED: {url} resolves to private/loopback/link-local.",
+                        file=sys.stderr,
+                    )
+                    _log_ssrf_block(url, "private_or_internal_host", session_id)
+                    sys.exit(2)
+    except SystemExit:
+        raise
+    except Exception:
+        pass
+
+
+def _check_encoding_bypass_gate(data: dict) -> None:
+    """T2.10: Phát hiện encoding bypass trong lệnh shell.
+
+    Nếu command chứa UTF-7, Punycode, HTML entity, hex/unicode/octal escape,
+    hoặc base64 pipe-to-shell, block (exit 2).
+    """
+    try:
+        tool_name = data.get("tool_name", "")
+        tool_input = data.get("tool_input", {}) or {}
+        if tool_name not in ("Bash", "bash", "Shell", "Execute", "exec", "terminal"):
+            return
+
+        command = tool_input.get("command", "")
+        if not command:
+            return
+
+        findings = detect_encoding_bypass(command)
+        if findings:
+            print(
+                f"[T2.10 Encoding bypass] BLOCKED: detected {', '.join(findings)}",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+    except SystemExit:
+        raise
+    except Exception:
+        pass
+
+
+def _check_reflection_gate(data: dict) -> None:
+    """T4.9: Reflection gate — đánh giá action trước khi thực hiện.
+
+    Phát hiện action destructive (delete, force_push, drop, reset_hard) qua
+    reflection_gate.check_reflection. Nếu block -> exit 2 + yêu cầu human confirm.
+    Không thực hiện destructive op — chỉ cảnh báo/block.
+    """
+    if _check_reflection is None:
+        return
+    try:
+        tool_input = data.get("tool_input", {}) or {}
+        # Xây action input từ tool_input: category suy ra từ tool_name + command pattern
+        tool_name = data.get("tool_name", "")
+        command = tool_input.get("command", "") if isinstance(tool_input, dict) else ""
+
+        # Chỉ áp dụng cho Bash/shell (nơi có thể có destructive op)
+        if tool_name not in ("Bash", "bash", "Shell", "Execute", "exec", "terminal"):
+            return
+        if not command:
+            return
+
+        # Suy ra category từ command pattern
+        category = "read"
+        destructive = False
+        cmd_lower = command.lower()
+        if "rm -rf" in cmd_lower or "rm -r" in cmd_lower or "del /f" in cmd_lower or "rmdir" in cmd_lower:
+            category = "delete"
+            destructive = True
+        elif "git push --force" in cmd_lower or "git push -f" in cmd_lower:
+            category = "force_push"
+            destructive = True
+        elif "drop table" in cmd_lower or "drop database" in cmd_lower or "drop schema" in cmd_lower:
+            category = "drop"
+            destructive = True
+        elif "git reset --hard" in cmd_lower:
+            category = "reset_hard"
+            destructive = True
+        elif command.strip().startswith(("curl", "wget")):
+            category = "external_call"
+        elif command.strip().startswith(("write", "edit")) or " > " in command or " >> " in command:
+            category = "write"
+        else:
+            # Không phải action cần reflection -> skip
+            return
+
+        action_input = {
+            "id": f"pre_tool_{tool_name}",
+            "category": category,
+            "target": command[:512],
+            "args": {},
+            "destructive": destructive,
+        }
+        verdict = _check_reflection(action_input)
+        if verdict is None:
+            return
+        if verdict.block:
+            print(
+                f"[T4.9 Reflection gate] BLOCKED: {verdict.reason}",
+                file=sys.stderr,
+            )
+            if verdict.human_confirm_required:
+                print(
+                    "[T4.9 Reflection gate] Human confirm required before executing.",
+                    file=sys.stderr,
+                )
+            sys.exit(2)
+    except SystemExit:
+        raise
+    except Exception:
+        pass  # don't block on internal errors
+
+
 def _check_risk_contract(tool_name: str, tool_input: dict) -> None:
     """U28: Warn on critical file modifications per risk_contract.json.
 
@@ -287,10 +626,20 @@ def main():
     # Gate 1: context-oversized enforcement (all tools)
     _check_context_oversized_gate(data)
 
+    # Gate 1.4: T2.4 — Cost cap enforcement (pre-tool-use)
+    if check_cost_cap is not None:
+        _check_cost_cap_gate(data)
+
     # Gate 1.5: U28 — Risk contract check for critical file modifications
     tool_name = data.get("tool_name", "")
     tool_input = data.get("tool_input", {})
     _check_risk_contract(tool_name, tool_input)
+
+    # Gate 1.6: T2.9 — SSRF guard
+    _check_ssrf_gate(data)
+
+    # Gate 1.7: T2.10 — Encoding bypass guard
+    _check_encoding_bypass_gate(data)
 
     # Gate 2: dangerous-command check (Bash/shell only)
     # tool_name + tool_input already extracted above (Gate 1.5)
@@ -313,6 +662,11 @@ def main():
             print(f"Command: {command[:200]}", file=sys.stderr)
             print(f"Pattern: {pattern}", file=sys.stderr)
             sys.exit(2)
+
+    # Gate 2.1: T4.9 — Reflection gate (pre-action reflection, multi-level)
+    # Chạy sau dangerous-pattern gate để giữ thông báo quen thuộc cho các lệnh
+    # destructive đã được nhận diện; reflection gate bổ sung cho trường hợp còn lại.
+    _check_reflection_gate(data)
 
     # Check warn patterns (allow but note)
     for pattern, reason in WARN_PATTERNS:
