@@ -207,7 +207,14 @@ plugins/
 ruflo/
 .claude-flow/
 .claude-plugin/
-docs/
+
+# Allow source-audit-fix plan documents only, ignore other docs/ content
+!docs/plans/
+!docs/plans/source-audit-fix/
+!docs/plans/source-audit-fix/**
+docs/plans/*/
+docs/*
+
 verification/
 services/
 tests/

@@ -8,6 +8,14 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+for sub in (".devin/scripts", ".devin/scripts/plan_fsm"):
+    d = str(REPO_ROOT / sub)
+    if d not in sys.path:
+        sys.path.insert(0, d)
+
+from plan_fsm import constants as C  # noqa: E402
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
 PLAN_STATE_DIR = REPO_ROOT / ".devin" / "plan_state"
 PLANS_DIR = REPO_ROOT / "docs" / "plans"
 
@@ -173,7 +181,7 @@ def test_qc_max_rounds_escalate():
     _step(state_file, "brainstorm", {"brainstorm_results": []})
     # Đẩy qc_round đến ngưỡng max trước khi fail
     state = _state(state_file)
-    state["qc_round"] = 7  # MAX_QC_ROUNDS
+    state["qc_round"] = C.MAX_QC_ROUNDS
     Path(state_file).write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
     _fast_forward_to_qc(state_file)
     _step(state_file, "run_qc", {"qc_result": {"all_pass": False, "report_path": "qr.md"}})
