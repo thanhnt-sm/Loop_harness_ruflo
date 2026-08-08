@@ -41,7 +41,7 @@ def _state(state_file):
 
 
 def _fast_forward_to_qc(state_file):
-    # Đẩy FSM từ ANALYZE → DESIGN → REVIEW → SDD_APPROVAL → PLAN → QC
+    # Đẩy FSM từ ANALYZE -> DESIGN -> REVIEW -> SDD_APPROVAL -> PLAN -> GAP_SCAN -> QC
     s = _state(state_file)["state"]
     if s == "ANALYZE":
         _step(state_file, "wait_scouts", {"scout_results": []})
@@ -57,6 +57,9 @@ def _fast_forward_to_qc(state_file):
     s = _state(state_file)["state"]
     if s == "PLAN":
         _step(state_file, "decompose_plan", {"plan_path": str(PLANS_DIR / "__test__" / "IMPLEMENTATION_PLAN.md")})
+    s = _state(state_file)["state"]
+    if s == "GAP_SCAN":
+        _step(state_file, "gap_scan", {"gap_findings": []})
 
 
 def setup_module():
@@ -84,13 +87,13 @@ def test_init_s_tier():
 
 
 def test_init_m_tier():
-    # Task trung bình phân loại M-tier và bắt đầu từ ANALYZE
+    # Task trung bình phân loại M-tier và bắt đầu từ BRAINSTORM
     res = _run(["--init", "--task", "add JWT authentication"])
     assert res.returncode == 0
     data = json.loads(res.stdout)
     assert data["tier"] == "M"
-    assert data["current_state"] == "ANALYZE"
-    assert data["next_action"]["action"] == "dispatch_scouts"
+    assert data["current_state"] == "BRAINSTORM"
+    assert data["next_action"]["action"] == "brainstorm"
 
 
 def test_init_xl_tier():
@@ -99,20 +102,23 @@ def test_init_xl_tier():
     assert res.returncode == 0
     data = json.loads(res.stdout)
     assert data["tier"] == "XL"
-    assert data["current_state"] == "ANALYZE"
+    assert data["current_state"] == "BRAINSTORM"
 
 
 def test_full_happy_path():
-    # Luồng hoàn chỉnh: ANALYZE → DESIGN → REVIEW → SDD_APPROVAL → PLAN → QC → PLAN_APPROVAL → WRITE_STATE → DONE
+    # Luồng hoàn chỉnh: BRAINSTORM -> ANALYZE -> DESIGN -> REVIEW -> SDD_APPROVAL -> PLAN -> GAP_SCAN -> QC -> PLAN_ENHANCE -> PLAN_APPROVAL -> WRITE_STATE -> DONE
     res = _run(["--init", "--task", "full happy path test"])
     data = json.loads(res.stdout)
     state_file = data["state_file"]
+    _step(state_file, "brainstorm", {"brainstorm_results": []})
     _step(state_file, "wait_scouts", {"scout_results": []})
     _step(state_file, "dispatch_architect", {"sdd_path": str(PLANS_DIR / "__test__" / "SOLUTION_DESIGN.md")})
     _step(state_file, "dispatch_reviewers", {"findings": []})
     _step(state_file, "present_sdd_approval", {"decision": "approved"})
     _step(state_file, "decompose_plan", {"plan_path": str(PLANS_DIR / "__test__" / "IMPLEMENTATION_PLAN.md")})
+    _step(state_file, "gap_scan", {"gap_findings": []})
     _step(state_file, "run_qc", {"qc_result": {"all_pass": True, "report_path": "qr.md"}})
+    _step(state_file, "plan_enhance", {"enhance_findings": []})
     _step(state_file, "present_plan_approval", {"decision": "approved"})
     final = _step(state_file, "write_plan_state")
     assert final["current_state"] == "DONE"
@@ -124,8 +130,10 @@ def test_rejection_path():
     res = _run(["--init", "--task", "rejection path test"])
     data = json.loads(res.stdout)
     state_file = data["state_file"]
+    _step(state_file, "brainstorm", {"brainstorm_results": []})
     _fast_forward_to_qc(state_file)
     _step(state_file, "run_qc", {"qc_result": {"all_pass": True, "report_path": "qr.md"}})
+    _step(state_file, "plan_enhance", {"enhance_findings": []})
     final = _step(state_file, "present_plan_approval", {"decision": "rejected", "reason": "scope too large"})
     assert final["current_state"] == "REJECTED"
 
@@ -135,8 +143,10 @@ def test_changes_requested_path():
     res = _run(["--init", "--task", "changes requested path test"])
     data = json.loads(res.stdout)
     state_file = data["state_file"]
+    _step(state_file, "brainstorm", {"brainstorm_results": []})
     _fast_forward_to_qc(state_file)
     _step(state_file, "run_qc", {"qc_result": {"all_pass": True, "report_path": "qr.md"}})
+    _step(state_file, "plan_enhance", {"enhance_findings": []})
     final = _step(state_file, "present_plan_approval", {"decision": "changes_requested", "modifications": "add rollback"})
     assert final["current_state"] == "PLAN"
 
@@ -146,6 +156,7 @@ def test_revision_loop_then_pass():
     res = _run(["--init", "--task", "revision loop pass test"])
     data = json.loads(res.stdout)
     state_file = data["state_file"]
+    _step(state_file, "brainstorm", {"brainstorm_results": []})
     _step(state_file, "wait_scouts", {"scout_results": []})
     _step(state_file, "dispatch_architect", {"sdd_path": str(PLANS_DIR / "__test__" / "SOLUTION_DESIGN.md")})
     _step(state_file, "dispatch_reviewers", {"findings": [{"severity": "BLOCKING", "issue": "missing auth"}]})
@@ -155,16 +166,20 @@ def test_revision_loop_then_pass():
 
 
 def test_qc_max_rounds_escalate():
-    # QC fail 3 lần -> ESCALATE
+    # QC fail đạt max rounds -> ESCALATE
     res = _run(["--init", "--task", "qc escalate test"])
     data = json.loads(res.stdout)
     state_file = data["state_file"]
-    for round_ in range(3):
-        _fast_forward_to_qc(state_file)
-        _step(state_file, "run_qc", {"qc_result": {"all_pass": False, "report_path": "qr.md"}})
+    _step(state_file, "brainstorm", {"brainstorm_results": []})
+    # Đẩy qc_round đến ngưỡng max trước khi fail
+    state = _state(state_file)
+    state["qc_round"] = 7  # MAX_QC_ROUNDS
+    Path(state_file).write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
+    _fast_forward_to_qc(state_file)
+    _step(state_file, "run_qc", {"qc_result": {"all_pass": False, "report_path": "qr.md"}})
     final = _state(state_file)
     assert final["state"] == "ESCALATE"
-    assert final["qc_round"] == 3
+    assert final["qc_round"] == 7
 
 
 if __name__ == "__main__":

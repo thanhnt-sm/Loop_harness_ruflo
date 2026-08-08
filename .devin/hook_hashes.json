@@ -1,8 +1,7 @@
 {
   "_description": "U41: Hook integrity verification baseline",
-  "_generated": "2026-08-07T14:47:03.995295",
   "hooks": {
-    ".devin/hooks/ahd_session.py": "951760e46cf40d86b34a55f8caffac907cbf82b137d83028ec202345d34e6e1f",
+    ".devin/hooks/ahd_session.py": "17f9e6f8e436703fa548a32dc1478825d73557f371760de35b297f1b28b6a2e3",
     ".devin/hooks/coverage_enforce.py": "7e9404b37743a66a38452da8986a6fa71e9919b7b9259efabb04dd945d854845",
     ".devin/hooks/drift_detect.py": "58454fea39a70abfa5392ae0bd0ab68e761d89407ebd9f9edcc9084219b42ee7",
     ".devin/hooks/otel_instrument.py": "023d518b7a3e01296148c3fc34699c4ef1f15bffb57603300f43f583a71f313a",

@@ -31,7 +31,7 @@ from datetime import datetime, timezone
 for _stream in (sys.stdout, sys.stderr):
     try:
         _stream.reconfigure(encoding="utf-8")
-    except Exception:
+    except (AttributeError, OSError):
         pass
 
 # Các trạng thái hợp lệ của một entry trong matrix

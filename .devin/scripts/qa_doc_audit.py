@@ -20,7 +20,7 @@ from pathlib import Path
 for _stream in (sys.stdout, sys.stderr):
     try:
         _stream.reconfigure(encoding="utf-8")
-    except Exception:
+    except (AttributeError, OSError):
         pass
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent

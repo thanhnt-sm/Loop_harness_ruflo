@@ -72,6 +72,7 @@ def create_initial_state(task_description: str, root: Path) -> dict:
         "round": 0,
         "revision_round": 0,
         "qc_round": 0,
+        "enhance_round": 0,
         "scout_results": [],
         "sdd_path": None,
         "sdd_approved": False,

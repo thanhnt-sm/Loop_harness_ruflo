@@ -132,7 +132,7 @@ def main(argv: list[str] | None = None) -> int:
     for stream in (sys.stdout, sys.stderr):
         try:
             stream.reconfigure(encoding="utf-8")
-        except Exception:
+        except (AttributeError, OSError):
             pass
     print(json.dumps(data, ensure_ascii=False, indent=2))
     return 0 if "error" not in data else 1

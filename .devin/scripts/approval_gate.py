@@ -38,7 +38,7 @@ from pathlib import Path
 for _stream in (sys.stdout, sys.stderr):
     try:
         _stream.reconfigure(encoding="utf-8")
-    except Exception:
+    except (AttributeError, OSError):
         pass
 
 # Các trạng thái hợp lệ

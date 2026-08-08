@@ -430,17 +430,23 @@ def test_hook_integrity_status(capsys):
 
 
 def test_hook_integrity_generate(tmp_path, capsys):
-    """--generate tạo baseline file (không raise)."""
+    """--generate tạo baseline file trong tmp_path (tránh side effect repo gốc)."""
     import hook_integrity
+
+    # Tạo fake hooks dir để generate baseline
+    hooks_dir = tmp_path / ".devin" / "hooks"
+    hooks_dir.mkdir(parents=True)
+    (hooks_dir / "test_hook.py").write_text("# test", encoding="utf-8")
 
     old_argv = sys.argv
     try:
-        sys.argv = ["hook_integrity.py", "--generate", "--root", str(REPO_ROOT)]
+        sys.argv = ["hook_integrity.py", "--generate", "--root", str(tmp_path)]
         code = hook_integrity.main()
     finally:
         sys.argv = old_argv
-    # Generate có thể exit 0 hoặc 1 (info message).
-    assert code in (0, 1)
+    # Generate phải tạo baseline file
+    assert code == 0
+    assert (tmp_path / ".devin" / "hook_hashes.json").exists()
 
 
 # ===========================================================================

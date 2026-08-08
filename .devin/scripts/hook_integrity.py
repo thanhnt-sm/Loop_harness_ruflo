@@ -25,6 +25,7 @@ from pathlib import Path
 
 HOOKS_DIR = ".devin/hooks"
 BASELINE_FILE = ".devin/hook_hashes.json"
+GENERATED_FILE = ".devin/hook_hashes_generated.json"
 ORDER_BASELINE_FILE = ".devin/hook_order.json"
 CONFIG_FILE = ".devin/config.json"
 
@@ -86,17 +87,19 @@ def generate_baseline(root: Path) -> int:
         print(f"[HASH] {rel}: {baseline[rel][:16]}...")
 
     baseline_path = root / BASELINE_FILE
+    generated_path = root / GENERATED_FILE
     baseline_data = {
         "_description": "U41: Hook integrity verification baseline",
-        "_generated": "",
         "hooks": baseline,
     }
 
     from datetime import datetime
-    baseline_data["_generated"] = datetime.now().isoformat()
+    generated_ts = datetime.now().isoformat()
 
     baseline_path.write_text(json.dumps(baseline_data, indent=2), encoding="utf-8")
+    generated_path.write_text(json.dumps({"_generated": generated_ts}, indent=2), encoding="utf-8")
     print(f"\n[OK] Baseline generated: {baseline_path} ({len(hooks)} hooks)")
+    print(f"[OK] Timestamp written: {generated_path}")
     return 0
 
 
@@ -156,9 +159,18 @@ def show_status(root: Path) -> int:
     stored = baseline.get("hooks", {})
     hooks = get_hook_files(root)
 
+    generated_path = root / GENERATED_FILE
+    generated_ts = "unknown"
+    if generated_path.exists():
+        try:
+            generated_data = json.loads(generated_path.read_text(encoding="utf-8"))
+            generated_ts = generated_data.get("_generated", "unknown")
+        except (json.JSONDecodeError, OSError):
+            pass
+
     print(f"Baseline: {len(stored)} hooks")
     print(f"On disk:  {len(hooks)} hooks")
-    print(f"Generated: {baseline.get('_generated', 'unknown')}")
+    print(f"Generated: {generated_ts}")
 
     if len(stored) == len(hooks):
         print("[STATUS] Counts match. Run --verify for full check.")

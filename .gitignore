@@ -238,6 +238,20 @@ scripts/
 !tests/**
 !.devin/scripts/
 !.devin/scripts/**
+# Keep pycache ignored even inside un-ignored script dirs
+.devin/scripts/**/__pycache__/
+.devin/scripts/plan_fsm/__pycache__/
+
+# Allow plan documents
+!docs/plans/
+!docs/plans/**
+
+# Worktrees are runtime artifacts
+.worktrees/
+
+# Hook integrity generated timestamp (hash baseline stays tracked)
+.devin/hook_hashes_generated.json
+
 tests/__pycache__/
 
 # Remaining ruflo artifacts

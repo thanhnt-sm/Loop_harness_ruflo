@@ -7,8 +7,9 @@ Bao phủ:
 - storage.slugify, state_dir, plans_dir, state_path, load/save_state,
   create_initial_state, append_history.
 - state_machine.next_action + process_step cho mọi state (INIT, CLASSIFY,
-  ANALYZE, DESIGN, REVIEW, REVISION, SDD_APPROVAL, PLAN, QC,
-  PLAN_APPROVAL, WRITE_STATE, DONE, REJECTED, ESCALATE).
+  BRAINSTORM, ANALYZE, DESIGN, REVIEW, REVISION, SDD_APPROVAL, PLAN,
+  GAP_SCAN, QC, PLAN_ENHANCE, PLAN_APPROVAL, WRITE_STATE, DONE, REJECTED,
+  ESCALATE).
 - missions.scout_missions, reviewer_personas, technical_writer_mission,
   requirement_analyst_mission, missions_summary.
 - cli.cmd_init, cmd_step, cmd_status, _parse_args, main.
@@ -114,6 +115,7 @@ def test_create_initial_state(tmp_path):
     assert state["task_slug"] == "add-feature-x"
     assert state["revision_round"] == 0
     assert state["qc_round"] == 0
+    assert state["enhance_round"] == 0
     assert state["history"] == []
     assert "created_at" in state
 
@@ -145,7 +147,7 @@ def test_reviewer_personas_count():
     personas = missions.reviewer_personas()
     assert len(personas) == C.NUM_REVIEWERS
     ids = {p["id"] for p in personas}
-    assert ids == {"SABOTEUR", "NEW_HIRE", "SECURITY_AUDITOR"}
+    assert ids == {"SABOTEUR", "NEW_HIRE", "SECURITY_AUDITOR", "ARCHITECT", "CODE_REVIEWER", "GIT_WORKFLOW_MASTER"}
 
 
 def test_technical_writer_mission():
@@ -167,6 +169,8 @@ def test_missions_summary():
     assert s["num_reviewers"] == C.NUM_REVIEWERS
     assert s["has_technical_writer"] is True
     assert s["has_requirement_analyst"] is True
+    assert s["has_dynamic_scenarios"] is True
+    assert s["has_brainstorm"] is True
 
 
 # ---------------------------------------------------------------------------
@@ -181,6 +185,7 @@ def _make_state(state_name="ANALYZE", **kwargs):
         "round": 0,
         "revision_round": 0,
         "qc_round": 1,
+        "enhance_round": 0,
         "scout_results": [],
         "sdd_path": "/path/sdd.md",
         "sdd_approved": False,
@@ -198,10 +203,12 @@ def _make_state(state_name="ANALYZE", **kwargs):
 def test_next_action_init_transitions_through_classify(tmp_path):
     state = _make_state("INIT")
     action = sm.next_action(state, tmp_path)
-    # INIT -> CLASSIFY -> ANALYZE (M-tier) trong một lần gọi next_action
-    assert state["state"] in (C.STATE_CLASSIFY, C.STATE_ANALYZE, C.STATE_DONE)
-    # M-tier -> dispatch_scouts
-    assert action["action"] == C.ACTION_DISPATCH_SCOUTS
+    # INIT -> CLASSIFY -> BRAINSTORM (M-tier) hoặc DONE (S-tier)
+    assert state["state"] in (C.STATE_BRAINSTORM, C.STATE_DONE)
+    if state["tier"] == "S":
+        assert action["action"] == C.ACTION_SKIP
+    else:
+        assert action["action"] == C.ACTION_BRAINSTORM
 
 
 def test_next_action_classify_s_tier_skips(tmp_path):
@@ -212,13 +219,19 @@ def test_next_action_classify_s_tier_skips(tmp_path):
     assert action["action"] == C.ACTION_SKIP
 
 
-def test_next_action_classify_m_tier_dispatches_scouts(tmp_path):
+def test_next_action_classify_m_tier_brainstorms(tmp_path):
     state = _make_state("CLASSIFY", task_description="add feature with logic")
     action = sm.next_action(state, tmp_path)
     assert state["tier"] == "M"
-    assert state["state"] == C.STATE_ANALYZE
-    assert action["action"] == C.ACTION_DISPATCH_SCOUTS
-    assert action["params"]["num_scouts"] == C.NUM_SCOUTS
+    assert state["state"] == C.STATE_BRAINSTORM
+    assert action["action"] == C.ACTION_BRAINSTORM
+
+
+def test_next_action_brainstorm(tmp_path):
+    state = _make_state("BRAINSTORM")
+    action = sm.next_action(state, tmp_path)
+    assert action["action"] == C.ACTION_BRAINSTORM
+    assert action["params"]["brainstorm_missions"]
 
 
 def test_next_action_analyze(tmp_path):
@@ -260,10 +273,22 @@ def test_next_action_plan(tmp_path):
     assert action["action"] == C.ACTION_DECOMPOSE_PLAN
 
 
+def test_next_action_gap_scan(tmp_path):
+    state = _make_state("GAP_SCAN")
+    action = sm.next_action(state, tmp_path)
+    assert action["action"] == C.ACTION_GAP_SCAN
+
+
 def test_next_action_qc(tmp_path):
     state = _make_state("QC", qc_round=1)
     action = sm.next_action(state, tmp_path)
     assert action["action"] == C.ACTION_RUN_QC
+
+
+def test_next_action_plan_enhance(tmp_path):
+    state = _make_state("PLAN_ENHANCE", enhance_round=1)
+    action = sm.next_action(state, tmp_path)
+    assert action["action"] == C.ACTION_PLAN_ENHANCE
 
 
 def test_next_action_plan_approval(tmp_path):
@@ -306,6 +331,17 @@ def test_next_action_unknown_state(tmp_path):
 # ---------------------------------------------------------------------------
 # process_step — chuyển state qua results
 # ---------------------------------------------------------------------------
+def test_process_step_brainstorm_to_analyze(tmp_path):
+    state = _make_state("BRAINSTORM")
+    result = sm.process_step(state, tmp_path, {
+        "action": C.ACTION_BRAINSTORM,
+        "brainstorm_results": [{"angle": "fastest"}],
+    })
+    assert state["state"] == C.STATE_ANALYZE
+    assert len(state["brainstorm_results"]) == 1
+    assert result["action"] == C.ACTION_DISPATCH_SCOUTS
+
+
 def test_process_step_analyze_to_design(tmp_path):
     state = _make_state("ANALYZE")
     result = sm.process_step(state, tmp_path, {
@@ -403,22 +439,40 @@ def test_process_step_sdd_approval_invalid_decision(tmp_path):
     assert result["action"] == "error"
 
 
-def test_process_step_plan_to_qc(tmp_path):
+def test_process_step_plan_to_gap_scan(tmp_path):
     state = _make_state("PLAN")
     result = sm.process_step(state, tmp_path, {
         "action": C.ACTION_DECOMPOSE_PLAN,
         "plan_path": "/new/plan.md",
     })
-    assert state["state"] == C.STATE_QC
+    assert state["state"] == C.STATE_GAP_SCAN
     assert state["plan_path"] == "/new/plan.md"
     assert state["qc_round"] >= 1
 
 
-def test_process_step_qc_pass_to_approval(tmp_path):
+def test_process_step_gap_scan_to_qc(tmp_path):
+    state = _make_state("GAP_SCAN")
+    result = sm.process_step(state, tmp_path, {
+        "action": C.ACTION_GAP_SCAN,
+        "gap_findings": [],
+    })
+    assert state["state"] == C.STATE_QC
+
+
+def test_process_step_qc_pass_to_plan_enhance(tmp_path):
     state = _make_state("QC", qc_round=1)
     result = sm.process_step(state, tmp_path, {
         "action": C.ACTION_RUN_QC,
         "qc_result": {"all_pass": True, "report_path": "/qr.md"},
+    })
+    assert state["state"] == C.STATE_PLAN_ENHANCE
+
+
+def test_process_step_plan_enhance_to_approval(tmp_path):
+    state = _make_state("PLAN_ENHANCE", enhance_round=1)
+    result = sm.process_step(state, tmp_path, {
+        "action": C.ACTION_PLAN_ENHANCE,
+        "enhance_findings": [],
     })
     assert state["state"] == C.STATE_PLAN_APPROVAL
 
@@ -438,6 +492,25 @@ def test_process_step_qc_max_rounds_escalate(tmp_path):
     result = sm.process_step(state, tmp_path, {
         "action": C.ACTION_RUN_QC,
         "qc_result": {"all_pass": False, "report_path": "/qr.md"},
+    })
+    assert state["state"] == C.STATE_ESCALATE
+
+
+def test_process_step_plan_enhance_blocking_loop_to_plan(tmp_path):
+    state = _make_state("PLAN_ENHANCE", enhance_round=1)
+    result = sm.process_step(state, tmp_path, {
+        "action": C.ACTION_PLAN_ENHANCE,
+        "enhance_findings": [{"severity": "BLOCKING"}],
+    })
+    assert state["state"] == C.STATE_PLAN
+    assert state["enhance_round"] == 2
+
+
+def test_process_step_plan_enhance_max_rounds_escalate(tmp_path):
+    state = _make_state("PLAN_ENHANCE", enhance_round=C.MAX_ENHANCE_ROUNDS)
+    result = sm.process_step(state, tmp_path, {
+        "action": C.ACTION_PLAN_ENHANCE,
+        "enhance_findings": [{"severity": "BLOCKING"}],
     })
     assert state["state"] == C.STATE_ESCALATE
 
@@ -516,7 +589,7 @@ def test_cmd_init_creates_state_file(tmp_path, monkeypatch):
     monkeypatch.setattr(storage, "repo_root", lambda: tmp_path)
     data = cmd_init("test cli task")
     assert data["task_slug"] == "test-cli-task"
-    assert data["current_state"] in (C.STATE_DONE, C.STATE_ANALYZE)
+    assert data["current_state"] in (C.STATE_DONE, C.STATE_BRAINSTORM)
     assert Path(data["state_file"]).exists()
 
 
@@ -524,8 +597,18 @@ def test_cmd_step_processes_results(tmp_path, monkeypatch):
     monkeypatch.setattr(storage, "repo_root", lambda: tmp_path)
     init_data = cmd_init("step task")
     state_file = init_data["state_file"]
-    # Ghi results file
-    results_path = tmp_path / "results.json"
+
+    # Bước 1: BRAINSTORM -> ANALYZE
+    results_path = tmp_path / "results_b.json"
+    results_path.write_text(json.dumps({
+        "action": C.ACTION_BRAINSTORM,
+        "brainstorm_results": [],
+    }), encoding="utf-8")
+    data = cmd_step(state_file, str(results_path))
+    assert data["current_state"] == C.STATE_ANALYZE
+
+    # Bước 2: ANALYZE -> DESIGN
+    results_path = tmp_path / "results_a.json"
     results_path.write_text(json.dumps({
         "action": C.ACTION_WAIT_SCOUTS,
         "scout_results": [],
@@ -553,7 +636,7 @@ def test_cmd_status(tmp_path, monkeypatch):
     monkeypatch.setattr(storage, "repo_root", lambda: tmp_path)
     init_data = cmd_init("status task")
     status = cmd_status(init_data["state_file"])
-    assert status["current_state"] in (C.STATE_DONE, C.STATE_ANALYZE)
+    assert status["current_state"] in (C.STATE_DONE, C.STATE_BRAINSTORM)
     assert "next_action" in status
 
 

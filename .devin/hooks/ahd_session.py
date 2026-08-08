@@ -130,7 +130,7 @@ def get_repo_root(start_from: Optional[Path] = None) -> Path:
             if start_from is None:
                 _REPO_ROOT_CACHE = result
             return result
-    except Exception:
+    except (OSError, ValueError, subprocess.SubprocessError):
         pass
     for parent in [cwd, *cwd.parents]:
         for marker in (".git", ".agents", "AGENTS.md", "pyproject.toml", "README.md"):
@@ -188,7 +188,7 @@ def get_session_id(data: Optional[Dict[str, Any]] = None, env_prefix: str = "AHD
             sid = current_file.read_text(encoding="utf-8").strip()
             if sid:
                 return slugify_session_id(sid)
-    except Exception:
+    except (OSError, ValueError):
         pass
 
     return slugify_session_id(str(uuid.uuid4()))
@@ -251,7 +251,7 @@ def _acquire_lock(lock_path: Path, timeout: float = 10.0) -> Any:
             )
     except LockAcquireError:
         raise
-    except Exception:
+    except (OSError, ValueError, ImportError):
         pass
 
     # Bước 2: Dùng khóa gợi ý của hệ điều hành, có thời gian chờ.
@@ -275,10 +275,10 @@ def _acquire_lock(lock_path: Path, timeout: float = 10.0) -> Any:
             )
         except LockAcquireError:
             raise
-        except Exception as exc:
+        except (OSError, ValueError, ImportError) as exc:
             try:
                 f.close()
-            except Exception:
+            except (OSError, ValueError):
                 pass
             raise LockAcquireError(
                 f"Không thể lấy khóa {lock_path} (msvcrt): {exc}"
@@ -301,10 +301,10 @@ def _acquire_lock(lock_path: Path, timeout: float = 10.0) -> Any:
             )
         except LockAcquireError:
             raise
-        except Exception as exc:
+        except (OSError, ValueError, ImportError) as exc:
             try:
                 f.close()
-            except Exception:
+            except (OSError, ValueError):
                 pass
             raise LockAcquireError(
                 f"Không thể lấy khóa {lock_path} (fcntl): {exc}"
@@ -322,14 +322,14 @@ def _acquire_lock(lock_path: Path, timeout: float = 10.0) -> Any:
                 return lock_path
             except FileExistsError:
                 time.sleep(0.05)
-            except Exception:
+            except (OSError, ValueError):
                 break
         raise LockAcquireError(
             f"Không thể lấy khóa {lock_path} sau {timeout}s (sentinel)"
         )
     except LockAcquireError:
         raise
-    except Exception as exc:
+    except (OSError, ValueError) as exc:
         raise LockAcquireError(
             f"Không thể lấy khóa {lock_path} (sentinel): {exc}"
         ) from exc
@@ -347,28 +347,28 @@ def _release_lock(handle: Any) -> None:
             # Bước 2: Đưa con trỏ về đầu file trước khi mở khóa (Windows cần vị trí cố định).
             try:
                 handle.seek(0)
-            except Exception:
+            except (OSError, ValueError):
                 pass
             try:
                 import fcntl
 
                 fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
-            except Exception:
+            except (OSError, ValueError, ImportError):
                 pass
             try:
                 import msvcrt
 
                 msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
-            except Exception:
+            except (OSError, ValueError, ImportError):
                 pass
             handle.close()
         elif isinstance(handle, Path):
             # Bước 3: sentinel lock được biểu diễn bằng đường dẫn.
             try:
                 handle.unlink()
-            except Exception:
+            except (OSError, ValueError):
                 pass
-    except Exception:
+    except (OSError, ValueError):
         pass
 
 
@@ -385,7 +385,7 @@ def _locked_json_read(path: Path, default: Any = None, session_id: str = "") -> 
         if path.exists():
             return json.loads(path.read_text(encoding="utf-8"))
         return default
-    except Exception:
+    except (json.JSONDecodeError, OSError):
         return default
     finally:
         _release_lock(lock)
@@ -421,7 +421,7 @@ def _locked_json_update(path: Path, update_fn, default: Any = None, session_id: 
         if path.exists():
             try:
                 data = json.loads(path.read_text(encoding="utf-8"))
-            except Exception:
+            except (json.JSONDecodeError, OSError):
                 pass
         data = update_fn(data)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -512,7 +512,7 @@ def _check_memory_cap(path: Path, cap_name: str, root: Optional[Path] = None) ->
                 f"({file_size}/{default_bytes} bytes, {pct}%).",
                 file=sys.stderr,
             )
-    except Exception:
+    except (OSError, ValueError):
         pass  # non-blocking
 
 
@@ -576,7 +576,7 @@ def record_failure(component: str, session_id: str = "") -> None:
                 default={},
                 session_id=session_id,
             )
-        except Exception:
+        except (OSError, ValueError, json.JSONDecodeError):
             pass
 
 
@@ -616,7 +616,7 @@ def auto_minimal_mode(session_id: str, root: Optional[Path] = None) -> bool:
                 default={},
                 session_id=session_id,
             )
-        except Exception:
+        except (OSError, ValueError, json.JSONDecodeError):
             pass
         return True
     return False

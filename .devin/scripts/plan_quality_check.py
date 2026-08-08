@@ -32,7 +32,7 @@ from datetime import datetime, timezone
 for _stream in (sys.stdout, sys.stderr):
     try:
         _stream.reconfigure(encoding="utf-8")
-    except Exception:
+    except (AttributeError, OSError):
         pass
 
 # Danh sách 10 dimension với mô tả ngắn gọn
