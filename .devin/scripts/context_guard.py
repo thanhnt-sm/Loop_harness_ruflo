@@ -27,8 +27,7 @@ if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
 
-# Tiền tố cảnh báo / cắt — dùng tiếng Việt tự nhiên, dễ hiểu.
-_WARN_PREFIX = "[CONTEXT GUARD] Cảnh báo: context vượt ngưỡng budget.\n"
+# Hậu tố cắt — dùng tiếng Việt tự nhiên, dễ hiểu.
 _TRUNCATE_SUFFIX = "\n[CONTEXT GUARD] Đã cắt nội dung vượt 2x ngưỡng."
 
 
@@ -60,7 +59,7 @@ def check_oversize(context: str, threshold: int = 3000) -> str:
     Trả về:
         Chuỗi đã được xử lý theo cấp độ:
         - ≤ threshold: nguyên văn.
-        - > threshold, ≤ 1.5x: thêm tiền tố cảnh báo.
+        - > threshold, ≤ 1.5x: giữ nguyên nội dung.
         - > 1.5x, ≤ 2x: nén nội dung.
         - > 2x: cắt về threshold ký tự + hậu tố cảnh báo cắt.
     """
@@ -87,8 +86,8 @@ def check_oversize(context: str, threshold: int = 3000) -> str:
             return compressed[:threshold] + _TRUNCATE_SUFFIX
         return compressed
 
-    # Cấp 1: vượt ngưỡng nhưng ≤ 1.5x — cảnh báo, giữ nguyên nội dung
-    return _WARN_PREFIX + context
+    # Cấp 1: vượt ngưỡng nhưng ≤ 1.5x — giữ nguyên nội dung, không cảnh báo
+    return context
 
 
 def _cli() -> int:

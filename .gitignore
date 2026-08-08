@@ -249,9 +249,8 @@ scripts/
 .devin/scripts/**/__pycache__/
 .devin/scripts/plan_fsm/__pycache__/
 
-# Allow plan documents
-!docs/plans/
-!docs/plans/**
+# Local permission config (per-machine, do not commit)
+.devin/config.local.json
 
 # Worktrees are runtime artifacts
 .worktrees/

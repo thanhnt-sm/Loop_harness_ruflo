@@ -28,12 +28,15 @@ import sys
 from pathlib import Path
 from datetime import datetime, timezone
 
-# Bước 0: Ép stdout/stderr dùng UTF-8 (tránh lỗi cp1258 trên Windows console với tiếng Việt)
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8")
-    except (AttributeError, OSError):
-        pass
+
+# Bước 0: Ép stdout/stderr dùng UTF-8 khi chạy CLI (tránh lỗi cp1258 trên Windows console)
+def _ensure_utf8() -> None:
+    for _stream in (sys.stdout, sys.stderr):
+        try:
+            _stream.reconfigure(encoding="utf-8")
+        except (AttributeError, OSError):
+            pass
+
 
 # Danh sách 10 dimension với mô tả ngắn gọn
 DIMENSIONS = [
@@ -639,6 +642,7 @@ def _render_markdown_report(scorecard: dict) -> str:
 
 def main() -> int:
     """Entry point CLI. Trả exit code 0 nếu PASS, 1 nếu FAIL."""
+    _ensure_utf8()
     if len(sys.argv) < 2:
         print("Usage: python plan_quality_check.py <plan_file.md>", file=sys.stderr)
         return 2

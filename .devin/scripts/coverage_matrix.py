@@ -27,12 +27,15 @@ import sys
 from pathlib import Path
 from datetime import datetime, timezone
 
-# Bước 0: Ép stdout/stderr dùng UTF-8 (tránh lỗi cp1258 trên Windows console với tiếng Việt)
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8")
-    except (AttributeError, OSError):
-        pass
+
+# Bước 0: Ép stdout/stderr dùng UTF-8 khi chạy CLI (tránh lỗi cp1258 trên Windows console)
+def _ensure_utf8() -> None:
+    for _stream in (sys.stdout, sys.stderr):
+        try:
+            _stream.reconfigure(encoding="utf-8")
+        except (AttributeError, OSError):
+            pass
+
 
 # Các trạng thái hợp lệ của một entry trong matrix
 STATUS_PLANNED = "PLANNED"      # Task đã lên kế hoạch, chưa thực thi
@@ -365,6 +368,7 @@ def _render_markdown_report(data: dict) -> str:
 
 def main() -> int:
     """Entry point CLI."""
+    _ensure_utf8()
     if len(sys.argv) < 2:
         print("Usage: python coverage_matrix.py <plan_file.md> [--verify]", file=sys.stderr)
         return 2

@@ -34,12 +34,15 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-# Bước 0: Ép stdout/stderr dùng UTF-8 (tránh lỗi cp1258 trên Windows console với tiếng Việt)
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8")
-    except (AttributeError, OSError):
-        pass
+
+# Bước 0: Ép stdout/stderr dùng UTF-8 khi chạy CLI (tránh lỗi cp1258 trên Windows console)
+def _ensure_utf8() -> None:
+    for _stream in (sys.stdout, sys.stderr):
+        try:
+            _stream.reconfigure(encoding="utf-8")
+        except (AttributeError, OSError):
+            pass
+
 
 # Các trạng thái hợp lệ
 STATUS_PENDING = "pending"
@@ -403,6 +406,7 @@ def _parse_args(argv: list[str]) -> dict:
 
 def main() -> int:
     """Entry point CLI. Trả 0 nếu approved, 1 nếu pending/rejected/changes_requested."""
+    _ensure_utf8()
     args = _parse_args(sys.argv[1:])
     if not args["plan_file"]:
         print("Usage: python approval_gate.py <plan_file.md> [--approve|--reject|--request-changes|--status] [--artifact sd|plan]",

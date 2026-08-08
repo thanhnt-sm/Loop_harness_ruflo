@@ -20,7 +20,7 @@ for sub in (".devin/scripts", ".devin/hooks"):
     if d not in sys.path:
         sys.path.insert(0, d)
 
-from context_guard import check_oversize, _WARN_PREFIX, _TRUNCATE_SUFFIX  # noqa: E402
+from context_guard import check_oversize, _TRUNCATE_SUFFIX  # noqa: E402
 
 
 def test_under_threshold_returns_unchanged():
@@ -36,13 +36,11 @@ def test_at_threshold_returns_unchanged():
 
 
 def test_warn_over_threshold():
-    """Cấp 1: vượt ngưỡng nhưng ≤ 1.5x → thêm tiền tố cảnh báo, giữ nội dung."""
+    """Cấp 1: vượt ngưỡng nhưng ≤ 1.5x → giữ nguyên nội dung, không cảnh báo."""
     threshold = 3000
     ctx = "c" * 3500  # > 3000, < 4500 (1.5x)
     result = check_oversize(ctx, threshold=threshold)
-    assert result.startswith(_WARN_PREFIX)
-    # Nội dung gốc vẫn còn nguyên sau tiền tố
-    assert result[len(_WARN_PREFIX):] == ctx
+    assert result == ctx
 
 
 def test_compress_over_1_5x():
@@ -54,8 +52,6 @@ def test_compress_over_1_5x():
     assert len(ctx) > 1.5 * threshold
     assert len(ctx) <= 2 * threshold
     result = check_oversize(ctx, threshold=threshold)
-    # Không chứa tiền tố cảnh báo (vì đã được nén)
-    assert not result.startswith(_WARN_PREFIX)
     # Không chứa hậu tố cắt (vì chưa đến mức cắt)
     assert _TRUNCATE_SUFFIX not in result
     # Kết quả nén phải ngắn hơn hoặc bằng gốc
@@ -77,9 +73,9 @@ def test_custom_threshold():
     threshold = 500
     # Dưới ngưỡng
     assert check_oversize("x" * 400, threshold=threshold) == "x" * 400
-    # Vượt ngưỡng (warn)
+    # Vượt ngưỡng (giữ nguyên, không cảnh báo)
     r_warn = check_oversize("y" * 600, threshold=threshold)
-    assert r_warn.startswith(_WARN_PREFIX)
+    assert r_warn == "y" * 600
     # Vượt 2x (truncate)
     r_trunc = check_oversize("z" * 1200, threshold=threshold)
     assert r_trunc.endswith(_TRUNCATE_SUFFIX)

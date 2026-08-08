@@ -315,15 +315,13 @@ def test_context_under_threshold_unchanged():
     assert context_guard.check_oversize(ctx, threshold=3000) == ctx
 
 
-def test_context_over_threshold_warns():
-    """Context vượt ngưỡng (≤1.5x) -> thêm cảnh báo."""
+def test_context_over_threshold_keeps_content():
+    """Context vượt ngưỡng (≤1.5x) -> giữ nguyên nội dung, không cảnh báo."""
     import context_guard
 
     ctx = "x" * 3500
     out = context_guard.check_oversize(ctx, threshold=3000)
-    assert "Cảnh báo" in out or "WARNING" in out.upper() or "cảnh báo" in out.lower()
-    # Nội dung gốc vẫn còn.
-    assert ctx in out
+    assert out == ctx
 
 
 def test_context_far_over_threshold_truncates():

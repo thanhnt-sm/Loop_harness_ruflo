@@ -15,6 +15,8 @@ import os
 import re
 import subprocess
 import sys
+import threading
+import time
 import uuid
 from pathlib import Path
 from datetime import datetime, timezone
@@ -53,15 +55,15 @@ def get_config_root(root: Path) -> Path:
 
 
 def get_shared_state_root(root: Path) -> Path:
-    """Return the canonical shared-state root (always ``.devin/``).
+    """Return the canonical shared-state root (``<root>/.agents``).
 
     Shared state files (user_profile.md, knowledge_distill.md,
-    handoff_letter.md, context_quick_lookup.md) live at ``.devin/`` and are
+    handoff_letter.md, context_quick_lookup.md) live at ``.agents/`` and are
     shared across all tools. Per-tool session state (loop_state.md,
     session_state/, context_flags/) lives at the tool's config root.
 
     Backward compatibility: if a shared state file exists in the tool's config
-    root but not in ``.devin/``, this function still returns ``.devin/``.
+    root but not in ``.agents/``, this function still returns ``.agents/``.
     The caller should use ``resolve_shared_state_file()`` for automatic
     migration fallback.
     """
@@ -104,6 +106,7 @@ def _session_lock_relpath(root: Path, session_id: str) -> Path:
 
 # U47: Cache for git rev-parse result (avoid repeated subprocess calls)
 _REPO_ROOT_CACHE: Optional[Path] = None
+_REPO_ROOT_CACHE_LOCK = threading.RLock()
 
 
 def get_repo_root(start_from: Optional[Path] = None) -> Path:
@@ -116,8 +119,9 @@ def get_repo_root(start_from: Optional[Path] = None) -> Path:
     U47: Caches result to avoid repeated git rev-parse subprocess calls.
     """
     global _REPO_ROOT_CACHE
-    if _REPO_ROOT_CACHE is not None and start_from is None:
-        return _REPO_ROOT_CACHE
+    with _REPO_ROOT_CACHE_LOCK:
+        if _REPO_ROOT_CACHE is not None and start_from is None:
+            return _REPO_ROOT_CACHE
 
     cwd = Path(start_from) if start_from else Path.cwd()
     try:
@@ -128,7 +132,8 @@ def get_repo_root(start_from: Optional[Path] = None) -> Path:
         if r.returncode == 0 and r.stdout.strip():
             result = Path(r.stdout.strip())
             if start_from is None:
-                _REPO_ROOT_CACHE = result
+                with _REPO_ROOT_CACHE_LOCK:
+                    _REPO_ROOT_CACHE = result
             return result
     except (OSError, ValueError, subprocess.SubprocessError):
         pass
@@ -136,10 +141,12 @@ def get_repo_root(start_from: Optional[Path] = None) -> Path:
         for marker in (".git", ".agents", "AGENTS.md", "pyproject.toml", "README.md"):
             if (parent / marker).exists():
                 if start_from is None:
-                    _REPO_ROOT_CACHE = parent
+                    with _REPO_ROOT_CACHE_LOCK:
+                        _REPO_ROOT_CACHE = parent
                 return parent
     if start_from is None:
-        _REPO_ROOT_CACHE = cwd
+        with _REPO_ROOT_CACHE_LOCK:
+            _REPO_ROOT_CACHE = cwd
     return cwd
 
 
@@ -150,14 +157,12 @@ def slugify_session_id(sid: str, max_len: int = 64) -> str:
     collision on per-session lock files.
     """
     if not sid:
-        import uuid
         sid = f"unknown-{uuid.uuid4().hex[:8]}"
     # Replace separators and illegal chars
     sid = re.sub(r"[:/\\\s|<>\"'?*\"]+", "-", sid)
     sid = re.sub(r"-+", "-", sid)
     sid = sid.strip("-.")
     if not sid:
-        import uuid
         sid = f"unknown-{uuid.uuid4().hex[:8]}"
     sid = sid[:max_len]
     return sid
@@ -232,8 +237,6 @@ def _acquire_lock(lock_path: Path, timeout: float = 10.0) -> Any:
 
     Nếu hết thời gian chờ hoặc gặp lỗi nghiêm trọng, ném ``LockAcquireError``.
     """
-    import time
-
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     deadline = time.time() + timeout
 
@@ -486,8 +489,7 @@ def _check_memory_cap(path: Path, cap_name: str, root: Optional[Path] = None) ->
         if not config_path.exists():
             return
 
-        import json as _json
-        config = _json.loads(config_path.read_text(encoding="utf-8"))
+        config = json.loads(config_path.read_text(encoding="utf-8"))
         cap_entry = config.get("caps", {}).get(cap_name)
         if not cap_entry:
             return
@@ -555,45 +557,53 @@ def now_utc() -> str:
 _FAILURE_COUNTERS: dict[str, int] = {}
 _CIRCUIT_BREAKER_THRESHOLD = 3
 _TRIPPED_BREAKERS: set[str] = set()
+_CIRCUIT_LOCK = threading.RLock()
 
 
 def record_failure(component: str, session_id: str = "") -> None:
     """U67: Record a component failure. Trips circuit breaker on 3 failures."""
-    _FAILURE_COUNTERS[component] = _FAILURE_COUNTERS.get(component, 0) + 1
-    if _FAILURE_COUNTERS[component] >= _CIRCUIT_BREAKER_THRESHOLD:
-        _TRIPPED_BREAKERS.add(component)
-        # Also persist to session_state for cross-session visibility
-        try:
-            root = get_repo_root()
-            state_path = get_session_state_path(session_id, root)
-            _locked_json_update(
-                state_path,
-                lambda existing: {
-                    **(existing or {}),
-                    "circuit_breakers_tripped": list(_TRIPPED_BREAKERS),
-                    "failure_counts": dict(_FAILURE_COUNTERS),
-                },
-                default={},
-                session_id=session_id,
-            )
-        except (OSError, ValueError, json.JSONDecodeError):
-            pass
+    with _CIRCUIT_LOCK:
+        _FAILURE_COUNTERS[component] = _FAILURE_COUNTERS.get(component, 0) + 1
+        if _FAILURE_COUNTERS[component] >= _CIRCUIT_BREAKER_THRESHOLD:
+            _TRIPPED_BREAKERS.add(component)
+        tripped = list(_TRIPPED_BREAKERS)
+        counts = dict(_FAILURE_COUNTERS)
+
+    # Also persist to session_state for cross-session visibility
+    try:
+        root = get_repo_root()
+        state_path = get_session_state_path(session_id, root)
+        _locked_json_update(
+            state_path,
+            lambda existing: {
+                **(existing or {}),
+                "circuit_breakers_tripped": tripped,
+                "failure_counts": counts,
+            },
+            default={},
+            session_id=session_id,
+        )
+    except (OSError, ValueError, json.JSONDecodeError):
+        pass
 
 
 def is_circuit_open(component: str) -> bool:
     """U67: Check if circuit breaker is tripped for a component."""
-    return component in _TRIPPED_BREAKERS
+    with _CIRCUIT_LOCK:
+        return component in _TRIPPED_BREAKERS
 
 
 def reset_circuit(component: str) -> None:
     """U67: Reset circuit breaker for a component (manual override)."""
-    _TRIPPED_BREAKERS.discard(component)
-    _FAILURE_COUNTERS.pop(component, None)
+    with _CIRCUIT_LOCK:
+        _TRIPPED_BREAKERS.discard(component)
+        _FAILURE_COUNTERS.pop(component, None)
 
 
 def get_failure_stats() -> dict[str, int]:
     """U67: Get current failure counts for all components."""
-    return dict(_FAILURE_COUNTERS)
+    with _CIRCUIT_LOCK:
+        return dict(_FAILURE_COUNTERS)
 
 
 def auto_minimal_mode(session_id: str, root: Optional[Path] = None) -> bool:

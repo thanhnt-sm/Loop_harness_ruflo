@@ -594,11 +594,6 @@ def _u60_loop_enforcement(data: dict, session_id: str, root: Path) -> None:
     total_cost = state.get("total_cost", 0)
     budget_cap = state.get("budget_cap", 0)
     if budget_cap > 0 and total_cost > budget_cap:
-        print(
-            f"[U60] BUDGET EXCEEDED: {total_cost} > {budget_cap}. "
-            f"Loop should stop.",
-            file=sys.stderr,
-        )
         ahd_session._locked_json_update(
             ahd_session.get_session_state_path(session_id, root),
             lambda existing: {**(existing or {}), "budget_exceeded": True},
