@@ -27,7 +27,7 @@ description: "Full Power Mode — 3-Phase đầy đủ (Plan→Approve→Execute
 ```
 TASK → BOOT → INVENTORY → COMMANDER MODE → TIER CLASSIFICATION
   → S-tier? → làm trực tiếp → REPORT
-  → M-tier+? → PHASE 1: PLAN (FORCE) → PHASE 2: APPROVE → PHASE 3: EXECUTE → REPORT
+  → M-tier+? → BRAINSTORM → PHASE 1: PLAN (BRAINSTORM → ANALYZE → DESIGN → REVIEW → SDD_APPROVAL → PLAN → GAP_SCAN → QC → PLAN_ENHANCE → PLAN_APPROVAL) → PHASE 2: APPROVE → PHASE 3: EXECUTE → REPORT
 ```
 
 ---
@@ -142,6 +142,27 @@ python .devin/scripts/pre_task_audit.py --tags "<task_slug>" --session <session_
 
 ---
 
+## Bước 4.7: BRAINSTORM Phase (MỚI — Zero-Command Max)
+
+Trước khi vào Plan phase, chạy brainstorm đa góc nhìn:
+
+1. Load `user-preference` skill — đọc preferences từ memory
+2. Dispatch 6 brainstorm subagents song song (subagent_explore, background):
+   - BRAINSTORM-FASTEST: Nhanh nhất để implement
+   - BRAINSTORM-SAFEST: An toàn nhất
+   - BRAINSTORM-SIMPLEST: Đơn giản nhất hiểu
+   - BRAINSTORM-SCALE: Scale nhất
+   - BRAINSTORM-CHEAPEST: Rẻ nhất chạy
+   - BRAINSTORM-ROBUST: Chống black swan tốt nhất
+3. Apply Nuwa cognitive: Munger (tránh cognitive bias), Feynman (đơn giản hóa), Taleb (chống black swan)
+4. Output: `BRAINSTORM_REPORT.md` — feed vào ARCHITECT input
+
+```bash
+python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <brainstorm_results.json>
+```
+
+---
+
 ## Bước 5: PHASE 1 — PLAN / TÀI LIỆU GIẢI PHÁP (BẮT BUỘC, KHÔNG SKIP)
 
 > **RED LINE**: Skip Plan phase cho M-tier+ = violation. Hook `plan_enforce.py` sẽ block.
@@ -157,7 +178,7 @@ python .devin/scripts/plan_orchestrator.py --init --task "<task>"
 python .devin/scripts/plan_orchestrator.py --step --state <state_file> --results <results_file>
 ```
 
-FSM: `INIT → CLASSIFY → ANALYZE → DESIGN → REVIEW → REVISION(max 3) → SDD_APPROVAL → PLAN → QC → PLAN_APPROVAL → WRITE_STATE → DONE`
+FSM: `INIT → CLASSIFY → BRAINSTORM → ANALYZE → DESIGN → REVIEW → REVISION(max 7, convergence) → SDD_APPROVAL → PLAN → GAP_SCAN → QC(max 7, convergence) → PLAN_ENHANCE(max 3) → PLAN_APPROVAL → WRITE_STATE → DONE`
 
 Sau **mỗi step** chạy:
 - `python .devin/scripts/session_manager.py heartbeat <session_id>`
@@ -186,6 +207,29 @@ python .devin/scripts/approval_gate.py docs/plans/<task_slug>/IMPLEMENTATION_PLA
 - **y** → `PLAN_APPROVED`, ghi state, kích hoạt enforcement hook.
 - **m** → quay về `PLAN` (target=plan) hoặc `DESIGN` (target=sdd) sửa.
 - **n** → `REJECTED`, dừng.
+
+### 5c.5. GAP_SCAN (MỚI — Zero-Command Max)
+
+Sau khi plan được viết, trước khi QC, chạy gap-scan:
+
+Dispatch 1 gap-scan subagent (subagent_explore, background) để scan plan cho:
+- Missing requirements (REQ không có task)
+- Uncovered edge cases
+- Incomplete tasks (thiếu file/function/AC)
+- Orphan tasks (task không map REQ)
+
+### 5c.7. PLAN_ENHANCE (MỚI — Zero-Command Max)
+
+Sau khi QC pass, trước khi present plan approval, chạy 5 enhancement subagents song song:
+
+1. **gap-scan** — scan thiếu sót bổ sung
+2. **adversarial-consensus** — review plan bằng C3 pattern (6+ reviewers)
+3. **nuwa-skill** — Munger (cognitive biases), Feynman (đơn giản hóa), Taleb (black swan)
+4. **claim-grader** — grade mọi claim trong plan: [fact] / [inference] / [unverified]
+5. **slop-detector + comment_checker** — detect AI filler, remove
+
+Nếu phát hiện BLOCKING issue → loop lại PLAN (max 3 enhance rounds).
+Nếu clean → present plan approval gate.
 
 ### 5d. KẾT QUẢ PHASE 1
 
@@ -245,6 +289,16 @@ Dispatch workers theo DAG batch:
 | Code changes free (alt) | `kimi-executor` | Kimi K2.7 (free) |
 | Research | `subagent_explore` | SWE-1.6 (cheap) |
 | Verification | `subagent_explore` | SWE-1.6 (fresh context) |
+
+**Skills auto-wired vào EXECUTE (MỚI — Zero-Command Max)**:
+
+| Skill | Khi trigger |
+|-------|------------|
+| `tdd` | Mỗi BUILDER task — viết test trước, implement sau |
+| `systematic_debugging` | Khi worker gặp bug — root cause analysis |
+| `auditor` | VERIFY Layer 2 — fresh-context audit |
+| `fable-judge` | Sau EXECUTE — verify "done" claim không bị fable |
+| `graph-verify` | Structural claims — blast radius, call graph |
 
 Workers tự trị (max power trong boundary):
 - Mỗi worker ghi state `.devin/state/<task_id>.json`, rồi gọi `python .devin/scripts/state_router.py --route .devin/state/<task_id>.json` để xác định bước tiếp.
@@ -414,8 +468,9 @@ Output final report:
 
 | Condition | Trigger | Action |
 |-----------|---------|--------|
-| Budget cap | >15 iterations | Stop, report progress |
+| Budget cap | >20 iterations | Stop, report progress |
 | Convergence | 2 iterations no progress | Stop, hỏi user |
+| Convergence stall | 2 vòng liên tiếp không giảm BLOCKING | Stop, escalate |
 | Stuck | 2 resume same executor no progress | Stop, hỏi user |
 | Red line | Violate REDLINES.md | Stop, hỏi user |
 | Plan adherence | Drift > 50% | Stop, hỏi user |
@@ -435,7 +490,7 @@ Output final report:
 7. **KHÔNG scope creep** ngoài plan → RED LINE
 8. **KHÔNG skip verification** (3-layer) → RED LINE
 9. **KHÔNG skip coverage matrix verify** → RED LINE
-10. **Max 3 adversarial rounds** → escalate if not converge
+10. **Max 7 adversarial rounds** (convergence-based: 2 vòng không giảm → escalate) → escalate if not converge
 11. **Max 3 self-heal attempts** → escalate if exhausted
 12. **Plan = contract** — lệch plan = drift, alert nếu > 50%
 

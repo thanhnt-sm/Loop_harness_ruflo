@@ -64,15 +64,18 @@ devin -p -- "mô tả công việc"          # Non-interactive
 ### 3 Phase flow
 
 1. **PLAN** (`/plan` hoặc `/full-power`): Orchestrator FSM tự động:
-   - Dispatch 5 SCOUTs song song → collect findings
+   - **BRAINSTORM** (MỚI) — 6+ góc nhìn đa chiều (fastest, safest, simplest, scale, cheapest, robust) + Nuwa cognitive
+   - Dispatch **8 SCOUTs** song song (tất cả search online) → collect findings
    - Dispatch 1 ARCHITECT → write SDD
-   - Dispatch 3 adversarial reviewers → aggregate findings
+   - Dispatch **6+ adversarial reviewers** + dynamic attack scenarios → aggregate findings
    - **SDD approval gate** — duyệt `SOLUTION_DESIGN.md` trước
    - Decompose SDD thành atomic tasks → write `IMPLEMENTATION_PLAN.md`
+   - **GAP_SCAN** (MỚI) — quét thiếu sót trước khi QC
    - Run 10-D quality check → `QUALITY_REPORT.md`
+   - **PLAN_ENHANCE** (MỚI) — nâng cấp plan tối đa: gap-scan + adversarial-consensus + nuwa + claim-grader + slop-detector
    - **Plan approval gate** — duyệt `IMPLEMENTATION_PLAN.md`
 2. **APPROVE**: 2 interactive approval gates (`approval_gate.py --interactive --artifact sd|plan`)
-3. **EXECUTE**: DAG-based parallel dispatch → 3-layer verify → coverage + audit
+3. **EXECUTE**: DAG-based parallel dispatch + TDD + systematic_debugging + 3-layer verify (schema_gate + adversarial-consensus + coverage_matrix) + fable-judge + graph-verify → coverage + audit
 
 S-tier (<5 lines, 1 file, no destructive op) → orchestrator auto-skip, sửa trực tiếp.
 

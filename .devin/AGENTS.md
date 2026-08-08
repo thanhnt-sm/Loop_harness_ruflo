@@ -33,7 +33,7 @@ AHD-distilled harness. Core principles:
 4. No auto-resume crashed sessions
 5. No skipping verification
 
-## Skills (26 total, on-demand)
+## Skills (26 total, on-demand — tất cả được wire vào zero-command chain)
 
 Default khi user chỉ đưa task (không gõ slash skill):
 - Câu hỏi / giải thích / thông tin → trả lời trực tiếp.
@@ -41,17 +41,18 @@ Default khi user chỉ đưa task (không gõ slash skill):
 - **M/L/XL → mặc định `/full-power` để chạy full chain skill + script.**
 - User override bằng `/lightning`, `/glm`, `/kimi`, `/plan`, v.v.
 
-`full-power` — 3-Phase đầy đủ (Plan→Approve→Execute), FORCE Plan bắt buộc
-`plan` — Phase 1: Plan (SDD + SDD approval + 10-D QC + plan approval gate)
-`adversarial-consensus` — 3-persona adversarial review (C3 pattern)
+**Zero-Command Max chain** (tất cả 26 skills tự động tham gia):
+`full-power` — 3-Phase đầy đủ (BRAINSTORM → Plan → GAP_SCAN → QC → PLAN_ENHANCE → Approve → Execute), FORCE Plan bắt buộc
+`plan` — Phase 1: Plan (BRAINSTORM + SDD + SDD approval + GAP_SCAN + 10-D QC + PLAN_ENHANCE + plan approval gate)
+`adversarial-consensus` — 6+ persona review + dynamic attack scenarios (C3 pattern)
 `lightning`, `glm`, `kimi` — executors
-`auditor`, `fable-judge`, `claim-grader` — verification
-`tdd`, `systematic_debugging`, `gap-scan` — development
-`slop-detector`, `comment_checker` — quality
-`context-compactor`, `init_deep` — context/init
-`loop-memory`, `memory-audit`, `graph-verify` — memory
-`user-preference`, `harness-sensor` — meta
-`nuwa-skill` — cognitive verification
+`auditor`, `fable-judge`, `claim-grader` — verification (auto-wire vào EXECUTE + VERIFY)
+`tdd`, `systematic_debugging`, `gap-scan` — development (auto-wire vào EXECUTE + GAP_SCAN phase)
+`slop-detector`, `comment_checker` — quality (auto-wire vào PLAN_ENHANCE + REPORT)
+`context-compactor`, `init_deep` — context/init (auto-monitor mọi phase)
+`loop-memory`, `memory-audit`, `graph-verify` — memory + structural verify (auto-wire)
+`user-preference`, `harness-sensor` — meta (auto-load ở BRAINSTORM)
+`nuwa-skill` — cognitive verification (auto-wire vào BRAINSTORM + REVIEW + PLAN_ENHANCE)
 
 ## Agents
 

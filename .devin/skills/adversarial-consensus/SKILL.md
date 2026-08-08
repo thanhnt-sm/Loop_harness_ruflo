@@ -3,7 +3,7 @@ name: adversarial-consensus
 triggers:
   - user
   - model
-description: "Adversarial Consensus Protocol (C3) — 3-persona review đối kháng: Saboteur + New Hire + Security Auditor. Issue do 2+ reviewer tìm thấy = tăng severity. Max 3 vòng. Gọi: /adversarial-consensus <artifact_path hoặc mô tả>"
+description: "Adversarial Consensus Protocol (C3) — 6+ persona review đối kháng: Saboteur + New Hire + Security Auditor + Architect + Code Reviewer + Git Workflow Master + dynamic scenarios. Issue do 2+ reviewer tìm thấy = tăng severity. Max 7 vòng (convergence). Gọi: /adversarial-consensus <artifact_path hoặc mô tả>"
 ---
 
 # Adversarial Consensus Protocol (C3)
@@ -65,16 +65,39 @@ flowchart LR
 - **Convergence by evidence** — consensus đạt được khi KHÔNG còn blocking issues, không phải khi hết thời gian
 - **Promotion by corroboration** — issue do 2+ reviewer độc lập tìm thấy = tín hiệu mạnh, tự động tăng severity
 
-## 2. 3 Personas (load từ `.devin/agents/personas/`)
+## 2. 6+ Personas (load từ `.devin/agents/personas/`)
 
 | Persona | File | Câu hỏi gốc | Tìm gì |
 |---------|------|-------------|--------|
 | **Saboteur** | `saboteur.md` | "How do I break this in production?" | Operational failure modes — race conditions, resource exhaustion, error cascade, data corruption |
 | **New Hire** | `new_hire.md` | "Can I understand this with zero context?" | Cognitive gaps — unclear naming, missing context, implicit assumptions, magic numbers |
 | **Security Auditor** | `security_auditor.md` | "Can an attacker exploit this?" | Security holes — OWASP Top 10, prompt injection, data leakage, privilege escalation |
+| **Architect** | `architect.md` | "Is this design scalable and maintainable?" | Design smells — coupling, cohesion, SOLID violations, scalability issues |
+| **Code Reviewer** | `code_reviewer.md` | "Will this code be maintainable?" | Code quality — complexity, naming, abstraction leaks, dead code |
+| **Git Workflow Master** | `git_workflow_master.md` | "What merge conflicts will this cause?" | Git impact — branch strategy, history cleanliness, merge conflict risk |
 
 > Mỗi persona có **mandate bắt buộc**: phải tìm ít nhất 1 real issue, hoặc nói "CLEAN" một cách tường minh.
 > Không được "pass" im lặng — silence = failure.
+
+## 2.5. Dynamic Attack Scenarios (MỚI — Zero-Command Max)
+
+Ngoài 6 persona cố định, generate thêm attack scenarios động dựa trên task context:
+
+| Task keyword | Dynamic scenario | Câu hỏi |
+|--------------|-----------------|---------|
+| database/db/sql | DATA_CORRUPTION_ATTACKER | "How can I corrupt data? What transactions fail silently?" |
+| database/db/sql | SQL_INJECTION_TESTER | "Where can I inject SQL? Are all inputs parameterized?" |
+| api/endpoint/rest | RATE_LIMIT_BREAKER | "Can I overwhelm this API? DoS vectors?" |
+| api/endpoint/rest | INPUT_FUZZER | "What malformed inputs crash the API?" |
+| auth/login/token | PRIVILEGE_ESCALATION_TESTER | "Can I escalate privileges? Missing auth checks?" |
+| auth/login/token | TOKEN_FORGER | "Can I forge tokens? Weak signing? Replay attacks?" |
+| file/upload/storage | PATH_TRAVERSAL_ATTACKER | "Can I access files outside intended directories?" |
+| performance/cache | RESOURCE_EXHAUSTER | "How can I exhaust memory/CPU/connections?" |
+| concurrent/async | RACE_CONDITION_EXPLOITER | "What race conditions exist? TOCTOU bugs?" |
+| (generic fallback) | EDGE_CASE_HUNTER | "What extreme inputs break this? Empty? Max size? Null?" |
+| (generic fallback) | FAILURE_CASCADE_ANALYST | "What happens when dependencies fail? Error cascade?" |
+
+Dynamic scenarios được generate bởi `plan_fsm/missions.py:dynamic_scenarios()`.
 
 ## 3. Workflow
 
@@ -86,13 +109,17 @@ Artifact có thể là:
 
 Tag output: `[ARTIFACT] <artifact_name> | <type> | <path>`
 
-### Step 2 — Dispatch 3 reviewers in parallel
+### Step 2 — Dispatch 6+ reviewers in parallel
 Mỗi reviewer chạy độc lập, không thấy output của nhau (tránh anchoring bias).
 
 ```
-subagent_explore(persona=saboteur,      background=true, target=artifact)
-subagent_explore(persona=new_hire,      background=true, target=artifact)
-subagent_explore(persona=security_auditor, background=true, target=artifact)
+subagent_explore(persona=saboteur,           background=true, target=artifact)
+subagent_explore(persona=new_hire,           background=true, target=artifact)
+subagent_explore(persona=security_auditor,   background=true, target=artifact)
+subagent_explore(persona=architect,          background=true, target=artifact)
+subagent_explore(persona=code_reviewer,      background=true, target=artifact)
+subagent_explore(persona=git_workflow_master, background=true, target=artifact)
+# + dynamic scenarios (context-generated)
 ```
 
 Mỗi reviewer output theo format:
@@ -150,10 +177,10 @@ Hoặc nếu sạch:
 |---------|-------------|----------------------|
 | 1 persona | ADVISORY | ADVISORY (giữ nguyên) |
 | 2 personas | ADVISORY | **BLOCKING** |
-| 3 personas | ADVISORY | **BLOCKING** |
+| 3+ personas | ADVISORY | **BLOCKING** |
 | 2 personas | INFO | **ADVISORY** |
-| 3 personas | INFO | **ADVISORY** |
-| 2 personas | BLOCKING | BLOCKING (đã max, ghi nhận "strong consensus") |
+| 3+ personas | INFO | **ADVISORY** |
+| 2+ personas | BLOCKING | BLOCKING (strong consensus) |
 
 > Promotion chỉ áp dụng khi 2+ reviewers tìm thấy **cùng root cause**, không phải cùng symptom ở các chỗ khác nhau.
 > Aggregator phải verify root cause trùng nhau trước khi promote.
@@ -219,7 +246,7 @@ Manual trigger: `/adversarial-consensus <artifact_path>`
 
 ## 9. Guardrails
 
-- **Max 3 rounds** — không loop vô tận; escalate nếu không converge
+- **Max 7 rounds (convergence-based: 2 vòng liên tiếp không giảm BLOCKING → escalate)** — không loop vô tận; escalate nếu không converge
 - **Reviewers độc lập** — không share context giữa reviewers trong cùng round
 - **CLEAN phải tường minh** — silence không tính là pass
 - **Promotion cần root cause match** — không promote dựa trên symptom khác nhau

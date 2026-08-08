@@ -42,13 +42,15 @@ python .devin/scripts/plan_orchestrator.py --init --task "<task>"
 python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
 ```
 
-Orchestrator FSM: INIT → CLASSIFY → ANALYZE → DESIGN → REVIEW → SDD_APPROVAL → PLAN → QC → PLAN_APPROVAL → WRITE_STATE → DONE
+Orchestrator FSM: INIT → CLASSIFY → BRAINSTORM → ANALYZE → DESIGN → REVIEW → REVISION(max 7, convergence) → SDD_APPROVAL → PLAN → GAP_SCAN → QC(max 7, convergence) → PLAN_ENHANCE(max 3) → PLAN_APPROVAL → WRITE_STATE → DONE
 
-1. **ANALYZE** — Orchestrator trả `dispatch_scouts`. Commander dispatch 5 SCOUT subagents song song (subagent_explore, background). Collect results → call `--step`.
+1. **BRAINSTORM** (MỚI) — Orchestrator trả `brainstorm`. Commander dispatch 6 brainstorm subagents song song (subagent_explore, background) cho 6+ góc nhìn (fastest, safest, simplest, scale, cheapest, robust). Collect results → call `--step`.
 
-2. **DESIGN** — Orchestrator trả `dispatch_architect`. Commander dispatch 1 ARCHITECT (glm-executor, foreground). Sau xong → call `--step` → orchestrator trả `dispatch_reviewers`. Commander dispatch 3 adversarial reviewers song song. Collect → aggregate → call `--step`.
+2. **ANALYZE** — Orchestrator trả `dispatch_scouts`. Commander dispatch 8 SCOUT subagents song song (subagent_explore, background). Tất cả SCOUTs phải search online. Collect results → call `--step`.
 
-3. **SDD APPROVE** — Orchestrator trả `present_sdd_approval`. Commander chạy SDD approval gate:
+3. **DESIGN** — Orchestrator trả `dispatch_architect`. Commander dispatch 1 ARCHITECT (glm-executor, foreground). Sau xong → call `--step` → orchestrator trả `dispatch_reviewers`. Commander dispatch 6+ adversarial reviewers + dynamic scenarios song song. Collect → aggregate → call `--step`.
+
+4. **SDD APPROVE** — Orchestrator trả `present_sdd_approval`. Commander chạy SDD approval gate:
    ```bash
    python .devin/scripts/approval_gate.py <sdd.md> --interactive --artifact sd
    ```
@@ -56,9 +58,13 @@ Orchestrator FSM: INIT → CLASSIFY → ANALYZE → DESIGN → REVIEW → SDD_AP
    - Approved → chuyển sang PLAN
    - Changes requested → quay về DESIGN
 
-4. **PLAN** — Orchestrator trả `decompose_plan`. Commander decompose SDD thành atomic tasks + DAG + coverage matrix. Write `IMPLEMENTATION_PLAN.md` → call `--step`.
+5. **PLAN** — Orchestrator trả `decompose_plan`. Commander decompose SDD thành atomic tasks + DAG + coverage matrix. Write `IMPLEMENTATION_PLAN.md` → call `--step`.
 
-5. **QUALITY CHECK** — Orchestrator trả `run_qc`. Commander chạy `plan_quality_check.py`. Call `--step` với QC result. FAIL → loop lại PLAN. PASS → PLAN_APPROVAL.
+6. **GAP_SCAN** (MỚI) — Orchestrator trả `gap_scan`. Commander dispatch 1 gap-scan subagent để scan plan cho thiếu sót. Collect → call `--step`.
+
+7. **QUALITY CHECK** — Orchestrator trả `run_qc`. Commander chạy `plan_quality_check.py`. Call `--step` với QC result. FAIL → loop lại PLAN. PASS → PLAN_ENHANCE.
+
+8. **PLAN_ENHANCE** (MỚI) — Orchestrator trả `plan_enhance`. Commander dispatch 5 enhancement subagents song song: gap-scan, adversarial-consensus, nuwa-skill, claim-grader, slop-detector. BLOCKING → loop lại PLAN (max 3). Clean → PLAN_APPROVAL.
 
 ### Phase 2: APPROVE (human gate, interactive)
 

@@ -6,7 +6,7 @@ from pathlib import Path
 
 from . import constants as C
 from .classifier import classify_tier
-from .missions import reviewer_personas, scout_missions, technical_writer_mission
+from .missions import brainstorm_missions, dynamic_scenarios, reviewer_personas, scout_missions, technical_writer_mission
 from .storage import append_history, plans_dir
 
 
@@ -33,16 +33,31 @@ def _next_action_for_state(state: dict, root: Path) -> dict:
                 "params": {"tier": tier},
             }
         return {
-            "action": C.ACTION_DISPATCH_SCOUTS,
+            "action": C.ACTION_BRAINSTORM,
             "instructions": (
-                f"Tier={tier}. Dispatch {C.NUM_SCOUTS} SCOUT subagents in PARALLEL "
-                f"(background mode, profile: subagent_explore). "
-                f"Launch ALL {C.NUM_SCOUTS} in a SINGLE response for max parallelism."
+                f"Tier={tier}. Dispatch brainstorm subagents for multi-perspective analysis. "
+                f"Generate {len(brainstorm_missions(state['task_description']))}+ angles "
+                f"(fastest, safest, simplest, scale, cheapest, robust). "
+                f"Launch ALL brainstorm subagents in a SINGLE response for max parallelism."
             ),
             "params": {
                 "tier": tier,
-                "num_scouts": C.NUM_SCOUTS,
-                "scout_missions": scout_missions(state["task_description"]),
+                "brainstorm_missions": brainstorm_missions(state["task_description"]),
+                "profile": "subagent_explore",
+                "mode": "background",
+            },
+        }
+
+    if s == C.STATE_BRAINSTORM:
+        return {
+            "action": C.ACTION_BRAINSTORM,
+            "instructions": (
+                "Dispatch brainstorm subagents for multi-perspective analysis. "
+                "Generate 6+ angles (fastest, safest, simplest, scale, cheapest, robust). "
+                "Launch ALL in a SINGLE response for max parallelism."
+            ),
+            "params": {
+                "brainstorm_missions": brainstorm_missions(state["task_description"]),
                 "profile": "subagent_explore",
                 "mode": "background",
             },
@@ -142,6 +157,21 @@ def _next_action_for_state(state: dict, root: Path) -> dict:
             },
         }
 
+    if s == C.STATE_GAP_SCAN:
+        return {
+            "action": C.ACTION_GAP_SCAN,
+            "instructions": (
+                "Dispatch gap-scan subagent to scan plan for missing requirements, "
+                "uncovered edge cases, incomplete tasks. "
+                "Profile: subagent_explore, background mode."
+            ),
+            "params": {
+                "profile": "subagent_explore",
+                "mode": "background",
+                "plan_path": state.get("plan_path"),
+            },
+        }
+
     if s == C.STATE_QC:
         return {
             "action": C.ACTION_RUN_QC,
@@ -172,6 +202,36 @@ def _next_action_for_state(state: dict, root: Path) -> dict:
                 "quality_report_path": state.get("quality_report_path"),
                 "artifact": "plan",
                 "command": f"python .devin/scripts/approval_gate.py {state.get('plan_path', '<plan_path>')} --interactive --artifact plan",
+            },
+        }
+
+    if s == C.STATE_PLAN_ENHANCE:
+        enhance_round = state.get("enhance_round", 1)
+        return {
+            "action": C.ACTION_PLAN_ENHANCE,
+            "instructions": (
+                f"Plan enhancement round {enhance_round}/{C.MAX_ENHANCE_ROUNDS}. "
+                "Dispatch 5 enhancement subagents in PARALLEL: "
+                "1) gap-scan for missing tasks, "
+                "2) adversarial-consensus review on plan, "
+                "3) nuwa cognitive review (Munger/Feynman/Taleb), "
+                "4) claim-grader on all claims, "
+                "5) slop-detector + comment_checker. "
+                "If issues found → loop back to PLAN. If clean → PLAN_APPROVAL."
+            ),
+            "params": {
+                "enhance_round": enhance_round,
+                "max_rounds": C.MAX_ENHANCE_ROUNDS,
+                "plan_path": state.get("plan_path"),
+                "enhancement_skills": [
+                    "gap-scan",
+                    "adversarial-consensus",
+                    "nuwa-skill",
+                    "claim-grader",
+                    "slop-detector",
+                ],
+                "profile": "subagent_explore",
+                "mode": "background",
             },
         }
 
@@ -226,7 +286,8 @@ def _classify_action(state: dict, root: Path) -> dict:
     """Classify + trả action đầu tiên cho init/CLASSIFY."""
     tier = classify_tier(state["task_description"])
     state["tier"] = tier
-    state["state"] = C.STATE_ANALYZE if tier != "S" else C.STATE_DONE
+    # S-tier → skip Plan phase. M-tier+ → BRAINSTORM trước khi ANALYZE.
+    state["state"] = C.STATE_BRAINSTORM if tier != "S" else C.STATE_DONE
     append_history(state, "classify", f"Tier={tier}")
     if tier == "S":
         return {
@@ -235,16 +296,16 @@ def _classify_action(state: dict, root: Path) -> dict:
             "params": {"tier": tier},
         }
     return {
-        "action": C.ACTION_DISPATCH_SCOUTS,
+        "action": C.ACTION_BRAINSTORM,
         "instructions": (
-            f"Tier={tier}. Dispatch {C.NUM_SCOUTS} SCOUT subagents in PARALLEL "
-            f"(background mode, profile: subagent_explore). "
-            f"Launch ALL {C.NUM_SCOUTS} in a SINGLE response for max parallelism."
+            f"Tier={tier}. Dispatch brainstorm subagents for multi-perspective analysis. "
+            f"Generate {len(brainstorm_missions(state['task_description']))}+ angles "
+            f"(fastest, safest, simplest, scale, cheapest, robust). "
+            f"Launch ALL brainstorm subagents in a SINGLE response for max parallelism."
         ),
         "params": {
             "tier": tier,
-            "num_scouts": C.NUM_SCOUTS,
-            "scout_missions": scout_missions(state["task_description"]),
+            "brainstorm_missions": brainstorm_missions(state["task_description"]),
             "profile": "subagent_explore",
             "mode": "background",
         },
@@ -271,6 +332,29 @@ def _handle_analyze(state: dict, results: dict, root: Path) -> dict:
     return next_action(state, root)
 
 
+def _handle_brainstorm(state: dict, results: dict, root: Path) -> dict:
+    """Xử lý kết quả brainstorm → chuyển sang ANALYZE (dispatch SCOUTs)."""
+    brainstorm_results = results.get("brainstorm_results", [])
+    state["brainstorm_results"] = brainstorm_results
+    state["state"] = C.STATE_ANALYZE
+    append_history(state, "brainstorm_complete", f"Collected {len(brainstorm_results)} brainstorm angles")
+    # Trả action dispatch_scouts cho ANALYZE
+    return {
+        "action": C.ACTION_DISPATCH_SCOUTS,
+        "instructions": (
+            f"Brainstorm complete. Now dispatch {C.NUM_SCOUTS} SCOUT subagents in PARALLEL "
+            f"(background mode, profile: subagent_explore). "
+            f"Launch ALL {C.NUM_SCOUTS} in a SINGLE response for max parallelism."
+        ),
+        "params": {
+            "num_scouts": C.NUM_SCOUTS,
+            "scout_missions": scout_missions(state["task_description"]),
+            "profile": "subagent_explore",
+            "mode": "background",
+        },
+    }
+
+
 def _handle_design(state: dict, results: dict, root: Path) -> dict:
     sdd_path = results.get("sdd_path", "")
     state["sdd_path"] = sdd_path
@@ -283,22 +367,50 @@ def _handle_review(state: dict, results: dict, root: Path) -> dict:
     findings = results.get("findings", [])
     state["review_findings"] = findings
     blocking = [f for f in findings if f.get("severity") == "BLOCKING"]
+    current_blocking_count = len(blocking)
+    last_blocking_count = state.get("last_blocking_count", 0)
+
+    # Convergence check: nếu 2 vòng liên tiếp không giảm BLOCKING → escalate
+    # Nếu vẫn giảm → tiếp tục đến max 7 vòng
     if blocking and state["revision_round"] < C.MAX_REVISION_ROUNDS:
-        state["revision_round"] += 1
-        state["state"] = C.STATE_REVISION
-        append_history(
-            state,
-            "review_complete",
-            f"{len(blocking)} blocking issues, revision round {state['revision_round']}",
-        )
+        if current_blocking_count < last_blocking_count:
+            # Vẫn có tiến triển → tiếp tục revision
+            state["last_blocking_count"] = current_blocking_count
+            state["revision_round"] += 1
+            state["state"] = C.STATE_REVISION
+            append_history(
+                state,
+                "review_complete",
+                f"{current_blocking_count} blocking issues (down from {last_blocking_count}), revision round {state['revision_round']}",
+            )
+        elif state.get("convergence_stall_count", 0) >= 1:
+            # 2 vòng liên tiếp không giảm → escalate
+            state["state"] = C.STATE_ESCALATE
+            state["escalate_reason"] = (
+                f"Convergence stall: {current_blocking_count} blocking issues not decreasing for 2 rounds"
+            )
+            append_history(state, "review_complete", "Convergence stall, escalating")
+        else:
+            # Lần đầu không giảm → ghi nhận, cho thêm 1 cơ hội
+            state["last_blocking_count"] = current_blocking_count
+            state["convergence_stall_count"] = state.get("convergence_stall_count", 0) + 1
+            state["revision_round"] += 1
+            state["state"] = C.STATE_REVISION
+            append_history(
+                state,
+                "review_complete",
+                f"{current_blocking_count} blocking issues (no decrease), revision round {state['revision_round']} (stall warning)",
+            )
     elif blocking and state["revision_round"] >= C.MAX_REVISION_ROUNDS:
         state["state"] = C.STATE_ESCALATE
         state["escalate_reason"] = (
-            f"Max {C.MAX_REVISION_ROUNDS} revision rounds exceeded, {len(blocking)} blocking issues remain"
+            f"Max {C.MAX_REVISION_ROUNDS} revision rounds exceeded, {current_blocking_count} blocking issues remain"
         )
         append_history(state, "review_complete", "Max rounds exceeded, escalating")
     else:
         state["state"] = C.STATE_SDD_APPROVAL
+        state["last_blocking_count"] = 0
+        state["convergence_stall_count"] = 0
         append_history(state, "review_complete", f"No blocking issues, {len(findings)} advisory")
     return next_action(state, root)
 
@@ -336,8 +448,18 @@ def _handle_plan(state: dict, results: dict, root: Path) -> dict:
     plan_path = results.get("plan_path", "")
     state["plan_path"] = plan_path
     state["qc_round"] = max(state.get("qc_round", 0), 1)
+    # PLAN → GAP_SCAN → QC (thay vì PLAN → QC trực tiếp)
+    state["state"] = C.STATE_GAP_SCAN
+    append_history(state, "plan_complete", f"Plan written: {plan_path}, moving to GAP_SCAN")
+    return next_action(state, root)
+
+
+def _handle_gap_scan(state: dict, results: dict, root: Path) -> dict:
+    """Xử lý kết quả gap scan → chuyển sang QC."""
+    gap_findings = results.get("gap_findings", [])
+    state["gap_findings"] = gap_findings
     state["state"] = C.STATE_QC
-    append_history(state, "plan_complete", f"Plan written: {plan_path}")
+    append_history(state, "gap_scan_complete", f"Found {len(gap_findings)} gaps")
     return next_action(state, root)
 
 
@@ -347,8 +469,10 @@ def _handle_qc(state: dict, results: dict, root: Path) -> dict:
     quality_report_path = qc_result.get("report_path", "")
     state["quality_report_path"] = quality_report_path
     if all_pass:
-        state["state"] = C.STATE_PLAN_APPROVAL
-        append_history(state, "qc_complete", "All 10 dimensions PASS")
+        # QC pass → PLAN_ENHANCE (nâng cấp tối đa trước khi duyệt)
+        state["enhance_round"] = max(state.get("enhance_round", 0), 1)
+        state["state"] = C.STATE_PLAN_ENHANCE
+        append_history(state, "qc_complete", "All 10 dimensions PASS, moving to PLAN_ENHANCE")
     elif state["qc_round"] < C.MAX_QC_ROUNDS:
         state["qc_round"] += 1
         state["state"] = C.STATE_PLAN
@@ -359,6 +483,36 @@ def _handle_qc(state: dict, results: dict, root: Path) -> dict:
             f"Max {C.MAX_QC_ROUNDS} QC rounds exceeded, dimensions still failing"
         )
         append_history(state, "qc_complete", "Max QC rounds exceeded, escalating")
+    return next_action(state, root)
+
+
+def _handle_plan_enhance(state: dict, results: dict, root: Path) -> dict:
+    """Xử lý kết quả plan enhancement → PLAN_APPROVAL hoặc loop lại PLAN."""
+    enhance_findings = results.get("enhance_findings", [])
+    state["enhance_findings"] = enhance_findings
+    blocking_enhance = [f for f in enhance_findings if f.get("severity") == "BLOCKING"]
+    enhance_round = state.get("enhance_round", 1)
+
+    if blocking_enhance and enhance_round < C.MAX_ENHANCE_ROUNDS:
+        # Có blocking issues → loop lại PLAN để sửa
+        state["enhance_round"] = enhance_round + 1
+        state["state"] = C.STATE_PLAN
+        append_history(
+            state,
+            "enhance_complete",
+            f"{len(blocking_enhance)} blocking enhance issues, looping to PLAN (round {state['enhance_round']})",
+        )
+    elif blocking_enhance and enhance_round >= C.MAX_ENHANCE_ROUNDS:
+        # Max enhance rounds → escalate
+        state["state"] = C.STATE_ESCALATE
+        state["escalate_reason"] = (
+            f"Max {C.MAX_ENHANCE_ROUNDS} enhance rounds exceeded, {len(blocking_enhance)} blocking issues remain"
+        )
+        append_history(state, "enhance_complete", "Max enhance rounds exceeded, escalating")
+    else:
+        # Clean → PLAN_APPROVAL
+        state["state"] = C.STATE_PLAN_APPROVAL
+        append_history(state, "enhance_complete", f"Enhancement clean, {len(enhance_findings)} advisory only")
     return next_action(state, root)
 
 
@@ -397,6 +551,8 @@ def process_step(state: dict, root: Path, results: dict) -> dict:
     s = state["state"]
     action = results.get("action", "")
 
+    if s == C.STATE_BRAINSTORM and action == C.ACTION_BRAINSTORM:
+        return _handle_brainstorm(state, results, root)
     if s == C.STATE_ANALYZE and action == C.ACTION_WAIT_SCOUTS:
         return _handle_analyze(state, results, root)
     if s == C.STATE_DESIGN and action == C.ACTION_DISPATCH_ARCHITECT:
@@ -409,8 +565,12 @@ def process_step(state: dict, root: Path, results: dict) -> dict:
         return _handle_sdd_approval(state, results, root)
     if s == C.STATE_PLAN and action == C.ACTION_DECOMPOSE_PLAN:
         return _handle_plan(state, results, root)
+    if s == C.STATE_GAP_SCAN and action == C.ACTION_GAP_SCAN:
+        return _handle_gap_scan(state, results, root)
     if s == C.STATE_QC and action == C.ACTION_RUN_QC:
         return _handle_qc(state, results, root)
+    if s == C.STATE_PLAN_ENHANCE and action == C.ACTION_PLAN_ENHANCE:
+        return _handle_plan_enhance(state, results, root)
     if s == C.STATE_PLAN_APPROVAL and action == C.ACTION_PRESENT_PLAN_APPROVAL:
         return _handle_plan_approval(state, results, root)
     if s == C.STATE_WRITE_STATE and action == C.ACTION_WRITE_PLAN_STATE:

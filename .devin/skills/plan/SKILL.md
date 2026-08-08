@@ -110,11 +110,12 @@ Do not trade thoroughness for speed. A bad plan costs more in rework than a slow
 The orchestrator runs a state machine with these states:
 
 ```
-INIT → CLASSIFY → ANALYZE → DESIGN → REVIEW → SDD_APPROVAL → PLAN → QC → PLAN_APPROVAL → WRITE_STATE → DONE
+INIT → CLASSIFY → BRAINSTORM → ANALYZE → DESIGN → REVIEW → SDD_APPROVAL → PLAN → GAP_SCAN → QC → PLAN_ENHANCE → PLAN_APPROVAL → WRITE_STATE → DONE
                               ↑          |              |
-                              |--- REVISION (max 3)     |
+                              |--- REVISION (max 7, convergence)     |
                               |                         |
-                              ←--- QC FAIL (max 3) ←----|
+                              ←--- QC FAIL (max 7, convergence) ←----|
+                              ←--- ENHANCE FAIL (max 3) ←-----------|
 ```
 
 Each state transition produces a **next_action** that tells the agent exactly what to do. The agent performs the action, then calls `--step` with results to advance the state machine.
@@ -134,6 +135,31 @@ The orchestrator:
 
 **If S-tier** → orchestrator returns `action: skip` → Plan phase not needed, proceed to execution.
 **If M-tier+** → orchestrator returns `action: dispatch_scouts` → continue to Step 2.
+
+## Step 1.5 — BRAINSTORM: Đa góc nhìn (MỚI — Zero-Command Max)
+
+The orchestrator returns `action: brainstorm` with 6+ brainstorm missions.
+
+Dispatch 6 brainstorm subagents in PARALLEL (background, profile: subagent_explore):
+
+```
+run_subagent(profile: subagent_explore, is_background: true, task: BRAINSTORM-FASTEST mission)
+run_subagent(profile: subagent_explore, is_background: true, task: BRAINSTORM-SAFEST mission)
+run_subagent(profile: subagent_explore, is_background: true, task: BRAINSTORM-SIMPLEST mission)
+run_subagent(profile: subagent_explore, is_background: true, task: BRAINSTORM-SCALE mission)
+run_subagent(profile: subagent_explore, is_background: true, task: BRAINSTORM-CHEAPEST mission)
+run_subagent(profile: subagent_explore, is_background: true, task: BRAINSTORM-ROBUST mission)
+```
+
+Collect all 6 results. Write `BRAINSTORM_REPORT.md` to `docs/plans/<task_slug>/`.
+Feed brainstorm results into ARCHITECT input for multi-perspective design.
+
+Write results JSON and call `--step`:
+```bash
+python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
+```
+
+The orchestrator transitions to ANALYZE.
 
 ## Step 2 — ANALYZE: Dispatch 5 SCOUT subagents song song
 
@@ -250,6 +276,23 @@ python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results
 
 The orchestrator transitions to QC.
 
+## Step 6.5 — GAP_SCAN: Quét thiếu sót (MỚI — Zero-Command Max)
+
+The orchestrator returns `action: gap_scan`.
+
+Dispatch 1 gap-scan subagent (background, profile: subagent_explore) to scan the plan for:
+- Missing requirements (REQ without task)
+- Uncovered edge cases
+- Incomplete tasks (missing file/function/AC)
+- Orphan tasks (task without REQ mapping)
+
+Write results JSON and call `--step`:
+```bash
+python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
+```
+
+The orchestrator transitions to QC.
+
 ## Step 7 — QC: Run quality check (10 dimensions)
 
 The orchestrator returns `action: run_qc` with the command to run.
@@ -283,6 +326,28 @@ python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results
 **If all PASS** → orchestrator transitions to PLAN_APPROVAL.
 **If FAIL + QC rounds < 3** → orchestrator loops back to PLAN.
 **If FAIL + QC rounds >= 3** → orchestrator transitions to ESCALATE.
+
+## Step 7.5 — PLAN_ENHANCE: Nâng cấp plan tối đa (MỚI — Zero-Command Max)
+
+The orchestrator returns `action: plan_enhance` with 5 enhancement skills.
+
+Dispatch 5 enhancement subagents in PARALLEL (background, profile: subagent_explore):
+
+1. **gap-scan** — scan for missing tasks/requirements
+2. **adversarial-consensus** — C3 review on plan (6+ reviewers)
+3. **nuwa-skill** — cognitive review (Munger/Feynman/Taleb)
+4. **claim-grader** — grade all claims: [fact] / [inference] / [unverified]
+5. **slop-detector + comment_checker** — detect and remove AI filler
+
+Aggregate findings. If BLOCKING issues found → loop back to PLAN (max 3 enhance rounds).
+If clean → proceed to PLAN_APPROVAL.
+
+Write results JSON and call `--step`:
+```bash
+python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
+```
+
+The orchestrator transitions to PLAN_APPROVAL (if clean) or back to PLAN (if issues).
 
 ## Step 8 — PLAN_APPROVAL: Human approve the Implementation Plan
 
@@ -338,6 +403,7 @@ The orchestrator transitions to DONE. Plan phase complete.
 | `docs/plans/<task_slug>/SOLUTION_DESIGN.md` | Solution Design Document — architecture, components, data flow | Step 3 |
 | `docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md` | Implementation Plan — atomic tasks, DAG, coverage matrix, test + rollback | Step 6 |
 | `docs/plans/<task_slug>/QUALITY_REPORT.md` | Quality Report — D1–D10 scorecard, pass/fail per dimension | Step 7 |
+| `docs/plans/<task_slug>/BRAINSTORM_REPORT.md` | Brainstorm Report — 6+ góc nhìn đa chiều | Step 1.5 |
 | `.devin/plan_state/<task_slug>_orchestrator.json` | Orchestrator state — FSM state, history, all paths | All steps |
 | `.devin/plan_state/<task_slug>_approved.json` | Approval state — activates enforcement hook (for plans under `docs/plans/<task_slug>/`) | Step 9 |
 | `.devin/plan_state/<task_slug>_sd_approved.json` | SDD approval state | Step 5 |
@@ -349,8 +415,9 @@ The orchestrator transitions to DONE. Plan phase complete.
 - **DO NOT skip the quality check.** The 10-dimension check is mandatory for every plan, regardless of complexity.
 - **DO NOT proceed without human approval** — except the S-tier auto-skip exception.
 - **DO NOT skip adversarial review.** Minimum 3 personas (SABOTEUR, NEW_HIRE, SECURITY_AUDITOR). Fewer is a quality check failure.
-- **Maximum 3 revision rounds.** After 3 rounds with unresolved issues, escalate to the human.
-- **Maximum 3 QC rounds.** After 3 rounds with failing dimensions, escalate to the human.
+- **Maximum 7 revision rounds (convergence-based: 2 vòng không giảm → escalate).** After 7 rounds with unresolved issues, escalate to the human.
+- **Maximum 7 QC rounds (convergence-based).** After 7 rounds with failing dimensions, escalate to the human.
+- **Maximum 3 enhance rounds — sau 3 rounds vẫn BLOCKING → escalate.**
 - **DO NOT edit files outside `docs/plans/`.** This skill's write scope is limited to plan documents.
 - **Preserve pre-existing user changes.** Before writing any plan file, check the working tree for uncommitted changes and note them.
 

@@ -253,3 +253,91 @@ Inputs: file paths [paths], acceptance criteria [list], (NO conversation history
 - [item]: [why]
 ```
 Fresh context. Different model than author if possible. `mid` model preferred.
+
+## 6. Brainstormer (multi-perspective analysis — MỚI Zero-Command Max)
+
+**vibe**: 多面思想家 — thinks from every angle.
+
+```
+## Goal & motivation
+Goal: analyze [task] from [angle] perspective.
+Motivation: BRAINSTORM phase needs diverse perspectives before design.
+Inputs: task description [text], angle [fastest|safest|simplest|scale|cheapest|robust]
+
+## Acceptance criteria
+- [ ] 1-2 paragraph analysis from the assigned angle
+- [ ] Key trade-offs identified
+- [ ] Recommended approach for this angle
+- [ ] Risks/costs of this approach called out
+
+## Report format
+## Conclusion [angle analysis complete]
+## Angle: [fastest|safest|simplest|scale|cheapest|robust]
+## Analysis
+- [2-3 sentences explaining the approach from this angle]
+## Trade-offs
+- Pro: [benefit]
+- Con: [cost/risk]
+## Recommendation
+- [1 sentence: should we adopt this angle? why/why not]
+## Slop check [naming|abstraction|prose] — 0 issues, or list
+```
+`mid` model (needs creative thinking, not just search).
+
+## 7. Dynamic Scenario Generator (context-aware attack vectors — MỚI Zero-Command Max)
+
+**vibe**: 攻擊設計師 — designs attacks tailored to the target.
+
+```
+## Goal & motivation
+Goal: generate context-specific attack scenarios for [task/artifact].
+Motivation: adversarial review needs dynamic scenarios beyond fixed personas.
+Inputs: task description [text], artifact [path], domain keywords [list]
+
+## Acceptance criteria
+- [ ] 2+ attack scenarios generated based on task domain
+- [ ] Each scenario has: id, persona, question, target area
+- [ ] Scenarios cover different attack vectors (not all same type)
+- [ ] No generic scenarios if domain-specific ones apply
+
+## Report format
+## Conclusion [scenarios generated]
+## Scenarios
+| id | persona | question | target |
+|----|---------|----------|--------|
+| [ID] | [persona name] | [attack question] | [what to attack] |
+## Rationale
+- [why these scenarios fit this task]
+## Slop check [naming|abstraction|prose] — 0 issues, or list
+```
+`mid` model (needs domain understanding).
+
+## 8. Plan Enhancer (maximize plan quality — MỚI Zero-Command Max)
+
+**vibe**: 磨刀石 — sharpens the plan to its best.
+
+```
+## Goal & motivation
+Goal: enhance [plan_path] using [enhancement skill].
+Motivation: PLAN_ENHANCE phase maximizes plan quality before approval.
+Inputs: plan path [path], enhancement skill [gap-scan|adversarial-consensus|nuwa|claim-grader|slop-detector]
+
+## Acceptance criteria
+- [ ] All findings listed with severity (BLOCKING/ADVISORY/INFO)
+- [ ] Each BLOCKING issue has specific fix suggestion
+- [ ] Evidence: section/line references in plan
+- [ ] If no issues: explicitly say "enhancement pass" with evidence
+
+## Report format
+## Conclusion [enhancement complete]
+## Enhancement skill: [skill name]
+## Findings
+| severity | section/line | issue | fix |
+|----------|-------------|-------|-----|
+## Confirmed clean
+- [check item]: section — confirmed
+## Slop check [naming|abstraction|prose] — 0 issues, or list
+## Uncertain
+- [item]: [why]
+```
+`high` model preferred (needs deep analysis of plan quality).
