@@ -11,6 +11,7 @@ Xuất báo cáo JSON.
 """
 from __future__ import annotations
 
+import fnmatch
 import json
 import re
 import sys
@@ -25,15 +26,32 @@ for _stream in (sys.stdout, sys.stderr):
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
-MD_GLOB = ["*.md", ".devin/**/*.md", "docs/**/*.md"]
+MD_GLOB = ["*.md", ".devin/**/*.md", "docs/**/*.md", ".devin/**/*.json"]
+
+# Loại trừ các file log/report/plan — chứa references hợp lệ từ quá khứ hoặc từ upstream
+EXCLUDE_GLOB = [
+    ".devin/metadata/**",
+    ".devin/reports/**",
+    ".devin/prompts/**",
+    ".devin/plan_state/**",
+    ".devin/upgrade/**",
+    ".devin/skills/nuwa-skill/**",
+    "docs/plans/**",
+    "docs/*_full*.md",
+    "docs/research/**",
+    "REPOS.md",
+    "REPOS_TRACKER.json",
+]
 
 # Các pattern cần cảnh báo là stale
 STALE_PATTERNS = {
     r"\.claude[/\\]skills": ".claude/skills → moved to .claude/skills-disabled or .devin/skills",
     r"\.agents[/\\]skills(?![-])": ".agents/skills → moved to .agents/skills-disabled",
     r"(?<![/\\])scripts/verify\.py": "scripts/verify.py → removed; use tools/verify-workspace.ps1",
+    r"(?<![/\\])scripts/detect\.py": "scripts/detect.py → removed",
     r"(?<![/\\])scripts/distill\.py": "scripts/distill.py → removed",
     r"(?<![/\\])scripts/run\.py": "scripts/run.py → removed",
+    r"\bdistil[l]?[/\\]": "distill/ → removed or not integrated in this workspace",
     r"\bv3/": "v3/ source removed",
     r"\bplugins/": "plugins/ removed",
     r"\bruflo/": "ruflo/ source removed",
@@ -146,6 +164,19 @@ def _extract_plain_refs(text: str) -> list[tuple[int, str, str]]:
     return findings
 
 
+def _should_exclude(md: Path) -> bool:
+    rel = str(md.relative_to(REPO_ROOT)).replace("\\", "/")
+    for pat in EXCLUDE_GLOB:
+        norm_pat = pat.replace("\\", "/")
+        if norm_pat.endswith("/**"):
+            prefix = norm_pat[:-3]
+            if rel == prefix or rel.startswith(prefix + "/"):
+                return True
+        elif fnmatch.fnmatch(rel, norm_pat) or fnmatch.fnmatch(rel, f"**/{norm_pat}"):
+            return True
+    return False
+
+
 def audit() -> dict:
     all_md = set()
     for pattern in MD_GLOB:
@@ -157,6 +188,8 @@ def audit() -> dict:
     checked = set()
 
     for md in sorted(all_md):
+        if _should_exclude(md):
+            continue
         text = md.read_text(encoding="utf-8", errors="ignore")
 
         # Markdown links

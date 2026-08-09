@@ -93,6 +93,7 @@ Check-File '.devin/skills/glm/SKILL.md' 'GLM skill'
 Check-File '.devin/skills/aide-memory/SKILL.md' 'aide-memory skill'
 Check-File '.devin/skills/hlk-git-tools/SKILL.md' 'HLK git tools skill'
 Check-File '.devin/skills/hlk-integrity-check/SKILL.md' 'HLK integrity check skill'
+Check-File '.devin/skills/update_from_repos/SKILL.md' 'update_from_repos skill'
 
 # --- 4. Hooks (4 files) ---
 Write-Host "`n[4/8] Hooks (.devin/hooks/)" -ForegroundColor Yellow
@@ -159,6 +160,20 @@ Check-File 'HLK/wrappers/hlk-hook-launcher.mjs' 'HLK hook launcher'
 Check-File 'AGENTS.md' 'Root AGENTS.md'
 Check-File 'CLAUDE.md' 'Root CLAUDE.md'
 Check-File 'REPOS.md' 'REPOS.md reference list'
+
+# --- 9. Import smoke test ---
+Write-Host "`n[9/9] Runtime import smoke test" -ForegroundColor Yellow
+$smoke = & python "$root/tools/import_smoke_test.py" 2>&1
+$smokeExit = $LASTEXITCODE
+if ($smoke -is [array]) { $smoke = $smoke -join "`n" }
+if ($smokeExit -eq 0) {
+  Write-Host "  [OK]   import smoke test passed" -ForegroundColor Green
+  $passed++
+} else {
+  Write-Host "  [FAIL] import smoke test failed" -ForegroundColor Red
+  Write-Host $smoke -ForegroundColor Red
+  $errors += "import smoke test failed"
+}
 
 # --- Summary ---
 Write-Host "`n=== Summary ===" -ForegroundColor Cyan

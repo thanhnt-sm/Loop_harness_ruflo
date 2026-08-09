@@ -26,7 +26,7 @@
       "Exec(git log:*)",
       "Exec(git add:*)",
       "Exec(git config:*)",
-      "Exec(python scripts/verify.py)",
+      "Exec(python tools/import_smoke_test.py)",
       "Exec(python scripts/test_*.py)",
       "Exec(python .devin/scripts/hook_integrity.py:*)",
       "Exec(python .devin/scripts/log_rotation.py:*)",

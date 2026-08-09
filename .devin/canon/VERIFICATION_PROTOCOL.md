@@ -545,12 +545,12 @@ is a mechanical check, not a judgment call — `fable-judge` automates it.
   gate's verbatim requirement (naming a detour) fires only when the task routes away from the loop.
 
 ## In this harness
-- `distill/canon/VERIFICATION_PROTOCOL.md` — the rule, shipped to every tool.
-- `distill/orchestrator/workers/VERIFIER.md` — the Verifier worker (fresh context, checklist).
-- `distill/orchestrator/workers/AUDITOR.md` — the Auditor worker (fresh context, adversarial).
-- `distill/skills/fable-judge.md` — adversarial "done" gate; re-runs claimed verifications, hunts frauds, sweeps verbatim gate lines (INTENT/AUTH/TWINS/PENDING). Fires on every "done" declaration.
-- `distill/skills/harness-sensor.md` — the computational sensor (deterministic checks).
-- `scripts/verify.py` — the deployer's own verification (read-back after sync).
+- `.devin/canon/VERIFICATION_PROTOCOL.md` — the rule, shipped to every tool.
+- `.devin/agents/workers/VERIFIER.md` — the Verifier worker (fresh context, checklist).
+- `.devin/agents/workers/AUDITOR.md` — the Auditor worker (fresh context, adversarial).
+- `.devin/skills/fable-judge.md` — adversarial "done" gate; re-runs claimed verifications, hunts frauds, sweeps verbatim gate lines (INTENT/AUTH/TWINS/PENDING). Fires on every "done" declaration.
+- `.devin/skills/harness-sensor.md` — the computational sensor (deterministic checks).
+- `tools/verify-workspace.ps1` — the workspace integrity verification (read-back after patch).
 ## The honest limit
 Verification can confirm: the file exists, the build passes, the criteria are met, the marker is present. It cannot confirm: the design is good, the taste is right, the choice among valid options is the best one. For those, escalate to a human. That's not a failure — it's the honest clause in action.
 
