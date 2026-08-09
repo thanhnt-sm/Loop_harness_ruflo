@@ -380,6 +380,21 @@ class BaseAdapter:
         for subdir in ("session_state", "loop_state", "loop_state_archive", "context_flags"):
             (self.project_root / runtime_root / subdir).mkdir(parents=True, exist_ok=True)
 
+        # Ensure .agents/ exists for shared state files (user_profile.md,
+        # knowledge_distill.md, handoff_letter.md, context_quick_lookup.md).
+        # These are shared across all tools and always live at .agents/, even
+        # if Antigravity is not installed.
+        if runtime_root != ".agents":
+            (self.project_root / ".agents").mkdir(parents=True, exist_ok=True)
+            # Migrate: if shared state files exist in this tool's root but not
+            # in .agents/, copy them so existing users don't lose their data.
+            for sf in ("user_profile.md", "knowledge_distill.md",
+                       "handoff_letter.md", "context_quick_lookup.md"):
+                tool_copy = self.project_root / runtime_root / sf
+                agents_copy = self.project_root / ".agents" / sf
+                if tool_copy.exists() and not agents_copy.exists():
+                    shutil.copy2(tool_copy, agents_copy)
+
         for script_name in (
             "worktree.py", "plan_dispatch.py", "session_manager.py",
             "loop_memory_sync.py", "memory_audit.py", "pre_task_audit.py"
@@ -617,27 +632,23 @@ class BaseAdapter:
         # Only added when the runtime root differs from the placeholder.
         if runtime_root != ".agents":
             reps.append((".agents/", runtime_root + "/"))
-            # State files are project-owned and always live at .agents/ (the
-            # canonical state root). They are NOT deployed to each tool's config
-            # root, so we must reverse the blanket replacement above for these
-            # specific paths. Without this, Codex/Windsurf/Devin would look for
-            # .codex/loop_state.md etc. which don't exist.
-            state_files = [
-                "loop_state.md",
+            # Shared state files are project-owned and always live at .agents/
+            # (the canonical state root). They are shared across all tools, so
+            # we reverse the blanket replacement for these specific files.
+            # Without this, Codex/Windsurf/Devin would look for
+            # .codex/user_profile.md etc. which don't exist.
+            #
+            # Per-tool session state (loop_state.md, loop_state/, session_state/,
+            # context_flags/) stays at the tool's runtime root — each tool
+            # manages its own sessions independently.
+            shared_state_files = [
                 "knowledge_distill.md",
                 "user_profile.md",
                 "handoff_letter.md",
                 "context_quick_lookup.md",
             ]
-            state_dirs = [
-                "loop_state/",
-                "session_state/",
-                "context_flags/",
-            ]
-            for sf in state_files:
+            for sf in shared_state_files:
                 reps.append((f"{runtime_root}/{sf}", f".agents/{sf}"))
-            for sd in state_dirs:
-                reps.append((f"{runtime_root}/{sd}", f".agents/{sd}"))
         return reps
 
     def _rewrite_text(self, text: str) -> str:
