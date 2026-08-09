@@ -43,7 +43,8 @@ except (ImportError, ModuleNotFoundError, SyntaxError, ValueError):
     check_cost_cap = None  # type: ignore[assignment]
 
 # T4.9: Import reflection_gate từ .devin/scripts.
-except Exception:
+except Exception as e:
+    print(f"[pre_tool_use] unexpected exception: {e}", file=sys.stderr)
     check_cost_cap = None  # type: ignore[assignment]
 
 # T4.9: Import reflection_gate từ .devin/scripts.
@@ -54,7 +55,8 @@ except (ImportError, ModuleNotFoundError, SyntaxError, ValueError):
 
 # U15: Internal timeout — if hook runs longer than this, force-allow (fail open).
 # Config timeout is 3s; this is a safety net at 2s (1s margin) to exit before config kills us.
-except Exception:
+except Exception as e:
+    print(f"[pre_tool_use] unexpected exception: {e}", file=sys.stderr)
     _check_reflection = None  # type: ignore[assignment]
 
 # U15: Internal timeout — if hook runs longer than this, force-allow (fail open).
@@ -280,7 +282,8 @@ def check_ssrf(url: str, allowlist: set[str] | None = None) -> int:
     except (ValueError, TypeError):
         return 0
 
-    except Exception:
+    except Exception as e:
+        print(f"[pre_tool_use] unexpected exception: {e}", file=sys.stderr)
         return 0
 
     host = (parsed.hostname or "").lower().strip()
@@ -338,7 +341,8 @@ def _log_ssrf_block(url: str, reason: str, session_id: str) -> None:
         }
         with log_path.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
-    except Exception:
+    except Exception as e:
+        print(f"[pre_tool_use] unexpected exception: {e}", file=sys.stderr)
         pass
 
 
@@ -727,8 +731,9 @@ if __name__ == "__main__":
             main()
         except SystemExit as e:
             result["code"] = e.code if e.code is not None else 0
-        except Exception:
+        except Exception as e:
             # U52: fail-closed on unexpected error too (was fail-open)
+            print(f"[pre_tool_use] unexpected exception: {e}", file=sys.stderr)
             fail_open = os.environ.get("AHD_FAIL_OPEN", "0") == "1"
             result["code"] = 0 if fail_open else 2
 
