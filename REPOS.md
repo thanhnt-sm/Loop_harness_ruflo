@@ -18,7 +18,7 @@
 
 | Repo | Vai trò | License | Vendored tại |
 |------|---------|---------|--------------|
-| [alchaincyf/nuwa-skill](https://github.com/alchaincyf/nuwa-skill) | **Nuwa** — cognitive-diversity skill distillation factory. Distill mental models của public figures (Munger, Feynman, Taleb, v.v.) thành runnable perspective skills. | MIT | `.devin/skills/nuwa-skill/` (commit `72857dc`, 2026-07-07) |
+| [alchaincyf/nuwa-skill](https://github.com/alchaincyf/nuwa-skill) | **Nuwa** — cognitive-diversity skill distillation factory. Distill mental models của public figures (Munger, Feynman, Taleb, v.v.) thành runnable perspective skills. | MIT | `.devin/skills/nuwa-skill/` (commit `27642f5`, 2026-07-27) |
 
 ---
 
