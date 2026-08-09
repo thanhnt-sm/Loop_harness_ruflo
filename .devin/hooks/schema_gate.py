@@ -37,7 +37,8 @@ try:
         SAFE_ZONES as _PATHZONES_SAFE,
         normalize_path as _pathzones_normalize,
     )
-except Exception:
+except Exception as e:
+    print(f"[schema_gate] unexpected exception: {e}", file=sys.stderr)
     _PATHZONES_BLOCKED = None
     _PATHZONES_SAFE = None
     _pathzones_normalize = None
@@ -259,7 +260,8 @@ def _gate_symbol_verification(tool_name: str, tool_input: dict, root: Path) -> d
         return None  # không có plan -> bỏ qua cổng
     try:
         plan_text = plan_path.read_text(encoding="utf-8", errors="ignore")
-    except Exception:
+    except Exception as e:
+        print(f"[schema_gate] unexpected exception: {e}", file=sys.stderr)
         return None
     # Tìm block cho file này: dạng "## <task_id> — <file>: <symbols>"
     # Hoặc "- [ ] <task_id>: <file> (functions: foo, bar)"
@@ -460,7 +462,8 @@ def main():
     """Điểm vào chính: đọc stdin, chạy cổng, xuất kết quả."""
     try:
         data = json.load(sys.stdin)
-    except Exception:
+    except Exception as e:
+        print(f"[schema_gate] unexpected exception: {e}", file=sys.stderr)
         # Pentest fix: parse error ở cổng an ninh phải fail-closed (block).
         result = {"passed": False, "gate": "none", "reason": "stdin parse error, blocked", "details": {}}
         print(json.dumps(result, ensure_ascii=False))
@@ -480,7 +483,8 @@ def main():
         sys.path.insert(0, str(Path(__file__).resolve().parent))
         import ahd_session
         root = ahd_session.get_repo_root()
-    except Exception:
+    except Exception as e:
+        print(f"[schema_gate] unexpected exception: {e}", file=sys.stderr)
         pass
 
     # Xử lý: missing tool_output -> bỏ qua cổng JSON/secret (không có gì để quét)
@@ -515,7 +519,8 @@ if __name__ == "__main__":
             main()
         except SystemExit as e:
             result["code"] = e.code if e.code is not None else 0
-        except Exception:
+        except Exception as e:
+            print(f"[schema_gate] unexpected exception: {e}", file=sys.stderr)
             # Lỗi không ngờ -> cho phép (fail-open, không block)
             result["code"] = 0
 

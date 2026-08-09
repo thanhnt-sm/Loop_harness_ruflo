@@ -417,7 +417,8 @@ def _check_context_oversized_gate(data: dict) -> None:
             )
     except SystemExit:
         raise
-    except Exception:
+    except Exception as e:
+        print(f"[pre_tool_use] unexpected exception: {e}", file=sys.stderr)
         pass  # don't block on internal errors
 
 
@@ -461,7 +462,8 @@ def _check_cost_cap_gate(data: dict) -> None:
         )
     except SystemExit:
         raise
-    except Exception:
+    except Exception as e:
+        print(f"[pre_tool_use] unexpected exception: {e}", file=sys.stderr)
         pass
 
 
@@ -505,7 +507,8 @@ def _check_ssrf_gate(data: dict) -> None:
                     sys.exit(2)
     except SystemExit:
         raise
-    except Exception:
+    except Exception as e:
+        print(f"[pre_tool_use] unexpected exception: {e}", file=sys.stderr)
         pass
 
 
@@ -534,7 +537,8 @@ def _check_encoding_bypass_gate(data: dict) -> None:
             sys.exit(2)
     except SystemExit:
         raise
-    except Exception:
+    except Exception as e:
+        print(f"[pre_tool_use] unexpected exception: {e}", file=sys.stderr)
         pass
 
 
@@ -607,7 +611,8 @@ def _check_reflection_gate(data: dict) -> None:
             sys.exit(2)
     except SystemExit:
         raise
-    except Exception:
+    except Exception as e:
+        print(f"[pre_tool_use] unexpected exception: {e}", file=sys.stderr)
         pass  # don't block on internal errors
 
 
@@ -650,14 +655,16 @@ def _check_risk_contract(tool_name: str, tool_input: dict) -> None:
                     file=sys.stderr,
                 )
                 return
-    except Exception:
+    except Exception as e:
+        print(f"[pre_tool_use] unexpected exception: {e}", file=sys.stderr)
         pass  # non-blocking
 
 
 def main():
     try:
         data = json.load(sys.stdin)
-    except Exception:
+    except Exception as e:
+        print(f"[pre_tool_use] unexpected exception: {e}", file=sys.stderr)
         # U42: Fail-closed mode — exit 2 on parse error if configured
         fail_closed = os.environ.get("AHD_FAIL_CLOSED", "0") == "1"
         if fail_closed:
