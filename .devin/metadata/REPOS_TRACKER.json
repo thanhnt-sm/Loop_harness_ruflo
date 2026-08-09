@@ -1,17 +1,17 @@
 {
   "schema_version": "1.0",
-  "last_check": "2026-08-09T11:19:18.501680+00:00",
+  "last_check": "2026-08-09T12:29:28.268472+00:00",
   "sources": [
     {
       "id": "ahd-main-engine",
       "type": "repo",
       "url": "https://github.com/masteryee-labs/Tool.Agent-Harness-Deploy",
       "branch": "main",
-      "current_commit": "c327869",
+      "current_commit": "7045406",
       "upstream_commit": "7045406",
-      "current_commit_full": "c3278694a7b73a4e92addfba18ceb1b2e1d98b1f",
+      "current_commit_full": "704540651f31dadf5888728f33245dd30dc611b8",
       "upstream_commit_full": "704540651f31dadf5888728f33245dd30dc611b8",
-      "status": "behind",
+      "status": "up-to-date",
       "priority": "P1",
       "merge_strategy": "surgical-cherry-pick",
       "protected_files": [
@@ -34,7 +34,7 @@
         "HLK/"
       ],
       "notes": "Local deploy commit c327869 not in upstream; AHD update must be surgical only.",
-      "last_checked": "2026-08-09T11:19:15.321525+00:00"
+      "last_checked": "2026-08-09T12:29:25.165872+00:00"
     },
     {
       "id": "nuwa-skill",
@@ -54,7 +54,7 @@
         ".devin/skills/nuwa-skill/"
       ],
       "notes": "Updated to 27642f5 on 2026-08-09. Core files only, 3 examples kept.",
-      "last_checked": "2026-08-09T11:19:15.805953+00:00"
+      "last_checked": "2026-08-09T12:29:25.584900+00:00"
     },
     {
       "id": "caveman",
@@ -65,14 +65,14 @@
       "upstream_commit": "11ddc0c",
       "current_commit_full": "",
       "upstream_commit_full": "11ddc0c9813c8f75365cd5be2f753df08712f154",
-      "status": "behind",
+      "status": "manual-review",
       "priority": "P3",
       "merge_strategy": "manual-canon-update",
       "impact_zone": [
         ".devin/canon/CAVEMAN_PROTOCOL.md"
       ],
       "notes": "Concepts distilled into CAVEMAN_PROTOCOL.md; update only if new concepts.",
-      "last_checked": "2026-08-09T11:19:16.250005+00:00"
+      "last_checked": "2026-08-09T12:29:26.019931+00:00"
     },
     {
       "id": "agency-agents",
@@ -83,7 +83,7 @@
       "upstream_commit": "ebe9c99",
       "current_commit_full": "",
       "upstream_commit_full": "ebe9c99acb5c96f9468de368d8bead775387d1a7",
-      "status": "behind",
+      "status": "manual-review",
       "priority": "P3",
       "merge_strategy": "manual-canon-update",
       "impact_zone": [
@@ -91,7 +91,7 @@
         ".devin/agents/PERSONA_TEMPLATE.md"
       ],
       "notes": "Concepts distilled into COMMANDER.md / PERSONA_TEMPLATE.md.",
-      "last_checked": "2026-08-09T11:19:16.706423+00:00"
+      "last_checked": "2026-08-09T12:29:26.469033+00:00"
     },
     {
       "id": "superpowers",
@@ -102,14 +102,14 @@
       "upstream_commit": "44c9b2d",
       "current_commit_full": "",
       "upstream_commit_full": "44c9b2d6e889982ac18c27d05a19fefe335194e1",
-      "status": "behind",
+      "status": "manual-review",
       "priority": "P3",
       "merge_strategy": "manual-canon-update",
       "impact_zone": [
         ".devin/canon/COMMANDER.md"
       ],
       "notes": "Concepts distilled into COMMANDER.md / systematic_debugging.md / tdd.md.",
-      "last_checked": "2026-08-09T11:19:17.167229+00:00"
+      "last_checked": "2026-08-09T12:29:27.008214+00:00"
     },
     {
       "id": "loop-engineering",
@@ -120,14 +120,14 @@
       "upstream_commit": "75dba7a",
       "current_commit_full": "",
       "upstream_commit_full": "75dba7aeebfa527cd981f4cb0e2146676c538c8a",
-      "status": "behind",
+      "status": "manual-review",
       "priority": "P3",
       "merge_strategy": "manual-canon-update",
       "impact_zone": [
         ".devin/canon/LOOP_PROTOCOL.md"
       ],
       "notes": "Concepts distilled into LOOP_PROTOCOL.md.",
-      "last_checked": "2026-08-09T11:19:17.630969+00:00"
+      "last_checked": "2026-08-09T12:29:27.502563+00:00"
     },
     {
       "id": "fable-method",
@@ -138,14 +138,14 @@
       "upstream_commit": "88b5cf3",
       "current_commit_full": "",
       "upstream_commit_full": "88b5cf36b10ee3679e08ee0f0181b9774d481508",
-      "status": "behind",
+      "status": "manual-review",
       "priority": "P3",
       "merge_strategy": "manual-canon-update",
       "impact_zone": [
         ".devin/canon/fable-judge.md"
       ],
       "notes": "Concepts distilled into fable-judge.md.",
-      "last_checked": "2026-08-09T11:19:18.501634+00:00"
+      "last_checked": "2026-08-09T12:29:28.268416+00:00"
     }
   ]
 }

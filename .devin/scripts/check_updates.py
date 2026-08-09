@@ -99,7 +99,14 @@ def check_repo(source: dict[str, Any], token: str) -> dict[str, Any]:
         current_short = source.get("current_commit_full", "")[:7]
 
     status: str
-    if upstream_short == current_short or upstream_sha.startswith(current_short):
+    source_type = source.get("type", "repo")
+    if not current_short or current_short.lower() == "unknown":
+        # canon-source concepts are manually distilled; cannot auto-compare by SHA
+        if source_type == "canon-source":
+            status = "manual-review"
+        else:
+            status = "behind"
+    elif upstream_short == current_short or upstream_sha.startswith(current_short):
         status = "up-to-date"
     else:
         status = "behind"
