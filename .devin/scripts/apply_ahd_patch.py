@@ -176,7 +176,32 @@ def commit_changes(sha: str, msg: str) -> bool:
     return True
 
 
-def apply_commit(upstream: Path, sha: str, msg: str, protected: list[str], dry_run: bool) -> dict[str, Any]:
+def merge_3way(local_text: str, base_text: str, remote_text: str) -> str | None:
+    """Chạy git merge-file 3-way, trả nội dung merge hoặc None nếu conflict."""
+    with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False, suffix="-local") as lf:
+        lf.write(local_text)
+        local_path = lf.name
+    with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False, suffix="-base") as bf:
+        bf.write(base_text)
+        base_path = bf.name
+    with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False, suffix="-remote") as rf:
+        rf.write(remote_text)
+        remote_path = rf.name
+    try:
+        proc = subprocess.run(["git", "merge-file", "-p", local_path, base_path, remote_path], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
+        if proc.returncode != 0:
+            # Có conflict
+            return None
+        return proc.stdout
+    finally:
+        for p in [local_path, base_path, remote_path]:
+            try:
+                Path(p).unlink()
+            except OSError:
+                pass
+
+
+def apply_commit(upstream: Path, sha: str, msg: str, protected: list[str], dry_run: bool, allow_partial: bool = False, use_3way: bool = False) -> dict[str, Any]:
     result: dict[str, Any] = {"sha": sha, "msg": msg, "status": "pending", "applied": [], "skipped": [], "error": ""}
 
     # Lấy danh sách file thay đổi trong commit
@@ -210,7 +235,7 @@ def apply_commit(upstream: Path, sha: str, msg: str, protected: list[str], dry_r
         if not old_exists and new_exists and is_risky_new(mapped):
             blocked.append(f"risky-new:{mapped}")
 
-    if blocked:
+    if blocked and not allow_partial:
         result["status"] = "blocked"
         result["skipped"] = blocked
         return result
@@ -255,6 +280,17 @@ def apply_commit(upstream: Path, sha: str, msg: str, protected: list[str], dry_r
         # File đã tồn tại: kiểm tra local có giống bản pre-commit không
         local_text = target.read_text(encoding="utf-8", errors="replace") if target.exists() else None
         if local_text is not None and local_text != old_text:
+            if use_3way and old_text is not None and new_text is not None:
+                merged = merge_3way(local_text, old_text, new_text)
+                if merged is None:
+                    result["skipped"].append(f"3way-conflict:{mapped}")
+                    continue
+                if dry_run:
+                    result["applied"].append(f"3way:{mapped}")
+                    continue
+                target.write_text(merged, encoding="utf-8")
+                result["applied"].append(f"3way:{mapped}")
+                continue
             result["skipped"].append(f"diverged:{mapped}")
             continue
 
@@ -301,6 +337,8 @@ def main() -> int:
     parser.add_argument("--since", default="2026-07-15", help="Start date")
     parser.add_argument("--until", default="2026-08-10", help="End date")
     parser.add_argument("--dry-run", action="store_true", help="Only show what would happen")
+    parser.add_argument("--allow-partial", action="store_true", help="Apply non-protected files even if commit contains protected files")
+    parser.add_argument("--3way", dest="use_3way", action="store_true", help="Use 3-way merge for diverged files")
     args = parser.parse_args()
 
     upstream = Path(args.upstream) if args.upstream else Path(tempfile.gettempdir()) / "ahd-upstream"
@@ -317,7 +355,7 @@ def main() -> int:
     results: list[dict[str, Any]] = []
     for sha, msg in commits:
         print(f"\n[COMMIT] {sha} {msg}")
-        res = apply_commit(upstream, sha, msg, protected, args.dry_run)
+        res = apply_commit(upstream, sha, msg, protected, args.dry_run, args.allow_partial, args.use_3way)
         results.append(res)
         print(f"  status: {res['status']}")
         if res["applied"]:
