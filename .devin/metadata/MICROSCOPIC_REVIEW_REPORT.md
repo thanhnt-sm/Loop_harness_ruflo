@@ -148,9 +148,9 @@ Không phát hiện. `check_updates.py` lấy `GITHUB_TOKEN` từ env, không lo
 
 | ID | Severity | Description | Owner | Acceptance criteria |
 |----|----------|-------------|-------|---------------------|
-| R01 | Medium | Cập nhật `REPOS_TRACKER.current_commit` thủ công sau mỗi lần apply AHD | User / skill | `check_updates.py` không còn báo behind sai |
-| R02 | Low | Thêm `manual-review` cho canon-source `current_commit=unknown` trong `check_updates.py` | Skill | Report hiển thị `manual-review` thay vì `behind` |
-| R03 | Low | Cân nhắc xóa hoặc bỏ qua `AHD_PATCH_REPORT.md` cũ khi chạy dry-run để tránh dirty workspace | Skill | `is_dirty_workspace` không bị report khống |
+| R01 | Medium | Cập nhật `REPOS_TRACKER.current_commit` thủ công sau mỗi lần apply AHD | Skill | **Hoàn thành** — `apply_ahd_patch.py` tự động cập nhật khi `--source-id` được cung cấp |
+| R02 | Low | Thêm `manual-review` cho canon-source `current_commit=unknown` trong `check_updates.py` | Skill | **Hoàn thành** — Report hiển thị `manual-review` thay vì `behind` |
+| R03 | Low | Cân nhắc xóa hoặc bỏ qua `AHD_PATCH_REPORT.md` cũ khi chạy dry-run để tránh dirty workspace | Skill | **Hoàn thành** — `apply_ahd_patch.py` không ghi report trong dry-run |
 
 ---
 
