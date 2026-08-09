@@ -66,7 +66,7 @@ def _repo_root() -> Path:
     try:
         import ahd_session
         return ahd_session.get_repo_root()
-    except Exception:
+    except (ImportError, ModuleNotFoundError, SyntaxError, ValueError):
         p = Path(__file__).resolve().parent
         for parent in [p, *p.parents]:
             if (parent / ".devin").is_dir():
@@ -79,7 +79,7 @@ def _config_root(root: Path) -> Path:
     try:
         import ahd_session
         return ahd_session.get_config_root(root)
-    except Exception:
+    except (ImportError, ModuleNotFoundError, SyntaxError, ValueError):
         return root / ".devin"
 
 
@@ -124,8 +124,9 @@ def _acquire_lock(lock_path: Path, timeout: float = 5.0) -> tuple[Path, Any, boo
         import ahd_session
         handle = ahd_session._acquire_lock(lock_path, timeout=timeout)
         return (lock_path, handle, False)
-    except Exception:
-        # Fallback: không có ahd_session -> dùng sentinel đơn giản
+    except Exception as e:
+        # Fallback: không có ahd_session hoặc lock fail -> dùng sentinel đơn giản
+        print(f"[artifact_registry] ahd_session lock unavailable, fallback sentinel: {e}", file=sys.stderr)
         lock_path.parent.mkdir(parents=True, exist_ok=True)
         deadline = time.time() + timeout
         while time.time() < deadline:
@@ -153,19 +154,20 @@ def _release_lock(lock_handle: tuple[Path, Any, bool]) -> None:
         try:
             if isinstance(handle, Path) and handle.exists():
                 handle.unlink()
-        except Exception:
+        except OSError:
             pass
         return
     try:
         import ahd_session
         ahd_session._release_lock(handle)
         return
-    except Exception:
+    except Exception as e:
         # Nếu ahd release thất bại, xóa sentinel file nếu nó tồn tại để tránh leak.
+        print(f"[artifact_registry] ahd_session release failed, cleanup sentinel: {e}", file=sys.stderr)
         try:
             if lock_path.exists():
                 lock_path.unlink()
-        except Exception:
+        except OSError:
             pass
 
 
@@ -215,7 +217,7 @@ def register(
             try:
                 old = json.loads(path.read_text(encoding="utf-8"))
                 version = int(old.get("version", 1)) + 1
-            except Exception:
+            except (json.JSONDecodeError, TypeError, ValueError, OSError, UnicodeDecodeError):
                 version = 1
 
         artifact = Artifact(
@@ -256,7 +258,7 @@ def get(type: str, id: str, root: Path | None = None) -> Optional[Artifact]:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
         return Artifact.model_validate(data)
-    except Exception:
+    except (json.JSONDecodeError, TypeError, ValueError, OSError, UnicodeDecodeError):
         return None
 
 
@@ -296,7 +298,7 @@ def _cli() -> int:
             return 1
         try:
             schema = json.loads(sys.argv[4])
-        except Exception as e:
+        except (json.JSONDecodeError, TypeError, ValueError) as e:
             print(f"schema JSON không hợp lệ: {e}", file=sys.stderr)
             return 1
         register(sys.argv[2], sys.argv[3], schema)

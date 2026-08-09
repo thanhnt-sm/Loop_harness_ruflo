@@ -82,7 +82,7 @@ def _repo_root() -> Path:
     try:
         import ahd_session
         return ahd_session.get_repo_root()
-    except Exception:
+    except (ImportError, ModuleNotFoundError, SyntaxError, ValueError):
         p = Path(__file__).resolve().parent
         for parent in [p, *p.parents]:
             if (parent / ".devin").is_dir():
@@ -95,7 +95,7 @@ def _config_root(root: Path) -> Path:
     try:
         import ahd_session
         return ahd_session.get_config_root(root)
-    except Exception:
+    except (ImportError, ModuleNotFoundError, SyntaxError, ValueError):
         return root / ".devin"
 
 
@@ -130,7 +130,7 @@ def _enforce_retention(root: Path | None = None) -> int:
             if f.stat().st_mtime < cutoff:
                 f.unlink()
                 deleted += 1
-        except Exception:
+        except OSError:
             pass
     return deleted
 
@@ -216,7 +216,7 @@ def recall(run_id: str, root: Path | None = None) -> list[dict[str, Any]]:
                 data = json.loads(f.read_text(encoding="utf-8"))
                 data["path"] = str(f)
                 results.append(data)
-            except Exception:
+            except (json.JSONDecodeError, TypeError, ValueError, OSError, UnicodeDecodeError):
                 continue
     # Sắp xếp theo timestamp
     results.sort(key=lambda x: x.get("timestamp", 0.0))

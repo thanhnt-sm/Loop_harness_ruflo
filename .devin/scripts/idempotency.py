@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
 import time
 from pathlib import Path
 from typing import Any, Callable, Optional
@@ -45,7 +46,7 @@ def _repo_root() -> Path:
     try:
         import ahd_session
         return ahd_session.get_repo_root()
-    except Exception:
+    except (ImportError, ModuleNotFoundError, SyntaxError, ValueError):
         p = Path(__file__).resolve().parent
         for parent in [p, *p.parents]:
             if (parent / ".devin").is_dir():
@@ -58,7 +59,7 @@ def _config_root(root: Path) -> Path:
     try:
         import ahd_session
         return ahd_session.get_config_root(root)
-    except Exception:
+    except (ImportError, ModuleNotFoundError, SyntaxError, ValueError):
         return root / ".devin"
 
 
@@ -89,12 +90,12 @@ def _read_ledger(path: Path) -> dict[str, Any]:
                 continue
             try:
                 entry = json.loads(line)
-            except Exception:
+            except (json.JSONDecodeError, TypeError, ValueError):
                 continue
             key = entry.get("key")
             if key is not None:
                 results[key] = entry.get("result")
-    except Exception:
+    except (OSError, UnicodeDecodeError):
         pass
     return results
 
@@ -145,7 +146,8 @@ def register(
         import ahd_session
         handle = ahd_session._acquire_lock(lock, timeout=5.0)
         lock_acquired = handle is not None
-    except Exception:
+    except Exception as e:
+        print(f"[idempotency] ahd_session lock unavailable, try filelock fallback: {e}", file=sys.stderr)
         handle = None
 
     if not lock_acquired:
@@ -162,7 +164,7 @@ def register(
                 "idempotency.register: không lấy được lock và filelock không có sẵn; "
                 "từ chối chạy unlocked để tránh race condition"
             )
-        except Exception as exc:
+        except (TimeoutError, OSError, RuntimeError) as exc:
             raise RuntimeError(
                 f"idempotency.register: không lấy được lock cho run_id={run_id}: {exc}"
             ) from exc
@@ -194,10 +196,11 @@ def register(
             try:
                 import ahd_session
                 ahd_session._release_lock(handle)
-            except Exception:
+            except Exception as e:
                 # Pentest fix: handle có thể là filelock FileLock trực tiếp
                 # (fallback) — thử release() trực tiếp.
+                print(f"[idempotency] ahd_session release failed, try direct release: {e}", file=sys.stderr)
                 try:
                     handle.release()
-                except Exception:
+                except (AttributeError, RuntimeError, OSError):
                     pass

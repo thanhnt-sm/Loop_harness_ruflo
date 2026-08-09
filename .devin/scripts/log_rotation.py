@@ -38,7 +38,7 @@ def rotate_log(log_path: Path, max_rotated: int = MAX_ROTATED_FILES) -> bool:
             sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "hooks"))
             import ahd_session
             lock = ahd_session._acquire_lock(lock_path, timeout=5.0)
-        except Exception:
+        except (ImportError, ModuleNotFoundError, SyntaxError, ValueError):
             lock = None
 
         # Rotate: log → log.1, log.1 → log.2, etc. dùng os.replace (atomic trên cùng FS).
@@ -58,7 +58,7 @@ def rotate_log(log_path: Path, max_rotated: int = MAX_ROTATED_FILES) -> bool:
 
         print(f"[ROTATED] {log_path} ({size} bytes → rotated to {rotated})")
         return True
-    except Exception as e:
+    except (OSError, UnicodeDecodeError) as e:
         print(f"[log_rotation] ERROR rotating {log_path}: {e}", file=sys.stderr)
         return False
     finally:
@@ -66,7 +66,7 @@ def rotate_log(log_path: Path, max_rotated: int = MAX_ROTATED_FILES) -> bool:
             try:
                 import ahd_session
                 ahd_session._release_lock(lock)
-            except Exception:
+            except (ImportError, ModuleNotFoundError, SyntaxError, ValueError):
                 pass
 
 

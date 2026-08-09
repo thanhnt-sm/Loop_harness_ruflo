@@ -59,7 +59,7 @@ def _load_json(path: Path, default):
     try:
         if path.exists():
             return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
+    except (json.JSONDecodeError, TypeError, ValueError, OSError, UnicodeDecodeError):
         pass
     return default
 
@@ -69,7 +69,7 @@ def _save_json(path: Path, data) -> None:
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(data, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
-    except Exception as e:
+    except (OSError, UnicodeDecodeError, TypeError, ValueError) as e:
         print(f"[checkpoint] khong the ghi {path}: {e}", file=sys.stderr)
 
 
@@ -135,7 +135,7 @@ def _default_redact_patterns() -> list[str]:
                 if p not in merged:
                     merged.append(p)
             return merged
-    except Exception:
+    except (json.JSONDecodeError, TypeError, ValueError, OSError, UnicodeDecodeError):
         pass
     return default_patterns
 
@@ -283,7 +283,7 @@ def _load_workflow(root: Path, workflow_path: Path) -> dict | None:
         data = json.loads(workflow_path.read_text(encoding="utf-8"))
         if isinstance(data, dict):
             return data
-    except Exception as e:
+    except (json.JSONDecodeError, TypeError, ValueError, OSError, UnicodeDecodeError) as e:
         print(f"[ERROR] Workflow file hong: {e}")
         return None
     return None
@@ -333,7 +333,7 @@ def cmd_save(root: Path, workflow: dict, workflow_id: str, step_id: str, state_f
         return 1
     try:
         snapshot = json.loads(state_path.read_text(encoding="utf-8"))
-    except Exception as e:
+    except (json.JSONDecodeError, TypeError, ValueError, OSError, UnicodeDecodeError) as e:
         print(f"[ERROR] State file hong: {e}")
         return 1
 
@@ -433,7 +433,7 @@ def cmd_restore(root: Path, workflow: dict, workflow_id: str, failed_step: str) 
     # Bước 2: doc checkpoint (xu ly state hong)
     try:
         checkpoint = json.loads(safe_ckpt.read_text(encoding="utf-8"))
-    except Exception as e:
+    except (json.JSONDecodeError, TypeError, ValueError, OSError, UnicodeDecodeError) as e:
         print(f"[WARN] Checkpoint hong, bo qua: {safe_ckpt} ({e})")
         # Thu checkpoint ke tiep
         return 1
