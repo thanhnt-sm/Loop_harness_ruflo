@@ -14,8 +14,8 @@
 | Upstream repo | https://github.com/alchaincyf/nuwa-skill |
 | Upstream license | MIT (see `LICENSE` in this directory) |
 | Vendored from branch | `main` |
-| Vendored on | 2026-07-07 |
-| Upstream commit SHA | `72857dc720f4d1dd3e68a40a544341dfc65ea33e` |
+| Vendored on | 2026-08-09 |
+| Upstream commit SHA | `27642f5bfed2dc1bbf8ee59a2c1ee602a626bbd7` |
 | Author | alchaincyf |
 | Purpose | Cognitive-diversity skill distillation factory for the Nuwa Team |
 
