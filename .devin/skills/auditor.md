@@ -13,7 +13,14 @@ triggers:
 - Khi cần security review
 - Khi cần find failure modes
 
-## Cách dùng
+## Trigger
+- Every 5 iterations (mandatory periodic breadth pass — 8 fixed angles).
+- After a large output (>5 files or >200 lines changed).
+- Before declaring a task complete — **but the done-gate itself is `fable-judge`** (event-driven,
+  every done-declaration, focused on claims + frauds + verbatim gate lines per
+  `distill/canon/VERIFICATION_PROTOCOL.md §Verbatim execution gates`). Run fable-judge first;
+  Auditor adds the 8-angle breadth sweep. See `distill/skills/fable-judge.md`.
+- Keywords: auditor, adversarial audit, AUDITOR MODE.
 
 1. **Read the diff** — inspect all changed files
 2. **Red-team analysis** — find:

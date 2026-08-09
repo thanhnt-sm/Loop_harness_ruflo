@@ -457,7 +457,7 @@ slop-scan pins mature OSS to pre-AI commits (before 2025-01-01). **AI repos scor
 - **Placeholder code (`pass`, `TODO`) = AI gave up.** Worse than no function — illusion of coverage. Flag all.
 - **Hedging comments = AI uncertainty.** `# should work hopefully` → human review signal.
 - **Explanation bloat = restating the code.** `# loop through items` above `for x in items:` adds zero information, consumes tokens, rots when code changes. Detect: comment text ≈ code semantics. Source: arXiv 2605.02741 (Volume-Quality Inverse Law).
-- **Version stacking = context rot in-file.** `<!-- v2 -->`, `# v3 fixed X`, `<!-- updated 2026-07-15 -->` accumulated across edits. Version truth = git + append-only `CHANGELOG.md`, never in-file stacking. Source: arXiv 2606.09090 (Context Rot).
+- **Version stacking = context rot in-file.** `<!-- v2 -->`, `# v3 fixed X`, `<!-- updated 2026-07-15 -->` accumulated across edits. Version truth = git + append-only `CHANGELOG.md`, never in-file stacking. Source: arXiv 2606.09090 (Context Rot). `scripts/sync.py --canon` rejects canon files with stacked header markers.
 ## Verbatim execution gates
 > Source: Sahir619/fable-method (MIT), Steps 3-6 verbatim gates. Distilled 2026-07-17.
 > These are mechanical, auditable, anti-fabrication gates. The model must leave the named line
@@ -545,12 +545,12 @@ is a mechanical check, not a judgment call — `fable-judge` automates it.
   gate's verbatim requirement (naming a detour) fires only when the task routes away from the loop.
 
 ## In this harness
-- `.devin/canon/VERIFICATION_PROTOCOL.md` — the rule, shipped to every tool.
-- `.devin/agents/workers/VERIFIER.md` — the Verifier worker (fresh context, checklist).
-- `.devin/agents/workers/AUDITOR.md` — the Auditor worker (fresh context, adversarial).
-- `.devin/skills/fable-judge.md` — adversarial "done" gate; re-runs claimed verifications, hunts frauds, sweeps verbatim gate lines (INTENT/AUTH/TWINS/PENDING). Fires on every "done" declaration.
-- `.devin/skills/harness-sensor.md` — the computational sensor (deterministic checks).
-- `tools/verify-workspace.ps1` — the deployer's own verification (read-back after sync).
+- `distill/canon/VERIFICATION_PROTOCOL.md` — the rule, shipped to every tool.
+- `distill/orchestrator/workers/VERIFIER.md` — the Verifier worker (fresh context, checklist).
+- `distill/orchestrator/workers/AUDITOR.md` — the Auditor worker (fresh context, adversarial).
+- `distill/skills/fable-judge.md` — adversarial "done" gate; re-runs claimed verifications, hunts frauds, sweeps verbatim gate lines (INTENT/AUTH/TWINS/PENDING). Fires on every "done" declaration.
+- `distill/skills/harness-sensor.md` — the computational sensor (deterministic checks).
+- `scripts/verify.py` — the deployer's own verification (read-back after sync).
 ## The honest limit
 Verification can confirm: the file exists, the build passes, the criteria are met, the marker is present. It cannot confirm: the design is good, the taste is right, the choice among valid options is the best one. For those, escalate to a human. That's not a failure — it's the honest clause in action.
 

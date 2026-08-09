@@ -57,7 +57,7 @@ Run `slop-detector` on:
 - After a large output (>5 files or >200 lines changed).
 - Before declaring a task complete — **but the done-gate itself is `fable-judge`** (event-driven,
   every done-declaration, focused on claims + frauds + verbatim gate lines). Dispatch fable-judge
-  first; Auditor adds the 8-angle breadth sweep. See `.devin/skills/fable-judge.md`.
+  first; Auditor adds the 8-angle breadth sweep. See `distill/skills/fable-judge.md`.
 - Keywords: auditor, adversarial audit, AUDITOR MODE.
 
 ## Model tier
