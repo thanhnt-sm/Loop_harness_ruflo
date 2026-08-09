@@ -613,11 +613,31 @@ class BaseAdapter:
         # Hook helper
         reps.append(("core/assets/runtime/hooks/ahd_session.py", scripts_dst + "ahd_session.py"))
         # Runtime state directory: rewrite canonical .agents/ placeholder to the
-        # tool's actual config root. This covers all canon text references like
-        # .agents/loop_state.md, .agents/session_state/, .agents/knowledge_distill.md, etc.
+        # tool's actual config root. This covers canon/skills/scripts references.
         # Only added when the runtime root differs from the placeholder.
         if runtime_root != ".agents":
             reps.append((".agents/", runtime_root + "/"))
+            # State files are project-owned and always live at .agents/ (the
+            # canonical state root). They are NOT deployed to each tool's config
+            # root, so we must reverse the blanket replacement above for these
+            # specific paths. Without this, Codex/Windsurf/Devin would look for
+            # .codex/loop_state.md etc. which don't exist.
+            state_files = [
+                "loop_state.md",
+                "knowledge_distill.md",
+                "user_profile.md",
+                "handoff_letter.md",
+                "context_quick_lookup.md",
+            ]
+            state_dirs = [
+                "loop_state/",
+                "session_state/",
+                "context_flags/",
+            ]
+            for sf in state_files:
+                reps.append((f"{runtime_root}/{sf}", f".agents/{sf}"))
+            for sd in state_dirs:
+                reps.append((f"{runtime_root}/{sd}", f".agents/{sd}"))
         return reps
 
     def _rewrite_text(self, text: str) -> str:
