@@ -176,7 +176,7 @@ def commit_changes(sha: str, msg: str) -> bool:
     return True
 
 
-def apply_commit(upstream: Path, sha: str, msg: str, protected: list[str], dry_run: bool) -> dict[str, Any]:
+def apply_commit(upstream: Path, sha: str, msg: str, protected: list[str], dry_run: bool, allow_partial: bool = False) -> dict[str, Any]:
     result: dict[str, Any] = {"sha": sha, "msg": msg, "status": "pending", "applied": [], "skipped": [], "error": ""}
 
     # Lấy danh sách file thay đổi trong commit
@@ -210,7 +210,7 @@ def apply_commit(upstream: Path, sha: str, msg: str, protected: list[str], dry_r
         if not old_exists and new_exists and is_risky_new(mapped):
             blocked.append(f"risky-new:{mapped}")
 
-    if blocked:
+    if blocked and not allow_partial:
         result["status"] = "blocked"
         result["skipped"] = blocked
         return result
@@ -301,6 +301,7 @@ def main() -> int:
     parser.add_argument("--since", default="2026-07-15", help="Start date")
     parser.add_argument("--until", default="2026-08-10", help="End date")
     parser.add_argument("--dry-run", action="store_true", help="Only show what would happen")
+    parser.add_argument("--allow-partial", action="store_true", help="Apply non-protected files even if commit contains protected files")
     args = parser.parse_args()
 
     upstream = Path(args.upstream) if args.upstream else Path(tempfile.gettempdir()) / "ahd-upstream"
@@ -317,7 +318,7 @@ def main() -> int:
     results: list[dict[str, Any]] = []
     for sha, msg in commits:
         print(f"\n[COMMIT] {sha} {msg}")
-        res = apply_commit(upstream, sha, msg, protected, args.dry_run)
+        res = apply_commit(upstream, sha, msg, protected, args.dry_run, args.allow_partial)
         results.append(res)
         print(f"  status: {res['status']}")
         if res["applied"]:
