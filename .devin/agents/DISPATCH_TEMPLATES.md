@@ -1,7 +1,7 @@
 # Dispatch Templates — Worker Prompts
 
 > Copy-paste fill-in templates. Every dispatch uses one. No free-form "go research X."
-> Reference: agency-agents vibe pattern + masteryee-labs dispatch protocol.
+> Reference: AI_Subagent_Templates v7.6 (masteryee-labs) + agency-agents vibe pattern.
 >
 > **Parallel dispatch requires worktree + file ownership.** Before dispatching multiple
 > Builders in parallel, run:
