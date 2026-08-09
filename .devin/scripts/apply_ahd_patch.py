@@ -328,7 +328,7 @@ def main() -> int:
             print(f"  error: {res['error']}")
 
     # Ghi report
-    report_path = REPO_ROOT / "AHD_PATCH_REPORT.md"
+    report_path = REPO_ROOT / ".devin" / "metadata" / "AHD_PATCH_REPORT.md"
     lines = ["# AHD Cherry-Pick Report", "", f"Upstream: {upstream}", f"Range: {args.since} .. {args.until}", ""]
     for r in results:
         lines.append(f"## {r['sha']} — {r['msg']}")
