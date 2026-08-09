@@ -5,34 +5,54 @@ triggers:
   - model
 ---
 
-# User Preference — Learn & Apply Preferences
+# Skill: user-preference
 
-## Khi nào dùng
-- Khi user expresses a preference (explicit or implicit)
-- Khi user corrects agent behavior
-- Khi session starts (recall preferences)
+> Remember the user, not just the task.
 
-## Cách dùng
+## Trigger
+- At BOOT, after reading `loop_state.md` and `knowledge_distill.md`.
+- Whenever the user states a preference (language, model, style, "never do X").
+- When the user corrects the agent or rejects an approach.
 
-1. **Recall** — aide_recall "user-preference" at session start
-2. **Detect preferences** — from:
-   - Explicit statements: "I prefer X"
-   - Corrections: "No, do it this way"
-   - Patterns: user always rejects verbose output
-   - Edits: user removes comments, prefers compact code
-3. **Store** — aide_remember with tag "user-preference"
-   - Category: coding, communication, tools, workflow
-   - Confidence: how strong is the signal?
-4. **Apply** — use preferences in all subsequent work
-5. **Update** — when user corrects, update stored preference
+## When to run
+At BOOT and after any explicit preference statement.
 
-## Categories
-- **Coding**: naming, style, comment density, file organization
-- **Communication**: language, verbosity, format, detail level
-- **Tools**: preferred commands, editors, test frameworks
-- **Workflow**: commit style, branch naming, PR format
+## How
 
-## Output format
+1. Read `.agents/user_profile.md` if it exists.
+2. If it does not exist, create it from the template:
+   ```yaml
+   ---
+   language: "zh|en|auto"
+   preferred_model_tier: "cheap|mid|high"
+   project_type: "unknown"
+   communication_style: "caveman|verbose|balanced"
+   never_read: []
+   custom_red_lines: []
+   project_rules_dir: ""
+   project_rules_index: ""
+   updated_at: ""
+   ---
+   ```
+3. Update fields based on the current session:
+   - `language` from user input.
+   - `preferred_model_tier` from model choices.
+   - `project_type` from repo analysis (e.g., python, web, godot).
+   - `communication_style` from user feedback.
+   - `never_read` from files the user says to skip.
+   - `custom_red_lines` from user-imposed constraints.
+   - `project_rules_dir` if the project has a `.agents/rules/` directory with detailed project-specific rules.
+   - `project_rules_index` if there's an index file (e.g., `.agents/rules/project_rules.md`).
+4. Keep the file < 2KB. Merge, don't append blindly.
+5. Write `updated_at`.
+
+## Output
+```
+## User profile
+- loaded from: .agents/user_profile.md
+- updated: <fields>
+- active constraints: <list>
+```
 
 ```text
 USER PREFERENCES: <count> active
