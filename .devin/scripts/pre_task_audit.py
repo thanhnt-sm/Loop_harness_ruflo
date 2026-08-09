@@ -158,6 +158,16 @@ def run_inline(root: Path, files: str = "", tags: str = "", session_id: str = ""
         }
 
 
+    except Exception as e:
+        return {
+            "ok": False,
+            "error": str(e),
+            "active_sessions_count": 0,
+            "max_active_sessions": MAX_ACTIVE_SESSIONS,
+            "conflicts": [],
+        }
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Pre-task audit for active session conflicts")
     ap.add_argument("--files", default="", help="comma-separated file paths for the new task")

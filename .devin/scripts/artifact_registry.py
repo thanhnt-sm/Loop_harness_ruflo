@@ -124,6 +124,22 @@ def _acquire_lock(lock_path: Path, timeout: float = 5.0) -> tuple[Path, Any, boo
         import ahd_session
         handle = ahd_session._acquire_lock(lock_path, timeout=timeout)
         return (lock_path, handle, False)
+    except (ImportError, ModuleNotFoundError, SyntaxError, ValueError) as e:
+        # Fallback: không có ahd_session hoặc lock fail -> dùng sentinel đơn giản
+        print(f"[artifact_registry] ahd_session lock unavailable, fallback sentinel: {e}", file=sys.stderr)
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            try:
+                fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                os.write(fd, str(os.getpid()).encode("utf-8"))
+                os.close(fd)
+                return (lock_path, lock_path, True)
+            except FileExistsError:
+                time.sleep(0.05)
+        return (lock_path, None, True)
+
+
     except Exception as e:
         # Fallback: không có ahd_session hoặc lock fail -> dùng sentinel đơn giản
         print(f"[artifact_registry] ahd_session lock unavailable, fallback sentinel: {e}", file=sys.stderr)

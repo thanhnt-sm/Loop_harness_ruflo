@@ -117,6 +117,12 @@ def _write_fallback(root: Path, operation: str, error: str) -> None:
         pass
 
 
+    except Exception as e:
+        # Last resort: can't even write fallback
+        print(f"[loop_memory_sync] fallback write failed: {e}", file=sys.stderr)
+        pass
+
+
 def _safe_regenerate(root: Path, session_id: str = "", status: str = "") -> None:
     """U06: Wrapper around regenerate() with fallback on failure."""
     try:
