@@ -1,0 +1,151 @@
+{
+  "schema_version": "1.0",
+  "last_check": "2026-08-09T06:26:35.817999+00:00",
+  "sources": [
+    {
+      "id": "ahd-main-engine",
+      "type": "repo",
+      "url": "https://github.com/masteryee-labs/Tool.Agent-Harness-Deploy",
+      "branch": "main",
+      "current_commit": "c327869",
+      "upstream_commit": "7045406",
+      "current_commit_full": "c3278694a7b73a4e92addfba18ceb1b2e1d98b1f",
+      "upstream_commit_full": "704540651f31dadf5888728f33245dd30dc611b8",
+      "status": "behind",
+      "priority": "P1",
+      "merge_strategy": "surgical-cherry-pick",
+      "protected_files": [
+        ".devin/hooks/pre_tool_use.py",
+        ".devin/hooks/post_tool_use.py",
+        ".devin/hooks/session_start.py",
+        ".devin/hooks/ahd_session.py",
+        ".devin/config.json",
+        ".devin/canon/BOOT_PROTOCOL.md",
+        ".devin/canon/CORE_CANON.md",
+        ".devin/AGENTS.md",
+        ".devin/AGENTS_full.md",
+        "HLK/**",
+        ".claude/settings.json",
+        ".gitignore",
+        ".gitattributes"
+      ],
+      "impact_zone": [
+        ".devin/",
+        "HLK/"
+      ],
+      "notes": "Local deploy commit c327869 not in upstream; AHD update must be surgical only.",
+      "last_checked": "2026-08-09T06:26:32.831631+00:00"
+    },
+    {
+      "id": "nuwa-skill",
+      "type": "vendored-skill",
+      "url": "https://github.com/alchaincyf/nuwa-skill",
+      "branch": "main",
+      "current_commit": "27642f5",
+      "upstream_commit": "27642f5",
+      "current_commit_full": "27642f5bfed2dc1bbf8ee59a2c1ee602a626bbd7",
+      "upstream_commit_full": "27642f5bfed2dc1bbf8ee59a2c1ee602a626bbd7",
+      "status": "up-to-date",
+      "priority": "P0",
+      "merge_strategy": "direct-copy-vendored",
+      "vendored_path": ".devin/skills/nuwa-skill/",
+      "protected_files": [],
+      "impact_zone": [
+        ".devin/skills/nuwa-skill/"
+      ],
+      "notes": "Updated to 27642f5 on 2026-08-09. Core files only, 3 examples kept.",
+      "last_checked": "2026-08-09T06:26:33.294664+00:00"
+    },
+    {
+      "id": "caveman",
+      "type": "canon-source",
+      "url": "https://github.com/JuliusBrussee/caveman",
+      "branch": "main",
+      "current_commit": "unknown",
+      "upstream_commit": "11ddc0c",
+      "current_commit_full": "",
+      "upstream_commit_full": "11ddc0c9813c8f75365cd5be2f753df08712f154",
+      "status": "behind",
+      "priority": "P3",
+      "merge_strategy": "manual-canon-update",
+      "impact_zone": [
+        ".devin/canon/CAVEMAN_PROTOCOL.md"
+      ],
+      "notes": "Concepts distilled into CAVEMAN_PROTOCOL.md; update only if new concepts.",
+      "last_checked": "2026-08-09T06:26:33.760923+00:00"
+    },
+    {
+      "id": "agency-agents",
+      "type": "canon-source",
+      "url": "https://github.com/msitarzewski/agency-agents",
+      "branch": "main",
+      "current_commit": "unknown",
+      "upstream_commit": "ebe9c99",
+      "current_commit_full": "",
+      "upstream_commit_full": "ebe9c99acb5c96f9468de368d8bead775387d1a7",
+      "status": "behind",
+      "priority": "P3",
+      "merge_strategy": "manual-canon-update",
+      "impact_zone": [
+        ".devin/canon/COMMANDER.md",
+        ".devin/agents/PERSONA_TEMPLATE.md"
+      ],
+      "notes": "Concepts distilled into COMMANDER.md / PERSONA_TEMPLATE.md.",
+      "last_checked": "2026-08-09T06:26:34.227076+00:00"
+    },
+    {
+      "id": "superpowers",
+      "type": "canon-source",
+      "url": "https://github.com/obra/superpowers",
+      "branch": "main",
+      "current_commit": "unknown",
+      "upstream_commit": "44c9b2d",
+      "current_commit_full": "",
+      "upstream_commit_full": "44c9b2d6e889982ac18c27d05a19fefe335194e1",
+      "status": "behind",
+      "priority": "P3",
+      "merge_strategy": "manual-canon-update",
+      "impact_zone": [
+        ".devin/canon/COMMANDER.md"
+      ],
+      "notes": "Concepts distilled into COMMANDER.md / systematic_debugging.md / tdd.md.",
+      "last_checked": "2026-08-09T06:26:34.665211+00:00"
+    },
+    {
+      "id": "loop-engineering",
+      "type": "canon-source",
+      "url": "https://github.com/cobusgreyling/loop-engineering",
+      "branch": "main",
+      "current_commit": "unknown",
+      "upstream_commit": "75dba7a",
+      "current_commit_full": "",
+      "upstream_commit_full": "75dba7aeebfa527cd981f4cb0e2146676c538c8a",
+      "status": "behind",
+      "priority": "P3",
+      "merge_strategy": "manual-canon-update",
+      "impact_zone": [
+        ".devin/canon/LOOP_PROTOCOL.md"
+      ],
+      "notes": "Concepts distilled into LOOP_PROTOCOL.md.",
+      "last_checked": "2026-08-09T06:26:35.123243+00:00"
+    },
+    {
+      "id": "fable-method",
+      "type": "canon-source",
+      "url": "https://github.com/Sahir619/fable-method",
+      "branch": "main",
+      "current_commit": "unknown",
+      "upstream_commit": "88b5cf3",
+      "current_commit_full": "",
+      "upstream_commit_full": "88b5cf36b10ee3679e08ee0f0181b9774d481508",
+      "status": "behind",
+      "priority": "P3",
+      "merge_strategy": "manual-canon-update",
+      "impact_zone": [
+        ".devin/canon/fable-judge.md"
+      ],
+      "notes": "Concepts distilled into fable-judge.md.",
+      "last_checked": "2026-08-09T06:26:35.817953+00:00"
+    }
+  ]
+}
