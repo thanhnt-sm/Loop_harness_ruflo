@@ -151,9 +151,44 @@
 
 ---
 
-## 8. Sign-off
+## 9. Regression / Old-code impact
+
+> Phần này bắt buộc phải điền để đảm bảo update không làm hỏng hoặc "chết" code cũ.
+
+### 9.1 Files changed / added / deleted
+
+| File | Status | Old code impacted? | Mitigation | Verified |
+|------|--------|--------------------|------------|----------|
+| | | | | |
+
+### 9.2 Deletion / rename audit
+
+| File | Upstream action | Local action | References found | Verdict |
+|------|-----------------|--------------|------------------|---------|
+| | | | | |
+
+### 9.3 Local customization preserved
+
+| File | Customization | Upstream change | Kept? | Notes |
+|------|---------------|-----------------|-------|-------|
+| | | | | |
+
+### 9.4 Import / runtime smoke
+
+| Test | Command | Result |
+|------|---------|--------|
+| `py_compile` all `.py` | `python -m py_compile <files>` | |
+| `import_smoke_test.py` | `python tools/import_smoke_test.py` | |
+| `harness-sensor` code mode | | |
+
+### 9.5 Regression findings
+
+- <!-- mọi dấu hiệu code cũ bị ảnh hưởng, dù nhỏ nhất -->
+
+## 10. Sign-off
 
 - [ ] Tất cả findings đã ghi nhận.
+- [ ] Regression / old-code impact đã điền.
 - [ ] Recommendations đã ưu tiên.
 - [ ] Verification log PASS.
 - [ ] User đã duyệt trước khi merge/push.

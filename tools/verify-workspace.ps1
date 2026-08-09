@@ -93,6 +93,7 @@ Check-File '.devin/skills/glm/SKILL.md' 'GLM skill'
 Check-File '.devin/skills/aide-memory/SKILL.md' 'aide-memory skill'
 Check-File '.devin/skills/hlk-git-tools/SKILL.md' 'HLK git tools skill'
 Check-File '.devin/skills/hlk-integrity-check/SKILL.md' 'HLK integrity check skill'
+Check-File '.devin/skills/update_from_repos/SKILL.md' 'update_from_repos skill'
 
 # --- 4. Hooks (4 files) ---
 Write-Host "`n[4/8] Hooks (.devin/hooks/)" -ForegroundColor Yellow

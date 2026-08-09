@@ -57,6 +57,7 @@ Skipping skills = paying the lesson's cost again every time.
 | Skill | Use when... |
 |-------|-------------|
 | `harness-sensor` | Code or files have been modified |
+| `update_from_repos` | Updating workspace from upstream repos in `REPOS.md` |
 | `comment_checker` | After code edits that touch comments, or before declaring a code task complete |
 | `slop-detector` | After generating user-facing prose, docs, naming, or abstractions |
 | `fable-judge` | Before declaring "done" — adversarial done gate |
@@ -67,7 +68,7 @@ Skipping skills = paying the lesson's cost again every time.
 | Type | What it does | Examples |
 |------|-------------|----------|
 | **Process** | Sets the *approach* — how to think about the task | using-skills, comment_checker, slop-detector, fable-judge |
-| **Implementation** | Does the *work* — executes a specific capability | harness-sensor |
+| **Implementation** | Does the *work* — executes a specific capability | harness-sensor, update_from_repos |
 
 Process skills run first. They shape the approach. Implementation skills run when their
 trigger condition is met during execution.
