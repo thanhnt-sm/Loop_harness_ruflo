@@ -190,7 +190,11 @@ def audit() -> dict:
     for md in sorted(all_md):
         if _should_exclude(md):
             continue
-        text = md.read_text(encoding="utf-8", errors="ignore")
+        try:
+            text = md.read_text(encoding="utf-8")
+        except UnicodeDecodeError as e:
+            print(f"[WARN] Encoding lỗi trong {md}: {e}", file=sys.stderr)
+            text = md.read_text(encoding="utf-8", errors="replace")
 
         # Markdown links
         for ref in _extract_markdown_links(text):

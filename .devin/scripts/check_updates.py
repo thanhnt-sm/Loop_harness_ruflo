@@ -18,16 +18,21 @@ import argparse
 import json
 import os
 import sys
+import time
+import traceback
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_TRACKER = REPO_ROOT / ".devin" / "metadata" / "REPOS_TRACKER.json"
-DEFAULT_OUTPUT = REPO_ROOT / "UPDATES_REPORT.md"
+from update_common import (
+    REPO_ROOT,
+    guard_main_branch,
+    is_dirty_workspace,
+    load_tracker,
+    save_tracker,
+)
 
 
 def get_github_token() -> str:
@@ -48,9 +53,18 @@ def github_api_get(url: str, token: str = "") -> dict[str, Any]:
         with urllib.request.urlopen(req, timeout=30) as resp:
             return json.load(resp)
     except urllib.error.HTTPError as e:
+        if e.code == 403:
+            print(f"[WARN] Rate limit / forbidden khi gọi {url}: {e}", file=sys.stderr)
+            time.sleep(5)
         return {"error": f"HTTP {e.code}: {e.reason}", "url": url}
+    except urllib.error.URLError as e:
+        return {"error": f"URL error: {e.reason}", "url": url}
+    except TimeoutError:
+        return {"error": "Request timeout", "url": url}
+    except json.JSONDecodeError as e:
+        return {"error": f"Invalid JSON response: {e}", "url": url}
     except Exception as e:
-        return {"error": str(e), "url": url}
+        return {"error": f"Unexpected: {e}", "url": url, "traceback": traceback.format_exc()}
 
 
 def parse_repo_url(url: str) -> tuple[str, str] | None:
@@ -96,19 +110,6 @@ def check_repo(source: dict[str, Any], token: str) -> dict[str, Any]:
     }
 
 
-def load_tracker(path: Path) -> dict[str, Any]:
-    """Đọc tracker JSON."""
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-
-def save_tracker(path: Path, data: dict[str, Any]) -> None:
-    """Ghi tracker JSON."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-
-
 def write_report(path: Path, tracker: dict[str, Any]) -> None:
     """Tạo báo cáo markdown từ tracker."""
     lines = [
@@ -147,7 +148,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Check upstream repos for updates.")
     parser.add_argument("--tracker", default=str(DEFAULT_TRACKER), help="Path to REPOS_TRACKER.json")
     parser.add_argument("--output", default=str(DEFAULT_OUTPUT), help="Path to report markdown")
+    parser.add_argument("--force", action="store_true", help="Cho phép chạy trên main/master hoặc workspace dirty")
     args = parser.parse_args()
+
+    if not guard_main_branch(args.force):
+        return 1
+    if is_dirty_workspace() and not args.force:
+        print("[ERROR] Workspace có uncommitted changes. Commit/stash hoặc dùng --force.", file=sys.stderr)
+        return 1
 
     tracker_path = Path(args.tracker)
     output_path = Path(args.output)

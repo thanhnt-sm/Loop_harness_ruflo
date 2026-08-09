@@ -33,8 +33,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import update_common
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+
+# REPO_ROOT được resolve từ update_common để có marker validation
+REPO_ROOT = update_common.REPO_ROOT
 TRACKER = REPO_ROOT / ".devin" / "metadata" / "REPOS_TRACKER.json"
 DEFAULT_BACKUP = REPO_ROOT / "backups"
 
@@ -177,13 +180,8 @@ def classify_file(rel: str) -> str:
 
 
 def file_hash(path: Path) -> str:
-    """Tính SHA-256 nhanh để so sánh nội dung."""
-    import hashlib
-    if not path.exists():
-        return ""
-    h = hashlib.sha256()
-    h.update(path.read_bytes())
-    return h.hexdigest()
+    """Tính SHA-256 theo chunk — dùng update_common để tránh lỗi với file lớn."""
+    return update_common.file_hash(path)
 
 
 def unified_diff_text(local_text: str, upstream_text: str, label_local: str = "local", label_upstream: str = "upstream") -> str:
@@ -226,9 +224,16 @@ def restore_directory(backup: Path, target: Path) -> bool:
 
 
 def clone_repo(url: str, dest: Path, branch: str = "main", depth: int = 50) -> bool:
-    """Clone repo upstream tạm."""
+    """Clone repo upstream tạm với URL validation."""
+    ok, msg = update_common.validate_git_url(url)
+    if not ok:
+        print(f"[ERROR] {msg}", file=sys.stderr)
+        return False
+
     if dest.exists():
         shutil.rmtree(dest)
+
+    # Clone với depth; nếu repo cũ có thể bỏ sót commit, warning sẽ hiển thị.
     cmd = ["git", "clone", f"--depth={depth}", "--branch", branch, url, str(dest)]
     code, out, err = run_cmd(cmd, timeout=180)
     if code != 0:
@@ -357,10 +362,13 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true", help="Show what would be done without applying")
     parser.add_argument("--tracker", default=str(TRACKER), help="Path to tracker")
     parser.add_argument("--force-overwrite", action="store_true", help="Overwrite local customization without prompting")
-    parser.add_argument("--force", action="store_true", help="Allow running on main/master")
+    parser.add_argument("--force", action="store_true", help="Allow running on main/master or dirty workspace")
     args = parser.parse_args()
 
     if not guard_branch(args.force):
+        return 1
+    if update_common.is_dirty_workspace() and not args.force:
+        print("[ERROR] Workspace có uncommitted changes. Commit/stash hoặc dùng --force.", file=sys.stderr)
         return 1
 
     tracker_path = Path(args.tracker)

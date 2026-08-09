@@ -2,20 +2,15 @@
 """
 apply_ahd_patch.py — surgical cherry-pick AHD commits từ upstream.
 
-Cách dùng:
-    python .devin/scripts/apply_ahd_patch.py --upstream PATH --since DATE --until DATE [--dry-run] [--auto-commit] [--worktree DIR]
+AHD = Agent Harness Deploy — upstream engine từ masteryee-labs/Tool.Agent-Harness-Deploy.
+Surgical cherry-pick = apply từng commit riêng lẻ, không bulk merge, để kiểm soát impact.
 
-Logic:
-1. Validate input (SHA, branch, worktree).
-2. Guard: không chạy trực tiếp trên main/master trừ khi --force.
-3. Tạo feature branch từ main, stash local changes.
-4. Liệt kê commit trong khoảng thời gian.
-5. Với mỗi commit, lấy diff từng file.
-6. Map path và normalize, chặn path traversal.
-7. Bỏ qua file protected, Docs/, README.md, hoặc file mới ở thư mục rủi ro.
-8. Apply nội dung, normalize text references, verify.
-9. Nếu verify fail, rollback targeted theo patched_files.
-10. Chỉ commit khi --auto-commit; mặc định in diff summary.
+Cách dùng:
+    python .devin/scripts/apply_ahd_patch.py --upstream <path-to-clone> --since YYYY-MM-DD --until YYYY-MM-DD [--dry-run] [--auto-commit] [--worktree DIR] [--max-commits N]
+
+Ví dụ:
+    python .devin/scripts/apply_ahd_patch.py --upstream /tmp/ahd-upstream --since 2026-07-15 --until 2026-08-10
+    python .devin/scripts/apply_ahd_patch.py --upstream . --since 2026-07-15 --until 2026-08-10 --max-commits 5
 """
 from __future__ import annotations
 
@@ -29,12 +24,15 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+import update_common
+
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+# REPO_ROOT lấy từ update_common để có marker validation
+REPO_ROOT = update_common.REPO_ROOT
 
 
 def _audit_log(event: str, **kwargs: Any) -> None:
@@ -75,32 +73,48 @@ def guard_main_branch(force: bool) -> tuple[bool, str]:
     return True, branch
 
 
-def setup_feature_branch() -> str:
-    """Tạo feature branch từ main, stash local changes."""
+def setup_feature_branch() -> str | None:
+    """Tạo feature branch từ main. Trả về None nếu không tạo được."""
     import time
     branch = f"feat/ahd-update-{int(time.time())}"
-    run_cmd(["git", "checkout", "-b", branch], cwd=REPO_ROOT)
+    # Kiểm tra branch đã tồn tại chưa để tránh lỗi trùng tên
+    code, out, _ = run_cmd(["git", "branch", "--list", branch], cwd=REPO_ROOT)
+    if out.strip():
+        branch = f"{branch}-{int(time.time() * 1000) % 1000}"
+    code, _, err = run_cmd(["git", "checkout", "-b", branch], cwd=REPO_ROOT)
+    if code != 0:
+        print(f"[ERROR] Cannot create feature branch: {err}")
+        return None
     return branch
 
 
-def setup_worktree(worktree_path: Path) -> Path:
-    """Tạo worktree từ main."""
+def setup_worktree(worktree_path: Path) -> Path | None:
+    """Tạo worktree từ main. Trả về None nếu không tạo được."""
     worktree_path.mkdir(parents=True, exist_ok=True)
-    run_cmd(["git", "worktree", "add", str(worktree_path), "main"], cwd=REPO_ROOT)
+    code, _, err = run_cmd(["git", "worktree", "add", str(worktree_path), "main"], cwd=REPO_ROOT)
+    if code != 0:
+        print(f"[ERROR] Cannot create worktree: {err}")
+        return None
     return worktree_path
 
 
 def stash_local_changes() -> bool:
-    """Stash local changes chưa commit."""
+    """Stash local changes chưa commit; trả về True nếu thực sự stash."""
     code, out, _ = run_cmd(["git", "status", "--short"], cwd=REPO_ROOT)
     if not out.strip():
         return False
-    run_cmd(["git", "stash", "push", "-m", "pre-ahd-patch"], cwd=REPO_ROOT)
+    code, _, err = run_cmd(["git", "stash", "push", "-m", "pre-ahd-patch"], cwd=REPO_ROOT)
+    if code != 0:
+        print(f"[WARN] Stash failed: {err}")
+        return False
     return True
 
 
 def pop_stash() -> None:
-    run_cmd(["git", "stash", "pop"], cwd=REPO_ROOT)
+    """Pop stash nếu có; thất bại thì cảnh báo chứ không crash."""
+    code, _, err = run_cmd(["git", "stash", "pop"], cwd=REPO_ROOT)
+    if code != 0:
+        print(f"[WARN] Stash pop failed: {err}")
 
 
 # Ánh xạ cấu trúc upstream -> local
@@ -418,28 +432,33 @@ def rollback_patched_files(patched_files: list[str]) -> None:
 
 def merge_3way(local_text: str, base_text: str, remote_text: str, resolve_theirs: bool = False) -> str | None:
     """Chạy git merge-file 3-way, trả nội dung merge hoặc None nếu conflict.
-    Nếu resolve_theirs=True, xung đột sẽ được giải quyết theo phía remote (upstream)."""
-    with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False, suffix="-local") as lf:
-        lf.write(local_text)
-        local_path = lf.name
-    with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False, suffix="-base") as bf:
-        bf.write(base_text)
-        base_path = bf.name
-    with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False, suffix="-remote") as rf:
-        rf.write(remote_text)
-        remote_path = rf.name
+    Nếu resolve_theirs=True, xung đột sẽ được giải quyết theo phía remote (upstream).
+    Temp file luôn được cleanup kể cả khi timeout hoặc exception."""
+    temp_paths: list[str] = []
     try:
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False, suffix="-local") as lf:
+            lf.write(local_text)
+            temp_paths.append(lf.name)
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False, suffix="-base") as bf:
+            bf.write(base_text)
+            temp_paths.append(bf.name)
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False, suffix="-remote") as rf:
+            rf.write(remote_text)
+            temp_paths.append(rf.name)
+
         cmd = ["git", "merge-file", "-p"]
         if resolve_theirs:
             cmd.append("--theirs")
-        cmd.extend([local_path, base_path, remote_path])
+        cmd.extend(temp_paths)
         proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
         if proc.returncode != 0:
-            # Có conflict
             return None
         return proc.stdout
+    except subprocess.TimeoutExpired:
+        print("[WARN] git merge-file timeout sau 60s")
+        return None
     finally:
-        for p in [local_path, base_path, remote_path]:
+        for p in temp_paths:
             try:
                 Path(p).unlink()
             except OSError:
@@ -585,23 +604,27 @@ def apply_commit(upstream: Path, sha: str, msg: str, protected: list[str], dry_r
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--upstream", default="", help="Path to cloned AHD upstream")
-    parser.add_argument("--since", default="2026-07-15", help="Start date")
-    parser.add_argument("--until", default="2026-08-10", help="End date")
+    parser.add_argument("--upstream", required=True, help="Path to clone AHD upstream (vd: /tmp/ahd-upstream hoặc .)")
+    parser.add_argument("--since", required=True, help="Ngày bắt đầu (YYYY-MM-DD)")
+    parser.add_argument("--until", required=True, help="Ngày kết thúc (YYYY-MM-DD)")
     parser.add_argument("--dry-run", action="store_true", help="Only show what would happen")
     parser.add_argument("--auto-commit", action="store_true", help="Auto-commit after verify (default: no)")
     parser.add_argument("--worktree", default="", help="Run in a git worktree")
-    parser.add_argument("--force", action="store_true", help="Allow running on main/master")
+    parser.add_argument("--force", action="store_true", help="Allow running on main/master or dirty workspace")
+    parser.add_argument("--max-commits", type=int, default=10, help="Số commit tối đa xử lý (default: 10)")
     parser.add_argument("--allow-partial", action="store_true", help="Apply non-protected files even if commit contains protected files")
     parser.add_argument("--3way", dest="use_3way", action="store_true", help="Use 3-way merge for diverged files")
     parser.add_argument("--resolve-theirs", action="store_true", help="Resolve 3-way conflicts by preferring upstream (theirs)")
     parser.add_argument("--allow-risky-new", action="store_true", help="Allow creating new files in adapters/scripts")
     args = parser.parse_args()
 
-    # Guard branch
+    # Guard branch + workspace
     ok, branch = guard_main_branch(args.force)
     if not ok:
         print(f"[ERROR] Cannot run on '{branch}'. Use feature branch or --force.")
+        return 1
+    if update_common.is_dirty_workspace() and not args.force:
+        print("[ERROR] Workspace có uncommitted changes. Commit/stash hoặc dùng --force.")
         return 1
 
     # Validate upstream/worktree paths
@@ -632,6 +655,11 @@ def main() -> int:
         if not commits:
             print("[INFO] No commits found.")
             return 0
+
+        if len(commits) > args.max_commits:
+            print(f"[ERROR] Tìm thấy {len(commits)} commits, vượt quá --max-commits={args.max_commits}.")
+            print("[HINT] Chia nhỏ khoảng thời gian hoặc tăng --max-commits một cách có chủ đích.")
+            return 1
 
         results: list[dict[str, Any]] = []
         for sha, msg in commits:

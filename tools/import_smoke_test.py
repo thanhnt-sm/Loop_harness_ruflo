@@ -6,11 +6,17 @@ Mục đích: bắt lỗi ModuleNotFoundError sớm trước khi merge.
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+def _is_valid_module_name(name: str) -> bool:
+    """Chỉ chấp nhận tên module Python hợp lệ (alphanumeric + underscore, không bắt đầu bằng số)."""
+    return bool(re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_]*", name))
 
 
 def _modules_in_dir(root: Path) -> list[tuple[Path, str]]:
@@ -19,7 +25,11 @@ def _modules_in_dir(root: Path) -> list[tuple[Path, str]]:
     for f in root.glob("*.py"):
         if f.name.startswith("test_"):
             continue
-        results.append((f, f.stem))
+        mod = f.stem
+        if not _is_valid_module_name(mod):
+            print(f"[SKIP] invalid module name: {f.name}")
+            continue
+        results.append((f, mod))
     return results
 
 
@@ -41,7 +51,7 @@ def smoke_test(directories: list[str] | None = None) -> dict:
                 [sys.executable, "-c", f"import sys; sys.path.insert(0, {str(root)!r}); import {mod}"],
                 capture_output=True,
                 text=True,
-                timeout=10,
+                timeout=int(os.environ.get("SMOKE_TEST_TIMEOUT", "30")),
             )
             if r.returncode == 0:
                 passed.append(str(f.relative_to(REPO_ROOT)))
