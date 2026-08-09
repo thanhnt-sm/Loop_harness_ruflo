@@ -91,7 +91,7 @@ def run(root: Path, session_id: str) -> None:
     sid = ahd_session.slugify_session_id(session_id)
     candidate_path = ahd_session.get_config_root(root) / "session_state" / sid / "candidate_memory.jsonl"
     # Read: fallback to old location for backward compat.
-    # Write: always to canonical .devin/ location.
+    # Write: always to canonical .agents/ location.
     read_path = ahd_session.resolve_shared_state_file("knowledge_distill.md", root)
     write_path = ahd_session.get_shared_state_root(root) / "knowledge_distill.md"
 
@@ -122,7 +122,7 @@ def run(root: Path, session_id: str) -> None:
 
     text = "\n\n".join(_format_entry(e) for e in merged)
 
-    # Write with lock to canonical .devin/ location
+    # Write with lock to canonical .agents/ location
     ahd_session._locked_text_write(write_path, text)
     # Clear candidate memory
     try:
