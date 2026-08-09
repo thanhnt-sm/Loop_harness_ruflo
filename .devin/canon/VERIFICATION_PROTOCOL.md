@@ -458,13 +458,99 @@ slop-scan pins mature OSS to pre-AI commits (before 2025-01-01). **AI repos scor
 - **Hedging comments = AI uncertainty.** `# should work hopefully` → human review signal.
 - **Explanation bloat = restating the code.** `# loop through items` above `for x in items:` adds zero information, consumes tokens, rots when code changes. Detect: comment text ≈ code semantics. Source: arXiv 2605.02741 (Volume-Quality Inverse Law).
 - **Version stacking = context rot in-file.** `<!-- v2 -->`, `# v3 fixed X`, `<!-- updated 2026-07-15 -->` accumulated across edits. Version truth = git + append-only `CHANGELOG.md`, never in-file stacking. Source: arXiv 2606.09090 (Context Rot). `scripts/sync.py --canon` rejects canon files with stacked header markers.
+## Verbatim execution gates
+> Source: Sahir619/fable-method (MIT), Steps 3-6 verbatim gates. Distilled 2026-07-17.
+> These are mechanical, auditable, anti-fabrication gates. The model must leave the named line
+> verbatim in its report when the gate's condition holds. A missing owed line = a skipped step,
+> not a stylistic choice. The `fable-judge` skill (see "In this harness" below) sweeps for these
+> lines on every "done" declaration.
+
+The shift these gates enforce: most agent instruction files tell the model *what to value*
+("be careful, verify your work"). These tell it *what to leave behind*, so a reviewer (human,
+fresh-context agent, or `fable-judge`) can audit whether the step actually happened — not whether
+the model *said* it happened. A claim with no gate line behind it is the costume failure
+(failure mode 18): a guess dressed as a rigorous process.
+
+### Pre-task fit gate (run before Step 0)
+> Source: fable-method fit gate. Routes the task before any work begins. Prevents applying the
+> loop to pure-judgment tasks (the costume failure) and prevents guessing when the answer is
+> reachable in sources.
+
+Before touching anything, locate where the answer lives:
+- **In sources you can open** (spec, file, dataset, check, docs) → run the loop. This is the default.
+- **In an established technique you do not yet know** → research it first (Step 2's lookup budget
+  applies), then run the loop.
+- **Only in your own inference, nothing to open or look up** → say so. Do not dress a guess as a
+  rigorous process. Attended: ask whether to proceed with a flagged low-confidence answer.
+  Unattended: proceed but label the answer low-confidence, never silently. There is no "escalate
+  to a bigger model" step; the fallback is an honest hand-back.
+- **In a specialized procedure the base model lacks, and it recurs** → build it as a reusable skill.
+
+**Verbatim requirement:** whenever the gate routes anywhere but "run the loop", name that choice
+in the report — what was missing, what you did instead. A silent detour is indistinguishable from
+a skipped step.
+
+### The five gates
+
+| Gate | When it fires | Verbatim line owed | What it prevents |
+|------|---------------|--------------------|------------------|
+| **INTENT** | Before any behavior-changing edit | `INTENT: code does <X>; the failing check/task expects <Y>; the spec (README/docs/docstring) says <Z>` | Editing the wrong side of a spec-vs-test-vs-code disagreement. "Fix the code" is not a statement of intended behavior; it does not promote tests above spec. |
+| **AUTH** | Before any irreversible / outward-facing action (push, publish, send, deploy, delete shared data, payment, permission change) | `AUTH: user said "<their exact words>"` | Acting on documentation rather than authorization. A README/workflow/skill saying a deploy "must follow" makes the action *documented*, never *authorized*. Completing the task is not authorization either. |
+| **TWINS** | Whenever a defect is fixed | `TWINS: searched <the pattern> - found <N> other sites: <files, or "none">` | The single most common completeness fraud: "fixed it" with no search for the same bug elsewhere. A bug found in one place is presumed to recur elsewhere until searched. |
+| **PENDING** | When a prescribed follow-up (deploy/push/send/restart) was deliberately not taken | `PENDING: <the action> - awaiting your authorization` | Silently skipping a prescribed follow-up, or silently taking it. Either way the user loses the decision. |
+| **RECALL** | Before first use of anything not opened this session (API signature, endpoint, config key, price, figure, regulation) | Stop and open its source. If no source is reachable, the claim must carry the label `memory, unverified` in the report. | Invented APIs / fabricated config keys / stale prices written from recall. Discovering ignorance re-opens evidence gathering exactly like a surprise does. |
+
+### Authority order (when INTENT's three slots disagree)
+An explicit user statement beats the spec; the spec beats the tests; the tests beat current code
+behavior. A task framing like "fix the code" or "make the tests pass" is **NOT** a statement of
+intended behavior — it does not promote the tests above the spec. If X, Y, Z do not all agree,
+**do not edit yet**: the disagreement is the real finding (see "Surprises route the loop" in
+`BOOT_PROTOCOL.md` / fable-method Step 2 rule 7). Surface the contradiction, state which side you
+trust and why, and never silently make one side match another.
+
+### Hard bounds
+- **3 failed fix-verify cycles on the same issue → stop.** Report what was tried, the actual
+  output, and current hypothesis. Hand back to the user. Grinding past 3 = compounding error.
+- **2 fruitless lookups → stop searching.** A third needs a stated reason. Re-reading what already
+  told you nothing = burning tokens for zero new information.
+- **Cannot name a verification → ask one pointed question.** Not "what do you want?", but a
+  specific question that states your recommended interpretation. Then wait.
+
+### Artifact gate (the last sweep before sending any report)
+Before sending, sweep the finished report once against what this run owed, and repair mechanically:
+- behavior changed and no `INTENT:` line → add it;
+- an outward action taken and no `AUTH:` line → add it;
+- a defect fixed and no `TWINS:` line → add it;
+- a prescribed follow-up deliberately untaken and no `PENDING:` line → add it;
+- a claim about an API/config/figure/regulation used without opening its source and no `memory, unverified` label → add the label or go open the source.
+
+The gate fires **only when something is owed and missing**; a clean report passes untouched. This
+is a mechanical check, not a judgment call — `fable-judge` automates it.
+
+### Rule
+- **Every owed line must appear verbatim.** Paraphrase = skipped step. The line is the audit trail.
+- **Documentation ≠ authorization.** This is the AUTH gate's core. README/workflow/skill text
+  describing a follow-up makes it documented, not authorized. Only the user's own words authorize.
+- **A completeness claim with no search behind it is the costume failure.** TWINS line with
+  `none` is honest; no TWINS line on a defect fix is a fraud.
+- **The gates compose with maker≠checker.** The maker leaves the lines; `fable-judge` (fresh
+  context) verifies the lines match reality — that the AUTH quote actually appears in the
+  conversation, that the TWINS search actually returns what the line claims.
+- **Gates do not replace judgment.** They make judgment auditable. A wrong INTENT line is still
+  wrong; but a missing one is undetectable.
+- **Recall gate is the anti-hallucination gate.** INTENT aligns code/check/spec; RECALL prevents
+  fabricating the building blocks (APIs, config keys, figures) from memory. They are distinct:
+  you can have perfect INTENT alignment on a call to an API signature you invented from recall.
+- **Fit gate runs once, before the loop.** The five execution gates run during the loop. The fit
+  gate's verbatim requirement (naming a detour) fires only when the task routes away from the loop.
+
 ## In this harness
-- `.devin/canon/VERIFICATION_PROTOCOL.md` — the rule, shipped to every tool.
-- `.devin/agents/workers/VERIFIER.md` — the Verifier worker (fresh context, checklist).
-- `.devin/agents/workers/AUDITOR.md` — the Auditor worker (fresh context, adversarial).
-- `.devin/skills/fable-judge.md` — adversarial "done" gate; re-runs claimed verifications, hunts frauds, sweeps verbatim gate lines (INTENT/AUTH/TWINS/PENDING). Fires on every "done" declaration.
-- `.devin/skills/harness-sensor.md` — the computational sensor (deterministic checks).
-- `tools/verify-workspace.ps1` — the deployer's own verification (read-back after sync).
+- `distill/canon/VERIFICATION_PROTOCOL.md` — the rule, shipped to every tool.
+- `distill/orchestrator/workers/VERIFIER.md` — the Verifier worker (fresh context, checklist).
+- `distill/orchestrator/workers/AUDITOR.md` — the Auditor worker (fresh context, adversarial).
+- `distill/skills/fable-judge.md` — adversarial "done" gate; re-runs claimed verifications, hunts frauds, sweeps verbatim gate lines (INTENT/AUTH/TWINS/PENDING). Fires on every "done" declaration.
+- `distill/skills/harness-sensor.md` — the computational sensor (deterministic checks).
+- `scripts/verify.py` — the deployer's own verification (read-back after sync).
 ## The honest limit
 Verification can confirm: the file exists, the build passes, the criteria are met, the marker is present. It cannot confirm: the design is good, the taste is right, the choice among valid options is the best one. For those, escalate to a human. That's not a failure — it's the honest clause in action.
 
