@@ -5,6 +5,117 @@
 
 ---
 
+## 3-Phase Architecture (Plan → Approve → Execute)
+
+**BẮT BUỘC cho mọi task M-tier trở lên. KHÔNG TÙY CHỌN. KHÔNG SKIP.**
+**S-tier (<5 lines, 1 file, no verification, no destructive op) → skip 3-Phase, sửa trực tiếp.**
+
+```
+TASK → TIER CLASSIFICATION
+  → S-tier? → sửa trực tiếp → REPORT
+  → M-tier+? → PHASE 1: PLAN (FORCE) → PHASE 2: APPROVE → PHASE 3: EXECUTE → REPORT
+```
+
+### TIER CLASSIFICATION (bắt buộc, trước mọi action)
+
+| Tier | Tiêu chí | Flow |
+|------|----------|------|
+| S | <5 lines, 1 file, no verification, no destructive op | Sửa trực tiếp |
+| M | 1-3 files, simple logic, 30min-2h | 3-Phase BẮT BUỘC |
+| L | Multiple files, needs research, 2h+ | 3-Phase BẮT BUỘC + deep research |
+| XL | Architecture change, security-critical | 3-Phase BẮT BUỘC + Nuwa cognitive |
+
+**DEFAULT: M-tier.** Unclear → M. Upgrade nếu scope grows.
+
+**RED LINE: Skip Plan phase cho M-tier+ = violation. Hook sẽ block.**
+
+### Phase 1: PLAN (orchestrator-driven, max parallel research)
+
+Trigger: `/plan` skill hoặc task M-tier+
+
+**QUAN TRỌNG**: Plan phase chạy qua `plan_orchestrator.py` — FSM state machine tự động orchestrate toàn bộ flow. Commander không tự làm từng bước mà tương tác với orchestrator qua CLI.
+
+```bash
+# Khởi tạo
+python .devin/scripts/plan_orchestrator.py --init --task "<task>"
+# Sau mỗi action, gọi --step với results
+python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
+```
+
+Orchestrator FSM: INIT → CLASSIFY → BRAINSTORM → ANALYZE → DESIGN → REVIEW → REVISION(max 7, convergence) → SDD_APPROVAL → PLAN → GAP_SCAN → QC(max 7, convergence) → PLAN_ENHANCE(max 3) → PLAN_APPROVAL → WRITE_STATE → DONE
+
+1. **BRAINSTORM** (MỚI) — Orchestrator trả `brainstorm`. Commander dispatch 6 brainstorm subagents song song (subagent_explore, background) cho 6+ góc nhìn (fastest, safest, simplest, scale, cheapest, robust). Collect results → call `--step`.
+
+2. **ANALYZE** — Orchestrator trả `dispatch_scouts`. Commander dispatch 8 SCOUT subagents song song (subagent_explore, background). Tất cả SCOUTs phải search online. Collect results → call `--step`.
+
+3. **DESIGN** — Orchestrator trả `dispatch_architect`. Commander dispatch 1 ARCHITECT (glm-executor, foreground). Sau xong → call `--step` → orchestrator trả `dispatch_reviewers`. Commander dispatch 6+ adversarial reviewers + dynamic scenarios song song. Collect → aggregate → call `--step`.
+
+4. **SDD APPROVE** — Orchestrator trả `present_sdd_approval`. Commander chạy SDD approval gate:
+   ```bash
+   python .devin/scripts/approval_gate.py <sdd.md> --interactive --artifact sd
+   ```
+   - User decide → Commander call `--step` với `decision`
+   - Approved → chuyển sang PLAN
+   - Changes requested → quay về DESIGN
+
+5. **PLAN** — Orchestrator trả `decompose_plan`. Commander decompose SDD thành atomic tasks + DAG + coverage matrix. Write `IMPLEMENTATION_PLAN.md` → call `--step`.
+
+6. **GAP_SCAN** (MỚI) — Orchestrator trả `gap_scan`. Commander dispatch 1 gap-scan subagent để scan plan cho thiếu sót. Collect → call `--step`.
+
+7. **QUALITY CHECK** — Orchestrator trả `run_qc`. Commander chạy `plan_quality_check.py`. Call `--step` với QC result. FAIL → loop lại PLAN. PASS → PLAN_ENHANCE.
+
+8. **PLAN_ENHANCE** (MỚI) — Orchestrator trả `plan_enhance`. Commander dispatch 5 enhancement subagents song song: gap-scan, adversarial-consensus, nuwa-skill, claim-grader, slop-detector. BLOCKING → loop lại PLAN (max 3). Clean → PLAN_APPROVAL.
+
+### Phase 2: APPROVE (human gate, interactive)
+
+- Orchestrator trả `present_plan_approval`. Commander chạy interactive approval gate:
+  ```bash
+  python .devin/scripts/approval_gate.py <plan.md> --interactive --quality-report <qr.md> --artifact plan
+  ```
+- Gate tự động present plan summary + quality scorecard + options [y/n/m/i]
+- User decide → Commander call `--step` với decision
+- **KHÔNG execute trước khi approved**
+
+### Phase 3: EXECUTE (max parallel, QC gates, enforcement)
+
+1. **DISPATCH** — `python .devin/scripts/dag_compile.py <plan.md>` → workflow.json
+   - `python .devin/scripts/dag_executor.py workflow.json --execute`
+   - Bounded batch (N=5 parallel), worktree isolation
+
+2. **EXECUTE** — Workers tự trị trong boundary:
+   - Dynamic flow: `python .devin/scripts/state_router.py --route state.json`
+   - Agent tự retry, tự sửa within task scope
+   - Boundary: KHÔNG sửa plan, KHÔNG scope creep
+
+3. **VERIFY** — 3-layer:
+   - Layer 1: `python .devin/hooks/schema_gate.py` (deterministic gates)
+   - Layer 2: `/adversarial-consensus` skill (3-persona review)
+   - Layer 3: `python .devin/scripts/coverage_matrix.py <plan.md> --verify`
+
+4. **REPORT** — Coverage matrix + traceability + audit trail
+   - `python .devin/scripts/coverage_matrix.py <plan.md> --verify`
+   - Drift detection: `.devin/hooks/drift_detect.py`
+   - SPC: `python .devin/scripts/spc_monitor.py --check`
+
+### Data flow (Phase D — optional, dynamic flow)
+
+- **State router**: `.devin/scripts/state_router.py` — conditional routing
+- **Event bus**: `.devin/scripts/event_bus.py` — typed pub/sub giữa agents
+- **Blackboard**: `.devin/scripts/blackboard.py` — shared memory với scoped regions
+- **DAG executor**: `.devin/scripts/dag_executor.py` — parallel execution
+
+### Enforcement (always-on)
+
+- **Schema gates**: `.devin/hooks/schema_gate.py` — deterministic validation
+- **Coverage enforce**: `.devin/hooks/coverage_enforce.py` — track plan items
+- **Drift detect**: `.devin/hooks/drift_detect.py` — behavioral fingerprinting
+- **Self-heal**: `.devin/hooks/self_heal.py` — Monitor-Detect-Diagnose-Recover
+- **OTel**: `.devin/hooks/otel_instrument.py` — observability
+- **SPC**: `.devin/scripts/spc_monitor.py` — statistical process control
+- **Checkpoint**: `.devin/scripts/checkpoint.py` — backtracking
+
+---
+
 ## Architecture overview
 
 ```
@@ -155,11 +266,11 @@ Each worker is a short-lived agent with a clean context window. One dispatch = o
 
 ```
 Dispatch → Scout
-Goal: Find all call sites of `detect_all()` in scripts/detect.py.
-Why: Need blast radius before refactoring the detection interface.
-Inputs: scripts/detect.py, search entire repo for `detect_all` references
+Goal: Find all call sites of `map_path()` in .devin/scripts/apply_ahd_patch.py.
+Why: Need blast radius before refactoring the path mapping logic.
+Inputs: .devin/scripts/apply_ahd_patch.py, search entire repo for `map_path` references
 Scope: IN — find call sites, report file:line. OUT — no analysis, no suggestions, no edits.
-AC-1: Every file importing/calling `detect_all` listed with file:line
+AC-1: Every file importing/calling `map_path` listed with file:line
 AC-2: No file listed twice (deduped)
 AC-3: Report ≤20 lines (paths + line numbers only)
 Report: Conclusion + Evidence (file:line list) + Unfinished (if any)

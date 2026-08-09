@@ -160,6 +160,20 @@ Check-File 'AGENTS.md' 'Root AGENTS.md'
 Check-File 'CLAUDE.md' 'Root CLAUDE.md'
 Check-File 'REPOS.md' 'REPOS.md reference list'
 
+# --- 9. Import smoke test ---
+Write-Host "`n[9/9] Runtime import smoke test" -ForegroundColor Yellow
+$smoke = & python "$root/tools/import_smoke_test.py" 2>&1
+$smokeExit = $LASTEXITCODE
+if ($smoke -is [array]) { $smoke = $smoke -join "`n" }
+if ($smokeExit -eq 0) {
+  Write-Host "  [OK]   import smoke test passed" -ForegroundColor Green
+  $passed++
+} else {
+  Write-Host "  [FAIL] import smoke test failed" -ForegroundColor Red
+  Write-Host $smoke -ForegroundColor Red
+  $errors += "import smoke test failed"
+}
+
 # --- Summary ---
 Write-Host "`n=== Summary ===" -ForegroundColor Cyan
 Write-Host "  Passed:   $passed" -ForegroundColor Green

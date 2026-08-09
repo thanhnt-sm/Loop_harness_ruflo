@@ -7,8 +7,8 @@ Thư mục này chứa các **fraud table theo domain** để `fable-judge.md` l
 `fable-judge.md` sẽ chọn adapter phù hợp với domain của task:
 
 - Code / software engineering → `generic.md` (dùng bảng fraud chung)
-- Data analysis / ML → `data-ml.md`
-- Infra / DevOps → `infrastructure.md`
+- Data analysis / ML → `data.md`
+- Infra / DevOps → `devops.md`
 - Documentation / research → `research.md`
 
 ## Cấu trúc một adapter
