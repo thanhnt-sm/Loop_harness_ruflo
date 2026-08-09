@@ -38,7 +38,8 @@ def _load_hlk_config(root: Path) -> dict:
             return json.loads(config_path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, TypeError, ValueError):
         pass
-    except Exception:
+    except Exception as e:
+        print(f"[session_start] unexpected exception: {e}", file=sys.stderr)
         pass
     return {"hlk_enabled": True}
 
@@ -59,7 +60,8 @@ def _write_hlk_audit(root: Path, message: str) -> None:
         pass
 
 
-    except Exception:
+    except Exception as e:
+        print(f"[session_start] unexpected exception: {e}", file=sys.stderr)
         pass
 
 
@@ -75,7 +77,8 @@ def check_hlk_status(config: dict) -> bool:
         try:
             root = get_repo_root()
             _write_hlk_audit(root, msg)
-        except Exception:
+        except Exception as e:
+            print(f"[session_start] unexpected exception: {e}", file=sys.stderr)
             pass
         return False
     return True
@@ -88,7 +91,8 @@ def main() -> None:
     except (json.JSONDecodeError, TypeError, ValueError):
         return  # can't parse, don't block
 
-    except Exception:
+    except Exception as e:
+        print(f"[session_start] unexpected exception: {e}", file=sys.stderr)
         return  # can't parse, don't block
 
     session_id = data.get("session_id", "unknown")

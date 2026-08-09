@@ -42,7 +42,8 @@ def _count_active_sessions(root: Path) -> int:
                 count += 1
         except (json.JSONDecodeError, TypeError, ValueError):
             pass
-        except Exception:
+        except Exception as e:
+            print(f"[session_manager] unexpected exception: {e}", file=sys.stderr)
             pass
     return count
 
@@ -90,7 +91,8 @@ def cmd_init(args: argparse.Namespace) -> int:
         current_file.write_text(sid, encoding="utf-8")
     except (OSError, UnicodeDecodeError):
         pass
-    except Exception:
+    except Exception as e:
+        print(f"[session_manager] unexpected exception: {e}", file=sys.stderr)
         pass
     if status == "queued":
         print(f"[+] Session initialized as queued: {sid}")

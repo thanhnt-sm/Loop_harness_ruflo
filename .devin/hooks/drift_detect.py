@@ -244,7 +244,8 @@ def _load_json(path: Path, default):
             return json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, TypeError, ValueError):
         pass
-    except Exception:
+    except Exception as e:
+        print(f"[drift_detect] unexpected exception: {e}", file=sys.stderr)
         pass
     return default
 

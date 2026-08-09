@@ -78,7 +78,8 @@ def _load_state(root: Path) -> dict:
                 return data
     except (json.JSONDecodeError, TypeError, ValueError):
         pass
-    except Exception:
+    except Exception as e:
+        print(f"[spc_monitor] unexpected exception: {e}", file=sys.stderr)
         pass
     return {"metrics": {m: [] for m in METRICS}, "updated_at": ""}
 

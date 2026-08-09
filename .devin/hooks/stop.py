@@ -59,7 +59,8 @@ def _call_script(root: Path, script: str, *args) -> int:
                     proc.kill()
                     try:
                         proc.communicate(timeout=1)
-                    except Exception:
+                    except Exception as e:
+                        print(f"[stop] unexpected exception: {e}", file=sys.stderr)
                         pass
                     print(f"[stop.py] WARNING: {script} timed out and was killed", file=sys.stderr)
                     return 124
@@ -86,7 +87,8 @@ def _clean_tmp(tmp_dir: Path) -> None:
             pass
 
 
-        except Exception:
+        except Exception as e:
+            print(f"[stop] unexpected exception: {e}", file=sys.stderr)
             pass
 
 
@@ -99,7 +101,8 @@ def main():
     except (json.JSONDecodeError, TypeError, ValueError):
         data = {}
 
-    except Exception:
+    except Exception as e:
+        print(f"[stop] unexpected exception: {e}", file=sys.stderr)
         data = {}
 
     session_id = ahd_session.get_session_id(data)
@@ -127,7 +130,8 @@ def main():
         except (ValueError, TypeError, KeyError, AttributeError):
             pass
 
-        except Exception:
+        except Exception as e:
+            print(f"[stop] unexpected exception: {e}", file=sys.stderr)
             pass
 
     cleanup_failed = False
@@ -146,7 +150,8 @@ def main():
     if cleanup_failed:
         try:
             ahd_session.update_session_state(session_id, {"cleanup_failed": True}, root)
-        except Exception:
+        except Exception as e:
+            print(f"[stop] unexpected exception: {e}", file=sys.stderr)
             pass
 
     # Append session-end marker to cold archive
@@ -158,7 +163,8 @@ def main():
         pass
 
     # Clean old temp files
-    except Exception:
+    except Exception as e:
+        print(f"[stop] unexpected exception: {e}", file=sys.stderr)
         pass
 
     # Clean old temp files
@@ -179,7 +185,8 @@ if __name__ == "__main__":
             main()
         except SystemExit as e:
             result["code"] = e.code if e.code is not None else 0
-        except Exception:
+        except Exception as e:
+            print(f"[stop] unexpected exception: {e}", file=sys.stderr)
             result["code"] = 0
 
     t = threading.Thread(target=_run, daemon=True)

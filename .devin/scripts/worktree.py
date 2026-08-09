@@ -99,14 +99,16 @@ def _load_state() -> dict:
             return result
     except (TimeoutError, OSError, FileExistsError):
         pass
-    except Exception:
+    except Exception as e:
+        print(f"[worktree] unexpected exception: {e}", file=sys.stderr)
         pass
     if WORKTREE_STATE.exists():
         try:
             return json.loads(WORKTREE_STATE.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, TypeError, ValueError):
             pass
-        except Exception:
+        except Exception as e:
+            print(f"[worktree] unexpected exception: {e}", file=sys.stderr)
             pass
     return {"worktrees": {}}
 
@@ -131,11 +133,13 @@ def _save_state(state: dict):
             pass
 
 
-        except Exception:
+        except Exception as e:
+            print(f"[worktree] unexpected exception: {e}", file=sys.stderr)
             pass
 
 
-    except Exception:
+    except Exception as e:
+        print(f"[worktree] unexpected exception: {e}", file=sys.stderr)
         # Fallback ghi trực tiếp nếu lock helper không khả dụng.
         try:
             tmp = WORKTREE_STATE.with_suffix(".tmp")
@@ -145,7 +149,8 @@ def _save_state(state: dict):
             pass
 
 
-        except Exception:
+        except Exception as e:
+            print(f"[worktree] unexpected exception: {e}", file=sys.stderr)
             pass
 
 
@@ -167,7 +172,8 @@ def _update_session_state_worktrees(session_id: str, worktree_id: str, add: bool
         else:
             worktrees = [w for w in worktrees if w != worktree_id]
         ahd_session.update_session_state(sid, {"worktrees": worktrees}, ROOT)
-    except Exception:
+    except Exception as e:
+        print(f"[worktree] unexpected exception: {e}", file=sys.stderr)
         pass
 
 

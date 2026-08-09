@@ -46,7 +46,8 @@ except (ImportError, ModuleNotFoundError, SyntaxError, ValueError):
     ahd_session = None  # type: ignore[assignment]
 
 # T4.13: Import shared path_zones (single source of truth cho blocked/safe zones).
-except Exception:  # pragma: no cover
+except Exception as e:  # pragma: no cover
+    print(f"[coverage_enforce] unexpected exception: {e}", file=sys.stderr)
     ahd_session = None  # type: ignore[assignment]
 
 # T4.13: Import shared path_zones (single source of truth cho blocked/safe zones).
@@ -58,7 +59,8 @@ except (ImportError, ModuleNotFoundError, SyntaxError, ValueError):
     _pathzones_is_safe = None
 
 # U15: Timeout nội bộ — coverage_enforce chạy grep nên cần dư thời gian.
-except Exception:
+except Exception as e:
+    print(f"[coverage_enforce] unexpected exception: {e}", file=sys.stderr)
     _pathzones_is_blocked = None
     _pathzones_is_safe = None
 
@@ -82,7 +84,8 @@ def _get_plan_state_dir(root: Path) -> Path:
         config_root = ahd_session.get_config_root(root)
     except (ImportError, ModuleNotFoundError, SyntaxError, ValueError):
         pass
-    except Exception:
+    except Exception as e:
+        print(f"[coverage_enforce] unexpected exception: {e}", file=sys.stderr)
         pass
     state_dir = config_root / "plan_state"
     state_dir.mkdir(parents=True, exist_ok=True)
@@ -127,7 +130,8 @@ def _parse_plan(plan_path: Path) -> dict:
     # Pattern 1: "- [ ] T01: src/foo.py (functions: bar, baz)"
     # Pattern 2: "- [x] T02: scripts/util.py (functions: run)"
     # Pattern 3: "## T03 — src/qux.py (functions: quux)"
-    except Exception:
+    except Exception as e:
+        print(f"[coverage_enforce] unexpected exception: {e}", file=sys.stderr)
         return {"plan_name": plan_name, "tasks": {}}
 
     # Pattern 1: "- [ ] T01: src/foo.py (functions: bar, baz)"
@@ -165,7 +169,8 @@ def _load_coverage_state(state_path: Path, plan_name: str) -> dict:
                 return data
         except (json.JSONDecodeError, TypeError, ValueError):
             pass  # state hỏng -> tạo mới
-        except Exception:
+        except Exception as e:
+            print(f"[coverage_enforce] unexpected exception: {e}", file=sys.stderr)
             pass  # state hỏng -> tạo mới
     return {"plan_name": plan_name, "tasks": {}}
 
@@ -188,7 +193,8 @@ def _save_coverage_state(state_path: Path, state: dict) -> None:
     except (TimeoutError, OSError, FileExistsError):
         pass
     # Fallback: ghi tạm với tên duy nhất để tránh đè nhau giữa các hook song song.
-    except Exception:
+    except Exception as e:
+        print(f"[coverage_enforce] unexpected exception: {e}", file=sys.stderr)
         pass
     # Fallback: ghi tạm với tên duy nhất để tránh đè nhau giữa các hook song song.
     try:
@@ -200,7 +206,8 @@ def _save_coverage_state(state_path: Path, state: dict) -> None:
         pass
 
 
-    except Exception:
+    except Exception as e:
+        print(f"[coverage_enforce] unexpected exception: {e}", file=sys.stderr)
         pass
 
 
@@ -216,7 +223,8 @@ def _grep_symbol_in_file(file_path: Path, symbol: str) -> bool:
         content = file_path.read_text(encoding="utf-8", errors="ignore")
     except (OSError, UnicodeDecodeError):
         return False
-    except Exception:
+    except Exception as e:
+        print(f"[coverage_enforce] unexpected exception: {e}", file=sys.stderr)
         return False
     pattern = re.compile(
         rf"\b(def|class|function|const)\s+{re.escape(symbol)}\b",
@@ -246,7 +254,8 @@ def _is_path_in_safe_zone(file_path: str) -> bool:
         return True  # fallback: không path_zones -> mặc định an toàn
     try:
         return _pathzones_is_safe(file_path)
-    except Exception:
+    except Exception as e:
+        print(f"[coverage_enforce] unexpected exception: {e}", file=sys.stderr)
         return True
 
 
@@ -263,7 +272,8 @@ def _is_path_blocked(file_path: str) -> bool:
         return False
 
 
-    except Exception:
+    except Exception as e:
+        print(f"[coverage_enforce] unexpected exception: {e}", file=sys.stderr)
         return False
 
 
@@ -357,7 +367,8 @@ def main():
         print(json.dumps({"coverage_pct": 0.0, "executed": 0, "total": 0, "gaps": []}))
         sys.exit(0)
 
-    except Exception:
+    except Exception as e:
+        print(f"[coverage_enforce] unexpected exception: {e}", file=sys.stderr)
         # Không parse được -> skip silently (advisory)
         print(json.dumps({"coverage_pct": 0.0, "executed": 0, "total": 0, "gaps": []}))
         sys.exit(0)
@@ -375,7 +386,8 @@ def main():
         pass
 
     # Tìm plan file — nếu không có -> skip silently
-    except Exception:
+    except Exception as e:
+        print(f"[coverage_enforce] unexpected exception: {e}", file=sys.stderr)
         pass
 
     # Tìm plan file — nếu không có -> skip silently
@@ -437,7 +449,8 @@ if __name__ == "__main__":
             main()
         except SystemExit as e:
             result["code"] = e.code if e.code is not None else 0
-        except Exception:
+        except Exception as e:
+            print(f"[coverage_enforce] unexpected exception: {e}", file=sys.stderr)
             # Lỗi không ngờ -> exit 0 (advisory, không block)
             result["code"] = 0
 

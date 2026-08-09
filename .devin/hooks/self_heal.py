@@ -93,7 +93,8 @@ def _load_json(path: Path, default):
                 return data
     except (json.JSONDecodeError, TypeError, ValueError):
         pass
-    except Exception:
+    except Exception as e:
+        print(f"[self_heal] unexpected exception: {e}", file=sys.stderr)
         pass
     return default
 

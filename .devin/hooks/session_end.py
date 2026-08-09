@@ -20,7 +20,8 @@ def main() -> None:
     except (json.JSONDecodeError, TypeError, ValueError):
         return
 
-    except Exception:
+    except Exception as e:
+        print(f"[session_end] unexpected exception: {e}", file=sys.stderr)
         return
 
     session_id = data.get("session_id", "unknown")

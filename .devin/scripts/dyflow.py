@@ -129,7 +129,8 @@ def _discover_python_deps(file_path: Path, workspace: Path) -> list[str]:
         return deps
 
     # Absolute imports: from X import Y, hoặc import X
-    except Exception:
+    except Exception as e:
+        print(f"[dyflow] unexpected exception: {e}", file=sys.stderr)
         return deps
 
     # Absolute imports: from X import Y, hoặc import X

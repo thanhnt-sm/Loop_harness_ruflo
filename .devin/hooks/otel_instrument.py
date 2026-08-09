@@ -56,7 +56,8 @@ def _get_telemetry_dir(root: Path) -> Path:
         config_root = ahd_session.get_config_root(root)
     except (ImportError, ModuleNotFoundError, SyntaxError, ValueError):
         pass
-    except Exception:
+    except Exception as e:
+        print(f"[otel_instrument] unexpected exception: {e}", file=sys.stderr)
         pass
     tel_dir = config_root / TELEMETRY_DIR_NAME
     tel_dir.mkdir(parents=True, exist_ok=True)
@@ -77,7 +78,8 @@ def _hash_input(tool_input) -> str:
         return "hash_error"
 
 
-    except Exception:
+    except Exception as e:
+        print(f"[otel_instrument] unexpected exception: {e}", file=sys.stderr)
         return "hash_error"
 
 
@@ -133,7 +135,8 @@ def _rotate_log(log_path: Path) -> None:
         pass
 
 
-    except Exception:
+    except Exception as e:
+        print(f"[otel_instrument] unexpected exception: {e}", file=sys.stderr)
         pass
 
 
@@ -185,7 +188,8 @@ def _emit_otel_span(event: dict) -> bool:
         return False
 
 
-    except Exception:
+    except Exception as e:
+        print(f"[otel_instrument] unexpected exception: {e}", file=sys.stderr)
         # opentelemetry chưa cài hoặc lỗi -> fallback
         return False
 
@@ -228,7 +232,8 @@ def main():
         sys.exit(0)
 
     # Xác định repo root
-    except Exception:
+    except Exception as e:
+        print(f"[otel_instrument] unexpected exception: {e}", file=sys.stderr)
         # Không parse được -> không có gì để instrument, exit 0
         sys.exit(0)
 
@@ -241,7 +246,8 @@ def main():
     except (ImportError, ModuleNotFoundError, SyntaxError, ValueError):
         pass
 
-    except Exception:
+    except Exception as e:
+        print(f"[otel_instrument] unexpected exception: {e}", file=sys.stderr)
         pass
 
     latency_ms = (time.monotonic() - start_time) * 1000.0
@@ -268,7 +274,8 @@ def main():
             pass
 
     # Exit code: giống hook được bọc (mặc định 0)
-        except Exception:
+        except Exception as e:
+            print(f"[otel_instrument] unexpected exception: {e}", file=sys.stderr)
             pass
 
     # Exit code: giống hook được bọc (mặc định 0)
@@ -277,7 +284,8 @@ def main():
         exit_code = int(exit_code)
     except (ValueError, TypeError, KeyError, AttributeError):
         exit_code = 0
-    except Exception:
+    except Exception as e:
+        print(f"[otel_instrument] unexpected exception: {e}", file=sys.stderr)
         exit_code = 0
     sys.exit(exit_code)
 

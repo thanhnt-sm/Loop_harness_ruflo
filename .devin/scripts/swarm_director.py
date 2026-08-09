@@ -132,7 +132,8 @@ def compile_spec(
                 idempotency_key=tid[:64] if tid else "task",
                 depends_on=[],
             )
-        except Exception:
+        except Exception as e:
+            print(f"[swarm_director] unexpected exception: {e}", file=sys.stderr)
             # Bỏ qua dòng không parse được thành Order hợp lệ
             continue
         orders.append(order)

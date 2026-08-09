@@ -2,17 +2,17 @@
   "_description": "U41: Hook integrity verification baseline",
   "hooks": {
     ".devin/hooks/ahd_session.py": "2c7b699c8dc63505a82600169283e9165c1cb9526904d2f6bf0f0e09cc03e4e4",
-    ".devin/hooks/coverage_enforce.py": "c4be8bcc2d97b08c0e92941a3ae022aa271d99ed86926fc0a9c18c78e9da0cee",
-    ".devin/hooks/drift_detect.py": "686fbc05f001c60cf09791b09a80c59670a8d7893972c0a8ae95c85d56a5487b",
-    ".devin/hooks/otel_instrument.py": "43d8ed98f8da136c76ba8cd75a92c1152a4a7586ae41feb4d61c56140a817c13",
+    ".devin/hooks/coverage_enforce.py": "4d23e60a756b6998497908666c38da878071b3228e33f118bdfed8061a17d230",
+    ".devin/hooks/drift_detect.py": "dd66d5957a998acbc860b35ddceb4f66268bbe0c8701ea1ea18df4a3b170a8fa",
+    ".devin/hooks/otel_instrument.py": "6a711e4368cd2be10e76934c7e08bc44627782ce23b35bff51d397fa1d5dc1d0",
     ".devin/hooks/plan_enforce.py": "6e393e9cf3228a0d3cdba5ec9d2ccaae6291c4f5cba90e3a978f8556f396ed72",
-    ".devin/hooks/post_tool_use.py": "bb7f5c8388eae5b46527b9ed3bb8a36e972b2b75e884fad72303846563b04901",
+    ".devin/hooks/post_tool_use.py": "c1b060a5a3d1e4347c3ef8553bb4f745d0c1aab650181e77b968cc57be40e461",
     ".devin/hooks/pre_tool_use.py": "c34e9a87a33bbaee7c682741dc044122811e1d56fe358345bdecd9bb351ae2f8",
     ".devin/hooks/schema_gate.py": "b6aed24b4e260ddbc424db233d85ea858e8cef5d4d2954db47aaacca50775027",
-    ".devin/hooks/self_heal.py": "c7d8b49674869a0343017b8c6f4e1c3d9b242b8212486638ba32d07b7d084b7e",
-    ".devin/hooks/session_end.py": "381affc4837c8f78a5ec351c62720f590f6bb50d2b1a22e83e9406ab8b850d5f",
-    ".devin/hooks/session_start.py": "63164ed849eb8167fd161fc68b2883518dbe8c45581e4b19c0cbd768efdcd406",
-    ".devin/hooks/stop.py": "388676d264eeed36b5a285723da827f20e2b07ef422e95744fa753ac5bcb10c8",
-    ".devin/hooks/user_prompt_submit.py": "3738cbdf98c66151502e6d704d18b96c14901f0beff420b2d31ef2f44a94993f"
+    ".devin/hooks/self_heal.py": "4b4bb79c5769accd84017261dcdb1af7018abb767afa1d9ac5ae25bb50a0a2d1",
+    ".devin/hooks/session_end.py": "a90c121648b49409181418d3dfcb740b2e23da09921020963e7f14f185226cf8",
+    ".devin/hooks/session_start.py": "d066fe61565b4d530f96e958b7927582d5df08721c83a9932a6760b63199e385",
+    ".devin/hooks/stop.py": "8ac3c78883a5b1236f355eaa71bcc135492385f5ba97f595ef04d8c0c940551b",
+    ".devin/hooks/user_prompt_submit.py": "6190547a294b297e6f29aaa627a1894cf3bf8c4135d8974cf50ace8ca84feb96"
   }
 }

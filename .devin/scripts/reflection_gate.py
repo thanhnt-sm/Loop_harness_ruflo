@@ -173,7 +173,8 @@ def check_reflection(action_input: dict) -> ReflectVerdict | None:
             args=action_input.get("args", {}) or {},
             destructive=bool(action_input.get("destructive", False)),
         )
-    except Exception:
+    except Exception as e:
+        print(f"[reflection_gate] unexpected exception: {e}", file=sys.stderr)
         return None
     # Dùng cấp foresight (sâu nhất) cho hook integration
     return reflect(action, level="foresight")

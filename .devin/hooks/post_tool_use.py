@@ -89,7 +89,8 @@ def _compute_sha256(file_path: str, root: Path) -> str:
             return sha256.hexdigest()
     except (OSError, UnicodeDecodeError):
         pass
-    except Exception:
+    except Exception as e:
+        print(f"[post_tool_use] unexpected exception: {e}", file=sys.stderr)
         pass
     return ""
 
@@ -133,7 +134,8 @@ def _track_file_sha(session_id: str, file_path: str, tool_name: str, root: Path)
             "file_shas": file_shas,
             "verify_status": verify_status,
         }, root)
-    except Exception:
+    except Exception as e:
+        print(f"[post_tool_use] unexpected exception: {e}", file=sys.stderr)
         pass
 
 
@@ -159,7 +161,8 @@ def _repeated_failure_count(journal_path: Path, tool_name: str, command: str, se
                 entry = json.loads(line)
             except (json.JSONDecodeError, TypeError, ValueError):
                 continue
-            except Exception:
+            except Exception as e:
+                print(f"[post_tool_use] unexpected exception: {e}", file=sys.stderr)
                 continue
             if entry.get("session_id") != session_id:
                 continue
@@ -173,7 +176,8 @@ def _repeated_failure_count(journal_path: Path, tool_name: str, command: str, se
             count += 1
     except (json.JSONDecodeError, TypeError, ValueError):
         pass
-    except Exception:
+    except Exception as e:
+        print(f"[post_tool_use] unexpected exception: {e}", file=sys.stderr)
         pass
     return count
 
@@ -217,7 +221,8 @@ def _extract_candidate_memory(tool_name: str, tool_input: dict, tool_response, t
                     "ts": ts,
                 }
         return None
-    except Exception:
+    except Exception as e:
+        print(f"[post_tool_use] unexpected exception: {e}", file=sys.stderr)
         return None
 
 
@@ -236,7 +241,8 @@ def _append_bounded_jsonl(path: Path, record: dict, max_records: int = CANDIDATE
         pass
 
 
-    except Exception:
+    except Exception as e:
+        print(f"[post_tool_use] unexpected exception: {e}", file=sys.stderr)
         pass
 
 
@@ -252,7 +258,8 @@ def _rotate(path: Path, max_lines: int = 1000) -> None:
         pass
 
 
-    except Exception:
+    except Exception as e:
+        print(f"[post_tool_use] unexpected exception: {e}", file=sys.stderr)
         pass
 
 
@@ -262,7 +269,8 @@ def main():
     except (json.JSONDecodeError, TypeError, ValueError):
         sys.exit(0)
 
-    except Exception:
+    except Exception as e:
+        print(f"[post_tool_use] unexpected exception: {e}", file=sys.stderr)
         sys.exit(0)
 
     tool_name = data.get("tool_name", "")
@@ -305,7 +313,8 @@ def main():
     # Read current session state to preserve current_subtask and goal for the journal
     try:
         current_state = ahd_session.read_session_state(session_id, root)
-    except Exception:
+    except Exception as e:
+        print(f"[post_tool_use] unexpected exception: {e}", file=sys.stderr)
         current_state = {}
 
     # U20: Track file SHA + invalidate verification on write (only if tool succeeded)
@@ -342,7 +351,8 @@ def main():
     except (ImportError, ModuleNotFoundError, SyntaxError, ValueError):
         pass
 
-    except Exception:
+    except Exception as e:
+        print(f"[post_tool_use] unexpected exception: {e}", file=sys.stderr)
         pass
 
     try:
@@ -359,7 +369,8 @@ def main():
             pass
 
     # U17: Check cost cap after state write (separate check, not write)
-        except Exception:
+        except Exception as e:
+            print(f"[post_tool_use] unexpected exception: {e}", file=sys.stderr)
             pass
 
     # U17: Check cost cap after state write (separate check, not write)
@@ -373,7 +384,8 @@ def main():
         pass
 
     # Write per-session journal
-    except Exception:
+    except Exception as e:
+        print(f"[post_tool_use] unexpected exception: {e}", file=sys.stderr)
         pass
 
     # Write per-session journal
@@ -394,7 +406,8 @@ def main():
         if current_subtask:
             journal_entry["current_subtask"] = current_subtask
         ahd_session.append_jsonl(journal_path, journal_entry)
-    except Exception:
+    except Exception as e:
+        print(f"[post_tool_use] unexpected exception: {e}", file=sys.stderr)
         pass
 
     # Detect oversized context and enforce compaction
@@ -428,7 +441,8 @@ def main():
         pass
 
     # Detect candidate memory (only record after the same command fails 2+ times)
-    except Exception:
+    except Exception as e:
+        print(f"[post_tool_use] unexpected exception: {e}", file=sys.stderr)
         pass
 
     # Detect candidate memory (only record after the same command fails 2+ times)
@@ -441,33 +455,40 @@ def main():
                 candidate["session_id"] = session_id
                 candidate_path = ahd_session.get_config_root(root) / "session_state" / session_id / "candidate_memory.jsonl"
                 _append_bounded_jsonl(candidate_path, candidate)
-    except Exception:
+    except Exception as e:
+        print(f"[post_tool_use] unexpected exception: {e}", file=sys.stderr)
         pass
 
     # U57-U62: Enforcement hooks (non-blocking, append to session_state)
     try:
         _u57_auto_quality_checks(data, session_id, root)
-    except Exception:
+    except Exception as e:
+        print(f"[post_tool_use] unexpected exception: {e}", file=sys.stderr)
         pass
     try:
         _u58_done_detection(data, session_id, root)
-    except Exception:
+    except Exception as e:
+        print(f"[post_tool_use] unexpected exception: {e}", file=sys.stderr)
         pass
     try:
         _u59_skill_auto_router(data, session_id, root)
-    except Exception:
+    except Exception as e:
+        print(f"[post_tool_use] unexpected exception: {e}", file=sys.stderr)
         pass
     try:
         _u60_loop_enforcement(data, session_id, root)
-    except Exception:
+    except Exception as e:
+        print(f"[post_tool_use] unexpected exception: {e}", file=sys.stderr)
         pass
     try:
         _u61_state_write_verification(data, session_id, root)
-    except Exception:
+    except Exception as e:
+        print(f"[post_tool_use] unexpected exception: {e}", file=sys.stderr)
         pass
     try:
         _u62_memory_confidence(data, session_id, root)
-    except Exception:
+    except Exception as e:
+        print(f"[post_tool_use] unexpected exception: {e}", file=sys.stderr)
         pass
 
     sys.exit(0)
@@ -650,7 +671,8 @@ def _u60_loop_enforcement(data: dict, session_id: str, root: Path) -> None:
             pass
 
     # Check iteration count vs state writes
-        except Exception:
+        except Exception as e:
+            print(f"[post_tool_use] unexpected exception: {e}", file=sys.stderr)
             pass
 
     # Check iteration count vs state writes
@@ -697,7 +719,8 @@ def _u61_state_write_verification(data: dict, session_id: str, root: Path) -> No
 
 
 # U62: Memory confidence + honest limit
-    except Exception:
+    except Exception as e:
+        print(f"[post_tool_use] unexpected exception: {e}", file=sys.stderr)
         pass
 
 

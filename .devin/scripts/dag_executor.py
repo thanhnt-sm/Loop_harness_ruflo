@@ -412,7 +412,8 @@ def _save_checkpoint_for_state(state: dict) -> None:
         pass
 
 
-    except Exception:
+    except Exception as e:
+        print(f"[dag_executor] unexpected exception: {e}", file=sys.stderr)
         pass
 
 

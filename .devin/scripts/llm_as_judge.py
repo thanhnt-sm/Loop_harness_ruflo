@@ -75,7 +75,8 @@ def _log_audit(task: str, result: Any, verdict: str, seed: int) -> None:
         pass
 
 
-    except Exception:
+    except Exception as e:
+        print(f"[llm_as_judge] unexpected exception: {e}", file=sys.stderr)
         # Audit log không bao giờ được làm fail judge
         pass
 

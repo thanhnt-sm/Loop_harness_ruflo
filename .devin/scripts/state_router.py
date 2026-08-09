@@ -247,7 +247,8 @@ def _find_edge(step: str, state: dict) -> Edge | None:
         try:
             if cond(state):
                 return edge
-        except Exception:
+        except Exception as e:
+            print(f"[state_router] unexpected exception: {e}", file=sys.stderr)
             # Lỗi đánh giá điều kiện → bỏ qua cạnh này, thử cạnh kế tiếp.
             continue
     return None
