@@ -4,7 +4,7 @@ Upstream: C:\Users\thant\AppData\Local\Temp\ahd-upstream
 Range: 2026-07-15 .. 2026-08-10
 
 ## 06122a0 — 新增註解與版本紀律防護（三層機制）
-- **status**: dry-run
+- **status**: applied
 - **applied**: 3way:.devin/skills/harness-sensor.md
 - **skipped**: .devin/AGENTS.md, .devin/canon/CORE_CANON.md, .devin/canon/REDLINES.md, 3way-conflict:.devin/canon/VERIFICATION_PROTOCOL.md, distill/repo_entry_header.md, risky-new:.devin/scripts/sync.py
 
@@ -34,12 +34,12 @@ Range: 2026-07-15 .. 2026-08-10
 - **skipped**: .gitignore, risky-new:.devin/adapters/base.py, risky-new:.devin/scripts/distill.py, risky-new:.devin/scripts/migrate.py, tests/test_scope_and_migrate.py
 
 ## 1c46ba8 — 蒸餾 YWL 概念進 AHD 架構：project_rules + 快查表 + 模型升降級
-- **status**: dry-run
+- **status**: applied
 - **applied**: 3way:.devin/agents/model_tiers.md
 - **skipped**: .devin/AGENTS.md, .devin/canon/BOOT_PROTOCOL.md, .devin/canon/CORE_CANON.md, 3way-conflict:.devin/skills/user-preference.md
 
 ## 2b6b54b — fix: 移除 DISPATCH_TEMPLATES.md 舊引用 AI_Subagent_Templates v7.6
-- **status**: dry-run
+- **status**: applied
 - **applied**: 3way:.devin/agents/DISPATCH_TEMPLATES.md
 - **skipped**: none
 
@@ -69,6 +69,6 @@ Range: 2026-07-15 .. 2026-08-10
 - **skipped**: .devin/hooks/ahd_session.py, 3way-conflict:.devin/scripts/memory_audit.py
 
 ## 7045406 — feat: 蒸餾「驗證錨點分級」（強錨 vs 弱錨）至 VERIFICATION_PROTOCOL
-- **status**: dry-run
+- **status**: applied
 - **applied**: 3way:.devin/canon/MEMORY_PROTOCOL.md, 3way:.devin/canon/VERIFICATION_PROTOCOL.md
 - **skipped**: .devin/AGENTS.md, 3way-conflict:.devin/canon/HARNESS_ENGINEERING.md, .devin/canon/REDLINES.md
