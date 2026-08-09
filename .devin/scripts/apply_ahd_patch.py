@@ -176,8 +176,9 @@ def commit_changes(sha: str, msg: str) -> bool:
     return True
 
 
-def merge_3way(local_text: str, base_text: str, remote_text: str) -> str | None:
-    """Chạy git merge-file 3-way, trả nội dung merge hoặc None nếu conflict."""
+def merge_3way(local_text: str, base_text: str, remote_text: str, resolve_theirs: bool = False) -> str | None:
+    """Chạy git merge-file 3-way, trả nội dung merge hoặc None nếu conflict.
+    Nếu resolve_theirs=True, xung đột sẽ được giải quyết theo phía remote (upstream)."""
     with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False, suffix="-local") as lf:
         lf.write(local_text)
         local_path = lf.name
@@ -188,7 +189,11 @@ def merge_3way(local_text: str, base_text: str, remote_text: str) -> str | None:
         rf.write(remote_text)
         remote_path = rf.name
     try:
-        proc = subprocess.run(["git", "merge-file", "-p", local_path, base_path, remote_path], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
+        cmd = ["git", "merge-file", "-p"]
+        if resolve_theirs:
+            cmd.append("--theirs")
+        cmd.extend([local_path, base_path, remote_path])
+        proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
         if proc.returncode != 0:
             # Có conflict
             return None
@@ -201,7 +206,7 @@ def merge_3way(local_text: str, base_text: str, remote_text: str) -> str | None:
                 pass
 
 
-def apply_commit(upstream: Path, sha: str, msg: str, protected: list[str], dry_run: bool, allow_partial: bool = False, use_3way: bool = False) -> dict[str, Any]:
+def apply_commit(upstream: Path, sha: str, msg: str, protected: list[str], dry_run: bool, allow_partial: bool = False, use_3way: bool = False, resolve_theirs: bool = False, allow_risky_new: bool = False) -> dict[str, Any]:
     result: dict[str, Any] = {"sha": sha, "msg": msg, "status": "pending", "applied": [], "skipped": [], "error": ""}
 
     # Lấy danh sách file thay đổi trong commit
@@ -232,7 +237,7 @@ def apply_commit(upstream: Path, sha: str, msg: str, protected: list[str], dry_r
             continue
         old_exists = get_file_at_rev(upstream, parent, rel) is not None
         new_exists = get_file_at_rev(upstream, sha, rel) is not None
-        if not old_exists and new_exists and is_risky_new(mapped):
+        if not old_exists and new_exists and is_risky_new(mapped) and not allow_risky_new:
             blocked.append(f"risky-new:{mapped}")
 
     if blocked and not allow_partial:
@@ -268,7 +273,7 @@ def apply_commit(upstream: Path, sha: str, msg: str, protected: list[str], dry_r
                 # Local đã có file trùng tên, bỏ qua để không ghi đè
                 result["skipped"].append(f"exists:{mapped}")
                 continue
-            if is_risky_new(mapped):
+            if is_risky_new(mapped) and not allow_risky_new:
                 result["skipped"].append(f"risky-new:{mapped}")
                 continue
             if not dry_run:
@@ -281,7 +286,7 @@ def apply_commit(upstream: Path, sha: str, msg: str, protected: list[str], dry_r
         local_text = target.read_text(encoding="utf-8", errors="replace") if target.exists() else None
         if local_text is not None and local_text != old_text:
             if use_3way and old_text is not None and new_text is not None:
-                merged = merge_3way(local_text, old_text, new_text)
+                merged = merge_3way(local_text, old_text, new_text, resolve_theirs)
                 if merged is None:
                     result["skipped"].append(f"3way-conflict:{mapped}")
                     continue
@@ -295,7 +300,7 @@ def apply_commit(upstream: Path, sha: str, msg: str, protected: list[str], dry_r
             continue
 
         # Nếu file chưa có local và nằm trong thư mục rủi ro, bỏ qua
-        if local_text is None and is_risky_new(mapped):
+        if local_text is None and is_risky_new(mapped) and not allow_risky_new:
             result["skipped"].append(f"risky-new:{mapped}")
             continue
 
@@ -339,6 +344,8 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true", help="Only show what would happen")
     parser.add_argument("--allow-partial", action="store_true", help="Apply non-protected files even if commit contains protected files")
     parser.add_argument("--3way", dest="use_3way", action="store_true", help="Use 3-way merge for diverged files")
+    parser.add_argument("--resolve-theirs", action="store_true", help="Resolve 3-way conflicts by preferring upstream (theirs)")
+    parser.add_argument("--allow-risky-new", action="store_true", help="Allow creating new files in adapters/scripts")
     args = parser.parse_args()
 
     upstream = Path(args.upstream) if args.upstream else Path(tempfile.gettempdir()) / "ahd-upstream"
@@ -355,7 +362,7 @@ def main() -> int:
     results: list[dict[str, Any]] = []
     for sha, msg in commits:
         print(f"\n[COMMIT] {sha} {msg}")
-        res = apply_commit(upstream, sha, msg, protected, args.dry_run, args.allow_partial, args.use_3way)
+        res = apply_commit(upstream, sha, msg, protected, args.dry_run, args.allow_partial, args.use_3way, args.resolve_theirs, args.allow_risky_new)
         results.append(res)
         print(f"  status: {res['status']}")
         if res["applied"]:
