@@ -45,7 +45,7 @@ def _is_stale(s: dict) -> bool:
                 t = datetime.fromisoformat(ts).timestamp()
                 if t > max_ts:
                     max_ts = t
-            except Exception:
+            except (ValueError, TypeError):
                 pass
     if max_ts == 0.0:
         return True
@@ -59,7 +59,7 @@ def audit(root: Path, new_files: list[str], new_tags: list[str], session_id: str
     if new_files:
         try:
             expanded_new = _expand_file_hints(new_files)
-        except Exception:
+        except (KeyError, TypeError, ValueError, AttributeError, OSError):
             pass
     new_tags_set = set(t.strip() for t in new_tags if t.strip())
 
@@ -78,7 +78,7 @@ def audit(root: Path, new_files: list[str], new_tags: list[str], session_id: str
         if not affected and owned:
             try:
                 affected = _expand_file_hints(list(owned))
-            except Exception:
+            except (KeyError, TypeError, ValueError, AttributeError, OSError):
                 pass
         tags = set(s.get("tags", []))
 
@@ -148,7 +148,7 @@ def run_inline(root: Path, files: str = "", tags: str = "", session_id: str = ""
         new_files = [f.strip() for f in files.split(",") if f.strip()]
         new_tags = [t.strip() for t in tags.split(",") if t.strip()]
         return audit(root, new_files, new_tags, session_id)
-    except Exception as e:
+    except (ValueError, TypeError, KeyError, AttributeError) as e:
         return {
             "ok": False,
             "error": str(e),

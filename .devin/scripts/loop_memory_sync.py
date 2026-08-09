@@ -69,7 +69,7 @@ def _write_fallback(root: Path, operation: str, error: str) -> None:
                     }
                     snap_path = fallback_dir / f"{sid}.json"
                     snap_path.write_text(json.dumps(snap, ensure_ascii=False, indent=2), encoding="utf-8")
-                except Exception:
+                except (json.JSONDecodeError, TypeError, ValueError, OSError, UnicodeDecodeError):
                     pass
 
         # Write fallback registry
@@ -101,7 +101,7 @@ def _write_fallback(root: Path, operation: str, error: str) -> None:
                     goal = snap.get("goal", "")[:30]
                     hb = snap.get("last_heartbeat", "")
                     lines.append(f"| {sid} | {status} | {goal} | {hb} |")
-                except Exception:
+                except (json.JSONDecodeError, TypeError, ValueError, OSError, UnicodeDecodeError):
                     pass
         lines.append("")
         lines.append(f"## Recovery instructions")
@@ -111,8 +111,9 @@ def _write_fallback(root: Path, operation: str, error: str) -> None:
         lines.append(f"- Fallback snapshots can be merged back manually if needed")
 
         fallback_reg.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    except Exception:
+    except (json.JSONDecodeError, TypeError, ValueError) as e:
         # Last resort: can't even write fallback
+        print(f"[loop_memory_sync] fallback write failed: {e}", file=sys.stderr)
         pass
 
 
@@ -143,7 +144,7 @@ def _parse_front_matter(text: str) -> dict:
             val = val.strip()
             try:
                 result[key] = json.loads(val)
-            except Exception:
+            except (json.JSONDecodeError, TypeError, ValueError):
                 result[key] = val
     return result
 
@@ -173,7 +174,7 @@ def _is_stale(s: dict) -> bool:
                 t = datetime.fromisoformat(ts).timestamp()
                 if t > max_ts:
                     max_ts = t
-            except Exception:
+            except (ValueError, TypeError):
                 pass
     if max_ts == 0.0:
         # No timestamp information; treat as stale
@@ -207,7 +208,7 @@ def _build_registry(root: Path) -> tuple[list[dict], list[dict]]:
                 data = json.loads(f.read_text(encoding="utf-8"))
                 if data.get("session_id") == sid:
                     state_files.append(data)
-            except Exception:
+            except (json.JSONDecodeError, TypeError, ValueError, OSError, UnicodeDecodeError):
                 pass
 
     # Detect stale in-progress sessions before classifying
@@ -220,7 +221,7 @@ def _build_registry(root: Path) -> tuple[list[dict], list[dict]]:
             if ts:
                 try:
                     return datetime.fromisoformat(ts).timestamp()
-                except Exception:
+                except (ValueError, TypeError):
                     pass
         return 0.0
 
@@ -251,7 +252,7 @@ def _enforce_active_session_limit(root: Path, sessions: list[dict]) -> list[dict
             if ts:
                 try:
                     return datetime.fromisoformat(ts).timestamp()
-                except Exception:
+                except (ValueError, TypeError):
                     pass
         return 0.0
 
@@ -284,7 +285,7 @@ def _archive_session(root: Path, session_id: str, body: str, front: dict) -> Non
         summary = f"\n- archived session `{session_id}` at {ts}: {goal[:80]}\n"
         with open(archive_md, "a", encoding="utf-8") as f:
             f.write(summary)
-    except Exception:
+    except (OSError, UnicodeDecodeError, AttributeError):
         pass
 
 

@@ -71,7 +71,7 @@ def record_nuwa_run(
         nuwa_metrics["last_nuwa_run"] = ahd_session.now_utc()
 
         ahd_session.update_session_state(session_id, {"nuwa_metrics": nuwa_metrics}, root)
-    except Exception:
+    except (KeyError, TypeError, ValueError, AttributeError, OSError):
         pass
 
 
@@ -102,7 +102,7 @@ def record_standard_run(
         nuwa_metrics["last_standard_run"] = ahd_session.now_utc()
 
         ahd_session.update_session_state(session_id, {"nuwa_metrics": nuwa_metrics}, root)
-    except Exception:
+    except (KeyError, TypeError, ValueError, AttributeError, OSError):
         pass
 
 
@@ -130,7 +130,7 @@ def reset_nuwa_metrics(session_id: str, root: Path) -> None:
                 "reset_at": ahd_session.now_utc(),
             }
         }, root)
-    except Exception:
+    except (KeyError, TypeError, ValueError, AttributeError, OSError):
         pass
 
 
@@ -146,7 +146,7 @@ def compute_roi(session_id: str, root: Path) -> dict[str, Any]:
     try:
         state = ahd_session.read_session_state(session_id, root)
         m = state.get("nuwa_metrics", {})
-    except Exception:
+    except (KeyError, TypeError, ValueError, AttributeError, OSError):
         m = {}
 
     nuwa_runs = m.get("nuwa_runs", 0)

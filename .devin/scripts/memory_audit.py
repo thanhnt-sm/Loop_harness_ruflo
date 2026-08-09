@@ -103,7 +103,7 @@ def run(root: Path, session_id: str) -> None:
                 continue
             try:
                 candidates.append(json.loads(line))
-            except Exception:
+            except (json.JSONDecodeError, TypeError, ValueError):
                 pass
 
     if not candidates:
@@ -127,7 +127,7 @@ def run(root: Path, session_id: str) -> None:
     # Clear candidate memory
     try:
         candidate_path.write_text("", encoding="utf-8")
-    except Exception:
+    except (OSError, UnicodeDecodeError):
         pass
 
 

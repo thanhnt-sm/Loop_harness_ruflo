@@ -136,7 +136,7 @@ def _grep_files(pattern: str, path: str = ".") -> list[str]:
                 out = [f.strip() for f in r.stdout.strip().split("\n") if f.strip()]
                 if out or r.returncode == 0:
                     return out
-        except Exception:
+        except (subprocess.SubprocessError, FileNotFoundError, subprocess.TimeoutExpired, OSError):
             continue
     return []
 
@@ -313,7 +313,7 @@ def _get_active_sessions(root: Path) -> list[dict]:
                 try:
                     data = json.loads(ss.read_text(encoding="utf-8"))
                     sessions.append(data)
-                except Exception:
+                except (json.JSONDecodeError, TypeError, ValueError, OSError, UnicodeDecodeError):
                     pass
     return sessions
 
