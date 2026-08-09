@@ -39,12 +39,21 @@ import ahd_session
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 try:
     from cost_tracker import check_cost_cap
+except (ImportError, ModuleNotFoundError, SyntaxError, ValueError):
+    check_cost_cap = None  # type: ignore[assignment]
+
+# T4.9: Import reflection_gate từ .devin/scripts.
 except Exception:
     check_cost_cap = None  # type: ignore[assignment]
 
 # T4.9: Import reflection_gate từ .devin/scripts.
 try:
     from reflection_gate import check_reflection as _check_reflection
+except (ImportError, ModuleNotFoundError, SyntaxError, ValueError):
+    _check_reflection = None  # type: ignore[assignment]
+
+# U15: Internal timeout — if hook runs longer than this, force-allow (fail open).
+# Config timeout is 3s; this is a safety net at 2s (1s margin) to exit before config kills us.
 except Exception:
     _check_reflection = None  # type: ignore[assignment]
 
@@ -268,6 +277,9 @@ def check_ssrf(url: str, allowlist: set[str] | None = None) -> int:
 
     try:
         parsed = urllib.parse.urlparse(url)
+    except (ValueError, TypeError):
+        return 0
+
     except Exception:
         return 0
 

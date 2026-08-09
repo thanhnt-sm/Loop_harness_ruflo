@@ -17,6 +17,9 @@ def main() -> None:
     """U70: On session end, mark session as ended + trigger memory save."""
     try:
         data = json.load(sys.stdin)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return
+
     except Exception:
         return
 

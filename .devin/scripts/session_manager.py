@@ -40,6 +40,8 @@ def _count_active_sessions(root: Path) -> int:
             data = json.loads(f.read_text(encoding="utf-8"))
             if data.get("status") in ACTIVE_STATUSES:
                 count += 1
+        except (json.JSONDecodeError, TypeError, ValueError):
+            pass
         except Exception:
             pass
     return count
@@ -86,6 +88,8 @@ def cmd_init(args: argparse.Namespace) -> int:
     try:
         current_file = ahd_session.get_config_root(root) / "session_state" / "current_session"
         current_file.write_text(sid, encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        pass
     except Exception:
         pass
     if status == "queued":

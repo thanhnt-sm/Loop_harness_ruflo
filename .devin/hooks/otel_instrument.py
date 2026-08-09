@@ -54,6 +54,8 @@ def _get_telemetry_dir(root: Path) -> Path:
         sys.path.insert(0, str(Path(__file__).resolve().parent))
         import ahd_session
         config_root = ahd_session.get_config_root(root)
+    except (ImportError, ModuleNotFoundError, SyntaxError, ValueError):
+        pass
     except Exception:
         pass
     tel_dir = config_root / TELEMETRY_DIR_NAME
@@ -71,6 +73,10 @@ def _hash_input(tool_input) -> str:
         else:
             text = str(tool_input)
         return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return "hash_error"
+
+
     except Exception:
         return "hash_error"
 
@@ -123,6 +129,10 @@ def _rotate_log(log_path: Path) -> None:
             if backup.exists():
                 backup.unlink()
             log_path.rename(backup)
+    except (OSError, UnicodeDecodeError):
+        pass
+
+
     except Exception:
         pass
 
@@ -133,6 +143,11 @@ def _write_fallback_log(log_path: Path, event: dict) -> None:
         _rotate_log(log_path)
         with open(log_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(event, ensure_ascii=False) + "\n")
+    except (json.JSONDecodeError, TypeError, ValueError) as e:
+        # Lỗi ghi -> log stderr, không block
+        print(f"[otel_instrument] error writing telemetry log: {e}", file=sys.stderr)
+
+
     except Exception as e:
         # Lỗi ghi -> log stderr, không block
         print(f"[otel_instrument] error writing telemetry log: {e}", file=sys.stderr)
@@ -165,6 +180,11 @@ def _emit_otel_span(event: dict) -> bool:
             else:
                 span.set_status(Status(StatusCode.OK))
         return True
+    except (ImportError, ModuleNotFoundError, SyntaxError, ValueError):
+        # opentelemetry chưa cài hoặc lỗi -> fallback
+        return False
+
+
     except Exception:
         # opentelemetry chưa cài hoặc lỗi -> fallback
         return False
@@ -203,6 +223,11 @@ def main():
 
     try:
         data = json.load(sys.stdin)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        # Không parse được -> không có gì để instrument, exit 0
+        sys.exit(0)
+
+    # Xác định repo root
     except Exception:
         # Không parse được -> không có gì để instrument, exit 0
         sys.exit(0)
@@ -213,6 +238,9 @@ def main():
         sys.path.insert(0, str(Path(__file__).resolve().parent))
         import ahd_session
         root = ahd_session.get_repo_root()
+    except (ImportError, ModuleNotFoundError, SyntaxError, ValueError):
+        pass
+
     except Exception:
         pass
 
@@ -236,6 +264,10 @@ def main():
                 print(json.dumps(tool_output, ensure_ascii=False))
             else:
                 print(str(tool_output))
+        except (json.JSONDecodeError, TypeError, ValueError):
+            pass
+
+    # Exit code: giống hook được bọc (mặc định 0)
         except Exception:
             pass
 
@@ -243,6 +275,8 @@ def main():
     exit_code = data.get("exit_code", 0)
     try:
         exit_code = int(exit_code)
+    except (ValueError, TypeError, KeyError, AttributeError):
+        exit_code = 0
     except Exception:
         exit_code = 0
     sys.exit(exit_code)

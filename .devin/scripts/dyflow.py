@@ -125,6 +125,10 @@ def _discover_python_deps(file_path: Path, workspace: Path) -> list[str]:
     deps: list[str] = []
     try:
         content = file_path.read_text(encoding="utf-8", errors="ignore")
+    except (OSError, UnicodeDecodeError):
+        return deps
+
+    # Absolute imports: from X import Y, hoặc import X
     except Exception:
         return deps
 
@@ -300,6 +304,11 @@ def _cli() -> int:
         }
         print(json.dumps(out, ensure_ascii=False, indent=2))
         return 0
+    except (json.JSONDecodeError, TypeError, ValueError) as e:
+        print(f"[dyflow] lỗi: {e}", file=sys.stderr)
+        return 1
+
+
     except Exception as e:
         print(f"[dyflow] lỗi: {e}", file=sys.stderr)
         return 1

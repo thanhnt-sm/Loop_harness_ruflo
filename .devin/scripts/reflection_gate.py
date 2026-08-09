@@ -191,6 +191,11 @@ def _cli() -> int:
             return 0
         print(json.dumps(verdict.model_dump(by_alias=True), ensure_ascii=False, indent=2))
         return 0 if not verdict.block else 2
+    except (json.JSONDecodeError, TypeError, ValueError) as e:
+        print(f"[reflection_gate] lỗi: {e}", file=sys.stderr)
+        return 1
+
+
     except Exception as e:
         print(f"[reflection_gate] lỗi: {e}", file=sys.stderr)
         return 1

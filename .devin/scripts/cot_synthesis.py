@@ -249,6 +249,11 @@ def _cli() -> int:
         }
         print(json.dumps(out, ensure_ascii=False, indent=2))
         return 0
+    except (json.JSONDecodeError, TypeError, ValueError) as e:
+        print(f"[cot_synthesis] lỗi: {e}", file=sys.stderr)
+        return 1
+
+
     except Exception as e:
         print(f"[cot_synthesis] lỗi: {e}", file=sys.stderr)
         return 1

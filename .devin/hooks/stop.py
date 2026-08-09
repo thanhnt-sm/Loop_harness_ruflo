@@ -63,6 +63,9 @@ def _call_script(root: Path, script: str, *args) -> int:
                         pass
                     print(f"[stop.py] WARNING: {script} timed out and was killed", file=sys.stderr)
                     return 124
+            except (subprocess.SubprocessError, FileNotFoundError, TimeoutExpired, OSError) as e:
+                print(f"[stop.py] ERROR: cannot run {script}: {e}", file=sys.stderr)
+                return 1
             except Exception as e:
                 print(f"[stop.py] ERROR: cannot run {script}: {e}", file=sys.stderr)
                 return 1
@@ -79,6 +82,10 @@ def _clean_tmp(tmp_dir: Path) -> None:
         try:
             if f.is_file() and f.stat().st_mtime < cutoff:
                 f.unlink()
+        except (OSError, UnicodeDecodeError):
+            pass
+
+
         except Exception:
             pass
 
@@ -89,6 +96,9 @@ def main():
 
     try:
         data = json.load(sys.stdin)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        data = {}
+
     except Exception:
         data = {}
 
@@ -114,6 +124,9 @@ def main():
             elapsed = (datetime.now(timezone.utc) - last_ts).total_seconds()
             if elapsed < 1800:  # 30 minutes
                 completed = True
+        except (ValueError, TypeError, KeyError, AttributeError):
+            pass
+
         except Exception:
             pass
 
@@ -141,6 +154,10 @@ def main():
         archive_path.parent.mkdir(parents=True, exist_ok=True)
         with open(archive_path, "a", encoding="utf-8") as f:
             f.write(f"\n{SESSION_MARKER} session_end ts={ts} session_id={session_id} status={'completed' if completed else 'crashed'} cleanup_failed={cleanup_failed}\n")
+    except (OSError, UnicodeDecodeError):
+        pass
+
+    # Clean old temp files
     except Exception:
         pass
 

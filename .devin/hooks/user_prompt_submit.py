@@ -17,6 +17,9 @@ def main() -> None:
     """U70: On user prompt, inject context about harness state."""
     try:
         data = json.load(sys.stdin)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return
+
     except Exception:
         return
 

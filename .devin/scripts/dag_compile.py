@@ -205,6 +205,11 @@ def compile_plan(root: Path, plan_file: Path, output: Path | None = None) -> int
 
     try:
         plan_text = plan_file.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as e:
+        print(f"[ERROR] Khong the doc file plan: {e}")
+        return 1
+
+    # Bước 2: parse task
     except Exception as e:
         print(f"[ERROR] Khong the doc file plan: {e}")
         return 1

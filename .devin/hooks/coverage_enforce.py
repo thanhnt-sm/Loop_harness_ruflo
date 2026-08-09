@@ -42,6 +42,10 @@ from pathlib import Path
 # Import ahd_session từ cùng thư mục hooks để dùng file-lock cho coverage state.
 try:
     import ahd_session
+except (ImportError, ModuleNotFoundError, SyntaxError, ValueError):
+    ahd_session = None  # type: ignore[assignment]
+
+# T4.13: Import shared path_zones (single source of truth cho blocked/safe zones).
 except Exception:  # pragma: no cover
     ahd_session = None  # type: ignore[assignment]
 
@@ -49,6 +53,11 @@ except Exception:  # pragma: no cover
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 try:
     from path_zones import is_blocked as _pathzones_is_blocked, is_safe as _pathzones_is_safe
+except (ImportError, ModuleNotFoundError, SyntaxError, ValueError):
+    _pathzones_is_blocked = None
+    _pathzones_is_safe = None
+
+# U15: Timeout nội bộ — coverage_enforce chạy grep nên cần dư thời gian.
 except Exception:
     _pathzones_is_blocked = None
     _pathzones_is_safe = None
@@ -71,6 +80,8 @@ def _get_plan_state_dir(root: Path) -> Path:
         sys.path.insert(0, str(Path(__file__).resolve().parent))
         import ahd_session
         config_root = ahd_session.get_config_root(root)
+    except (ImportError, ModuleNotFoundError, SyntaxError, ValueError):
+        pass
     except Exception:
         pass
     state_dir = config_root / "plan_state"
@@ -110,6 +121,12 @@ def _parse_plan(plan_path: Path) -> dict:
     tasks: dict[str, dict] = {}
     try:
         text = plan_path.read_text(encoding="utf-8", errors="ignore")
+    except (OSError, UnicodeDecodeError):
+        return {"plan_name": plan_name, "tasks": {}}
+
+    # Pattern 1: "- [ ] T01: src/foo.py (functions: bar, baz)"
+    # Pattern 2: "- [x] T02: scripts/util.py (functions: run)"
+    # Pattern 3: "## T03 — src/qux.py (functions: quux)"
     except Exception:
         return {"plan_name": plan_name, "tasks": {}}
 
@@ -146,6 +163,8 @@ def _load_coverage_state(state_path: Path, plan_name: str) -> dict:
             data = json.loads(state_path.read_text(encoding="utf-8"))
             if isinstance(data, dict) and "tasks" in data:
                 return data
+        except (json.JSONDecodeError, TypeError, ValueError):
+            pass  # state hỏng -> tạo mới
         except Exception:
             pass  # state hỏng -> tạo mới
     return {"plan_name": plan_name, "tasks": {}}
@@ -166,6 +185,9 @@ def _save_coverage_state(state_path: Path, state: dict) -> None:
                 session_id="",
             )
             return
+    except (TimeoutError, OSError, FileExistsError):
+        pass
+    # Fallback: ghi tạm với tên duy nhất để tránh đè nhau giữa các hook song song.
     except Exception:
         pass
     # Fallback: ghi tạm với tên duy nhất để tránh đè nhau giữa các hook song song.
@@ -174,6 +196,10 @@ def _save_coverage_state(state_path: Path, state: dict) -> None:
         tmp = state_path.with_name(tmp_name)
         tmp.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
         tmp.replace(state_path)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        pass
+
+
     except Exception:
         pass
 
@@ -188,6 +214,8 @@ def _grep_symbol_in_file(file_path: Path, symbol: str) -> bool:
     # Dùng regex trực tiếp thay vì subprocess (đơn giản, không phụ thuộc platform)
     try:
         content = file_path.read_text(encoding="utf-8", errors="ignore")
+    except (OSError, UnicodeDecodeError):
+        return False
     except Exception:
         return False
     pattern = re.compile(
@@ -231,6 +259,10 @@ def _is_path_blocked(file_path: str) -> bool:
         return False
     try:
         return _pathzones_is_blocked(file_path)
+    except (TimeoutError, OSError, FileExistsError):
+        return False
+
+
     except Exception:
         return False
 
@@ -320,6 +352,11 @@ def main():
     """Điểm vào chính: đọc stdin, cập nhật coverage, xuất kết quả."""
     try:
         data = json.load(sys.stdin)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        # Không parse được -> skip silently (advisory)
+        print(json.dumps({"coverage_pct": 0.0, "executed": 0, "total": 0, "gaps": []}))
+        sys.exit(0)
+
     except Exception:
         # Không parse được -> skip silently (advisory)
         print(json.dumps({"coverage_pct": 0.0, "executed": 0, "total": 0, "gaps": []}))
@@ -334,6 +371,10 @@ def main():
         sys.path.insert(0, str(Path(__file__).resolve().parent))
         import ahd_session
         root = ahd_session.get_repo_root()
+    except (ImportError, ModuleNotFoundError, SyntaxError, ValueError):
+        pass
+
+    # Tìm plan file — nếu không có -> skip silently
     except Exception:
         pass
 

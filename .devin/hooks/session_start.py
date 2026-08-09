@@ -36,6 +36,8 @@ def _load_hlk_config(root: Path) -> dict:
         config_path = _hlk_config_path(root)
         if config_path.exists():
             return json.loads(config_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, TypeError, ValueError):
+        pass
     except Exception:
         pass
     return {"hlk_enabled": True}
@@ -53,6 +55,10 @@ def _write_hlk_audit(root: Path, message: str) -> None:
         audit_path.parent.mkdir(parents=True, exist_ok=True)
         with audit_path.open("a", encoding="utf-8") as fh:
             fh.write(f"{_now_iso()} - {message}\n")
+    except (OSError, UnicodeDecodeError):
+        pass
+
+
     except Exception:
         pass
 
@@ -79,6 +85,9 @@ def main() -> None:
     """U56: On session start, initialize boot_complete=false in session_state."""
     try:
         data = json.load(sys.stdin)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return  # can't parse, don't block
+
     except Exception:
         return  # can't parse, don't block
 

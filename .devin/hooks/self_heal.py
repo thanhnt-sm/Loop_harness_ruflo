@@ -91,6 +91,8 @@ def _load_json(path: Path, default):
             data = json.loads(path.read_text(encoding="utf-8"))
             if isinstance(data, type(default)) if default is not None else True:
                 return data
+    except (json.JSONDecodeError, TypeError, ValueError):
+        pass
     except Exception:
         pass
     return default
@@ -104,6 +106,12 @@ def _save_json(path: Path, data) -> None:
         tmp = path.with_suffix(f"{path.suffix}.{pid}.tmp")
         tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
         tmp.replace(path)
+    except (json.JSONDecodeError, TypeError, ValueError) as e:
+        print(f"[self_heal] khong the ghi {path}: {e}", file=sys.stderr)
+
+
+# --- Giai doan 1 + 2: Monitor & Detect ---
+
     except Exception as e:
         print(f"[self_heal] khong the ghi {path}: {e}", file=sys.stderr)
 
@@ -246,6 +254,15 @@ def main() -> int:
     try:
         raw = sys.stdin.read()
         data = json.loads(raw) if raw.strip() else {}
+    except (json.JSONDecodeError, TypeError, ValueError) as e:
+        print(json.dumps({
+            "action": "escalate",
+            "reason": f"input_khong_hop_le: {e}",
+            "attempt": 0,
+            "budget_remaining": 0,
+        }))
+        return 0
+
     except Exception as e:
         print(json.dumps({
             "action": "escalate",

@@ -232,6 +232,11 @@ def _cli() -> int:
         result = run(task, profile)
         print(json.dumps(result.model_dump(), ensure_ascii=False, indent=2))
         return 0
+    except (json.JSONDecodeError, TypeError, ValueError) as e:
+        print(f"[three_role] lỗi: {e}", file=sys.stderr)
+        return 1
+
+
     except Exception as e:
         print(f"[three_role] lỗi: {e}", file=sys.stderr)
         return 1

@@ -76,6 +76,8 @@ def _load_state(root: Path) -> dict:
             data = json.loads(path.read_text(encoding="utf-8"))
             if isinstance(data, dict):
                 return data
+    except (json.JSONDecodeError, TypeError, ValueError):
+        pass
     except Exception:
         pass
     return {"metrics": {m: [] for m in METRICS}, "updated_at": ""}
@@ -88,6 +90,10 @@ def _save_state(root: Path, state: dict) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         state["updated_at"] = datetime.now().isoformat()
         path.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    except (json.JSONDecodeError, TypeError, ValueError) as e:
+        print(f"[spc_monitor] khong the ghi state: {e}", file=sys.stderr)
+
+
     except Exception as e:
         print(f"[spc_monitor] khong the ghi state: {e}", file=sys.stderr)
 

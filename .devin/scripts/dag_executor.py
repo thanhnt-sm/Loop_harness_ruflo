@@ -408,6 +408,10 @@ def _save_checkpoint_for_state(state: dict) -> None:
             step_id=step_id,
         )
         checkpoint_module.save(ckpt, workflow_id=wf_id, root=_repo_root())
+    except (ValueError, TypeError, KeyError, AttributeError):
+        pass
+
+
     except Exception:
         pass
 
@@ -497,6 +501,11 @@ def execute(
                     state["tasks"][tid]["status"] = "complete"
                     state["tasks"][tid]["result"] = result
                     state["tasks"][tid]["completed_at"] = datetime.now(timezone.utc).isoformat()
+                except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                    state["tasks"][tid]["status"] = "failed"
+                    state["tasks"][tid]["result"] = {"error": str(exc)}
+                    state["tasks"][tid]["completed_at"] = datetime.now(timezone.utc).isoformat()
+
                 except Exception as exc:
                     state["tasks"][tid]["status"] = "failed"
                     state["tasks"][tid]["result"] = {"error": str(exc)}

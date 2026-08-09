@@ -97,11 +97,15 @@ def _load_state() -> dict:
         )
         if isinstance(result, dict):
             return result
+    except (TimeoutError, OSError, FileExistsError):
+        pass
     except Exception:
         pass
     if WORKTREE_STATE.exists():
         try:
             return json.loads(WORKTREE_STATE.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, TypeError, ValueError):
+            pass
         except Exception:
             pass
     return {"worktrees": {}}
@@ -117,12 +121,30 @@ def _save_state(state: dict):
             default=state,
             session_id="",
         )
+    except (TimeoutError, OSError, FileExistsError):
+        # Fallback ghi trực tiếp nếu lock helper không khả dụng.
+        try:
+            tmp = WORKTREE_STATE.with_suffix(".tmp")
+            tmp.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
+            tmp.replace(WORKTREE_STATE)
+        except (json.JSONDecodeError, TypeError, ValueError):
+            pass
+
+
+        except Exception:
+            pass
+
+
     except Exception:
         # Fallback ghi trực tiếp nếu lock helper không khả dụng.
         try:
             tmp = WORKTREE_STATE.with_suffix(".tmp")
             tmp.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
             tmp.replace(WORKTREE_STATE)
+        except (json.JSONDecodeError, TypeError, ValueError):
+            pass
+
+
         except Exception:
             pass
 

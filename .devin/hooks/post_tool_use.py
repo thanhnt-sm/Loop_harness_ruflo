@@ -87,6 +87,8 @@ def _compute_sha256(file_path: str, root: Path) -> str:
                 for chunk in iter(lambda: f.read(65536), b""):
                     sha256.update(chunk)
             return sha256.hexdigest()
+    except (OSError, UnicodeDecodeError):
+        pass
     except Exception:
         pass
     return ""
@@ -155,6 +157,8 @@ def _repeated_failure_count(journal_path: Path, tool_name: str, command: str, se
                 continue
             try:
                 entry = json.loads(line)
+            except (json.JSONDecodeError, TypeError, ValueError):
+                continue
             except Exception:
                 continue
             if entry.get("session_id") != session_id:
@@ -167,6 +171,8 @@ def _repeated_failure_count(journal_path: Path, tool_name: str, command: str, se
             if command and entry_cmd != command:
                 continue
             count += 1
+    except (json.JSONDecodeError, TypeError, ValueError):
+        pass
     except Exception:
         pass
     return count
@@ -226,6 +232,10 @@ def _append_bounded_jsonl(path: Path, record: dict, max_records: int = CANDIDATE
                 path.write_text("\n".join(lines) + "\n" if lines else "", encoding="utf-8")
         with open(path, "a", encoding="utf-8") as f:
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    except (json.JSONDecodeError, TypeError, ValueError):
+        pass
+
+
     except Exception:
         pass
 
@@ -238,6 +248,10 @@ def _rotate(path: Path, max_lines: int = 1000) -> None:
             if backup.exists():
                 backup.unlink()
             path.rename(backup)
+    except (OSError, UnicodeDecodeError):
+        pass
+
+
     except Exception:
         pass
 
@@ -245,6 +259,9 @@ def _rotate(path: Path, max_lines: int = 1000) -> None:
 def main():
     try:
         data = json.load(sys.stdin)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        sys.exit(0)
+
     except Exception:
         sys.exit(0)
 
@@ -322,6 +339,9 @@ def main():
         update["cost_cap"] = cost_cap
         update["cost_tracked_calls"] = call_count
         update["last_tool_cost"] = cost
+    except (ImportError, ModuleNotFoundError, SyntaxError, ValueError):
+        pass
+
     except Exception:
         pass
 
@@ -335,6 +355,10 @@ def main():
             fallback_path = fallback_dir / f"{session_id}.heartbeat.json"
             fallback_data = {**update, "fallback": True, "error": str(e)[:200]}
             fallback_path.write_text(json.dumps(fallback_data, ensure_ascii=False), encoding="utf-8")
+        except (json.JSONDecodeError, TypeError, ValueError):
+            pass
+
+    # U17: Check cost cap after state write (separate check, not write)
         except Exception:
             pass
 
@@ -345,6 +369,10 @@ def main():
             print(f"[U17 COST CAP] {cost_msg}", file=sys.stderr)
         elif cost_msg:
             print(f"[U17 COST] {cost_msg}", file=sys.stderr)
+    except (ValueError, TypeError, KeyError, AttributeError):
+        pass
+
+    # Write per-session journal
     except Exception:
         pass
 
@@ -396,6 +424,10 @@ def main():
             ahd_session.write_context_flags(session_id, {
                 "oversized_tool_calls_since_flag": counter,
             }, root)
+    except (ValueError, TypeError, KeyError, AttributeError):
+        pass
+
+    # Detect candidate memory (only record after the same command fails 2+ times)
     except Exception:
         pass
 
@@ -614,6 +646,10 @@ def _u60_loop_enforcement(data: dict, session_id: str, root: Path) -> None:
                     f"Loop should stop.",
                     file=sys.stderr,
                 )
+        except (ValueError, TypeError, KeyError, AttributeError):
+            pass
+
+    # Check iteration count vs state writes
         except Exception:
             pass
 
@@ -656,6 +692,11 @@ def _u61_state_write_verification(data: dict, session_id: str, root: Path) -> No
                     f"Escalate to human.",
                     file=sys.stderr,
                 )
+    except (OSError, UnicodeDecodeError):
+        pass
+
+
+# U62: Memory confidence + honest limit
     except Exception:
         pass
 

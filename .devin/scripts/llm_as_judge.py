@@ -70,6 +70,11 @@ def _log_audit(task: str, result: Any, verdict: str, seed: int) -> None:
         }
         with p.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    except (json.JSONDecodeError, TypeError, ValueError):
+        # Audit log không bao giờ được làm fail judge
+        pass
+
+
     except Exception:
         # Audit log không bao giờ được làm fail judge
         pass

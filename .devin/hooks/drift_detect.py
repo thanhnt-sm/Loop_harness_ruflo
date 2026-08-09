@@ -242,6 +242,8 @@ def _load_json(path: Path, default):
     try:
         if path.exists():
             return json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, TypeError, ValueError):
+        pass
     except Exception:
         pass
     return default
@@ -255,6 +257,10 @@ def _save_json(path: Path, data) -> None:
         tmp = path.with_suffix(f"{path.suffix}.{pid}.tmp")
         tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
         tmp.replace(path)
+    except (json.JSONDecodeError, TypeError, ValueError) as e:
+        print(f"[drift_detect] khong the ghi {path}: {e}", file=sys.stderr)
+
+
     except Exception as e:
         print(f"[drift_detect] khong the ghi {path}: {e}", file=sys.stderr)
 
@@ -411,6 +417,16 @@ def main() -> int:
     try:
         raw = sys.stdin.read()
         data = json.loads(raw) if raw.strip() else {}
+    except (json.JSONDecodeError, TypeError, ValueError) as e:
+        print(json.dumps({
+            "drift_detected": False,
+            "dimension": "none",
+            "divergence": 0.0,
+            "threshold": 0.0,
+            "error": f"input_khong_hop_le: {e}",
+        }))
+        return 0
+
     except Exception as e:
         print(json.dumps({
             "drift_detected": False,
