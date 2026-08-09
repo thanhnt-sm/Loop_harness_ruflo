@@ -34,6 +34,9 @@ from update_common import (
     save_tracker,
 )
 
+DEFAULT_TRACKER = REPO_ROOT / ".devin" / "metadata" / "REPOS_TRACKER.json"
+DEFAULT_OUTPUT = REPO_ROOT / "UPDATES_REPORT.md"
+
 
 def get_github_token() -> str:
     """Lấy GitHub token từ environment nếu có."""

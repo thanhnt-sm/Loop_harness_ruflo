@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "last_check": "2026-08-09T06:26:35.817999+00:00",
+  "last_check": "2026-08-09T11:19:18.501680+00:00",
   "sources": [
     {
       "id": "ahd-main-engine",
@@ -34,7 +34,7 @@
         "HLK/"
       ],
       "notes": "Local deploy commit c327869 not in upstream; AHD update must be surgical only.",
-      "last_checked": "2026-08-09T06:26:32.831631+00:00"
+      "last_checked": "2026-08-09T11:19:15.321525+00:00"
     },
     {
       "id": "nuwa-skill",
@@ -54,7 +54,7 @@
         ".devin/skills/nuwa-skill/"
       ],
       "notes": "Updated to 27642f5 on 2026-08-09. Core files only, 3 examples kept.",
-      "last_checked": "2026-08-09T06:26:33.294664+00:00"
+      "last_checked": "2026-08-09T11:19:15.805953+00:00"
     },
     {
       "id": "caveman",
@@ -72,7 +72,7 @@
         ".devin/canon/CAVEMAN_PROTOCOL.md"
       ],
       "notes": "Concepts distilled into CAVEMAN_PROTOCOL.md; update only if new concepts.",
-      "last_checked": "2026-08-09T06:26:33.760923+00:00"
+      "last_checked": "2026-08-09T11:19:16.250005+00:00"
     },
     {
       "id": "agency-agents",
@@ -91,7 +91,7 @@
         ".devin/agents/PERSONA_TEMPLATE.md"
       ],
       "notes": "Concepts distilled into COMMANDER.md / PERSONA_TEMPLATE.md.",
-      "last_checked": "2026-08-09T06:26:34.227076+00:00"
+      "last_checked": "2026-08-09T11:19:16.706423+00:00"
     },
     {
       "id": "superpowers",
@@ -109,7 +109,7 @@
         ".devin/canon/COMMANDER.md"
       ],
       "notes": "Concepts distilled into COMMANDER.md / systematic_debugging.md / tdd.md.",
-      "last_checked": "2026-08-09T06:26:34.665211+00:00"
+      "last_checked": "2026-08-09T11:19:17.167229+00:00"
     },
     {
       "id": "loop-engineering",
@@ -127,7 +127,7 @@
         ".devin/canon/LOOP_PROTOCOL.md"
       ],
       "notes": "Concepts distilled into LOOP_PROTOCOL.md.",
-      "last_checked": "2026-08-09T06:26:35.123243+00:00"
+      "last_checked": "2026-08-09T11:19:17.630969+00:00"
     },
     {
       "id": "fable-method",
@@ -145,7 +145,7 @@
         ".devin/canon/fable-judge.md"
       ],
       "notes": "Concepts distilled into fable-judge.md.",
-      "last_checked": "2026-08-09T06:26:35.817953+00:00"
+      "last_checked": "2026-08-09T11:19:18.501634+00:00"
     }
   ]
 }
