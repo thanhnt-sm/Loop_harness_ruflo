@@ -649,6 +649,12 @@ class BaseAdapter:
             ]
             for sf in shared_state_files:
                 reps.append((f"{runtime_root}/{sf}", f".agents/{sf}"))
+        # Placeholder replacements for canon migration logic.
+        # {{STATE_ROOT}} → .agents (canonical shared state root, never rewritten)
+        # {{ENTRY_DIR}}  → runtime root (tool-specific dir, e.g. .codex/ or .agents/)
+        # Applied for ALL tools (including Antigravity where both resolve to .agents).
+        reps.append(("{{STATE_ROOT}}", ".agents"))
+        reps.append(("{{ENTRY_DIR}}", runtime_root))
         return reps
 
     def _rewrite_text(self, text: str) -> str:
