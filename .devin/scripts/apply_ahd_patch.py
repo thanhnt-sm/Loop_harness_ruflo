@@ -104,7 +104,17 @@ def pop_stash() -> None:
 
 
 # Ánh xạ cấu trúc upstream -> local
+# Hỗ trợ cả layout cũ (distill/, scripts/, adapters/) và layout mới (.devin/)
 PATH_MAP: dict[str, str] = {
+    # Layout mới: .devin/ pass-through
+    ".devin/canon/": ".devin/canon/",
+    ".devin/skills/": ".devin/skills/",
+    ".devin/agents/workers/": ".devin/agents/workers/",
+    ".devin/agents/": ".devin/agents/",
+    ".devin/scripts/": ".devin/scripts/",
+    ".devin/hooks/": ".devin/hooks/",
+    ".devin/adapters/": ".devin/adapters/",
+    # Layout cũ: distill/ etc.
     "distill/canon/": ".devin/canon/",
     "distill/skills/": ".devin/skills/",
     "distill/orchestrator/workers/": ".devin/agents/workers/",
@@ -170,7 +180,7 @@ def map_path(rel: str, repo_root: Path = REPO_ROOT) -> str | None:
                 print(f"[WARN] path traversal blocked: {rel} -> {mapped}")
                 return None
             return str(resolved.relative_to(repo_root)).replace("\\", "/")
-    if rel == "AGENTS.md":
+    if rel in ("AGENTS.md", ".devin/AGENTS.md"):
         resolved = (repo_root / ".devin" / "AGENTS.md").resolve()
         return str(resolved.relative_to(repo_root)).replace("\\", "/")
     return None
