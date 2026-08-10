@@ -155,6 +155,8 @@ Kết quả:
 - Staging dùng GUID trong `package-template.ps1`.
 - Cleanup dùng `try/catch` + `ErrorAction Stop`.
 - Placeholder resolution dùng string `.Replace` thay vì regex `-replace` trong `deploy-template.ps1` và `package-template.ps1`.
+- Tách rollout gates vào `tools/RolloutGates.ps1` dùng chung cho `package-template.ps1` và `init-new-project.ps1`.
+- Bỏ regex `\.\.` naive trong `deploy-template.ps1`, dựa hoàn toàn vào `path_zones.py`.
 - Thêm tests trong `tests/test_path_validation.py`.
 - Full test suite: **2042 passed, 2 skipped, 85.45% coverage**.
 

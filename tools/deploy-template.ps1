@@ -58,12 +58,8 @@ if (-not (Test-Path $target) -and -not $DryRun) {
 }
 if (-not $ProjectName) { $ProjectName = (Split-Path $target -Leaf) }
 
-# U09: Validate workspaceRoot for path traversal
-if ($target -match '\.\.') {
-  throw "WORKSPACE_ROOT contains path traversal characters: $target — refusing to deploy"
-}
-
 # T4.13: Validate target path against shared path_zones (single source of truth).
+# Đã bỏ regex `\.\.` cũ ở đây vì path_zones.py xử lý path traversal, dangerous roots, blocked zones đầy đủ hơn.
 # Đối với deploy target, target thường nằm ngoài workspace nên dùng check-absolute:
 # chỉ chặn blocked zones và path traversal, không bắt buộc safe zone.
 $pathZonesScript = Join-Path $PSScriptRoot '..\.devin\scripts\path_zones.py'

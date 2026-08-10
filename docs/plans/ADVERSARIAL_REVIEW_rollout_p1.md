@@ -2,8 +2,8 @@
 
 **Artifact:** `tools/package-template.ps1`, `tools/init-new-project.ps1`, `tools/deploy-template.ps1`, `.devin/scripts/path_zones.py`
 **Type:** code
-**Date:** 2026-08-10
-**Rounds:** 1/3
+**Date:** 2026-08-11
+**Rounds:** 2/3
 **Status:** CONSENSUS after revision
 
 ## Round 1 summary
@@ -51,6 +51,13 @@
 - Sửa `package-template.ps1` recursive placeholder resolution dùng string `.Replace` thay vì regex `-replace`.
 - Thêm `tests/test_path_validation.py` cases cho `DANGEROUS_ROOTS`, `validate_absolute_path`, path traversal resolve.
 - Chạy full test suite: **2042 passed, 2 skipped, 85.45% coverage**.
+
+### Round 2
+- Tách logic rollout gates vào `tools/RolloutGates.ps1` dùng chung cho `package-template.ps1` và `init-new-project.ps1` — fix duplicated logic.
+- Bỏ regex `\.\.` naive trong `deploy-template.ps1`, dựa hoàn toàn vào `path_zones.py` (single source of truth) cho path traversal validation.
+- Thêm `tools/RolloutGates.ps1` vào danh sách `requiredFiles` trong `init-new-project.ps1`.
+- Chạy `package-template -RolloutStage P1 -DryRun` và `init-new-project -RolloutStage P1 -DryRun`: P1 gate PASSED.
+- Chạy full test suite lại: **2042 passed, 2 skipped, 85.45% coverage**.
 
 ## Consensus decision
 
