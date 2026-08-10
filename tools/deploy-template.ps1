@@ -64,10 +64,11 @@ if ($target -match '\.\.') {
 }
 
 # T4.13: Validate target path against shared path_zones (single source of truth).
-# Gọi path_zones.py để kiểm tra target không nằm trong blocked zone.
+# Đối với deploy target, target thường nằm ngoài workspace nên dùng check-absolute:
+# chỉ chặn blocked zones và path traversal, không bắt buộc safe zone.
 $pathZonesScript = Join-Path $PSScriptRoot '..\.devin\scripts\path_zones.py'
 if (Test-Path $pathZonesScript) {
-  $pathZonesResult = & python $pathZonesScript check $target 2>&1
+  $pathZonesResult = & python $pathZonesScript check-absolute $target 2>&1
   if ($LASTEXITCODE -eq 2) {
     throw "Target path blocked by path_zones: $pathZonesResult"
   }

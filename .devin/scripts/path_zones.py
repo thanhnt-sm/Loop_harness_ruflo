@@ -143,14 +143,33 @@ def validate_path(file_path: str) -> tuple[bool, str]:
     return (True, "")
 
 
+def validate_absolute_path(file_path: str) -> tuple[bool, str]:
+    """Kiểm tra đường dẫn tuyệt đối cho deploy target (không block, không path traversal).
+
+    Khác validate_path ở chỗ: không yêu cầu safe zone, vì target có thể nằm ngoài workspace.
+    Vẫn chặn blocked zones và path traversal.
+    """
+    if not file_path:
+        return (False, "đường dẫn rỗng")
+    norm = normalize_path(file_path).lower()
+    if ".." in norm.split("/"):
+        return (False, f"Path traversal blocked: '..' detected in path")
+    for zone in BLOCKED_ZONES:
+        zone_norm = zone.replace("\\", "/").lower()
+        if norm.startswith(zone_norm) or norm == zone_norm.rstrip("/"):
+            return (False, f"Blocked zone: writing to '{zone}' is not allowed")
+    return (True, "")
+
+
 def _cli() -> int:
     """CLI stub:
     - check <path>       : kiểm tra đường dẫn hợp lệ không.
+    - check-absolute <path> : kiểm tra đường dẫn tuyệt đối (chỉ block/traversal, không kiểm safe zone).
     - list blocked       : liệt kê blocked zones.
     - list safe          : liệt kê safe zones.
     """
     if len(sys.argv) < 2:
-        print("Usage: path_zones.py [check <path> | list blocked | list safe]", file=sys.stderr)
+        print("Usage: path_zones.py [check <path> | check-absolute <path> | list blocked | list safe]", file=sys.stderr)
         return 1
     cmd = sys.argv[1]
     if cmd == "check":
@@ -158,6 +177,16 @@ def _cli() -> int:
             print("Usage: check <path>", file=sys.stderr)
             return 1
         ok, reason = validate_path(sys.argv[2])
+        if ok:
+            print("OK")
+            return 0
+        print(f"BLOCKED: {reason}", file=sys.stderr)
+        return 2
+    if cmd == "check-absolute":
+        if len(sys.argv) < 3:
+            print("Usage: check-absolute <path>", file=sys.stderr)
+            return 1
+        ok, reason = validate_absolute_path(sys.argv[2])
         if ok:
             print("OK")
             return 0
