@@ -275,5 +275,9 @@ def _cli() -> int:
     return 0
 
 
+# Alias chính thức cho entrypoint, giúp các công cụ gọi main() thay vì _cli()
+main = _cli
+
+
 if __name__ == "__main__":
-    raise SystemExit(_cli())
+    raise SystemExit(main())

@@ -1,29 +1,25 @@
-# Cấu hình đo coverage (tỷ lệ code được test phủ) cho AHD.
-# File này đi kèm pytest.ini, dùng bởi công cụ coverage/pytest-cov.
-# Mục tiêu: đảm bảo code trong .devin/scripts và .devin/hooks được test đầy đủ.
+# .coveragerc — cấu hình coverage cho AHD.
+# Source: thư mục .devin (scripts + hooks).
+# Bỏ qua các file test, venv, và HLK runtime artifacts.
 
 [run]
-# Bật đo theo nhánh (branch coverage) — chính xác hơn chỉ đo dòng (line coverage).
-# Branch coverage kiểm tra cả hai nhánh đúng/sai của mỗi điều kiện if/else.
-branch = True
-
-# Nguồn code cần đo: script runtime và hook guard của AHD.
 source =
-    .devin/scripts
-    .devin/hooks
+    .devin
+    tools
+
+omit =
+    */tests/*
+    */test_*/*
+    */.venv/*
+    */venv/*
+    HLK/*
+    .devin/state/*
+    .devin/plan_state/*
+    .devin/loop_state/*
+    .devin/session_state/*
+    .devin/telemetry/*
 
 [report]
-# Bỏ qua (không tính vào coverage) các phần không cần test:
-# - plan_fsm/*  : module FSM (finite state machine — máy trạng thái) đã có test riêng.
-# - tests/*     : chính các file test không cần đo coverage.
-# - .venv/*     : thư mục môi trường ảo (virtual environment) chứa thư viện ngoài.
-omit =
-    .devin/scripts/plan_fsm/*
-    tests/*
-    .venv/*
-
-# Định dạng báo cáo: hiển thị dòng chưa được phủ khi in ra terminal.
-show_missing = True
-
-# Mức độ chính xác khi hiển thị tỷ lệ: một chữ số thập phân.
-precision = 1
+fail_under = 80
+show_missing = true
+skip_covered = false

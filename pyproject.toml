@@ -57,3 +57,21 @@ ignore = ["E501"]
 [tool.hypothesis]
 max_examples = 100
 deadline = "disabled"
+
+# Coverage: cấu hình bổ sung cho pytest-cov, ưu tiên theo thứ tự .coveragerc > pyproject.toml > pytest.ini.
+[tool.coverage.run]
+source = [".devin", "tools"]
+omit = [
+    "*/tests/*",
+    "*/test_*/*",
+    "HLK/*",
+    ".devin/state/*",
+    ".devin/plan_state/*",
+    ".devin/loop_state/*",
+    ".devin/session_state/*",
+    ".devin/telemetry/*",
+]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true

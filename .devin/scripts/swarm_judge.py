@@ -130,8 +130,14 @@ def judge(
     """
     if not isinstance(results, list):
         raise TypeError("results phải là list[WorkerResult]")
+    if not all(isinstance(r, WorkerResult) for r in results):
+        raise TypeError("mỗi phần tử trong results phải là WorkerResult")
     if not isinstance(spec, SwarmSpec):
         raise TypeError("spec phải là SwarmSpec")
+    if not isinstance(seed, int):
+        raise TypeError("seed phải là int")
+    if not isinstance(max_retry, int):
+        raise TypeError("max_retry phải là int")
     if max_retry < 0:
         raise ValueError("max_retry phải >= 0")
 
@@ -173,5 +179,10 @@ def _cli() -> int:
     return 0
 
 
+def main() -> int:
+    """Entrypoint chính cho test harness và __main__ block."""
+    return _cli()
+
+
 if __name__ == "__main__":
-    raise SystemExit(_cli())
+    raise SystemExit(main())

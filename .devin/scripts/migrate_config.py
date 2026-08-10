@@ -1,19 +1,8 @@
 #!/usr/bin/env python3
-"""T1.4: Migration script cho .devin/config.json.
+"""Migration script chuyển các đường dẫn hardcoded trong config thành placeholder dạng `${VAR}`.
 
-Mục đích:
-- Đọc file config (mặc định `.devin/config.json`).
-- Thay thế các đường dẫn tuyệt đối hardcoded (Windows `D:\\...` hoặc Linux `/home/...`)
-  bằng biến placeholder dạng `${REPO_ROOT}`, `${USER_HOME}`, ...
-- Giữ nguyên các key config khác.
-- Ghi config đã migrate ngược lại file gốc.
-- Tạo file `.env.template` chứa các biến placeholder (mỗi dòng `VAR=value`,
-  được comment out bằng `#` để người dùng tự điền giá trị thật).
-- Idempotent: chạy lại trên file đã migrate là no-op (phát hiện qua việc giá trị
-  bắt đầu bằng `${` và kết thúc bằng `}`, hoặc không còn đường dẫn tuyệt đối).
-
-Usage:
-    python .devin/scripts/migrate_config.py --config .devin/config.json
+Hỗ trợ tự động phát hiện `REPO_ROOT` và `USER_HOME`, tạo `.env.template`, và đảm bảo
+idempotent: nếu file đã chứa `${...}` thì không thay đổi.
 """
 from __future__ import annotations
 
@@ -24,303 +13,222 @@ import sys
 from pathlib import Path
 from typing import Any
 
-# Hằng số mặc định
-DEFAULT_CONFIG_PATH = Path(".devin/config.json")
-ENV_TEMPLATE_NAME = ".env.template"
 
-# Regex phát hiện đường dẫn tuyệt đối:
-# - Windows: ký tự ổ đĩa `C:\...` hoặc `C:/...` (ví dụ `D:\foo\bar`)
-# - Linux/POSIX: `/home/...`, `/Users/...`, `/var/...`, `/opt/...`, `/tmp/...`
-# POSIX dùng negative lookbehind `(?<![A-Za-z}:])` để không khớp `/Users` bên trong
-# đường dẫn Windows `C:/Users/...` hoặc sau placeholder `${DRIVE_X}`.
-_WIN_PATH_RE = re.compile(r"([A-Za-z]:)([\\/][^\"'\s,]*)")
-_POSIX_PATH_RE = re.compile(
-    r"(?<![A-Za-z}:])/(?:home|Users|var|opt|tmp|root|mnt|etc|usr|srv|data|workspace)(?:[/\w.\-]+)*"
-)
-
-
-def _is_placeholder(value: str) -> bool:
-    """Trả về True nếu giá trị đã là placeholder dạng `${VAR}`.
-
-    Phát hiện: bắt đầu bằng `${` và kết thúc bằng `}`.
-    """
+def _is_placeholder(value: Any) -> bool:
+    """Kiểm tra xem chuỗi có phải là placeholder dạng `${VAR}` hay không."""
     if not isinstance(value, str):
         return False
-    stripped = value.strip()
-    return stripped.startswith("${") and stripped.endswith("}")
+    return bool(re.fullmatch(r"\$\{[A-Za-z_][A-Za-z0-9_]*\}", value))
 
 
 def _has_absolute_path(value: str) -> bool:
-    """Trả về True nếu chuỗi chứa đường dẫn tuyệt đối Windows hoặc POSIX."""
-    if not isinstance(value, str):
-        return False
-    return bool(_WIN_PATH_RE.search(value) or _POSIX_PATH_RE.search(value))
+    """Phát hiện chuỗi chứa đường dẫn tuyệt đối theo kiểu Windows hoặc POSIX."""
+    return bool(re.search(r"(?:^|[^A-Za-z0-9_])([A-Za-z]:[\\/]|[\\/])", value))
 
 
-def _detect_repo_root(config_path: Path) -> Path:
-    """Suy luận REPO_ROOT từ vị trí file config.
+def _looks_like_path(s: str) -> bool:
+    """Heuristic nhận diện chuỗi là đường dẫn tuyệt đối (dùng để xoay mapping)."""
+    return bool(re.match(r"^(?:[A-Za-z]:[\\/]|[\\/])", s))
 
-    Quy ước: config nằm tại `<repo_root>/.devin/config.json` → repo_root là cha của `.devin`.
+
+def _detect_repo_root(config_path: str | Path) -> Path:
+    """Từ đường dẫn config, tìm thư mục gốc của repo.
+
+    Nếu config nằm trong thư mục `.devin`, repo root là thư mục cha của `.devin`.
+    Ngược lại repo root là thư mục chứa file config (hoặc chính đường dẫn nếu là thư mục).
     """
-    # config_path có thể là relative hoặc absolute; chuẩn hoá về absolute
-    abs_path = config_path.resolve()
-    # Nếu nằm trong `.devin/` thì repo_root = parent của `.devin`
-    try:
-        rel = abs_path.relative_to(Path.cwd())
-    except ValueError:
-        rel = abs_path
-    parts = rel.parts
-    if ".devin" in parts:
-        idx = parts.index(".devin")
-        # repo_root là các phần trước `.devin`
-        root_parts = parts[:idx]
-        if root_parts:
-            return Path(*root_parts).resolve()
-        return Path.cwd()
-    # Fallback: cha của file config
-    return abs_path.parent.parent
+    p = Path(config_path).resolve()
+    if p.is_file() or (not p.exists() and p.name == "config.json"):
+        start = p.parent
+    else:
+        start = p
+
+    if start.name == ".devin":
+        return start.parent
+
+    return start
 
 
-def _build_placeholder_map(repo_root: Path) -> dict[str, str]:
-    """Xây dựng bảng ánh xạ đường dẫn tuyệt đối → biến placeholder.
-
-    Thứ tự ưu tiên: REPO_ROOT trước (để khớp đường dẫn dài nhất), rồi USER_HOME.
-    """
+def _build_placeholder_map(repo_root: str | Path) -> dict[str, str]:
+    """Tạo map placeholder mặc định dạng var -> đường dẫn tuyệt đối POSIX."""
+    root = Path(repo_root).resolve()
     home = Path.home()
     return {
-        "REPO_ROOT": str(repo_root),
-        "USER_HOME": str(home),
+        "REPO_ROOT": root.as_posix(),
+        "USER_HOME": home.as_posix(),
     }
 
 
+def _normalize_placeholders(mapping: dict[str, str]) -> dict[str, str]:
+    """Chuẩn hóa mapping về dạng var -> path, hỗ trợ cả path->var và var->path."""
+    placeholders: dict[str, str] = {}
+    for key, value in mapping.items():
+        k = str(key)
+        v = str(value)
+        if _looks_like_path(k) and not _looks_like_path(v):
+            # k là path, v là tên biến
+            placeholders[v] = k
+        elif _looks_like_path(v):
+            # v là path, k là tên biến
+            placeholders[k] = v
+        else:
+            # fallback: giữ nguyên key là tên biến
+            placeholders[k] = v
+    return placeholders
+
+
 def _replace_paths_in_string(value: str, placeholders: dict[str, str]) -> tuple[str, dict[str, str]]:
-    """Thay thế đường dẫn tuyệt đối trong chuỗi bằng `${VAR}`.
+    """Thay thế các đường dẫn đã biết trong một chuỗi bằng `${VAR}`.
 
-    Trả về (chuỗi đã thay thế, dict biến đã dùng {VAR: giá trị gốc}).
+    Trả về chuỗi mới và dict các placeholder đã dùng (var -> path gốc).
     """
+    if not placeholders or not _has_absolute_path(value):
+        return value, {}
+    if _is_placeholder(value):
+        return value, {}
+
     used: dict[str, str] = {}
-    result = value
-
-    # Bước 1: Thay REPO_ROOT, USER_HOME trước (khớp đường dẫn dài nhất trước).
-    # Chuẩn hoá separator: biến cả `/` và `\` thành `[/\\]` trong pattern để
-    # khớp bất kể hệ điều hành (config có thể dùng `/` dù OS dùng `\`).
-    sorted_vars = sorted(placeholders.items(), key=lambda kv: len(kv[1]), reverse=True)
-    for var_name, var_value in sorted_vars:
-        if not var_value:
-            continue
-        norm = var_value.replace("\\", "/")
-        pattern = re.escape(norm).replace(re.escape("/"), r"[\\\\/]")
-        used_flag = {"hit": False}
-
-        def _make_replacement(match: re.Match, vn: str = var_name, vv: str = var_value, uf=used_flag) -> str:
-            uf["hit"] = True
-            used[vn] = vv
-            return "${" + vn + "}"
-
-        new_result = re.sub(pattern, _make_replacement, result)
-        result = new_result
-
-    # Bước 2: Thay đường dẫn Windows còn sót — thay cả cụm `X:/rest` hoặc `X:\rest`
-    # bằng `${DRIVE_X}` + rest (giữ rest nguyên vẹn, không để POSIX regex bắt nốt).
-    def _win_replace(match: re.Match) -> str:
-        # Lấy ký tự ổ đĩa (không lấy dấu :) và phần còn lại sau dấu hai chấm
-        drive_letter = match.group(1)[0].upper()
-        var = f"DRIVE_{drive_letter}"
-        used.setdefault(var, f"{drive_letter}:\\")
-        return "${" + var + "}" + match.group(2)
-
-    # Chỉ khớp đường dẫn Windows khi có ký tự phân cách \ hoặc / sau ổ đĩa,
-    # tránh ăn nhầm pattern dạng `git diff:*` hay `npm test:*`.
-    result = re.sub(r"([A-Za-z]:)([\\/][^\"'\s,]*)", _win_replace, result)
-
-    # Bước 3: Thay POSIX path còn sót (đã có lookbehind tránh khớp sau `}` hoặc `X:`)
-    def _posix_replace(match: re.Match) -> str:
-        used.setdefault("ABS_PATH", "/")
-        return "${ABS_PATH}" + match.group(0)[1:]
-
-    result = _POSIX_PATH_RE.sub(_posix_replace, result)
-
-    return result, used
+    # Sắp xếp theo độ dài path giảm dần để thay path dài/nested trước
+    items = sorted(placeholders.items(), key=lambda item: -len(item[1]))
+    for var, path in items:
+        placeholder = f"${{{var}}}"
+        if path in value and placeholder not in value:
+            value = value.replace(path, placeholder)
+            used[var] = path
+    return value, used
 
 
-def _walk_and_replace(obj: Any, placeholders: dict[str, str]) -> tuple[Any, dict[str, str]]:
-    """Đệ quy duyệt cấu trúc JSON, thay thế đường dẫn tuyệt đối trong mọi chuỗi.
-
-    Trả về (cấu trúc đã thay thế, dict biến đã dùng).
-    """
+def _walk_and_replace(data: Any, placeholders: dict[str, str]) -> tuple[Any, dict[str, str]]:
+    """Đệ quy duyệt dict/list và thay thế đường dẫn trong các chuỗi."""
     used: dict[str, str] = {}
-    if isinstance(obj, dict):
-        new_obj: dict[str, Any] = {}
-        for k, v in obj.items():
-            new_v, v_used = _walk_and_replace(v, placeholders)
-            new_obj[k] = new_v
-            used.update(v_used)
-        return new_obj, used
-    if isinstance(obj, list):
-        new_list: list[Any] = []
-        for item in obj:
-            new_item, item_used = _walk_and_replace(item, placeholders)
-            new_list.append(new_item)
-            used.update(item_used)
-        return new_list, used
-    if isinstance(obj, str):
-        # Bỏ qua nếu đã là placeholder thuần hoặc không có đường dẫn tuyệt đối
-        if _is_placeholder(obj) or not _has_absolute_path(obj):
-            return obj, used
-        replaced, str_used = _replace_paths_in_string(obj, placeholders)
-        used.update(str_used)
-        return replaced, used
-    # Kiểu khác (int, bool, None) giữ nguyên
-    return obj, used
+    if isinstance(data, dict):
+        new_data: dict[str, Any] = {}
+        for key, val in data.items():
+            new_val, u = _walk_and_replace(val, placeholders)
+            new_data[key] = new_val
+            used.update(u)
+        return new_data, used
+    if isinstance(data, list):
+        new_data: list[Any] = []
+        for val in data:
+            new_val, u = _walk_and_replace(val, placeholders)
+            new_data.append(new_val)
+            used.update(u)
+        return new_data, used
+    if isinstance(data, str):
+        return _replace_paths_in_string(data, placeholders)
+    return data, used
 
 
-def _is_already_migrated(obj: Any) -> bool:
-    """Kiểm tra đệ quy xem cấu trúc JSON đã được migrate chưa.
+def _is_already_migrated(data: Any) -> bool:
+    """Kiểm tra xem config đã chứa placeholder `${VAR}` hay chưa (idempotency)."""
+    text = json.dumps(data, ensure_ascii=False)
+    return bool(re.search(r"\$\{[A-Za-z_][A-Za-z0-9_]*\}", text))
 
-    Đã migrate nếu: KHÔNG còn bất kỳ chuỗi nào chứa đường dẫn tuyệt đối.
-    (Placeholder `${...}` không chứa đường dẫn tuyệt đối.)
+
+def _write_env_template(
+    path: str | Path,
+    placeholders: dict[str, str],
+    commented_vars: set[str] | None = None,
+) -> None:
+    """Ghi file `.env.template` từ dict placeholder (var -> path).
+
+    Các biến trong `commented_vars` sẽ được ghi dưới dạng comment.
     """
-    if isinstance(obj, dict):
-        return all(_is_already_migrated(v) for v in obj.values())
-    if isinstance(obj, list):
-        return all(_is_already_migrated(item) for item in obj)
-    if isinstance(obj, str):
-        return not _has_absolute_path(obj)
-    return True
+    dest = Path(path)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if commented_vars is None:
+        commented_vars = {"USER_HOME"}
+    lines: list[str] = []
+    for var, pth in sorted(placeholders.items()):
+        if var in commented_vars:
+            lines.append(f"#{var}={pth}")
+        else:
+            lines.append(f"{var}={pth}")
+    dest.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def _write_env_template(template_path: Path, used_vars: dict[str, str]) -> None:
-    """Ghi file `.env.template` với mỗi biến một dòng, comment out.
+def migrate(
+    config_path: str | Path,
+    mapping: dict[str, str] | None = None,
+    env_template_name: str = ".env.template",
+) -> Path:
+    """Đọc file config JSON, thay thế đường dẫn hardcoded bằng placeholder.
 
-    Format: `# VAR=giá_trị_gốc` (để người dùng tự bỏ comment và điền giá trị thật).
-    Nếu used_vars rỗng, vẫn ghi file với header giải thích (idempotent).
+    Tự động phát hiện `REPO_ROOT` và `USER_HOME` nếu không cung cấp mapping.
+    Ghi file `.env.template` tại repo root. Nếu config đã chứa placeholder thì không thay đổi.
     """
-    lines = [
-        "# T1.4: .env.template sinh tự động bởi migrate_config.py",
-        "# Mỗi dòng là một biến placeholder dùng trong config đã migrate.",
-        "# Bỏ dấu `#` và điền giá trị thật cho môi trường của bạn.",
-        "# KHÔNG commit file .env (chỉ .env.template là an toàn).",
-        "",
-    ]
-    for var in sorted(used_vars.keys()):
-        value = used_vars[var]
-        lines.append(f"# {var}={value}")
-    if not used_vars:
-        lines.append("# (Không có biến placeholder nào — config không chứa đường dẫn tuyệt đối.)")
-    lines.append("")
-    template_path.write_text("\n".join(lines), encoding="utf-8")
-
-
-def migrate(config_path: Path) -> Path:
-    """Migrate file config: thay đường dẫn tuyệt đối bằng placeholder.
-
-    Args:
-        config_path: Đường dẫn tới file config JSON (mặc định `.devin/config.json`).
-
-    Returns:
-        Đường dẫn file config đã migrate (Path absolute).
-
-    Raises:
-        FileNotFoundError: file config không tồn tại.
-        json.JSONDecodeError: file config không phải JSON hợp lệ.
-        OSError: lỗi I/O khi đọc/ghi.
-    """
-    # Bước 1: Chuẩn hoá đường dẫn và kiểm tra tồn tại
-    config_path = config_path.resolve()
+    config_path = Path(config_path)
     if not config_path.exists():
-        raise FileNotFoundError(f"File config không tồn tại: {config_path}")
-    if not config_path.is_file():
-        raise FileNotFoundError(f"Đường dẫn không phải file: {config_path}")
+        raise FileNotFoundError(config_path)
 
-    # Bước 2: Đọc và parse JSON (báo lỗi rõ ràng nếu malformed)
-    try:
-        raw_text = config_path.read_text(encoding="utf-8")
-    except OSError as exc:
-        raise OSError(f"Không đọc được file config {config_path}: {exc}") from exc
-    try:
-        config = json.loads(raw_text)
-    except json.JSONDecodeError as exc:
-        raise json.JSONDecodeError(
-            f"File config {config_path} không phải JSON hợp lệ: {exc.msg} (dòng {exc.lineno}, cột {exc.colno})",
-            exc.doc,
-            exc.pos,
-        ) from exc
+    with open(config_path, "r", encoding="utf-8") as f:
+        original = f.read()
+    data = json.loads(original)
 
-    # Bước 3: Kiểm tra idempotent — nếu đã migrate (không còn đường dẫn tuyệt đối) thì no-op
-    if _is_already_migrated(config):
-        # Vẫn đảm bảo .env.template tồn tại (idempotent: ghi lại template rỗng/cũ)
-        env_template = config_path.parent.parent / ENV_TEMPLATE_NAME
-        # Nếu template đã có thì giữ nguyên, không ghi đè để tránh mất tuỳ chỉnh người dùng
-        if not env_template.exists():
-            _write_env_template(env_template, {})
-        return config_path
+    if _is_already_migrated(data):
+        return config_path.resolve()
 
-    # Bước 4: Xây dựng placeholder map và thay thế
     repo_root = _detect_repo_root(config_path)
-    placeholders = _build_placeholder_map(repo_root)
-    migrated_config, used_vars = _walk_and_replace(config, placeholders)
+    if mapping is None:
+        placeholders = _build_placeholder_map(repo_root)
+        commented_vars: set[str] = {"USER_HOME"}
+    else:
+        placeholders = _normalize_placeholders(mapping)
+        commented_vars = set()
 
-    # Bước 5: Ghi config đã migrate ngược lại file gốc (atomic: ghi .tmp rồi rename)
-    tmp_path = config_path.with_suffix(config_path.suffix + ".tmp")
-    try:
-        tmp_path.write_text(
-            json.dumps(migrated_config, indent=2, ensure_ascii=False) + "\n",
-            encoding="utf-8",
-        )
-        tmp_path.replace(config_path)
-    except OSError as exc:
-        # Dọn tmp file nếu lỗi
-        if tmp_path.exists():
-            try:
-                tmp_path.unlink()
-            except OSError:
-                pass
-        raise OSError(f"Không ghi được file config đã migrate {config_path}: {exc}") from exc
+    new_data, _ = _walk_and_replace(data, placeholders)
 
-    # Bước 6: Ghi .env.template tại repo_root (cha của .devin/)
-    env_template = config_path.parent.parent / ENV_TEMPLATE_NAME
-    _write_env_template(env_template, used_vars)
+    # Tạo backup trước khi ghi đè
+    backup_path = config_path.parent / (config_path.name + ".bak")
+    if not backup_path.exists():
+        backup_path.write_text(original, encoding="utf-8")
 
-    return config_path
+    with open(config_path, "w", encoding="utf-8") as f:
+        json.dump(new_data, f, indent=2, ensure_ascii=False)
+
+    env_path = repo_root / env_template_name
+    _write_env_template(env_path, placeholders, commented_vars)
+
+    return config_path.resolve()
 
 
 def _main(argv: list[str] | None = None) -> int:
-    """CLI stub: chấp nhận `--config <path>`, in ra đường dẫn config đã migrate."""
-    # Đảm bảo stdout dùng UTF-8 để in tiếng Việt an toàn trên Windows console
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
-        sys.stderr.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
-    except (AttributeError, OSError):
-        # Python cũ hoặc stream không hỗ trợ reconfigure — bỏ qua
-        pass
+    """CLI handler, hỗ trợ cả positional `config` và `--config <path>`.
 
-    parser = argparse.ArgumentParser(
-        description="Migrate .devin/config.json: replace absolute paths with ${VAR} placeholders."
-    )
-    parser.add_argument(
-        "--config",
-        type=Path,
-        default=DEFAULT_CONFIG_PATH,
-        help=f"Path to config file (default: {DEFAULT_CONFIG_PATH})",
-    )
+    Mã lỗi:
+      0: thành công
+      1: file không tồn tại hoặc lỗi chung
+      2: JSON không hợp lệ
+      3: lỗi hệ thống (OSError)
+    """
+    parser = argparse.ArgumentParser(description="Migrate config JSON placeholders")
+    parser.add_argument("config_pos", nargs="?", help="Đường dẫn file config JSON")
+    parser.add_argument("--config", dest="config_opt", default=None, help="Đường dẫn file config JSON")
     args = parser.parse_args(argv)
 
-    try:
-        migrated_path = migrate(args.config)
-        print(f"[OK] Config đã migrate: {migrated_path}")
-        env_template = migrated_path.parent.parent / ENV_TEMPLATE_NAME
-        print(f"[OK] .env.template: {env_template}")
-        return 0
-    except FileNotFoundError as exc:
-        print(f"[ERROR] {exc}", file=sys.stderr)
+    config = args.config_opt or args.config_pos
+    if not config:
+        parser.print_usage(sys.stderr)
         return 1
-    except json.JSONDecodeError as exc:
-        print(f"[ERROR] JSON không hợp lệ: {exc}", file=sys.stderr)
+
+    try:
+        migrate(config)
+    except FileNotFoundError:
+        return 1
+    except json.JSONDecodeError:
         return 2
-    except OSError as exc:
-        print(f"[ERROR] Lỗi I/O: {exc}", file=sys.stderr)
+    except OSError:
         return 3
+    except Exception:
+        return 1
+    return 0
+
+
+def main() -> int:
+    """Entry point cho subprocess / __main__ block."""
+    return _main(sys.argv[1:])
 
 
 if __name__ == "__main__":
-    sys.exit(_main())
+    raise SystemExit(main())

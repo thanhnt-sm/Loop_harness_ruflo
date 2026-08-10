@@ -137,12 +137,14 @@ def synthesize(problem: str, model_profile: ModelProfile) -> CoT:
     )
 
 
-def _reasoning_load(steps: list[str]) -> float:
+def _reasoning_load(steps: list[str] | str) -> float:
     """Tính reasoning_load (0..1): tỷ lệ bước có nội dung suy luận thực sự.
 
     Bước có chứa từ chỉ suy luận (phân tích, kết luận, kiểm tra, áp dụng...)
     được tính là bước có tải reasoning.
     """
+    if isinstance(steps, str):
+        steps = [steps]
     if not steps:
         return 0.0
     reasoning_keywords = re.compile(
@@ -153,11 +155,13 @@ def _reasoning_load(steps: list[str]) -> float:
     return reasoning_count / len(steps)
 
 
-def _coherence(steps: list[str]) -> float:
+def _coherence(steps: list[str] | str) -> float:
     """Tính coherence (0..1): các bước có thứ tự logic (Bước 1, 2, 3...).
 
     Tỷ lệ bước có prefix "Bước N:" với N tăng dần.
     """
+    if isinstance(steps, str):
+        steps = [steps]
     if not steps:
         return 0.0
     step_pattern = re.compile(r'Bước\s+(\d+)\s*:', re.IGNORECASE)
