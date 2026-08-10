@@ -142,6 +142,20 @@ Kết quả:
 - `import_smoke_test.py` trên pilot: **62 passed, 0 failed**.
 - Backup HLK (`HLK.backup.<timestamp>`) đã được dọn dẹp sau install; re-verify vẫn **62/62 PASS**.
 
+Sau khi fix red-team Round 2, triển khai lại P1 Canary sang pilot v2:
+
+```powershell
+pwsh tools/init-new-project.ps1 -TargetPath "D:\100.Software\Github\Loop_harness_new\Loop_harness_pilot_v2" -Cli devin -RolloutStage P1
+```
+
+Kết quả:
+- P1 gate: **2042 passed**, bench pass, red-team 0 critical.
+- Package template dùng staging GUID mới, TEMPLATE_MANIFEST với rollout gate result.
+- Dự án pilot v2 tạo thành công tại `D:\100.Software\Github\Loop_harness_new\Loop_harness_pilot_v2`.
+- HLK install thành công, HLK integrity verify **PASSED**.
+- `verify-workspace.ps1` trên pilot v2: **62/62 PASS**.
+- `import_smoke_test.py` trên pilot v2: **62 passed, 0 failed**.
+
 ### 8.2 C3 Adversarial Review (red-team) sau P1
 
 Đã chạy C3 review trên rollout pipeline (`package-template.ps1`, `init-new-project.ps1`, `deploy-template.ps1`, `path_zones.py`) với 3 persona: Saboteur, Security Auditor, Architect.
