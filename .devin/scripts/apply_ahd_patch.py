@@ -88,10 +88,16 @@ def setup_feature_branch() -> str | None:
     return branch
 
 
-def setup_worktree(worktree_path: Path) -> Path | None:
-    """Tạo worktree từ main. Trả về None nếu không tạo được."""
+def setup_worktree(worktree_path: Path, branch: str = "main") -> Path | None:
+    """Tạo worktree từ branch. Trả về None nếu không tạo được."""
+    import time
     worktree_path.mkdir(parents=True, exist_ok=True)
-    code, _, err = run_cmd(["git", "worktree", "add", str(worktree_path), "main"], cwd=REPO_ROOT)
+    # Tạo branch mới để tránh xung đột với worktree hiện có trên cùng branch
+    new_branch = f"ahd-wt-{int(time.time())}"
+    code, _, err = run_cmd(
+        ["git", "worktree", "add", "-b", new_branch, str(worktree_path), branch],
+        cwd=REPO_ROOT,
+    )
     if code != 0:
         print(f"[ERROR] Cannot create worktree: {err}")
         return None
@@ -166,15 +172,11 @@ SKIP_UPSTREAM_DIRS = ["Docs/", "README", "promo/", ".github/"]
 # Các thư mục không được tạo file mới
 RISKY_NEW_DIRS = [".devin/adapters/", ".devin/scripts/", ".devin/tests/"]
 
-
-def load_tracker() -> dict[str, Any]:
-    tracker = REPO_ROOT / ".devin" / "metadata" / "REPOS_TRACKER.json"
-    with open(tracker, "r", encoding="utf-8") as f:
-        return json.load(f)
+TRACKER_PATH = REPO_ROOT / ".devin" / "metadata" / "REPOS_TRACKER.json"
 
 
 def get_protected_files() -> list[str]:
-    data = load_tracker()
+    data = update_common.load_tracker(TRACKER_PATH)
     for s in data.get("sources", []):
         if s.get("id") == "ahd-main-engine":
             return list(set(s.get("protected_files", []) + PROTECTED_PATTERNS))
@@ -183,20 +185,21 @@ def get_protected_files() -> list[str]:
 
 def map_path(rel: str, repo_root: Path = REPO_ROOT) -> str | None:
     """Ánh xạ đường dẫn upstream sang local, chuẩn hóa và chặn path traversal."""
+    root = repo_root.resolve()
     for up, loc in PATH_MAP.items():
         if rel.startswith(up):
             mapped = loc + rel[len(up):]
-            resolved = (repo_root / mapped).resolve()
+            resolved = (root / mapped).resolve()
             try:
-                resolved.relative_to(repo_root)
+                resolved.relative_to(root)
             except ValueError:
                 _audit_log("path-traversal-blocked", rel=rel, mapped=str(mapped))
                 print(f"[WARN] path traversal blocked: {rel} -> {mapped}")
                 return None
-            return str(resolved.relative_to(repo_root)).replace("\\", "/")
+            return mapped
     if rel in ("AGENTS.md", ".devin/AGENTS.md"):
-        resolved = (repo_root / ".devin" / "AGENTS.md").resolve()
-        return str(resolved.relative_to(repo_root)).replace("\\", "/")
+        resolved = (root / ".devin" / "AGENTS.md").resolve()
+        return str(resolved.relative_to(root)).replace("\\", "/")
     return None
 
 
@@ -430,6 +433,52 @@ def rollback_patched_files(patched_files: list[str]) -> None:
     _audit_log("rollback-executed", files=patched_files)
 
 
+def snapshot_rollback(head_before: str) -> None:
+    """Rollback toàn bộ working tree về snapshot trước khi apply commit."""
+    if not head_before:
+        return
+    run_cmd(["git", "reset", "--hard", head_before], cwd=REPO_ROOT)
+    run_cmd(["git", "clean", "-fd"], cwd=REPO_ROOT)
+    _audit_log("snapshot-rollback-executed", head_before=head_before)
+
+
+def record_ahd_apply(source_id: str, sha: str, upstream: Path) -> None:
+    """Ghi nhận commit đã apply vào REPOS_TRACKER.json (R01)."""
+    tracker = update_common.load_tracker(TRACKER_PATH)
+
+    found = False
+    for s in tracker.get("sources", []):
+        if s.get("id") == source_id:
+            found = True
+            s["current_commit"] = sha[:7]
+            s["current_commit_full"] = sha
+            s["status"] = "up-to-date"
+            from datetime import datetime, timezone
+            s["last_checked"] = datetime.now(timezone.utc).isoformat()
+            break
+
+    if not found:
+        # Nếu chưa có source, thêm mới (trường hợp apply thủ công)
+        tracker.setdefault("sources", []).append({
+            "id": source_id,
+            "type": "repo",
+            "url": str(upstream),
+            "branch": "main",
+            "current_commit": sha[:7],
+            "current_commit_full": sha,
+            "upstream_commit": sha[:7],
+            "upstream_commit_full": sha,
+            "status": "up-to-date",
+            "merge_strategy": "surgical-cherry-pick",
+        })
+
+    try:
+        update_common.save_tracker(TRACKER_PATH, tracker)
+        print(f"[OK] Tracker updated: {source_id} -> {sha[:7]}")
+    except Exception as e:
+        print(f"[WARN] Cannot save tracker after apply: {e}")
+
+
 def merge_3way(local_text: str, base_text: str, remote_text: str, resolve_theirs: bool = False) -> str | None:
     """Chạy git merge-file 3-way, trả nội dung merge hoặc None nếu conflict.
     Nếu resolve_theirs=True, xung đột sẽ được giải quyết theo phía remote (upstream).
@@ -470,6 +519,10 @@ def apply_commit(upstream: Path, sha: str, msg: str, protected: list[str], dry_r
                  resolve_theirs: bool = False, allow_risky_new: bool = False) -> dict[str, Any]:
     result: dict[str, Any] = {"sha": sha, "msg": msg, "status": "pending", "applied": [], "skipped": [], "error": ""}
     patched_files: list[str] = []
+
+    # Snapshot HEAD trước khi apply — dùng cho rollback an toàn
+    code, head_before, _ = run_cmd(["git", "rev-parse", "HEAD"], cwd=REPO_ROOT)
+    head_before = head_before.strip() if code == 0 else ""
 
     files = get_changed_files(upstream, sha)
     if not files:
@@ -581,13 +634,13 @@ def apply_commit(upstream: Path, sha: str, msg: str, protected: list[str], dry_r
 
         # Verify
         if not verify(patched_files):
-            rollback_patched_files(patched_files)
+            snapshot_rollback(head_before)
             result["status"] = "verify-failed"
             result["error"] = "verify failed, rolled back"
             return result
 
         if not commit_changes(sha, msg, auto_commit):
-            rollback_patched_files(patched_files)
+            snapshot_rollback(head_before)
             result["status"] = "commit-failed"
             result["error"] = "commit failed, rolled back"
             return result
@@ -596,9 +649,13 @@ def apply_commit(upstream: Path, sha: str, msg: str, protected: list[str], dry_r
         return result
 
     except Exception as e:
-        rollback_patched_files(patched_files)
+        import traceback
+        snapshot_rollback(head_before)
         result["status"] = "error"
         result["error"] = f"exception: {e}"
+        print(f"[ERROR] apply_commit exception: {e}")
+        print(traceback.format_exc(), file=sys.stderr)
+        _audit_log("apply-commit-exception", sha=sha, error=str(e), traceback=traceback.format_exc())
         return result
 
 
@@ -616,6 +673,7 @@ def main() -> int:
     parser.add_argument("--3way", dest="use_3way", action="store_true", help="Use 3-way merge for diverged files")
     parser.add_argument("--resolve-theirs", action="store_true", help="Resolve 3-way conflicts by preferring upstream (theirs)")
     parser.add_argument("--allow-risky-new", action="store_true", help="Allow creating new files in adapters/scripts")
+    parser.add_argument("--source-id", default="", help="ID nguồn trong REPOS_TRACKER.json để tự động cập nhật current_commit sau khi apply")
     args = parser.parse_args()
 
     # Guard branch + workspace
@@ -680,19 +738,28 @@ def main() -> int:
             if res["error"]:
                 print(f"  error: {res['error']}")
 
-        # Ghi report
-        report_path = REPO_ROOT / ".devin" / "metadata" / "AHD_PATCH_REPORT.md"
-        lines = ["# AHD Cherry-Pick Report", "", f"Upstream: {upstream}", f"Range: {args.since} .. {args.until}", ""]
-        for r in results:
-            lines.append(f"## {r['sha']} — {r['msg']}")
-            lines.append(f"- **status**: {r['status']}")
-            lines.append(f"- **applied**: {', '.join(r['applied']) or 'none'}")
-            lines.append(f"- **skipped**: {', '.join(r['skipped']) or 'none'}")
-            if r["error"]:
-                lines.append(f"- **error**: {r['error']}")
-            lines.append("")
-        report_path.write_text("\n".join(lines), encoding="utf-8")
-        print(f"\n[OK] Report: {report_path}")
+        # Cập nhật tracker (R01) nếu có --source-id và apply thật thành công
+        if args.source_id and not args.dry_run:
+            applied_shas = [r["sha"] for r in results if r["status"] == "applied"]
+            if applied_shas:
+                record_ahd_apply(args.source_id, applied_shas[-1], upstream)
+
+        # Ghi report (R03: dry-run không ghi file tracked để tránh dirty workspace)
+        if not args.dry_run:
+            report_path = REPO_ROOT / ".devin" / "metadata" / "AHD_PATCH_REPORT.md"
+            lines = ["# AHD Cherry-Pick Report", "", f"Upstream: {upstream}", f"Range: {args.since} .. {args.until}", ""]
+            for r in results:
+                lines.append(f"## {r['sha']} — {r['msg']}")
+                lines.append(f"- **status**: {r['status']}")
+                lines.append(f"- **applied**: {', '.join(r['applied']) or 'none'}")
+                lines.append(f"- **skipped**: {', '.join(r['skipped']) or 'none'}")
+                if r["error"]:
+                    lines.append(f"- **error**: {r['error']}")
+                lines.append("")
+            report_path.write_text("\n".join(lines), encoding="utf-8")
+            print(f"\n[OK] Report: {report_path}")
+        else:
+            print("\n[DRY-RUN] No tracked files modified. Report not written.")
         return 0
     finally:
         if stashed:
