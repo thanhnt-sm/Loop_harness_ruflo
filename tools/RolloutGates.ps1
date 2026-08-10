@@ -11,6 +11,52 @@ Tập trung hóa logic P1/P2/P3 để tránh duplicate code và drift.
 Trả về [PSCustomObject] với stage, passed, details để ghi vào manifest.
 #>
 
+function Invoke-ExternalCommand {
+  <#
+  .SYNOPSIS
+  Chạy external command với timeout, trả về stdout. Throw nếu timeout hoặc exit code != 0.
+
+  .DESCRIPTION
+  Dùng Start-Process + redirect output sang temp files để tránh treo khi đọc stdout.
+  #>
+  param(
+    [Parameter(Mandatory)][string]$FilePath,
+    [Parameter(Mandatory)][string[]]$ArgumentList,
+    [string]$WorkingDirectory = (Get-Location).Path,
+    [int]$TimeoutSeconds = 300
+  )
+
+  $outFile = [System.IO.Path]::GetTempFileName()
+  $errFile = [System.IO.Path]::GetTempFileName()
+
+  try {
+    $proc = Start-Process -FilePath $FilePath -ArgumentList $ArgumentList -WorkingDirectory $WorkingDirectory `
+      -RedirectStandardOutput $outFile -RedirectStandardError $errFile -NoNewWindow -PassThru
+    if (-not $proc) {
+      throw "Không thể start process: $FilePath"
+    }
+
+    try {
+      $null = Wait-Process -InputObject $proc -Timeout $TimeoutSeconds
+    } catch [System.TimeoutException] {
+      try { Stop-Process -InputObject $proc -Force -ErrorAction SilentlyContinue } catch { }
+      throw "TIMEOUT: command '$FilePath $ArgumentList' chạy quá $TimeoutSeconds giây"
+    }
+
+    $out = Get-Content $outFile -Raw
+    $err = Get-Content $errFile -Raw
+
+    if ($proc.ExitCode -ne 0) {
+      throw "FAILED (exit $($proc.ExitCode)): $FilePath $ArgumentList`n$err`n$out"
+    }
+
+    return $out
+  } finally {
+    Remove-Item $outFile -ErrorAction SilentlyContinue
+    Remove-Item $errFile -ErrorAction SilentlyContinue
+  }
+}
+
 function Invoke-RolloutGate {
   param(
     [Parameter(Mandatory)]
@@ -31,12 +77,8 @@ function Invoke-RolloutGate {
       'P1' {
         # pytest toàn bộ (P0 100%).
         Write-Host "  [P1] Running pytest (P0 must be 100%)..." -ForegroundColor Gray
-        $pytestOut = & python -m pytest -q --no-header 2>&1 | Out-String
-        $pytestExit = $LASTEXITCODE
-        if ($pytestExit -ne 0) {
-          Write-Host "  [P1] FAIL: pytest exited $pytestExit" -ForegroundColor Red
-          $gateOk = $false
-        } else {
+        try {
+          $pytestOut = Invoke-ExternalCommand -FilePath 'python' -ArgumentList @('-m', 'pytest', '-q', '--no-header') -WorkingDirectory $SourceRoot -TimeoutSeconds 600
           if ($pytestOut -match '(\d+) passed') {
             $passed = [int]$Matches[1]
             Write-Host "  [P1] OK: $passed tests passed" -ForegroundColor Green
@@ -45,44 +87,44 @@ function Invoke-RolloutGate {
             Write-Host "  [P1] OK: pytest passed" -ForegroundColor Green
             $gateDetails.Add("pytest: pass")
           }
+        } catch {
+          Write-Host "  [P1] FAIL: $_" -ForegroundColor Red
+          $gateOk = $false
         }
 
         # Bench: token reduction >=25%.
         Write-Host "  [P1] Running bench (token reduction >=25%)..." -ForegroundColor Gray
-        $benchOut = & python tests/bench_upgrade_success.py 2>&1 | Out-String
-        $benchExit = $LASTEXITCODE
-        if ($benchExit -ne 0) {
-          Write-Host "  [P1] FAIL: bench exited $benchExit" -ForegroundColor Red
-          $gateOk = $false
-        } else {
+        try {
+          $benchOut = Invoke-ExternalCommand -FilePath 'python' -ArgumentList @('tests/bench_upgrade_success.py') -WorkingDirectory $SourceRoot -TimeoutSeconds 180
           Write-Host "  [P1] OK: bench all metrics pass" -ForegroundColor Green
           $gateDetails.Add("bench: all pass")
+        } catch {
+          Write-Host "  [P1] FAIL: $_" -ForegroundColor Red
+          $gateOk = $false
         }
 
         # Red-team: 0 critical exploit.
         # Dùng --no-cov vì chỉ chạy 1 file; pytest.ini có cov-fail-under=80 sẽ fail khi coverage thấp.
         Write-Host "  [P1] Running red-team suite (0 critical exploit)..." -ForegroundColor Gray
-        $rtOut = & python -m pytest tests/test_red_team_suite.py -q --no-header --no-cov 2>&1 | Out-String
-        $rtExit = $LASTEXITCODE
-        if ($rtExit -ne 0) {
-          Write-Host "  [P1] FAIL: red-team suite exited $rtExit" -ForegroundColor Red
-          $gateOk = $false
-        } else {
+        try {
+          $rtOut = Invoke-ExternalCommand -FilePath 'python' -ArgumentList @('-m', 'pytest', 'tests/test_red_team_suite.py', '-q', '--no-header', '--no-cov') -WorkingDirectory $SourceRoot -TimeoutSeconds 180
           Write-Host "  [P1] OK: 0 critical exploit" -ForegroundColor Green
           $gateDetails.Add("red-team: 0 critical")
+        } catch {
+          Write-Host "  [P1] FAIL: $_" -ForegroundColor Red
+          $gateOk = $false
         }
       }
 
       'P2' {
         Write-Host "  [P2] Running E2E full-power test..." -ForegroundColor Gray
-        $e2eOut = & python -m pytest tests/test_e2e_full_power.py -q --no-header --no-cov 2>&1 | Out-String
-        $e2eExit = $LASTEXITCODE
-        if ($e2eExit -ne 0) {
-          Write-Host "  [P2] FAIL: E2E exited $e2eExit" -ForegroundColor Red
-          $gateOk = $false
-        } else {
+        try {
+          $e2eOut = Invoke-ExternalCommand -FilePath 'python' -ArgumentList @('-m', 'pytest', 'tests/test_e2e_full_power.py', '-q', '--no-header', '--no-cov') -WorkingDirectory $SourceRoot -TimeoutSeconds 180
           Write-Host "  [P2] OK: E2E pass" -ForegroundColor Green
           $gateDetails.Add("e2e: pass")
+        } catch {
+          Write-Host "  [P2] FAIL: $_" -ForegroundColor Red
+          $gateOk = $false
         }
 
         Write-Host "  [P2] User approval required for Pilot rollout." -ForegroundColor Yellow

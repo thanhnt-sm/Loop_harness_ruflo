@@ -219,13 +219,45 @@ function Find-Strings($node, [ref]$out) {
   }
 }
 
+function Set-BashCommandSlashes($node) {
+  <#
+  Chuẩn hóa các command chạy bash:
+  - Chuyển backslash thành forward slash để Git Bash hiểu đúng đường dẫn.
+  - Bọc đường dẫn trong dấu nháy kép nếu chứa dấu cách, tránh lỗi parse.
+  #>
+  if ($node -is [PSCustomObject]) {
+    foreach ($prop in $node.PSObject.Properties) {
+      if ($prop.Name -eq 'command' -and $prop.Value -is [string] -and $prop.Value -match '^\s*bash\s+') {
+        $cmd = $prop.Value.Trim()
+        # Loại bỏ từ khóa 'bash', lấy phần đường dẫn script.
+        if ($cmd -match '^bash\s+(.+)$') {
+          $scriptPath = $matches[1].Trim()
+          # Chuyển \ thành / cho Git Bash.
+          $scriptPath = $scriptPath.Replace('\', '/')
+          # Bọc trong dấu nháy kép nếu có dấu cách và chưa được bọc.
+          if ($scriptPath -match '\s' -and -not ($scriptPath.StartsWith('"') -or $scriptPath.StartsWith("'"))) {
+            $scriptPath = '"' + $scriptPath + '"'
+          }
+          $prop.Value = "bash $scriptPath"
+        }
+      } else {
+        Set-BashCommandSlashes $prop.Value
+      }
+    }
+  } elseif ($node -is [array]) {
+    foreach ($el in $node) { Set-BashCommandSlashes $el }
+  }
+}
+
 function Resolve-ConfigPlaceholders($path, $replacements) {
   if (-not (Test-Path $path)) { return }
   $content = Get-Content $path -Raw
   foreach ($kv in $replacements.GetEnumerator()) {
     # Dùng string .Replace thay vì regex -replace để tránh regex injection trong replacement value.
     # C3 finding: value chứa $, +, ? ... có thể bị hiểu sai khi dùng regex replacement.
-    $content = $content.Replace($kv.Key, $kv.Value)
+    # Escape backslash trong replacement value vì file đích là JSON (raw text).
+    $escapedValue = $kv.Value.ToString().Replace('\', '\\')
+    $content = $content.Replace($kv.Key, $escapedValue)
   }
   [System.IO.File]::WriteAllText($path, $content, $utf8NoBom)
 
@@ -243,6 +275,7 @@ function Resolve-ConfigPlaceholders($path, $replacements) {
   # Quote paths with spaces in HLK hook launcher command
   if (([System.IO.Path]::GetFileName($path)) -eq 'config.json') {
     $jsonObj = $content | ConvertFrom-Json
+    Set-BashCommandSlashes $jsonObj
     foreach ($entry in $jsonObj.hooks.PreToolUse) {
       foreach ($hook in $entry.hooks) {
         if ($hook.command -and $hook.command -match 'hlk-hook-launcher\.mjs') {

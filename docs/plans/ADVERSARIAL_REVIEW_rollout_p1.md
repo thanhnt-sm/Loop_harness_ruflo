@@ -3,7 +3,7 @@
 **Artifact:** `tools/package-template.ps1`, `tools/init-new-project.ps1`, `tools/deploy-template.ps1`, `.devin/scripts/path_zones.py`
 **Type:** code
 **Date:** 2026-08-11
-**Rounds:** 2/3
+**Rounds:** 3/3
 **Status:** CONSENSUS after revision
 
 ## Round 1 summary
@@ -59,6 +59,13 @@
 - Chạy `package-template -RolloutStage P1 -DryRun` và `init-new-project -RolloutStage P1 -DryRun`: P1 gate PASSED.
 - Chạy full test suite lại: **2042 passed, 2 skipped, 85.45% coverage**.
 
+### Round 3
+- Thêm `Invoke-ExternalCommand` trong `tools/RolloutGates.ps1` dùng `Start-Process` + redirect output sang temp files + `Wait-Process -Timeout` — fix no timeout cho gate tests (pytest 600s, bench 180s, red-team 180s, e2e 180s).
+- Trong `package-template.ps1`: thay thế hardcoded nvm/aide-memory prefix `${USER_HOME}\AppData\Roaming\nvm\v18.20.0\node_modules\aide-memory` trong `.devin/config.json` bằng `{{AIDE_MEMORY_GLOBAL}}`.
+- Trong `deploy-template.ps1`: escape backslash trong replacement value khi ghi vào JSON raw text; thêm `Set-BashCommandSlashes` để chuyển backslash → forward slash và bọc đường dẫn trong dấu nháy kép nếu chứa dấu cách.
+- Chạy `package-template -RolloutStage P1 -DryRun`: P1 PASSED, Placeholders 2.
+- Triển khai `init-new-project -RolloutStage P1` sang `Loop_harness_pilot_v3`: P1 PASSED, HLK install OK, verify 62/62, HLK integrity PASS, smoke 62/0, bash commands resolved với forward slashes và quoted.
+
 ## Consensus decision
 
-[CONSENSUS] Tất cả BLOCKING issues đã được sửa trong Round 1. Còn lại một số ADVISORY về duplicated logic, tight coupling, hardcoded absolute paths trong deployed config — được ghi nhận là technical debt cho P2/P3. Artifacts đã đạt P1 Canary.
+[CONSENSUS] Sau Round 3, tất cả BLOCKING và hầu hết ADVISORY từ C3 review đã được sửa. Các vấn đề còn lại như tight coupling ở mức file structure nhẹ đã được giảm thiểu. Artifacts đã đạt P1 Canary và sẵn sàng cho P2 Pilot.

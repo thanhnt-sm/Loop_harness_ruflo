@@ -164,6 +164,8 @@ Kết quả:
 - **1 BLOCKING**: `path_zones.py validate_absolute_path()` cho phép deploy vào system dirs nguy hiểm (`C:\Windows\System32`).
 - **7 ADVISORY**: race condition staging, no timeout, error handling, path traversal regex yếu, placeholder regex injection, hardcoded config paths, duplicated gate logic, tight coupling.
 
+Đã chạy thêm **Round 3** để fix nốt các ADVISORY còn lại theo yêu cầu.
+
 Đã fix trong Round 1:
 - Thêm `DANGEROUS_ROOTS` + `Path.resolve()` trong `path_zones.py`.
 - Staging dùng GUID trong `package-template.ps1`.
@@ -174,6 +176,13 @@ Kết quả:
 - Thêm tests trong `tests/test_path_validation.py`.
 - Full test suite: **2042 passed, 2 skipped, 85.45% coverage**.
 
+Đã fix trong Round 3:
+- Thêm `Invoke-ExternalCommand` trong `tools/RolloutGates.ps1` dùng `Start-Process` + redirect output + `Wait-Process -Timeout`: pytest 600s, bench 180s, red-team 180s, e2e 180s.
+- `package-template.ps1`: thay thế hardcoded nvm/aide-memory prefix `${USER_HOME}\AppData\Roaming\nvm\v18.20.0\node_modules\aide-memory` trong `.devin/config.json` bằng `{{AIDE_MEMORY_GLOBAL}}`.
+- `deploy-template.ps1`: escape backslash khi ghi JSON; chuẩn hóa bash command sang forward slash và quote nếu đường dẫn có dấu cách.
+- Triển khai `Loop_harness_pilot_v3` bằng `init-new-project -RolloutStage P1`: P1 PASSED, verify 62/62, HLK integrity PASS, smoke 62/0.
+- Full test suite: **2042 passed, 2 skipped, 85.45% coverage**.
+
 Báo cáo chi tiết: `docs/plans/ADVERSARIAL_REVIEW_rollout_p1.md`.
 
-**Các ADVISORY còn lại** (duplicated gate logic, hardcoded deployed config paths, tight coupling) được ghi nợ kỹ thuật cho P2/P3.
+**Các ADVISORY còn lại** (tight coupling ở mức file structure) được ghi nợ kỹ thuật nhẹ cho P2/P3.
