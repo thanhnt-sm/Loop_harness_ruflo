@@ -140,3 +140,4 @@ Kết quả:
 - HLK install thành công, HLK integrity verify **PASSED**.
 - `verify-workspace.ps1` trên pilot: **62/62 PASS**.
 - `import_smoke_test.py` trên pilot: **62 passed, 0 failed**.
+- Backup HLK (`HLK.backup.<timestamp>`) đã được dọn dẹp sau install; re-verify vẫn **62/62 PASS**.
