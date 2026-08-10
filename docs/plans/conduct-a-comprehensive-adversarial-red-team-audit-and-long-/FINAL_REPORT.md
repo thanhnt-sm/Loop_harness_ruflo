@@ -125,3 +125,18 @@ Kết quả:
 Lỗi thực tế đã sửa trong quá trình này:
 - `deploy-template.ps1` gọi `path_zones.py check <target>` với đường dẫn tuyệt đối ngoài workspace → bị chặn vì ngoài safe zone.
 - Fix: thêm `validate_absolute_path()` và CLI `check-absolute` trong `path_zones.py`; `deploy-template.ps1` chuyển sang dùng `check-absolute`.
+
+### 8.1 P1 Canary deploy to pilot project
+
+Sau khi sửa lỗi, triển khai P1 Canary sang một dự án pilot ổn định ngoài `Temp`:
+
+```powershell
+pwsh tools/init-new-project.ps1 -TargetPath "D:\100.Software\Github\Loop_harness_new\Loop_harness_pilot" -Cli devin -RolloutStage P1
+```
+
+Kết quả:
+- P1 gate: pytest pass + bench pass + red-team 0 critical.
+- Dự án pilot tạo thành công tại `D:\100.Software\Github\Loop_harness_new\Loop_harness_pilot`.
+- HLK install thành công, HLK integrity verify **PASSED**.
+- `verify-workspace.ps1` trên pilot: **62/62 PASS**.
+- `import_smoke_test.py` trên pilot: **62 passed, 0 failed**.
