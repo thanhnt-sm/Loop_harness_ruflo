@@ -88,13 +88,13 @@ function Invoke-InitRolloutGate {
         else { Write-Host "  [P1] OK: bench pass" -ForegroundColor Green }
 
         Write-Host "  [P1] Running red-team suite (0 critical)..." -ForegroundColor Gray
-        & python -m pytest tests/test_red_team_suite.py -q --no-header 2>&1 | Out-Null
+        & python -m pytest tests/test_red_team_suite.py -q --no-header --no-cov 2>&1 | Out-Null
         if ($LASTEXITCODE -ne 0) { Write-Host "  [P1] FAIL: red-team" -ForegroundColor Red; $gateOk = $false }
         else { Write-Host "  [P1] OK: 0 critical exploit" -ForegroundColor Green }
       }
       'P2' {
         Write-Host "  [P2] Running E2E full-power test..." -ForegroundColor Gray
-        & python -m pytest tests/test_e2e_full_power.py -q --no-header 2>&1 | Out-Null
+        & python -m pytest tests/test_e2e_full_power.py -q --no-header --no-cov 2>&1 | Out-Null
         if ($LASTEXITCODE -ne 0) { Write-Host "  [P2] FAIL: E2E" -ForegroundColor Red; $gateOk = $false }
         else { Write-Host "  [P2] OK: E2E pass" -ForegroundColor Green }
 

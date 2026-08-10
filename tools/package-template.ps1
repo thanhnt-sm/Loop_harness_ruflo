@@ -86,8 +86,9 @@ function Invoke-RolloutGate {
         $gateDetails += "bench: all pass"
       }
       # Red-team: 0 critical exploit (test_red_team_suite pass).
+      # Dùng --no-cov vì chỉ chạy 1 file; pytest.ini có cov-fail-under=80 sẽ fail khi coverage thấp.
       Write-Host "  [P1] Running red-team suite (0 critical exploit)..." -ForegroundColor Gray
-      $rtOut = & python -m pytest tests/test_red_team_suite.py -q --no-header 2>&1 | Out-String
+      $rtOut = & python -m pytest tests/test_red_team_suite.py -q --no-header --no-cov 2>&1 | Out-String
       $rtExit = $LASTEXITCODE
       if ($rtExit -ne 0) {
         Write-Host "  [P1] FAIL: red-team suite exited $rtExit" -ForegroundColor Red
@@ -99,8 +100,9 @@ function Invoke-RolloutGate {
     }
     'P2' {
       # P2 Pilot: E2E pass + user approval (interactive).
+      # Dùng --no-cov để tránh lỗi fail-under khi chạy 1 file test.
       Write-Host "  [P2] Running E2E full-power test..." -ForegroundColor Gray
-      $e2eOut = & python -m pytest tests/test_e2e_full_power.py -q --no-header 2>&1 | Out-String
+      $e2eOut = & python -m pytest tests/test_e2e_full_power.py -q --no-header --no-cov 2>&1 | Out-String
       $e2eExit = $LASTEXITCODE
       if ($e2eExit -ne 0) {
         Write-Host "  [P2] FAIL: E2E exited $e2eExit" -ForegroundColor Red
