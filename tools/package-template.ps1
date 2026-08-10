@@ -34,7 +34,8 @@ param(
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path $WorkspaceRoot).Path
 $timestamp = Get-Date -Format 'yyyyMMddHHmmss'
-$staging = Join-Path $env:TEMP "harness-staging-$timestamp"
+$guid = [Guid]::NewGuid().ToString().Substring(0, 8)
+$staging = Join-Path $env:TEMP "harness-staging-$timestamp-$guid"
 
 Write-Host "`n=== Package Template ===" -ForegroundColor Cyan
 Write-Host "Source:      $root" -ForegroundColor Gray
@@ -231,7 +232,13 @@ function Test-Excluded($relPath) {
 }
 
 # --- 3. Clean staging if exists ---
-if (Test-Path $staging) { Remove-Item $staging -Recurse -Force -ErrorAction SilentlyContinue }
+if (Test-Path $staging) {
+  try {
+    Remove-Item $staging -Recurse -Force -ErrorAction Stop
+  } catch {
+    Write-Host "  [WARN] Failed to clean old staging: $_" -ForegroundColor Yellow
+  }
+}
 New-Item -ItemType Directory -Path $staging -Force | Out-Null
 
 # --- 4. Copy included dirs to staging ---
@@ -327,7 +334,8 @@ function Replace-PathsRecursively($node, $map) {
   if ($node -is [string]) {
     $s = $node
     foreach ($kv in $map.GetEnumerator()) {
-      $s = $s -replace [regex]::Escape($kv.Key), $kv.Value
+      # Dùng string .Replace thay vì regex -replace để tránh regex injection trong replacement value.
+      $s = $s.Replace($kv.Key, $kv.Value)
     }
     return $s
   } elseif ($node -is [array]) {
@@ -447,7 +455,11 @@ if ($DryRun) {
   if ($remaining.Count -gt 0) {
     Write-Host "  WARN: $($remaining.Count) config still has absolute paths" -ForegroundColor Yellow
   }
-  Remove-Item $staging -Recurse -Force -ErrorAction SilentlyContinue
+  try {
+    Remove-Item $staging -Recurse -Force -ErrorAction Stop
+  } catch {
+    Write-Host "  [WARN] Failed to clean staging in dry-run: $_" -ForegroundColor Yellow
+  }
   Write-Host "`n[DryRun] Package would be created at: $OutputPath" -ForegroundColor Yellow
   Write-Host "[DryRun] Staging removed. No zip written." -ForegroundColor Yellow
   return
@@ -506,8 +518,15 @@ if (Test-Path $verifyScript) {
 }
 
 # --- 17. Cleanup staging + test extract ---
-Remove-Item $staging -Recurse -Force -ErrorAction SilentlyContinue
-Remove-Item $testExtract -Recurse -Force -ErrorAction SilentlyContinue
+foreach ($dir in @($staging, $testExtract)) {
+  if (Test-Path $dir) {
+    try {
+      Remove-Item $dir -Recurse -Force -ErrorAction Stop
+    } catch {
+      Write-Host "  [WARN] Failed to clean $dir : $_" -ForegroundColor Yellow
+    }
+  }
+}
 
 $size = (Get-Item $OutputPath).Length / 1KB
 if ($verifyExit -eq 0) {

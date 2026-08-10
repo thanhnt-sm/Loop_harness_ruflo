@@ -141,3 +141,23 @@ Kết quả:
 - `verify-workspace.ps1` trên pilot: **62/62 PASS**.
 - `import_smoke_test.py` trên pilot: **62 passed, 0 failed**.
 - Backup HLK (`HLK.backup.<timestamp>`) đã được dọn dẹp sau install; re-verify vẫn **62/62 PASS**.
+
+### 8.2 C3 Adversarial Review (red-team) sau P1
+
+Đã chạy C3 review trên rollout pipeline (`package-template.ps1`, `init-new-project.ps1`, `deploy-template.ps1`, `path_zones.py`) với 3 persona: Saboteur, Security Auditor, Architect.
+
+Kết quả:
+- **1 BLOCKING**: `path_zones.py validate_absolute_path()` cho phép deploy vào system dirs nguy hiểm (`C:\Windows\System32`).
+- **7 ADVISORY**: race condition staging, no timeout, error handling, path traversal regex yếu, placeholder regex injection, hardcoded config paths, duplicated gate logic, tight coupling.
+
+Đã fix trong Round 1:
+- Thêm `DANGEROUS_ROOTS` + `Path.resolve()` trong `path_zones.py`.
+- Staging dùng GUID trong `package-template.ps1`.
+- Cleanup dùng `try/catch` + `ErrorAction Stop`.
+- Placeholder resolution dùng string `.Replace` thay vì regex `-replace` trong `deploy-template.ps1` và `package-template.ps1`.
+- Thêm tests trong `tests/test_path_validation.py`.
+- Full test suite: **2042 passed, 2 skipped, 85.45% coverage**.
+
+Báo cáo chi tiết: `docs/plans/ADVERSARIAL_REVIEW_rollout_p1.md`.
+
+**Các ADVISORY còn lại** (duplicated gate logic, hardcoded deployed config paths, tight coupling) được ghi nợ kỹ thuật cho P2/P3.

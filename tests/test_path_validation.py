@@ -27,10 +27,12 @@ from path_zones import (  # noqa: E402
     is_safe,
     normalize_path,
     validate_path,
+    validate_absolute_path,
     get_blocked_zones,
     get_safe_zones,
     BLOCKED_ZONES,
     SAFE_ZONES,
+    DANGEROUS_ROOTS,
 )
 
 
@@ -150,6 +152,42 @@ def test_no_duplicate_regex_between_modules():
     # schema_gate không có định nghĩa tuple riêng (chỉ import)
     # Kiểm tra: schema_gate.SAFE_ZONES IS path_zones.SAFE_ZONES (cùng object)
     assert schema_gate.SAFE_ZONES is path_zones.SAFE_ZONES or tuple(schema_gate.SAFE_ZONES) == path_zones.SAFE_ZONES
+
+
+def test_dangerous_roots_defined():
+    """DANGEROUS_ROOTS chứa các system directory cần block."""
+    assert len(DANGEROUS_ROOTS) > 0
+    assert any("windows" in root for root in DANGEROUS_ROOTS)
+    assert any("etc" in root for root in DANGEROUS_ROOTS)
+
+
+def test_validate_absolute_path_blocks_system_dirs():
+    """validate_absolute_path chặn deploy vào system directory nguy hiểm (C3 red-team)."""
+    bad_paths = [
+        r"C:\Windows\System32\my-harness",
+        r"C:\Program Files\my-app",
+        r"C:\ProgramData\my-app",
+    ]
+    if sys.platform != "win32":
+        bad_paths += ["/etc/my-app", "/usr/bin/my-app"]
+    for bad in bad_paths:
+        ok, reason = validate_absolute_path(bad)
+        assert ok is False, f"phải block {bad}"
+        assert "blocked" in reason.lower()
+
+
+def test_validate_absolute_path_allows_normal_project_dirs():
+    """validate_absolute_path cho phép project directory thông thường."""
+    ok, reason = validate_absolute_path(r"D:\projects\my-app")
+    assert ok is True, f"lẽ ra phải allow D:\\projects\\my-app: {reason}"
+    assert reason == ""
+
+
+def test_validate_absolute_path_resolves_traversal():
+    """validate_absolute_path resolve .. và chặn kết quả nguy hiểm."""
+    ok, reason = validate_absolute_path(r"C:\Users\foo\..\..\Windows\System32\my-app")
+    assert ok is False, f"phải block path traversal resolve: {reason}"
+    assert "blocked" in reason.lower()
 
 
 if __name__ == "__main__":

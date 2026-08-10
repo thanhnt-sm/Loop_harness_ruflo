@@ -17,8 +17,30 @@ File < 500 dòng, typed interface.
 """
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
+
+
+# --- Dangerous system roots: không cho deploy đến (C3 red-team finding) ---
+# Đường dẫn tuyệt đối resolve xong vẫn nằm trong các root này → block.
+DANGEROUS_ROOTS: tuple[str, ...] = (
+    "c:/windows",
+    "c:/program files",
+    "c:/program files (x86)",
+    "c:/programdata",
+    "c:/$recycle.bin",
+    "/system",
+    "/usr/bin",
+    "/usr/sbin",
+    "/bin",
+    "/sbin",
+    "/etc",
+    "/lib",
+    "/lib64",
+    "/opt",
+    "/var",
+)
 
 
 # --- Blocked zone: KHÔNG bao giờ cho phép ghi vào ---
@@ -143,17 +165,36 @@ def validate_path(file_path: str) -> tuple[bool, str]:
     return (True, "")
 
 
+def _resolved_norm(file_path: str) -> str:
+    """Trả về đường dẫn chuẩn hóa đã resolve `..` và symlinks, dạng `/` lowercase.
+
+    Dùng Path.resolve(strict=False) để bắt path traversal kể cả khi đích chưa tồn tại.
+    """
+    try:
+        resolved = Path(file_path).resolve(strict=False)
+    except (OSError, ValueError) as exc:
+        # Nếu resolve thất bại (path quá dài, ký tự không hợp lệ), fallback norm
+        return normalize_path(file_path).lower()
+    return normalize_path(str(resolved)).lower()
+
+
 def validate_absolute_path(file_path: str) -> tuple[bool, str]:
-    """Kiểm tra đường dẫn tuyệt đối cho deploy target (không block, không path traversal).
+    """Kiểm tra đường dẫn tuyệt đối cho deploy target (không block, không path traversal, không system dir).
 
     Khác validate_path ở chỗ: không yêu cầu safe zone, vì target có thể nằm ngoài workspace.
-    Vẫn chặn blocked zones và path traversal.
+    Vẫn chặn blocked zones, path traversal, và dangerous system roots.
     """
     if not file_path:
         return (False, "đường dẫn rỗng")
-    norm = normalize_path(file_path).lower()
+    norm = _resolved_norm(file_path)
+    # Kiểm tra path traversal: sau resolve vẫn còn `..` là bất thường
     if ".." in norm.split("/"):
-        return (False, f"Path traversal blocked: '..' detected in path")
+        return (False, f"Path traversal blocked: '..' detected in resolved path")
+    # Kiểm tra dangerous system roots
+    for root in DANGEROUS_ROOTS:
+        if norm.startswith(root):
+            return (False, f"System directory blocked: writing to '{root}' is not allowed")
+    # Kiểm tra blocked zone
     for zone in BLOCKED_ZONES:
         zone_norm = zone.replace("\\", "/").lower()
         if norm.startswith(zone_norm) or norm == zone_norm.rstrip("/"):

@@ -227,8 +227,9 @@ function Resolve-ConfigPlaceholders($path, $replacements) {
   if (-not (Test-Path $path)) { return }
   $content = Get-Content $path -Raw
   foreach ($kv in $replacements.GetEnumerator()) {
-    $escaped = $kv.Value -replace '\\', '\\'
-    $content = $content -replace [regex]::Escape($kv.Key), $escaped
+    # Dùng string .Replace thay vì regex -replace để tránh regex injection trong replacement value.
+    # C3 finding: value chứa $, +, ? ... có thể bị hiểu sai khi dùng regex replacement.
+    $content = $content.Replace($kv.Key, $kv.Value)
   }
   [System.IO.File]::WriteAllText($path, $content, $utf8NoBom)
 
