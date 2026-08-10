@@ -103,3 +103,25 @@ D:\100.Software\Github\Loop_harness_new\Loop_harness_ruflo\docs\plans\conduct-a-
 - `plan_quality_check.py` was upgraded to parse the official `PLAN_TEMPLATE.md` task-table format (Markdown tables with `Task ID` header) and still supports the legacy bullet-task format.
 - `qa_doc_audit.py` was fixed to reconfigure stdout/stderr to UTF-8 (previously failed on Windows with `charmap` codec). It reports many missing paths, most of which are pre-existing placeholders or future files referenced by the new plan; these are expected for a forward-looking plan.
 - No destructive operations were performed. Safe zones were respected; `HLK/`, security policies, and `.env` were not modified.
+
+---
+
+## 8. End-to-end deployment verification
+
+Triển khai thật sang một thư mục tạm mới để kiểm chứng toàn bộ pipeline:
+
+```powershell
+pwsh tools/init-new-project.ps1 -TargetPath "C:\Users\thant\AppData\Local\Temp\ruflo_e2e_test" -Cli devin
+```
+
+Kết quả:
+- Package template tạo zip thành công.
+- `deploy-template.ps1` giải nén và resolve placeholders vào target.
+- HLK installer chạy xong: copy wrappers/security/custom-hooks, patch `.gitattributes`, cài `.githooks`, kích hoạt git hooks.
+- HLK integrity verify trên target: **PASSED** (v3.0.0, hlk_enabled: true).
+- `tools/import_smoke_test.py` trên target: **62 passed, 0 failed**.
+- `tools/verify-workspace.ps1 -WorkspaceRoot <target>`: **62/62 PASS**.
+
+Lỗi thực tế đã sửa trong quá trình này:
+- `deploy-template.ps1` gọi `path_zones.py check <target>` với đường dẫn tuyệt đối ngoài workspace → bị chặn vì ngoài safe zone.
+- Fix: thêm `validate_absolute_path()` và CLI `check-absolute` trong `path_zones.py`; `deploy-template.ps1` chuyển sang dùng `check-absolute`.
