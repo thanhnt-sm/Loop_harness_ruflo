@@ -4,7 +4,7 @@
 **Goal:** Redteam audit and upgrade loop-harness: token/quality/eval/checkpoints/parallel agents/dynamic data flow/latest AI 2026  
 **Date:** 2026-08-06  
 **Executed:** 2026-08-10  
-**Status:** Implementation complete — all P0/P1 gates green, CI + bench + E2E + red-team pass, coverage 85.57%
+**Status:** Implementation complete — all P0/P1/P2 gates green, CI + bench + E2E + red-team pass, coverage 85.45%
 
 ---
 
@@ -18,9 +18,11 @@
 | 10-D Quality Check | `QUALITY_REPORT_IMPLEMENTATION_PLAN.md` | PASS — 10/10 dimensions |
 | Cost check | `cost_tracker.py --session s-20260806-redteam-loop-harness --check` | $0.0000 / $20.0000 |
 | Phase 1–5 execution | T1.1–T5.10 across `.devin/scripts/`, `tests/`, `tools/`, `.github/workflows/` | Complete |
-| Test suite | `pytest --cov=.devin --cov-fail-under=80` | 2038 passed, 2 skipped, 85.57% coverage |
+| Test suite | `pytest --cov=.devin --cov-fail-under=80` | 2042 passed, 2 skipped, 85.45% coverage |
 | Packaging / rollout P1 | `tools/package-template.ps1 -RolloutStage P1` | PASS — zip generated, verify 62/62 |
-| CI workflow | `.github/workflows/ci.yml` ahd-python job | Defined — pytest 80% gate + hook integrity + workspace verify |
+|| Rollout P1 Canary | `init-new-project.ps1 -RolloutStage P1` → `Loop_harness_pilot_v3` | PASS — HLK install + verify 62/62 |
+|| Rollout P2 Pilot | `init-new-project.ps1 -RolloutStage P2` → `Loop_harness_pilot_v4` | PASS — E2E pass, user approved, HLK OK |
+|| CI workflow | `.github/workflows/ci.yml` ahd-python job | Defined — pytest 80% gate + hook integrity + workspace verify |
 
 ---
 
@@ -185,4 +187,11 @@ Kết quả:
 
 Báo cáo chi tiết: `docs/plans/ADVERSARIAL_REVIEW_rollout_p1.md`.
 
-**Các ADVISORY còn lại** (tight coupling ở mức file structure) được ghi nợ kỹ thuật nhẹ cho P2/P3.
+**P2 Pilot**: Đã triển khai thành công `Loop_harness_pilot_v4` bằng `init-new-project -RolloutStage P2`:
+- P2 gate: E2E full-power test **PASSED**.
+- User approval cho Pilot rollout: **approved**.
+- HLK install OK, HLK integrity verify **PASSED**.
+- `verify-workspace.ps1`: **62/62 PASS**.
+- `import_smoke_test.py`: **62 passed, 0 failed**.
+
+**Các ADVISORY còn lại** (tight coupling ở mức file structure) được ghi nợ kỹ thuật nhẹ cho P3 GA.
