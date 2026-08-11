@@ -3,7 +3,7 @@
 **Artifact:** `tools/package-template.ps1`, `tools/init-new-project.ps1`, `tools/deploy-template.ps1`, `.devin/scripts/path_zones.py`
 **Type:** code
 **Date:** 2026-08-11
-**Rounds:** 3/3
+**Rounds:** 4/4
 **Status:** CONSENSUS after revision
 
 ## Round 1 summary
@@ -66,6 +66,19 @@
 - Chạy `package-template -RolloutStage P1 -DryRun`: P1 PASSED, Placeholders 2.
 - Triển khai `init-new-project -RolloutStage P1` sang `Loop_harness_pilot_v3`: P1 PASSED, HLK install OK, verify 62/62, HLK integrity PASS, smoke 62/0, bash commands resolved với forward slashes và quoted.
 
+### Round 4
+- Chạy C3 review 3 persona (Saboteur, Security Auditor, Architect) trên P2 pipeline sau khi triển khai `Loop_harness_pilot_v4`.
+- **Findings:**
+  - Saboteur: Wait-Process -Timeout không hoạt động trên PowerShell 5.1; init-new-project thiếu timeout HLK; ErrorActionPreference Continue trong deploy-template; placeholder ${USER_HOME}; python availability; git uncommitted changes warning.
+  - Security Auditor: command injection qua `& python` trong deploy-template; Start-Process ArgumentList không quote ở init-new-project; ErrorActionPreference Continue; hardcoded bot email; temp file cleanup silent.
+  - Architect: inconsistent ErrorActionPreference; duplicate placeholder resolution; missing timeout in init-new-project.
+- **Fix Round 4:**
+  - RolloutGates.ps1: thêm fallback loop timeout cho PowerShell < 7.4; log warning khi cleanup temp file fail.
+  - deploy-template.ps1: dot-source RolloutGates.ps1; dùng Invoke-ExternalCommand cho path_zones với check python availability; đổi ErrorActionPreference = 'Stop'; xóa hardcoded bot email; thêm `${USER_HOME}` placeholder resolution.
+  - init-new-project.ps1: dùng Invoke-ExternalCommand cho HLK install (300s) và verify (180s).
+  - Full test suite: 2042 passed, 2 skipped, 85.45%.
+  - Triển khai `Loop_harness_pilot_v5` bằng `init-new-project -RolloutStage P2`: P2 PASSED, verify 62/62, HLK PASS, smoke 62/0.
+
 ## Consensus decision
 
-[CONSENSUS] Sau Round 3, tất cả BLOCKING và hầu hết ADVISORY từ C3 review đã được sửa. Các vấn đề còn lại như tight coupling ở mức file structure nhẹ đã được giảm thiểu. Artifacts đã đạt P1 Canary và sẵn sàng cho P2 Pilot.
+[CONSENSUS] Sau Round 4, tất cả BLOCKING và hầu hết ADVISORY từ C3 review đã được sửa. P2 Pilot (`Loop_harness_pilot_v5`) triển khai thành công với E2E pass, verify 62/62, HLK PASS, smoke 62/0. Các vấn đề còn lại (duplicate placeholder resolution, tight coupling nhẹ) được ghi nợ kỹ thuật cho P3 GA.

@@ -194,16 +194,9 @@ if (-not $SkipHlk) {
   Write-Host "`n[2/5] Installing HLK layer for CLI: $Cli..." -ForegroundColor Cyan
 
   # Dùng $env:HLK_CLI để tránh prompt; chạy với working directory = target
-  $savedCwd = Get-Location
-  try {
-    Set-Location $target
-    $env:HLK_CLI = $Cli
-    $proc = Start-Process -FilePath $nodeExe -ArgumentList @("`"$hlkInstallMjs`"") -Wait -PassThru -NoNewWindow -WorkingDirectory $target
-    if ($proc.ExitCode -ne 0) { throw "HLK install failed with exit code $($proc.ExitCode)" }
-    Write-Host "  [ok] HLK installed" -ForegroundColor Green
-  } finally {
-    Set-Location $savedCwd
-  }
+  $env:HLK_CLI = $Cli
+  Invoke-ExternalCommand -FilePath $nodeExe -ArgumentList @($hlkInstallMjs) -WorkingDirectory $target -TimeoutSeconds 300
+  Write-Host "  [ok] HLK installed" -ForegroundColor Green
 
   # ---------------------------------------------------------------------------
   # Bước 9: HLK integrity verify
@@ -211,8 +204,7 @@ if (-not $SkipHlk) {
   if (-not $NoVerify) {
     $hlkVerify = 'HLK/wrappers/hlk-verify-integrity.js'
     Write-Host "`n[3/5] Verifying HLK layer..." -ForegroundColor Cyan
-    $proc = Start-Process -FilePath $nodeExe -ArgumentList @($hlkVerify) -Wait -PassThru -NoNewWindow -WorkingDirectory $target
-    if ($proc.ExitCode -ne 0) { throw "HLK verify failed with exit code $($proc.ExitCode)" }
+    Invoke-ExternalCommand -FilePath $nodeExe -ArgumentList @($hlkVerify) -WorkingDirectory $target -TimeoutSeconds 180
     Write-Host "  [ok] HLK verify passed" -ForegroundColor Green
   }
 }

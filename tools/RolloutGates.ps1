@@ -36,11 +36,24 @@ function Invoke-ExternalCommand {
       throw "Không thể start process: $FilePath"
     }
 
-    try {
-      $null = Wait-Process -InputObject $proc -Timeout $TimeoutSeconds
-    } catch [System.TimeoutException] {
-      try { Stop-Process -InputObject $proc -Force -ErrorAction SilentlyContinue } catch { }
-      throw "TIMEOUT: command '$FilePath $ArgumentList' chạy quá $TimeoutSeconds giây"
+    # Wait-Process -Timeout chỉ có trên PowerShell 7.4+; fallback cho PS 5.1.
+    if ($PSVersionTable.PSVersion -ge [version]'7.4') {
+      try {
+        $null = Wait-Process -InputObject $proc -Timeout $TimeoutSeconds
+      } catch [System.TimeoutException] {
+        try { Stop-Process -InputObject $proc -Force -ErrorAction SilentlyContinue } catch { }
+        throw "TIMEOUT: command '$FilePath $ArgumentList' chạy quá $TimeoutSeconds giây"
+      }
+    } else {
+      $elapsed = 0
+      while (-not $proc.HasExited -and $elapsed -lt $TimeoutSeconds) {
+        Start-Sleep -Seconds 1
+        $elapsed++
+      }
+      if (-not $proc.HasExited) {
+        try { Stop-Process -InputObject $proc -Force -ErrorAction SilentlyContinue } catch { }
+        throw "TIMEOUT: command '$FilePath $ArgumentList' chạy quá $TimeoutSeconds giây"
+      }
     }
 
     $out = Get-Content $outFile -Raw
@@ -52,8 +65,16 @@ function Invoke-ExternalCommand {
 
     return $out
   } finally {
-    Remove-Item $outFile -ErrorAction SilentlyContinue
-    Remove-Item $errFile -ErrorAction SilentlyContinue
+    try {
+      Remove-Item $outFile -ErrorAction Stop
+    } catch {
+      Write-Warning "Không xóa được temp stdout $outFile : $_"
+    }
+    try {
+      Remove-Item $errFile -ErrorAction Stop
+    } catch {
+      Write-Warning "Không xóa được temp stderr $errFile : $_"
+    }
   }
 }
 

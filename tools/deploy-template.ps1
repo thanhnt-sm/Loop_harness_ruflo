@@ -36,7 +36,7 @@ param(
   [switch]$DryRun
 )
 
-$ErrorActionPreference = 'Continue'
+$ErrorActionPreference = 'Stop'
 
 Write-Host "`n=== Deploy Template ===" -ForegroundColor Cyan
 Write-Host "Template: $TemplatePath" -ForegroundColor Gray
@@ -62,11 +62,23 @@ if (-not $ProjectName) { $ProjectName = (Split-Path $target -Leaf) }
 # Đã bỏ regex `\.\.` cũ ở đây vì path_zones.py xử lý path traversal, dangerous roots, blocked zones đầy đủ hơn.
 # Đối với deploy target, target thường nằm ngoài workspace nên dùng check-absolute:
 # chỉ chặn blocked zones và path traversal, không bắt buộc safe zone.
+$rolloutGates = Join-Path $PSScriptRoot 'RolloutGates.ps1'
+if (Test-Path $rolloutGates) { . $rolloutGates }
+
 $pathZonesScript = Join-Path $PSScriptRoot '..\.devin\scripts\path_zones.py'
 if (Test-Path $pathZonesScript) {
-  $pathZonesResult = & python $pathZonesScript check-absolute $target 2>&1
-  if ($LASTEXITCODE -eq 2) {
-    throw "Target path blocked by path_zones: $pathZonesResult"
+  if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
+    throw "python không có trong PATH, không thể chạy path_zones validation"
+  }
+  try {
+    $pathZonesResult = Invoke-ExternalCommand -FilePath 'python' -ArgumentList @($pathZonesScript, 'check-absolute', $target) -WorkingDirectory $PSScriptRoot -TimeoutSeconds 30
+  } catch {
+    # path_zones.py trả exit code 2 khi path bị block.
+    if ($_ -match 'FAILED \(exit 2\)') {
+      throw "Target path blocked by path_zones: $_"
+    } else {
+      throw $_
+    }
   }
 }
 
@@ -301,6 +313,7 @@ $allReplacements = [ordered]@{
   '{{AIDE_MEMORY_GLOBAL}}'   = $aideMemoryGlobal
   '{{AIDE_MEMORY_CLI}}'      = $aideMemoryCli
   '{{NODE_EXE}}'             = $nodeExe
+  '${USER_HOME}'             = $env:USERPROFILE
 }
 
 Resolve-ConfigPlaceholders (Join-Path $target '.devin\config.json') $allReplacements
@@ -337,7 +350,7 @@ if (-not $SkipGitInit) {
     Write-Host "`n  [git] Initializing git repo..." -ForegroundColor Gray
     git -C $target init 2>$null | Out-Null
     git -C $target -c core.autocrlf=false add -A 2>$null | Out-Null
-    $commitMsg = "feat: init project with Agent Harness Deploy template`n`nDeployed from harness template. See REPOS.md for full source attributions.`n`nGenerated with [Devin](https://devin.ai)`n`nCo-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>"
+    $commitMsg = "feat: init project with Agent Harness Deploy template`n`nDeployed from harness template. See REPOS.md for full source attributions.`n`nGenerated with [Devin](https://devin.ai)`n`nCo-Authored-By: Devin"
     git -C $target commit -m $commitMsg 2>$null | Out-Null
     Write-Host "  [git] Initial commit created`n" -ForegroundColor Green
   } else {

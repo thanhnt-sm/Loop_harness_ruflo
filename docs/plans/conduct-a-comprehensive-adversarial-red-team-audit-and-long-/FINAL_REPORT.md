@@ -21,7 +21,8 @@
 | Test suite | `pytest --cov=.devin --cov-fail-under=80` | 2042 passed, 2 skipped, 85.45% coverage |
 | Packaging / rollout P1 | `tools/package-template.ps1 -RolloutStage P1` | PASS — zip generated, verify 62/62 |
 || Rollout P1 Canary | `init-new-project.ps1 -RolloutStage P1` → `Loop_harness_pilot_v3` | PASS — HLK install + verify 62/62 |
-|| Rollout P2 Pilot | `init-new-project.ps1 -RolloutStage P2` → `Loop_harness_pilot_v4` | PASS — E2E pass, user approved, HLK OK |
+|| Rollout P2 Pilot v4 | `init-new-project.ps1 -RolloutStage P2` → `Loop_harness_pilot_v4` | PASS — E2E pass, user approved, HLK OK |
+|| Rollout P2 Pilot v5 | `init-new-project.ps1 -RolloutStage P2` → `Loop_harness_pilot_v5` | PASS — Round 4 fixes, verify 62/62 |
 || CI workflow | `.github/workflows/ci.yml` ahd-python job | Defined — pytest 80% gate + hook integrity + workspace verify |
 
 ---
@@ -187,11 +188,17 @@ Kết quả:
 
 Báo cáo chi tiết: `docs/plans/ADVERSARIAL_REVIEW_rollout_p1.md`.
 
-**P2 Pilot**: Đã triển khai thành công `Loop_harness_pilot_v4` bằng `init-new-project -RolloutStage P2`:
+**P2 Pilot v4**: Đã triển khai thành công `Loop_harness_pilot_v4` bằng `init-new-project -RolloutStage P2`:
 - P2 gate: E2E full-power test **PASSED**.
 - User approval cho Pilot rollout: **approved**.
 - HLK install OK, HLK integrity verify **PASSED**.
 - `verify-workspace.ps1`: **62/62 PASS**.
 - `import_smoke_test.py`: **62 passed, 0 failed**.
 
-**Các ADVISORY còn lại** (tight coupling ở mức file structure) được ghi nợ kỹ thuật nhẹ cho P3 GA.
+**P2 Pilot v5 (Round 4 fixes)**: Sau C3 round 4, fix 3 BLOCKING và nhiều ADVISORY, triển khai `Loop_harness_pilot_v5`:
+- Wait-Process -Timeout fallback cho PowerShell 5.1.
+- HLK install/verify dùng Invoke-ExternalCommand với timeout (300s/180s).
+- deploy-template ErrorActionPreference = 'Stop', dùng Invoke-ExternalCommand cho path_zones, xóa hardcoded bot email.
+- P2 gate: E2E **PASSED**, verify **62/62**, HLK integrity **PASSED**, smoke **62/0**.
+
+**Các ADVISORY còn lại** (duplicate placeholder resolution, tight coupling nhẹ) được ghi nợ kỹ thuật cho P3 GA.
