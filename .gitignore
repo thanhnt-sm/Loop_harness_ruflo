@@ -214,6 +214,8 @@ ruflo/
 !docs/plans/source-audit-fix/**
 docs/plans/*/
 docs/*
+!docs/reports/
+!docs/reports/**
 
 verification/
 services/
