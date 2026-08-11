@@ -13,12 +13,14 @@ function Find-Strings($node, [ref]$out) {
 }
 
 # Thay thế các key trong $map bằng value tương ứng trên toàn bộ cấu trúc JSON.
+# Sắp xếp key theo độ dài giảm dần để tránh thay thế một phần (partial replacement).
 function Replace-StringsRecursively($node, $map) {
   if ($node -is [string]) {
     $s = $node
-    foreach ($kv in $map.GetEnumerator()) {
+    $sortedKeys = $map.Keys | Sort-Object { $_.Length } -Descending
+    foreach ($key in $sortedKeys) {
       # Dùng string .Replace thay vì regex -replace để tránh regex injection.
-      $s = $s.Replace($kv.Key, $kv.Value)
+      $s = $s.Replace($key, $map[$key])
     }
     return $s
   } elseif ($node -is [array]) {
@@ -27,6 +29,37 @@ function Replace-StringsRecursively($node, $map) {
     $clone = [PSCustomObject]@{}
     foreach ($prop in $node.PSObject.Properties) {
       $clone | Add-Member -NotePropertyName $prop.Name -NotePropertyValue (Replace-StringsRecursively $prop.Value $map) -Force
+    }
+    return $clone
+  }
+  return $node
+}
+
+# Che giấu phần nhạy cảm trong đường dẫn trước khi in ra log.
+# Thay thế USERPROFILE và APPDATA bằng alias [USER_HOME] / [APPDATA].
+function Protect-LogPath($path) {
+  if (-not $path -or $path -isnot [string]) { return $path }
+  $s = $path
+  if ($env:USERPROFILE -and $s.StartsWith($env:USERPROFILE, [System.StringComparison]::OrdinalIgnoreCase)) {
+    $s = '[USER_HOME]' + $s.Substring($env:USERPROFILE.Length)
+  } elseif ($env:APPDATA -and $s.StartsWith($env:APPDATA, [System.StringComparison]::OrdinalIgnoreCase)) {
+    $s = '[APPDATA]' + $s.Substring($env:APPDATA.Length)
+  }
+  return $s
+}
+
+# Thay thế prefix đường dẫn aide-memory dạng ${USER_HOME}\...\nvm\vX.Y.Z\node_modules\aide-memory
+# bằng placeholder {{AIDE_MEMORY_GLOBAL}}, tránh phụ thuộc vào version nvm hardcoded.
+function Replace-AideMemoryPrefix($node) {
+  $pattern = '\$\{USER_HOME\}\\AppData\\Roaming\\nvm\\v\d+\.\d+\.\d+\\node_modules\\aide-memory'
+  if ($node -is [string]) {
+    return [regex]::Replace($node, $pattern, '{{AIDE_MEMORY_GLOBAL}}')
+  } elseif ($node -is [array]) {
+    return @($node | ForEach-Object { Replace-AideMemoryPrefix $_ })
+  } elseif ($node -is [PSCustomObject]) {
+    $clone = [PSCustomObject]@{}
+    foreach ($prop in $node.PSObject.Properties) {
+      $clone | Add-Member -NotePropertyName $prop.Name -NotePropertyValue (Replace-AideMemoryPrefix $prop.Value) -Force
     }
     return $clone
   }

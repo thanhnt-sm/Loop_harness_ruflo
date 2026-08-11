@@ -60,6 +60,11 @@ STALE_PATTERNS = {
     r"\bDocs/Agents/": "Docs/Agents/ → use docs/Agents/ (lowercase)",
 }
 
+# Các đường dẫn runtime hoặc optional được phép không tồn tại
+IGNORE_PATHS = {
+    ".agents/handoff_letter.md",
+}
+
 # Các đường dẫn cần verify tồn tại
 PATH_PREFIXES = (
     ".devin/scripts/",
@@ -96,15 +101,24 @@ def _is_pathlike(token: str) -> bool:
     return False
 
 
-def _resolve_candidate(src: Path, candidate: str) -> Path | None:
-    """Resolve candidate path dưới repo root. Trả None nếu không xác định."""
+def _resolve_candidate(src: Path, candidate: str) -> Path | None | bool:
+    """Resolve candidate path dưới repo root.
+    Trả resolved Path nếu tồn tại, False nếu được bỏ qua, None nếu missing."""
     candidate = candidate.strip("\n`\"'<>()")
     if not candidate:
         return None
 
     # Bỏ qua placeholders như <session_id>, <name>
     if re.search(r"<[^>]+>", candidate):
-        return None
+        return False
+
+    # Bỏ qua glob patterns vì chúng là mẫu, không phải path cụ thể
+    if any(c in candidate for c in "*?["):
+        return False
+
+    # Bỏ qua các path runtime/optional đã biết
+    if candidate in IGNORE_PATHS:
+        return False
 
     # Nếu có dấu cách, thử tìm component là file path trong command
     candidates = [candidate]
@@ -201,6 +215,8 @@ def audit() -> dict:
             if isinstance(ref, tuple):
                 ref = ref[1]
             resolved = _resolve_candidate(md, ref)
+            if resolved is False:
+                continue
             if resolved is None and not ref.startswith(("http", "#", "mailto:")):
                 missing_paths.append({
                     "file": str(md.relative_to(REPO_ROOT)),
@@ -214,6 +230,8 @@ def audit() -> dict:
                 continue
             checked.add(token)
             resolved = _resolve_candidate(md, token)
+            if resolved is False:
+                continue
             if resolved is None:
                 missing_paths.append({
                     "file": str(md.relative_to(REPO_ROOT)),

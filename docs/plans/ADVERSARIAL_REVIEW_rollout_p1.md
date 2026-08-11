@@ -3,7 +3,7 @@
 **Artifact:** `tools/package-template.ps1`, `tools/init-new-project.ps1`, `tools/deploy-template.ps1`, `.devin/scripts/path_zones.py`
 **Type:** code
 **Date:** 2026-08-11
-**Rounds:** 5/5
+**Rounds:** 6/6
 **Status:** CONSENSUS after revision
 
 ## Round 1 summary
@@ -87,6 +87,23 @@
 - Chạy package P1 dry-run PASSED, deploy dry-run PASSED, real deploy verify 62/62.
 - Triển khai `Loop_harness_pilot_v6` bằng `init-new-project -RolloutStage P2`: P2 PASSED, verify 62/62, HLK integrity PASS, smoke 62/0.
 
+### Round 6
+- Audit toàn diện (test, audit, QC, fix) trên rollout pipeline và shared module.
+- Findings từ C3:
+  - **Saboteur**: `${REPO_ROOT}` chưa được resolve; hardcoded nvm v18.20.0; placeholder order không tự động theo độ dài.
+  - **Security Auditor**: rò rỉ đường dẫn tuyệt đối qua console log; hardcoded nvm path; nên dùng Resolve-Path.
+  - **Architect**: CLEAN.
+- Fix:
+  - Thêm `Protect-LogPath` trong `PlaceholderUtils.ps1` để che `USERPROFILE`/`APPDATA` khi log.
+  - Thêm `Replace-AideMemoryPrefix` trong `PlaceholderUtils.ps1` để thay prefix `${USER_HOME}\AppData\Roaming\nvm\vX.Y.Z\node_modules\aide-memory` bằng `{{AIDE_MEMORY_GLOBAL}}`.
+  - `Replace-StringsRecursively` sắp xếp key theo độ dài giảm dần, tránh thay thế một phần.
+  - `package-template.ps1` dùng `Protect-LogPath` và `Replace-AideMemoryPrefix`; xóa hardcoded v18.20.0.
+  - `deploy-template.ps1` thêm `'${REPO_ROOT}'` map với `$workspaceRoot`, dùng `Protect-LogPath` cho tất cả log.
+  - `tools/aide-memory-daemon.ps1` và `tools/health-check.ps1` dùng `npm root -g` động thay vì hardcode nvm version.
+  - `.devin/scripts/qa_doc_audit.py` bỏ qua placeholders/glob patterns và `IGNORE_PATHS` runtime.
+- Chạy pytest 2042 passed, 2 skipped, 85.44%; `qa_doc_audit` 0 missing; `hook_integrity` OK; package/deploy dry-run và real deploy PASSED.
+- Triển khai `Loop_harness_pilot_v7` bằng `init-new-project -RolloutStage P2`: P2 PASSED, verify 62/62, HLK integrity PASS, smoke 62/0.
+
 ## Consensus decision
 
-[CONSENSUS] Sau Round 5, tất cả BLOCKING và ADVISORY từ C3 review đã được sửa. P2 Pilot (`Loop_harness_pilot_v6`) triển khai thành công với E2E pass, verify 62/62, HLK PASS, smoke 62/0. Rollout pipeline đã sạch sẽ và sẵn sàng cho P3 GA.
+[CONSENSUS] Sau Round 6, tất cả BLOCKING và ADVISORY từ C3 review đã được sửa. P2 Pilot (`Loop_harness_pilot_v7`) triển khai thành công với E2E pass, verify 62/62, HLK PASS, smoke 62/0. Rollout pipeline đã sạch sẽ, giảm thiểu rò rỉ đường dẫn, không còn hardcoded nvm version, `${REPO_ROOT}` được resolve đúng, sẵn sàng cho P3 GA.

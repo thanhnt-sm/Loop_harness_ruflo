@@ -27,7 +27,17 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $pidFile = Join-Path $repoRoot ".devin\tmp\aide-memory-daemon.pid"
 $logFile = Join-Path $repoRoot ".devin\tmp\aide-memory-daemon.log"
 
-$aideMemoryPath = Join-Path $env:APPDATA "nvm\v18.20.0\node_modules\aide-memory"
+# Phát hiện aide-memory path động thay vì hardcode version nvm.
+$npmRoot = (npm root -g 2>$null)
+if ($npmRoot) { $npmRoot = $npmRoot.Trim() }
+if (-not $npmRoot) {
+  $nodeExe = (Get-Command node -ErrorAction SilentlyContinue).Source
+  if ($nodeExe) {
+    $nodeDir = Split-Path $nodeExe -Parent
+    $npmRoot = Join-Path (Split-Path $nodeDir -Parent) 'node_modules'
+  }
+}
+$aideMemoryPath = Join-Path $npmRoot 'aide-memory'
 
 function Get-DaemonPid {
     if (Test-Path $pidFile) {

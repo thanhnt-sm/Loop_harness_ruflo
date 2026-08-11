@@ -108,13 +108,15 @@ if ($DryRun) {
   $zip.Dispose()
 
   Write-Host "  [dry-run] Would resolve placeholders:" -ForegroundColor Gray
-  Write-Host "    WORKSPACE_ROOT       = $target" -ForegroundColor DarkGray
+  Write-Host "    WORKSPACE_ROOT       = $(Protect-LogPath $target)" -ForegroundColor DarkGray
   $npmRoot = (npm root -g 2>$null)
   if ($npmRoot) { $npmRoot = $npmRoot.Trim() }
   $node = (Get-Command node -ErrorAction SilentlyContinue).Source
-  Write-Host "    AIDE_MEMORY_GLOBAL   = $(if ($npmRoot) { Join-Path $npmRoot 'aide-memory' } else { '(unknown)' })" -ForegroundColor DarkGray
-  Write-Host "    AIDE_MEMORY_CLI      = $(if ($npmRoot) { Join-Path $npmRoot 'aide-memory\dist\memory\cli.js' } else { '(unknown)' })" -ForegroundColor DarkGray
-  Write-Host "    NODE_EXE             = $(if ($node) { $node } else { '(unknown)' })" -ForegroundColor DarkGray
+  $aideGlobal = if ($npmRoot) { Protect-LogPath (Join-Path $npmRoot 'aide-memory') } else { '(unknown)' }
+  $aideCli = if ($npmRoot) { Protect-LogPath (Join-Path $npmRoot 'aide-memory\dist\memory\cli.js') } else { '(unknown)' }
+  Write-Host "    AIDE_MEMORY_GLOBAL   = $aideGlobal" -ForegroundColor DarkGray
+  Write-Host "    AIDE_MEMORY_CLI      = $aideCli" -ForegroundColor DarkGray
+  Write-Host "    NODE_EXE             = $(Protect-LogPath $node)" -ForegroundColor DarkGray
 
   Write-Host "`n[DryRun] Deploy would complete at: $target" -ForegroundColor Yellow
   return
@@ -196,7 +198,7 @@ if (-not $nodeExe) {
   if (Test-Path $toolsNode) { $nodeExe = $toolsNode }
   else { throw "node.exe not found. Install Node.js hoặc đặt vào .tools\node\" }
 }
-Write-Host "    NODE_EXE = $nodeExe" -ForegroundColor DarkGray
+Write-Host "    NODE_EXE = $(Protect-LogPath $nodeExe)" -ForegroundColor DarkGray
 
 # 7b. Aide-memory global path
 $npmRoot = (npm root -g 2>$null)
@@ -209,17 +211,17 @@ $aideMemoryGlobal = Join-Path $npmRoot 'aide-memory'
 $aideMemoryCli = Join-Path $aideMemoryGlobal 'dist\memory\cli.js'
 
 if (-not (Test-Path $aideMemoryCli)) {
-  Write-Host "    [warn] aide-memory không tìm thấy tại $aideMemoryGlobal" -ForegroundColor Yellow
+  Write-Host "    [warn] aide-memory không tìm thấy tại $(Protect-LogPath $aideMemoryGlobal)" -ForegroundColor Yellow
   Write-Host "    [hint] Cài: npm install -g aide-memory" -ForegroundColor Yellow
   Write-Host "    [hint] Sau khi cài, chạy lại script hoặc manually edit config.json + mcp_config.json" -ForegroundColor Yellow
 } else {
-  Write-Host "    AIDE_MEMORY_GLOBAL = $aideMemoryGlobal" -ForegroundColor DarkGray
-  Write-Host "    AIDE_MEMORY_CLI = $aideMemoryCli" -ForegroundColor DarkGray
+  Write-Host "    AIDE_MEMORY_GLOBAL = $(Protect-LogPath $aideMemoryGlobal)" -ForegroundColor DarkGray
+  Write-Host "    AIDE_MEMORY_CLI = $(Protect-LogPath $aideMemoryCli)" -ForegroundColor DarkGray
 }
 
 # 7c. Workspace root
 $workspaceRoot = $target
-Write-Host "    WORKSPACE_ROOT = $workspaceRoot`n" -ForegroundColor DarkGray
+Write-Host "    WORKSPACE_ROOT = $(Protect-LogPath $workspaceRoot)`n" -ForegroundColor DarkGray
 
 # --- 8. Resolve placeholders trong config.json + mcp_config.json ---
 $utf8NoBom = New-Object System.Text.UTF8Encoding $false
@@ -265,6 +267,7 @@ function Resolve-ConfigPlaceholders($path, $replacements) {
 
 $allReplacements = [ordered]@{
   '{{WORKSPACE_ROOT}}'       = $workspaceRoot
+  '${REPO_ROOT}'             = $workspaceRoot
   '{{AIDE_MEMORY_GLOBAL}}'   = $aideMemoryGlobal
   '{{AIDE_MEMORY_CLI}}'      = $aideMemoryCli
   '{{NODE_EXE}}'             = $nodeExe

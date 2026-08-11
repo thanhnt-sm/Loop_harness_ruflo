@@ -247,6 +247,7 @@ function Find-AbsolutePaths($node, [ref]$paths) {
 
 function Resolve-Placeholders($configPath, $map) {
   $json = Get-Content $configPath -Raw -Encoding UTF8 | ConvertFrom-Json
+  $json = Replace-AideMemoryPrefix $json
   $newJson = Replace-StringsRecursively $json $map
   $newJson | ConvertTo-Json -Depth 100 | Set-Content -Path $configPath -Encoding UTF8
 }
@@ -298,15 +299,10 @@ foreach ($key in $orderedKeys) {
   if ($map.Contains($key)) { $replaceMap[$map[$key]] = "{{$key}}" }
 }
 
-# C3 fix: thay thế hardcoded nvm/aide-memory prefix trong config.json bằng placeholder.
-# Dù dùng single source of truth ở deploy-time, package vẫn phải template hóa.
-$hardcodedAidePrefix = '${USER_HOME}\AppData\Roaming\nvm\v18.20.0\node_modules\aide-memory'
-$replaceMap[$hardcodedAidePrefix] = '{{AIDE_MEMORY_GLOBAL}}'
-
 Write-Host "`n=== Placeholders detected ===" -ForegroundColor Cyan
 foreach ($key in $orderedKeys) {
   if ($map.Contains($key)) {
-    Write-Host "  $key = $($map[$key])" -ForegroundColor DarkGray
+    Write-Host "  $key = $(Protect-LogPath $map[$key])" -ForegroundColor DarkGray
   } else {
     Write-Host "  $key = (not found)" -ForegroundColor Yellow
   }

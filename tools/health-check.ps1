@@ -85,7 +85,16 @@ if (Test-Path $mcpConfigPath) {
     Check-Result "MCP config exists" $true "mcp_config.json present"
 
     # Check aide-memory MCP
-    $aideMemoryPath = Join-Path $env:APPDATA "nvm\v18.20.0\node_modules\aide-memory"
+    $npmRoot = (npm root -g 2>$null)
+    if ($npmRoot) { $npmRoot = $npmRoot.Trim() }
+    if (-not $npmRoot) {
+      $nodeExe = (Get-Command node -ErrorAction SilentlyContinue).Source
+      if ($nodeExe) {
+        $nodeDir = Split-Path $nodeExe -Parent
+        $npmRoot = Join-Path (Split-Path $nodeDir -Parent) 'node_modules'
+      }
+    }
+    $aideMemoryPath = Join-Path $npmRoot 'aide-memory'
     $aideExists = Test-Path $aideMemoryPath
     Check-Result "aide-memory installed" $aideExists "node_modules present"
 }

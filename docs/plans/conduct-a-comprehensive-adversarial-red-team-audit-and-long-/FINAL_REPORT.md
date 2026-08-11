@@ -24,6 +24,7 @@
 || Rollout P2 Pilot v4 | `init-new-project.ps1 -RolloutStage P2` → `Loop_harness_pilot_v4` | PASS — E2E pass, user approved, HLK OK |
 || Rollout P2 Pilot v5 | `init-new-project.ps1 -RolloutStage P2` → `Loop_harness_pilot_v5` | PASS — Round 4 fixes, verify 62/62 |
 || Rollout P2 Pilot v6 | `init-new-project.ps1 -RolloutStage P2` → `Loop_harness_pilot_v6` | PASS — Round 5 consolidation, verify 62/62 |
+|| Rollout P2 Pilot v7 | `init-new-project.ps1 -RolloutStage P2` → `Loop_harness_pilot_v7` | PASS — Round 6 audit+fix, verify 62/62 |
 || CI workflow | `.github/workflows/ci.yml` ahd-python job | Defined — pytest 80% gate + hook integrity + workspace verify |
 
 ---
@@ -208,4 +209,12 @@ Báo cáo chi tiết: `docs/plans/ADVERSARIAL_REVIEW_rollout_p1.md`.
 - package P1 dry-run, deploy dry-run, real deploy verify 62/62, full test 2042 passed.
 - `Loop_harness_pilot_v6`: P2 gate **PASSED**, verify **62/62**, HLK integrity **PASSED**, smoke **62/0**.
 
-**Tình trạng C3 review rollout pipeline**: 5/5 round, không còn BLOCKING hay ADVISORY. P2 sẵn sàng cho P3 GA.
+**P2 Pilot v7 (Round 6 audit + fix)**: Sau C3 Round 6 trên shared module:
+- Fix `${REPO_ROOT}` không được resolve trong deploy-template.
+- Fix hardcoded nvm v18.20.0 bằng `Replace-AideMemoryPrefix` và `npm root -g` động trong `aide-memory-daemon.ps1`/`health-check.ps1`.
+- Thêm `Protect-LogPath` che `USERPROFILE`/`APPDATA` khi log đường dẫn tuyệt đối.
+- `Replace-StringsRecursively` sắp xếp key theo độ dài giảm dần.
+- Fix `qa_doc_audit.py` false positives với placeholders/glob patterns.
+- `Loop_harness_pilot_v7`: P2 gate **PASSED**, verify **62/62**, HLK integrity **PASSED**, smoke **62/0**.
+
+**Tình trạng C3 review rollout pipeline**: 6/6 round, không còn BLOCKING hay ADVISORY. P2 sẵn sàng cho P3 GA.
