@@ -23,6 +23,7 @@
 || Rollout P1 Canary | `init-new-project.ps1 -RolloutStage P1` → `Loop_harness_pilot_v3` | PASS — HLK install + verify 62/62 |
 || Rollout P2 Pilot v4 | `init-new-project.ps1 -RolloutStage P2` → `Loop_harness_pilot_v4` | PASS — E2E pass, user approved, HLK OK |
 || Rollout P2 Pilot v5 | `init-new-project.ps1 -RolloutStage P2` → `Loop_harness_pilot_v5` | PASS — Round 4 fixes, verify 62/62 |
+|| Rollout P2 Pilot v6 | `init-new-project.ps1 -RolloutStage P2` → `Loop_harness_pilot_v6` | PASS — Round 5 consolidation, verify 62/62 |
 || CI workflow | `.github/workflows/ci.yml` ahd-python job | Defined — pytest 80% gate + hook integrity + workspace verify |
 
 ---
@@ -201,4 +202,10 @@ Báo cáo chi tiết: `docs/plans/ADVERSARIAL_REVIEW_rollout_p1.md`.
 - deploy-template ErrorActionPreference = 'Stop', dùng Invoke-ExternalCommand cho path_zones, xóa hardcoded bot email.
 - P2 gate: E2E **PASSED**, verify **62/62**, HLK integrity **PASSED**, smoke **62/0**.
 
-**Các ADVISORY còn lại** (duplicate placeholder resolution, tight coupling nhẹ) được ghi nợ kỹ thuật cho P3 GA.
+**P2 Pilot v6 (Round 5 consolidation)**: Fix nốt advisory duplicate placeholder resolution logic:
+- Tạo `tools/PlaceholderUtils.ps1` chứa `Find-Strings`, `Replace-StringsRecursively`, `Set-BashCommandSlashes`.
+- `package-template.ps1` và `deploy-template.ps1` đều dot-source và dùng chung.
+- package P1 dry-run, deploy dry-run, real deploy verify 62/62, full test 2042 passed.
+- `Loop_harness_pilot_v6`: P2 gate **PASSED**, verify **62/62**, HLK integrity **PASSED**, smoke **62/0**.
+
+**Tình trạng C3 review rollout pipeline**: 5/5 round, không còn BLOCKING hay ADVISORY. P2 sẵn sàng cho P3 GA.

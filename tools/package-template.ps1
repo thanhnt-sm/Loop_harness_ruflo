@@ -55,6 +55,13 @@ if (-not (Test-Path $rolloutGates)) {
 }
 . $rolloutGates
 
+# Sử dụng PlaceholderUtils.ps1 để tránh duplicate logic tìm/thay placeholder JSON.
+$placeholderUtils = Join-Path $PSScriptRoot 'PlaceholderUtils.ps1'
+if (-not (Test-Path $placeholderUtils)) {
+  throw "Không tìm thấy $placeholderUtils"
+}
+. $placeholderUtils
+
 $rolloutResult = $null
 if ($RolloutStage -ne 'Skip') {
   $rolloutResult = Invoke-RolloutGate -Stage $RolloutStage -SourceRoot $root
@@ -223,45 +230,24 @@ foreach ($sub in @('personal', 'shared')) {
 Write-Host "  [ensured] .aide/memories/ subdirs" -ForegroundColor DarkGray
 
 # --- 9. Placeholder resolution helpers ---
+# Dùng Find-Strings và Replace-StringsRecursively từ PlaceholderUtils.ps1.
 function Find-AbsolutePaths($node, [ref]$paths) {
-  if ($node -is [string]) {
-    $matches = [regex]::Matches($node, '[A-Za-z]:\\[^<>"|\r\n\s]+')
+  $strings = @()
+  Find-Strings $node ([ref]$strings)
+  foreach ($s in $strings) {
+    $matches = [regex]::Matches($s, '[A-Za-z]:\\[^<>"|\r\n\s]+')
     foreach ($m in $matches) {
       $val = $m.Value
       if ($val -match '^[A-Za-z]:\\' -and -not $paths.Value.Contains($val)) {
         $paths.Value.Add($val) | Out-Null
       }
     }
-  } elseif ($node -is [array]) {
-    foreach ($el in $node) { Find-AbsolutePaths $el $paths }
-  } elseif ($node -is [PSCustomObject]) {
-    foreach ($prop in $node.PSObject.Properties) { Find-AbsolutePaths $prop.Value $paths }
   }
-}
-
-function Replace-PathsRecursively($node, $map) {
-  if ($node -is [string]) {
-    $s = $node
-    foreach ($kv in $map.GetEnumerator()) {
-      # Dùng string .Replace thay vì regex -replace để tránh regex injection trong replacement value.
-      $s = $s.Replace($kv.Key, $kv.Value)
-    }
-    return $s
-  } elseif ($node -is [array]) {
-    return @($node | ForEach-Object { Replace-PathsRecursively $_ $map })
-  } elseif ($node -is [PSCustomObject]) {
-    $clone = [PSCustomObject]@{}
-    foreach ($prop in $node.PSObject.Properties) {
-      $clone | Add-Member -NotePropertyName $prop.Name -NotePropertyValue (Replace-PathsRecursively $prop.Value $map) -Force
-    }
-    return $clone
-  }
-  return $node
 }
 
 function Resolve-Placeholders($configPath, $map) {
   $json = Get-Content $configPath -Raw -Encoding UTF8 | ConvertFrom-Json
-  $newJson = Replace-PathsRecursively $json $map
+  $newJson = Replace-StringsRecursively $json $map
   $newJson | ConvertTo-Json -Depth 100 | Set-Content -Path $configPath -Encoding UTF8
 }
 

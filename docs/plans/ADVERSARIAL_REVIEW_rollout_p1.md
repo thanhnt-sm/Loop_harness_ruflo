@@ -3,7 +3,7 @@
 **Artifact:** `tools/package-template.ps1`, `tools/init-new-project.ps1`, `tools/deploy-template.ps1`, `.devin/scripts/path_zones.py`
 **Type:** code
 **Date:** 2026-08-11
-**Rounds:** 4/4
+**Rounds:** 5/5
 **Status:** CONSENSUS after revision
 
 ## Round 1 summary
@@ -79,6 +79,14 @@
   - Full test suite: 2042 passed, 2 skipped, 85.45%.
   - Triển khai `Loop_harness_pilot_v5` bằng `init-new-project -RolloutStage P2`: P2 PASSED, verify 62/62, HLK PASS, smoke 62/0.
 
+### Round 5
+- Fix nốt advisory còn lại về duplicate placeholder resolution logic.
+- Tạo `tools/PlaceholderUtils.ps1` chứa `Find-Strings`, `Replace-StringsRecursively`, `Set-BashCommandSlashes`.
+- `package-template.ps1` dot-source PlaceholderUtils, dùng `Find-Strings` + filter regex trong `Find-AbsolutePaths`, dùng `Replace-StringsRecursively` trong `Resolve-Placeholders`.
+- `deploy-template.ps1` dot-source PlaceholderUtils, xóa local `Find-Strings`, `Set-BashCommandSlashes`; `Resolve-ConfigPlaceholders` dùng `Replace-StringsRecursively` thay vì raw text replace + escape backslash thủ công.
+- Chạy package P1 dry-run PASSED, deploy dry-run PASSED, real deploy verify 62/62.
+- Triển khai `Loop_harness_pilot_v6` bằng `init-new-project -RolloutStage P2`: P2 PASSED, verify 62/62, HLK integrity PASS, smoke 62/0.
+
 ## Consensus decision
 
-[CONSENSUS] Sau Round 4, tất cả BLOCKING và hầu hết ADVISORY từ C3 review đã được sửa. P2 Pilot (`Loop_harness_pilot_v5`) triển khai thành công với E2E pass, verify 62/62, HLK PASS, smoke 62/0. Các vấn đề còn lại (duplicate placeholder resolution, tight coupling nhẹ) được ghi nợ kỹ thuật cho P3 GA.
+[CONSENSUS] Sau Round 5, tất cả BLOCKING và ADVISORY từ C3 review đã được sửa. P2 Pilot (`Loop_harness_pilot_v6`) triển khai thành công với E2E pass, verify 62/62, HLK PASS, smoke 62/0. Rollout pipeline đã sạch sẽ và sẵn sàng cho P3 GA.

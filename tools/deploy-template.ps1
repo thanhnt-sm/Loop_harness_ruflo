@@ -65,6 +65,9 @@ if (-not $ProjectName) { $ProjectName = (Split-Path $target -Leaf) }
 $rolloutGates = Join-Path $PSScriptRoot 'RolloutGates.ps1'
 if (Test-Path $rolloutGates) { . $rolloutGates }
 
+$placeholderUtils = Join-Path $PSScriptRoot 'PlaceholderUtils.ps1'
+if (Test-Path $placeholderUtils) { . $placeholderUtils }
+
 $pathZonesScript = Join-Path $PSScriptRoot '..\.devin\scripts\path_zones.py'
 if (Test-Path $pathZonesScript) {
   if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
@@ -221,63 +224,15 @@ Write-Host "    WORKSPACE_ROOT = $workspaceRoot`n" -ForegroundColor DarkGray
 # --- 8. Resolve placeholders trong config.json + mcp_config.json ---
 $utf8NoBom = New-Object System.Text.UTF8Encoding $false
 
-function Find-Strings($node, [ref]$out) {
-  if ($node -is [string]) {
-    if ($out.Value -notcontains $node) { $out.Value += $node }
-  } elseif ($node -is [array]) {
-    foreach ($el in $node) { Find-Strings $el $out }
-  } elseif ($node -is [PSCustomObject]) {
-    foreach ($prop in $node.PSObject.Properties) { Find-Strings $prop.Value $out }
-  }
-}
-
-function Set-BashCommandSlashes($node) {
-  <#
-  Chuẩn hóa các command chạy bash:
-  - Chuyển backslash thành forward slash để Git Bash hiểu đúng đường dẫn.
-  - Bọc đường dẫn trong dấu nháy kép nếu chứa dấu cách, tránh lỗi parse.
-  #>
-  if ($node -is [PSCustomObject]) {
-    foreach ($prop in $node.PSObject.Properties) {
-      if ($prop.Name -eq 'command' -and $prop.Value -is [string] -and $prop.Value -match '^\s*bash\s+') {
-        $cmd = $prop.Value.Trim()
-        # Loại bỏ từ khóa 'bash', lấy phần đường dẫn script.
-        if ($cmd -match '^bash\s+(.+)$') {
-          $scriptPath = $matches[1].Trim()
-          # Chuyển \ thành / cho Git Bash.
-          $scriptPath = $scriptPath.Replace('\', '/')
-          # Bọc trong dấu nháy kép nếu có dấu cách và chưa được bọc.
-          if ($scriptPath -match '\s' -and -not ($scriptPath.StartsWith('"') -or $scriptPath.StartsWith("'"))) {
-            $scriptPath = '"' + $scriptPath + '"'
-          }
-          $prop.Value = "bash $scriptPath"
-        }
-      } else {
-        Set-BashCommandSlashes $prop.Value
-      }
-    }
-  } elseif ($node -is [array]) {
-    foreach ($el in $node) { Set-BashCommandSlashes $el }
-  }
-}
-
 function Resolve-ConfigPlaceholders($path, $replacements) {
   if (-not (Test-Path $path)) { return }
-  $content = Get-Content $path -Raw
-  foreach ($kv in $replacements.GetEnumerator()) {
-    # Dùng string .Replace thay vì regex -replace để tránh regex injection trong replacement value.
-    # C3 finding: value chứa $, +, ? ... có thể bị hiểu sai khi dùng regex replacement.
-    # Escape backslash trong replacement value vì file đích là JSON (raw text).
-    $escapedValue = $kv.Value.ToString().Replace('\', '\\')
-    $content = $content.Replace($kv.Key, $escapedValue)
-  }
-  [System.IO.File]::WriteAllText($path, $content, $utf8NoBom)
 
-  $json = $content | ConvertFrom-Json
-  $strings = @()
-  Find-Strings $json ([ref]$strings)
+  $json = Get-Content $path -Raw | ConvertFrom-Json
+  $json = Replace-StringsRecursively $json $replacements
 
   # Check unresolved placeholders
+  $strings = @()
+  Find-Strings $json ([ref]$strings)
   $unresolved = $strings | Where-Object { $_ -match '\{\{.*?\}\}' }
   if ($unresolved) {
     Write-Host "  [WARN] Unresolved placeholders in $([System.IO.Path]::GetFileName($path)): $($unresolved.Count)" -ForegroundColor Yellow
@@ -286,9 +241,8 @@ function Resolve-ConfigPlaceholders($path, $replacements) {
 
   # Quote paths with spaces in HLK hook launcher command
   if (([System.IO.Path]::GetFileName($path)) -eq 'config.json') {
-    $jsonObj = $content | ConvertFrom-Json
-    Set-BashCommandSlashes $jsonObj
-    foreach ($entry in $jsonObj.hooks.PreToolUse) {
+    Set-BashCommandSlashes $json
+    foreach ($entry in $json.hooks.PreToolUse) {
       foreach ($hook in $entry.hooks) {
         if ($hook.command -and $hook.command -match 'hlk-hook-launcher\.mjs') {
           if ($hook.command -match '^(.+?)\s+([A-Za-z]:\\.+hlk-hook-launcher\.mjs)$') {
@@ -301,9 +255,10 @@ function Resolve-ConfigPlaceholders($path, $replacements) {
         }
       }
     }
-    $content = $jsonObj | ConvertTo-Json -Depth 100
-    [System.IO.File]::WriteAllText($path, $content, $utf8NoBom)
   }
+
+  $content = $json | ConvertTo-Json -Depth 100
+  [System.IO.File]::WriteAllText($path, $content, $utf8NoBom)
 
   Write-Host "  [resolved] $([System.IO.Path]::GetFileName($path))" -ForegroundColor Green
 }
