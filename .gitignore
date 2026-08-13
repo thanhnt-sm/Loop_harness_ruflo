@@ -161,6 +161,7 @@ v3/@claude-flow/cli/plugins/
 **/.claude/proven-config.json
 **/.claude/.proven-config-version
 HLK/config/secrets.*
+!HLK/config/secrets.env.example
 HLK/config/*.local.json
 HLK/logs/
 *.rvf

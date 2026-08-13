@@ -44,6 +44,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -67,6 +68,37 @@ def _get_repo_root() -> Path:
 ROOT = _get_repo_root()
 WORKTREE_DIR = ROOT / ".worktrees"
 WORKTREE_STATE = WORKTREE_DIR / ".worktree_state.json"
+
+# Pentest fix (R2-01): worker_id phải khớp allowlist — chặn path traversal/branch injection.
+WORKER_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
+
+
+def _validate_worker_id(worker_id: str) -> bool:
+    """worker_id chỉ được chứa [A-Za-z0-9_-], không bắt đầu bằng dấu gạch."""
+    return bool(WORKER_ID_RE.match(worker_id or ""))
+
+
+def _worktree_target(prefixed_id: str) -> Path | None:
+    """Trả về target worktree đã resolve nằm trong .worktrees/, None nếu vi phạm.
+
+    Ngăn worker_id chứa '..' hoặc separator tạo path ngoài WORKTREE_DIR.
+    """
+    try:
+        base = WORKTREE_DIR.resolve()
+        target = (WORKTREE_DIR / prefixed_id).resolve()
+        target.relative_to(base)
+    except (ValueError, OSError):
+        return None
+    return target
+
+
+def _path_within_worktrees(path: Path) -> bool:
+    """Path (từ state) phải nằm trong .worktrees/ trước khi merge/remove/rmtree."""
+    try:
+        path.resolve().relative_to(WORKTREE_DIR.resolve())
+        return True
+    except (ValueError, OSError):
+        return False
 
 
 def _git(*args, cwd=ROOT, timeout: float = 30.0) -> tuple[int, str, str]:
@@ -97,24 +129,18 @@ def _load_state() -> dict:
         )
         if isinstance(result, dict):
             return result
-    except (TimeoutError, OSError, FileExistsError):
-        pass
     except Exception as e:
-        print(f"[worktree] unexpected exception: {e}", file=sys.stderr)
-        pass
+        print(f"[worktree] lock-read failed, reading raw: {e}", file=sys.stderr)
     if WORKTREE_STATE.exists():
         try:
             return json.loads(WORKTREE_STATE.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, TypeError, ValueError):
-            pass
         except Exception as e:
-            print(f"[worktree] unexpected exception: {e}", file=sys.stderr)
-            pass
+            print(f"[worktree] cannot parse state, using empty: {e}", file=sys.stderr)
     return {"worktrees": {}}
 
 
 def _save_state(state: dict):
-    """Ghi worktree state dưới lock + atomic tmp/rename."""
+    """Ghi worktree state dưới lock + atomic tmp/rename. Fallback có cảnh báo."""
     WORKTREE_DIR.mkdir(parents=True, exist_ok=True)
     try:
         ahd_session._locked_json_update(
@@ -123,35 +149,15 @@ def _save_state(state: dict):
             default=state,
             session_id="",
         )
-    except (TimeoutError, OSError, FileExistsError):
-        # Fallback ghi trực tiếp nếu lock helper không khả dụng.
-        try:
-            tmp = WORKTREE_STATE.with_suffix(".tmp")
-            tmp.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
-            tmp.replace(WORKTREE_STATE)
-        except (json.JSONDecodeError, TypeError, ValueError):
-            pass
-
-
-        except Exception as e:
-            print(f"[worktree] unexpected exception: {e}", file=sys.stderr)
-            pass
-
-
+        return
     except Exception as e:
-        print(f"[worktree] unexpected exception: {e}", file=sys.stderr)
-        # Fallback ghi trực tiếp nếu lock helper không khả dụng.
-        try:
-            tmp = WORKTREE_STATE.with_suffix(".tmp")
-            tmp.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
-            tmp.replace(WORKTREE_STATE)
-        except (json.JSONDecodeError, TypeError, ValueError):
-            pass
-
-
-        except Exception as e:
-            print(f"[worktree] unexpected exception: {e}", file=sys.stderr)
-            pass
+        print(f"[worktree] lock-write failed, falling back to atomic write: {e}", file=sys.stderr)
+    try:
+        tmp = WORKTREE_STATE.with_suffix(".tmp")
+        tmp.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
+        tmp.replace(WORKTREE_STATE)
+    except Exception as e:
+        print(f"[worktree] atomic write failed: {e}", file=sys.stderr)
 
 
 def _update_session_state_worktrees(session_id: str, worktree_id: str, add: bool = True) -> None:
@@ -179,13 +185,19 @@ def _update_session_state_worktrees(session_id: str, worktree_id: str, add: bool
 
 def cmd_create(worker_id: str, base: str = "HEAD", session_id: str = "") -> int:
     """Create a worktree for a worker on a new branch."""
+    if not _validate_worker_id(worker_id):
+        print(f"  [!] Invalid worker_id: {worker_id!r} (allowlist: [A-Za-z0-9][A-Za-z0-9_-]{{0,63}})")
+        return 2
     WORKTREE_DIR.mkdir(parents=True, exist_ok=True)
     if session_id:
         prefix = f"wt-{session_id[:8]}-"
     else:
         prefix = ""
     prefixed_id = f"{prefix}{worker_id}"
-    target = WORKTREE_DIR / prefixed_id
+    target = _worktree_target(prefixed_id)
+    if target is None:
+        print(f"  [!] Worktree path outside {WORKTREE_DIR}: {prefixed_id!r}")
+        return 2
 
     if target.exists():
         print(f"  [!] Worktree already exists: {target}")
@@ -251,6 +263,12 @@ def cmd_merge(worker_id: str) -> int:
         _save_state(state)
         return 1
 
+    if not _path_within_worktrees(wt_path):
+        print(f"  [!] Refusing to operate outside {WORKTREE_DIR}: {wt_path}")
+        info["status"] = "path-error"
+        _save_state(state)
+        return 1
+
     # Get current branch (merge target)
     rc, current_branch, err = _git("rev-parse", "--abbrev-ref", "HEAD")
     if rc != 0:
@@ -305,6 +323,12 @@ def cmd_remove(worker_id: str, force_discard: bool = False) -> int:
             f"  [!] Worktree {worker_id} has merge-conflict. "
             f"Resolve conflicts and merge manually, or use --force-discard to discard.",
         )
+        return 1
+
+    if not _path_within_worktrees(wt_path):
+        print(f"  [!] Refusing to operate outside {WORKTREE_DIR}: {wt_path}")
+        info["status"] = "path-error"
+        _save_state(state)
         return 1
 
     # Remove worktree

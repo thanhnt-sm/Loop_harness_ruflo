@@ -29,22 +29,28 @@ ACTIVE_STATUSES = {"in_progress", "crashed", "suspected_crashed"}
 
 
 def _count_active_sessions(root: Path) -> int:
+    """Đếm session active. Pentest fix (R2-02): fail-closed — unexpected
+    exception trả về MAX_ACTIVE_SESSIONS (chặn tạo mới) thay vì 0."""
     count = 0
-    session_dir = ahd_session.get_config_root(root) / "session_state"
-    if not session_dir.exists():
-        return 0
-    for f in session_dir.glob("*.json"):
-        if f.name == "current_session":
-            continue
-        try:
-            data = json.loads(f.read_text(encoding="utf-8"))
-            if data.get("status") in ACTIVE_STATUSES:
-                count += 1
-        except (json.JSONDecodeError, TypeError, ValueError):
-            pass
-        except Exception as e:
-            print(f"[session_manager] unexpected exception: {e}", file=sys.stderr)
-            pass
+    try:
+        session_dir = ahd_session.get_config_root(root) / "session_state"
+        if not session_dir.exists():
+            return 0
+        for f in session_dir.glob("*.json"):
+            if f.name == "current_session":
+                continue
+            try:
+                data = json.loads(f.read_text(encoding="utf-8"))
+                if data.get("status") in ACTIVE_STATUSES:
+                    count += 1
+            except (json.JSONDecodeError, TypeError, ValueError):
+                pass
+            except Exception as e:
+                print(f"[session_manager] unexpected exception: {e}", file=sys.stderr)
+                return MAX_ACTIVE_SESSIONS
+    except Exception as e:
+        print(f"[session_manager] unexpected exception: {e}", file=sys.stderr)
+        return MAX_ACTIVE_SESSIONS
     return count
 
 
