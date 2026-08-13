@@ -521,8 +521,10 @@ if __name__ == "__main__":
             result["code"] = e.code if e.code is not None else 0
         except Exception as e:
             print(f"[schema_gate] unexpected exception: {e}", file=sys.stderr)
-            # Lỗi không ngờ -> cho phép (fail-open, không block)
-            result["code"] = 0
+            # Fail-closed mặc định: lỗi không ngờ -> BLOCK (không cho write/edit qua).
+            # Opt-in fail-open qua env AHD_SCHEMA_GATE_FAIL_OPEN=1.
+            fail_open = os.environ.get("AHD_SCHEMA_GATE_FAIL_OPEN", "") in ("1", "true", "yes")
+            result["code"] = 0 if fail_open else 1
 
     t = threading.Thread(target=_run, daemon=True)
     t.start()

@@ -43,11 +43,6 @@ except (ImportError, ModuleNotFoundError, SyntaxError, ValueError):
     check_cost_cap = None  # type: ignore[assignment]
 
 # T4.9: Import reflection_gate từ .devin/scripts.
-except Exception as e:
-    print(f"[pre_tool_use] unexpected exception: {e}", file=sys.stderr)
-    check_cost_cap = None  # type: ignore[assignment]
-
-# T4.9: Import reflection_gate từ .devin/scripts.
 try:
     from reflection_gate import check_reflection as _check_reflection
 except (ImportError, ModuleNotFoundError, SyntaxError, ValueError):
@@ -237,6 +232,12 @@ DANGEROUS_PATTERNS = [
     (r"\bdd\b.*\bof=/dev/(sd|nvme|hd)", "dd to disk device"),
     # mkfs
     (r"\bmkfs\b", "filesystem format"),
+    # S-04: Disk partition / LVM / crypto destructive ops (bypass via fdisk/parted)
+    (r"\b(fdisk|sfdisk|gdisk|parted|mkpart)\b", "disk partition tool"),
+    (r"\b(lvremove|vgremove|pvremove|lvreduce|vgreduce)\b", "LVM destructive op"),
+    (r"\b(cryptsetup\s+(luksFormat|luksRemoveKey|erase|remove|reformat))\b", "cryptsetup destructive op"),
+    (r"\b(swapoff)\b", "swapoff"),
+    (r"\b(shutdown|reboot|halt|poweroff)\b", "host power control"),
     # GitHub token / API key in command
     (r"\b(ghp_[A-Za-z0-9]{36}|sk-[A-Za-z0-9]{48}|AKIA[A-Z0-9]{16})\b", "secret in command"),
     # base64 decoded piped to shell (U02: prevent encoding bypass)
@@ -262,6 +263,72 @@ def _ssrf_allowlist() -> set[str]:
     if not env:
         return set(DEFAULT_SSRF_ALLOWLIST)
     return set(item.strip() for item in env.split(",") if item.strip())
+
+
+def _decode_ip_encoding(host: str) -> str | None:
+    """S-03: Decode IPv4 literal encodings về dạng dotted-decimal chuẩn.
+
+    Chặn SSRF bypass qua: decimal integer (2130706433), hex (0x7f000001),
+    octal integer (017700000001), octal/hex dotted (0177.0.0.1, 0x7f.0.0.1),
+    IPv4-mapped IPv6 (::ffff:127.0.0.1, ::ffff:7f00:1).
+
+    Trả về dạng "a.b.c.d" nếu host là IP literal encoded, ngược lại None.
+    """
+    if not host:
+        return None
+    h = host.strip().lower()
+    if not h:
+        return None
+
+    # IPv4-mapped IPv6: ::ffff:<v4> — lấy phần v4 rồi xử lý tiếp.
+    m = re.fullmatch(r"(?:::f{4}:)([0-9a-f.]+)", h)
+    if m:
+        h = m.group(1)
+
+    # Hex integer: 0x7f000001
+    if re.fullmatch(r"0x[0-9a-f]{1,8}", h):
+        return str(ipaddress.IPv4Address(int(h, 16)))
+
+    # Decimal integer: 2130706433 (loại trừ dạng octal leading-zero: 0177...)
+    if re.fullmatch(r"[0-9]{1,10}", h) and not re.fullmatch(r"0[0-7]+", h):
+        v = int(h, 10)
+        if v <= 0xFFFFFFFF:
+            return str(ipaddress.IPv4Address(v))
+        return None
+
+    # Octal integer: 017700000001
+    if re.fullmatch(r"0[0-7]{1,11}", h):
+        return str(ipaddress.IPv4Address(int(h, 8)))
+
+    # Dotted/partial form: 0177.0.0.1 / 0x7f.0.0.1 / 127.1 / 127.0.0.1
+    # Hỗ trợ shorthand IPv4 (127.1 == 127.0.0.1): thành phần cuối chiếm các byte còn lại.
+    parts = h.split(".")
+    if 1 <= len(parts) <= 4:
+        try:
+            octets: list[int] = []
+            for p in parts:
+                if re.fullmatch(r"0[0-7]{1,3}", p) and not re.fullmatch(r"0+", p):
+                    octets.append(int(p, 8))
+                elif re.fullmatch(r"0x[0-9a-f]{1,8}", p):
+                    octets.append(int(p, 16))
+                elif p.isdigit():
+                    octets.append(int(p, 10))
+                else:
+                    return None
+            if len(octets) == 1:
+                if 0 <= octets[0] <= 0xFFFFFFFF:
+                    return str(ipaddress.IPv4Address(octets[0]))
+                return None
+            if len(octets) == 2 and 0 <= octets[0] <= 255 and 0 <= octets[1] <= 0xFFFFFF:
+                return str(ipaddress.IPv4Address((octets[0] << 24) | octets[1]))
+            if len(octets) == 3 and 0 <= octets[0] <= 255 and 0 <= octets[1] <= 255 and 0 <= octets[2] <= 0xFFFF:
+                return str(ipaddress.IPv4Address((octets[0] << 24) | (octets[1] << 16) | octets[2]))
+            if len(octets) == 4 and all(0 <= o <= 255 for o in octets):
+                return ".".join(str(o) for o in octets)
+            return None
+        except (ValueError, OverflowError):
+            return None
+    return None
 
 
 def check_ssrf(url: str, allowlist: set[str] | None = None) -> int:
@@ -306,10 +373,16 @@ def check_ssrf(url: str, allowlist: set[str] | None = None) -> int:
     if "metadata" in host and ".internal" in host:
         return 2
 
+    # S-03: Decode IP literal encodings trước khi check — chặn decimal/hex/octal/
+    # mapped-IPv6 bypass mà ipaddress.ip_address(host) không bắt được.
+    decoded = _decode_ip_encoding(host)
+    if decoded is not None:
+        host = decoded
+
     # IP literal check
     try:
         ip = ipaddress.ip_address(host)
-        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_unspecified:
             return 2
     except ValueError:
         pass
@@ -342,8 +415,8 @@ def _log_ssrf_block(url: str, reason: str, session_id: str) -> None:
         with log_path.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
     except Exception as e:
-        print(f"[pre_tool_use] unexpected exception: {e}", file=sys.stderr)
-        pass
+        print(f"[pre_tool_use] unexpected exception in _log_ssrf_block: {e}", file=sys.stderr)
+        # Best-effort logging only — never blocks the tool call on log failure.
 
 
 # Patterns that are warned but allowed (exit 0 with stderr note)
@@ -352,6 +425,28 @@ WARN_PATTERNS = [
     (r"\bnpm\s+publish\b", "npm publish"),
     (r"\bpip\s+install\b", "pip install"),
 ]
+
+
+def _gate_error(gate_name: str, exc: Exception) -> None:
+    """Security/resource gates fail closed on internal errors.
+
+    An unexpected exception inside a gate must NOT silently allow the tool call.
+    Default: block (exit 2). Opt-in fail-open via AHD_FAIL_OPEN=1 (same convention
+    as the U52 timeout handling in main()).
+    """
+    print(f"[pre_tool_use] {gate_name} internal error: {exc}", file=sys.stderr)
+    if os.environ.get("AHD_FAIL_OPEN", "0") == "1":
+        print(
+            f"[pre_tool_use] {gate_name} allowing on internal error (AHD_FAIL_OPEN=1).",
+            file=sys.stderr,
+        )
+        return
+    print(
+        f"[pre_tool_use] {gate_name} FAILED CLOSED: blocked on internal error. "
+        f"Set AHD_FAIL_OPEN=1 to allow.",
+        file=sys.stderr,
+    )
+    sys.exit(2)
 
 
 def _check_context_oversized_gate(data: dict) -> None:
@@ -418,8 +513,7 @@ def _check_context_oversized_gate(data: dict) -> None:
     except SystemExit:
         raise
     except Exception as e:
-        print(f"[pre_tool_use] unexpected exception: {e}", file=sys.stderr)
-        pass  # don't block on internal errors
+        _gate_error("context_oversized", e)
 
 
 def _check_cost_cap_gate(data: dict) -> None:
@@ -463,8 +557,7 @@ def _check_cost_cap_gate(data: dict) -> None:
     except SystemExit:
         raise
     except Exception as e:
-        print(f"[pre_tool_use] unexpected exception: {e}", file=sys.stderr)
-        pass
+        _gate_error("cost_cap", e)
 
 
 def _check_ssrf_gate(data: dict) -> None:
@@ -508,8 +601,7 @@ def _check_ssrf_gate(data: dict) -> None:
     except SystemExit:
         raise
     except Exception as e:
-        print(f"[pre_tool_use] unexpected exception: {e}", file=sys.stderr)
-        pass
+        _gate_error("ssrf", e)
 
 
 def _check_encoding_bypass_gate(data: dict) -> None:
@@ -538,8 +630,7 @@ def _check_encoding_bypass_gate(data: dict) -> None:
     except SystemExit:
         raise
     except Exception as e:
-        print(f"[pre_tool_use] unexpected exception: {e}", file=sys.stderr)
-        pass
+        _gate_error("encoding_bypass", e)
 
 
 def _check_reflection_gate(data: dict) -> None:
@@ -612,8 +703,7 @@ def _check_reflection_gate(data: dict) -> None:
     except SystemExit:
         raise
     except Exception as e:
-        print(f"[pre_tool_use] unexpected exception: {e}", file=sys.stderr)
-        pass  # don't block on internal errors
+        _gate_error("reflection", e)
 
 
 def _check_risk_contract(tool_name: str, tool_input: dict) -> None:
@@ -656,8 +746,8 @@ def _check_risk_contract(tool_name: str, tool_input: dict) -> None:
                 )
                 return
     except Exception as e:
-        print(f"[pre_tool_use] unexpected exception: {e}", file=sys.stderr)
-        pass  # non-blocking
+        print(f"[pre_tool_use] unexpected exception in _check_risk_contract: {e}", file=sys.stderr)
+        # Non-blocking warning-only gate — never denies the tool call.
 
 
 def main():

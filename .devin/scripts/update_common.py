@@ -83,7 +83,13 @@ def is_protected(path: str, protected: list[str]) -> bool:
     - prefix match với `/**` hoặc `/` cuối
     - glob patterns (`*.pem`, `secrets/**`, ...)
     """
-    norm = Path(path).as_posix().replace("\\", "/").lstrip("./")
+    # Pentest fix: bỏ prefix "./" bằng while loop — không dùng lstrip("./")
+    # vì lstrip cũng nuốt dấu chấm đầu của hidden paths (.env, .devin/...).
+    norm = Path(path).as_posix().replace("\\", "/")
+    while norm.startswith("./"):
+        norm = norm[2:]
+    while norm.startswith("/"):
+        norm = norm[1:]
     for p in protected:
         pat = _normalize_pattern(p)
         if pat.endswith("/**"):

@@ -308,7 +308,26 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest pytest-cov hypothesis pydantic
+          pip install pytest pytest-cov hypothesis pydantic bandit
+
+      - name: Bandit SAST (fail on High, report Medium/Low)
+        run: |
+          set -e
+          python -m bandit -q -r .devin/scripts .devin/hooks tools -f txt \
+            || bandit_rc=$? || true
+          # R-10: chặn High; Medium/Low chỉ báo cáo (giữ fail-open cho false-positive)
+          python -m bandit -q -r .devin/scripts .devin/hooks tools -f json > /tmp/bandit.json || true
+          python - <<'EOF'
+          import json
+          with open('/tmp/bandit.json') as f:
+              data = json.load(f)
+          sev = {}
+          for r in data.get('results', []):
+              sev[r['issue_severity']] = sev.get(r['issue_severity'], 0) + 1
+          print(f"bandit: High={sev.get('High',0)} Medium={sev.get('Medium',0)} Low={sev.get('Low',0)}")
+          if sev.get('High', 0) > 0:
+              raise SystemExit(f"FAIL: {sev['High']} High-severity bandit findings")
+          EOF
 
       - name: Hook integrity verify (hash baseline)
         run: python .devin/scripts/hook_integrity.py --verify

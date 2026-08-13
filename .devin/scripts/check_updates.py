@@ -21,6 +21,7 @@ import sys
 import time
 import traceback
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
@@ -45,6 +46,14 @@ def get_github_token() -> str:
 
 def github_api_get(url: str, token: str = "") -> dict[str, Any]:
     """Gọi GitHub API và trả về JSON."""
+    # B310 hardening: chỉ cho phép https tới GitHub — chặn file:/custom scheme
+    # và SSRF nếu URL bị injection từ config nguồn.
+    try:
+        parsed = urllib.parse.urlparse(url)
+    except ValueError:
+        return {"error": "Invalid URL", "url": url}
+    if parsed.scheme != "https" or parsed.netloc.lower() not in ("api.github.com", "github.com"):
+        return {"error": f"Blocked non-GitHub URL: {parsed.netloc}", "url": url}
     headers = {
         "Accept": "application/vnd.github.v3+json",
         "User-Agent": "Devin-Harness",

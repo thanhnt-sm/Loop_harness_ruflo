@@ -30,6 +30,7 @@ import {
   listStagedSensitiveFiles,
   listUntrackedFiles,
   scanFilesForSecrets,
+  auditTrackedArtifacts,
   findLargeFiles,
   ensureGitIgnorePatterns,
   findEmbeddedGitRepos,
@@ -261,6 +262,24 @@ async function checkSecretsInStaged() {
 }
 
 // ---------------------------------------------------------------------------
+// Audit toàn bộ tracked artifacts (G-02)
+// ---------------------------------------------------------------------------
+
+function checkTrackedSecrets() {
+  const audit = auditTrackedArtifacts(CWD);
+  if (audit.status !== 'ok' || audit.findings.length === 0) return;
+
+  for (const f of audit.findings) {
+    if (f.type === 'sensitive_filename') {
+      reportIssue('error', `Tracked artifact nhạy cảm: ${f.sample}`, f.file);
+    } else {
+      reportIssue('warn', `Tracked artifact chứa chuỗi secret (có thể là test fixture): ${f.sample}`, f.file);
+    }
+  }
+  log('warn', 'Kiểm tra từng file trên trước khi tin cậy; fake token trong test fixture là hợp lệ.');
+}
+
+// ---------------------------------------------------------------------------
 // Kiểm tra file lớn
 // ---------------------------------------------------------------------------
 
@@ -350,6 +369,7 @@ async function main() {
   await checkWorkingTree();
   await checkSensitiveFiles();
   await checkSecretsInStaged();
+  checkTrackedSecrets();
   checkLargeFiles();
   await checkEmbeddedRepos();
   checkDivergence();

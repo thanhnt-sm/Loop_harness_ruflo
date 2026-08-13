@@ -29,6 +29,7 @@ import {
   scanFilesForSecrets,
   scanUnstagedForSecrets,
   scanUntrackedForSecrets,
+  auditTrackedArtifacts,
   addAllSafe,
   findLargeFiles,
   prompt,
@@ -169,6 +170,31 @@ async function preCommitChecks() {
     for (const f of secretFindings) {
       errors.push(`Phát hiện secret trong ${f.file}: ${f.sample}`);
       log('error', `Phát hiện secret trong ${f.file}: ${f.sample}`);
+    }
+  }
+
+  // 5b. Audit tracked artifacts: file nhạy cảm MỚI (chưa từng ở HEAD) là lỗi chặn;
+  //     file pre-existing chỉ cảnh báo (có thể là test fixture chủ đích).
+  const trackedAudit = auditTrackedArtifacts(CWD);
+  if (trackedAudit.status === 'ok' && trackedAudit.findings.length > 0) {
+    for (const f of trackedAudit.findings) {
+      const atHead = runGit(['cat-file', '-e', `HEAD:${f.file}`], { cwd: CWD }).status === 0;
+      if (atHead) {
+        warns.push(`Artifact nhạy cảm đã có sẵn ở HEAD: ${f.file} (${f.sample})`);
+        log('warn', `Artifact nhạy cảm đã có sẵn ở HEAD: ${f.file} (${f.sample})`);
+      } else {
+        errors.push(`Artifact nhạy cảm MỚI được track: ${f.file} (${f.sample})`);
+        log('error', `Artifact nhạy cảm MỚI được track: ${f.file} (${f.sample})`);
+      }
+    }
+    const newSensitive = trackedAudit.findings
+      .filter((x) => runGit(['cat-file', '-e', `HEAD:${x.file}`], { cwd: CWD }).status !== 0)
+      .map((x) => x.file);
+    if (newSensitive.length > 0) {
+      const r = runGit(['reset', 'HEAD', '--', ...newSensitive], { cwd: CWD });
+      if (r.status === 0) {
+        log('success', `Đã unstage artifact nhạy cảm mới: ${newSensitive.join(', ')}`);
+      }
     }
   }
 

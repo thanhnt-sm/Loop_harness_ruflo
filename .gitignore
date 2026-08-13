@@ -129,32 +129,10 @@ yarn-debug.log*
 yarn-error.log*
 
 # Claude Flow generated files
-.claude/settings.local.json
-.mcp.json
-!plugins/*/.mcp.json
-claude-flow.config.json
-.swarm/
-.hive-mind/
-.claude-flow/
-/memory/
-/coordination/
-/memory/claude-flow-data.json
-/memory/sessions/*
-!/memory/sessions/README.md
-/memory/agents/*
-!/memory/agents/README.md
 /coordination/memory_bank/*
 /coordination/subtasks/*
 /coordination/orchestration/*
-*.db
-*.db-journal
-*.db-wal
-*.sqlite
-*.sqlite-journal
-*.sqlite-wal
-claude-flow
 # Removed Windows wrapper files per user request
-hive-mind-prompt-*.txt
 
 # Codex local configuration
 .codex/
@@ -164,7 +142,6 @@ hive-mind-prompt-*.txt
 .claude-flow/logs/
 
 # Environment variables — block ALL .env variants except .example templates
-.env
 .env.*
 !.env.example
 !.env.*.example
@@ -205,7 +182,6 @@ HLK/dist/
 v3/
 plugins/
 ruflo/
-.claude-flow/
 .claude-plugin/
 
 # Allow source-audit-fix plan documents only, ignore other docs/ content
@@ -265,7 +241,6 @@ tests/__pycache__/
 # Remaining ruflo artifacts
 .agents/
 .harness/
-.swarm/
 bin/
 data/
 plugin/

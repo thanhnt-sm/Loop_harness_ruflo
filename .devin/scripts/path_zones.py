@@ -187,12 +187,16 @@ def validate_absolute_path(file_path: str) -> tuple[bool, str]:
     if not file_path:
         return (False, "đường dẫn rỗng")
     norm = _resolved_norm(file_path)
-    # Kiểm tra path traversal: sau resolve vẫn còn `..` là bất thường
-    if ".." in norm.split("/"):
+    # Bảo mật: kiểm tra CẢ dạng raw (chưa resolve) để chặn system dir dạng
+    # Windows path (C:\Windows\...) trên nền Linux — Path.resolve() coi backslash
+    # là ký tự thường nên sẽ prefix cwd, làm bypass toàn bộ dangerous-root check.
+    raw_norm = normalize_path(file_path).lower()
+    # Kiểm tra path traversal: `..` ở cả raw lẫn resolved đều chặn
+    if ".." in norm.split("/") or ".." in raw_norm.split("/"):
         return (False, f"Path traversal blocked: '..' detected in resolved path")
-    # Kiểm tra dangerous system roots
+    # Kiểm tra dangerous system roots (raw trước — bắt cả dạng drive-letter)
     for root in DANGEROUS_ROOTS:
-        if norm.startswith(root):
+        if raw_norm.startswith(root) or norm.startswith(root):
             return (False, f"System directory blocked: writing to '{root}' is not allowed")
     # Kiểm tra blocked zone
     for zone in BLOCKED_ZONES:

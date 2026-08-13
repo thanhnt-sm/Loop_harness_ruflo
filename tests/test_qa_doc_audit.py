@@ -30,3 +30,22 @@ def test_audit_runs_and_returns_report():
     report = qa_doc_audit.audit()
     assert isinstance(report, dict)
     assert "scanned_files" in report
+    assert "hardcoded_paths" in report
+
+
+def test_audit_hardcoded_configs_clean():
+    # config.json hiện tại không được còn nvm hardcode
+    report = qa_doc_audit.audit()
+    nvm_hits = [
+        h for h in report["hardcoded_paths"]
+        if "nvm" in h["match"] or "AppData" in h["match"]
+    ]
+    assert nvm_hits == [], f"config vẫn còn nvm/AppData hardcode: {nvm_hits}"
+
+
+def test_audit_hardcoded_pattern_matches(tmp_path):
+    # Đảm bảo pattern bắt được dạng nvm vX.Y.Z
+    sample = "${USER_HOME}\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory"
+    for pat in qa_doc_audit.HARDCODED_PATH_PATTERNS:
+        import re
+        assert re.search(pat, sample), f"{pat} không khớp mẫu nvm hardcode"

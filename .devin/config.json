@@ -64,6 +64,20 @@
       "Exec(wget * | bash:*)",
       "Exec(wget * | sh:*)",
       "Exec(mkfs:*)",
+      "Exec(fdisk:*)",
+      "Exec(sfdisk:*)",
+      "Exec(parted:*)",
+      "Exec(lvremove:*)",
+      "Exec(vgremove:*)",
+      "Exec(pvremove:*)",
+      "Exec(cryptsetup luksFormat:*)",
+      "Exec(cryptsetup erase:*)",
+      "Exec(cryptsetup remove:*)",
+      "Exec(swapoff:*)",
+      "Exec(shutdown:*)",
+      "Exec(reboot:*)",
+      "Exec(halt:*)",
+      "Exec(poweroff:*)",
       "Exec(chmod 777:*)",
       "Exec(chmod -R 777:*)",
       "Exec(chown:*)",
@@ -92,7 +106,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${USER_HOME}\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\session-start-clear.sh",
+            "command": "bash {{AIDE_MEMORY_GLOBAL}}\\scripts\\hooks\\session-start-clear.sh",
             "timeout": 10
           }
         ]
@@ -114,7 +128,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${USER_HOME}\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\detect-correction.sh",
+            "command": "bash {{AIDE_MEMORY_GLOBAL}}\\scripts\\hooks\\detect-correction.sh",
             "timeout": 5
           }
         ]
@@ -125,7 +139,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${USER_HOME}\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-compact-save.sh",
+            "command": "bash {{AIDE_MEMORY_GLOBAL}}\\scripts\\hooks\\pre-compact-save.sh",
             "timeout": 30
           }
         ]
@@ -136,7 +150,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${USER_HOME}\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\stop-remember.sh",
+            "command": "bash {{AIDE_MEMORY_GLOBAL}}\\scripts\\hooks\\stop-remember.sh",
             "timeout": 30
           }
         ]
@@ -154,7 +168,7 @@
           },
           {
             "type": "prompt",
-            "prompt": "Block the command if it matches any destructive pattern: rm -rf, git push --force, git push -f, git reset --hard, git clean -fd, git checkout -- ., git branch -D, drop table, truncate, delete from without where, sudo rm, format, mkfs, dd if=. Allow everything else. Return {\"permissionDecision\":\"deny\",\"reason\":\"<why>\"} when blocking, otherwise {\"permissionDecision\":\"allow\"}.",
+            "prompt": "Block the command if it matches any destructive pattern: rm -rf, rm -fr, git push --force, git push -f, git reset --hard, git clean -fd, git checkout -- ., git branch -D, drop table, drop database, truncate, delete from without where, sudo rm, format, mkfs, dd if=, fdisk, sfdisk, gdisk, parted, mkpart, lvremove, vgremove, pvremove, lvreduce, vgreduce, cryptsetup luksFormat, cryptsetup erase, cryptsetup remove, swapoff, shutdown, reboot, halt, poweroff. Allow everything else. Return {\"permissionDecision\":\"deny\",\"reason\":\"<why>\"} when blocking, otherwise {\"permissionDecision\":\"allow\"}.",
             "timeout": 3
           },
           {
@@ -169,7 +183,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${USER_HOME}\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-read-recall.sh",
+            "command": "bash {{AIDE_MEMORY_GLOBAL}}\\scripts\\hooks\\pre-read-recall.sh",
             "timeout": 10
           }
         ]
@@ -184,7 +198,7 @@
           },
           {
             "type": "command",
-            "command": "bash ${USER_HOME}\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-edit-recall.sh",
+            "command": "bash {{AIDE_MEMORY_GLOBAL}}\\scripts\\hooks\\pre-edit-recall.sh",
             "timeout": 10
           }
         ]
@@ -199,7 +213,7 @@
           },
           {
             "type": "command",
-            "command": "bash ${USER_HOME}\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-edit-recall.sh",
+            "command": "bash {{AIDE_MEMORY_GLOBAL}}\\scripts\\hooks\\pre-edit-recall.sh",
             "timeout": 10
           }
         ]
@@ -209,7 +223,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${USER_HOME}\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-search-nudge.sh",
+            "command": "bash {{AIDE_MEMORY_GLOBAL}}\\scripts\\hooks\\pre-search-nudge.sh",
             "timeout": 10
           }
         ]
@@ -219,7 +233,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${USER_HOME}\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\pre-search-nudge.sh",
+            "command": "bash {{AIDE_MEMORY_GLOBAL}}\\scripts\\hooks\\pre-search-nudge.sh",
             "timeout": 10
           }
         ]
@@ -229,7 +243,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${USER_HOME}\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\track-recall.sh",
+            "command": "bash {{AIDE_MEMORY_GLOBAL}}\\scripts\\hooks\\track-recall.sh",
             "timeout": 5
           }
         ]
@@ -296,7 +310,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${USER_HOME}\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\track-recall-post.sh",
+            "command": "bash {{AIDE_MEMORY_GLOBAL}}\\scripts\\hooks\\track-recall-post.sh",
             "timeout": 5
           }
         ]
@@ -306,7 +320,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${USER_HOME}\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\track-remember.sh",
+            "command": "bash {{AIDE_MEMORY_GLOBAL}}\\scripts\\hooks\\track-remember.sh",
             "timeout": 5
           }
         ]
@@ -316,7 +330,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${USER_HOME}\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\track-remember.sh",
+            "command": "bash {{AIDE_MEMORY_GLOBAL}}\\scripts\\hooks\\track-remember.sh",
             "timeout": 5
           }
         ]
@@ -326,7 +340,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${USER_HOME}\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\track-remember.sh",
+            "command": "bash {{AIDE_MEMORY_GLOBAL}}\\scripts\\hooks\\track-remember.sh",
             "timeout": 5
           }
         ]
@@ -336,7 +350,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${USER_HOME}\\AppData\\Roaming\\nvm\\v18.20.0\\node_modules\\aide-memory\\scripts\\hooks\\track-search.sh",
+            "command": "bash {{AIDE_MEMORY_GLOBAL}}\\scripts\\hooks\\track-search.sh",
             "timeout": 5
           }
         ]

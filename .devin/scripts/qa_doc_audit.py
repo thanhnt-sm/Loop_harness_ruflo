@@ -65,6 +65,19 @@ IGNORE_PATHS = {
     ".agents/handoff_letter.md",
 }
 
+# Hardcoded platform paths cấm xuất hiện trong config (R-02): nvm version cứng,
+# AppData trực tiếp, USER_HOME cứng. Thay bằng {{AIDE_MEMORY_GLOBAL}} placeholder.
+HARDCODED_PATH_PATTERNS = {
+    r"nvm\\v\d+\.\d+\.\d+": "nvm version hardcoded in config → use {{AIDE_MEMORY_GLOBAL}} placeholder",
+    r"AppData\\Roaming\\nvm": "nvm AppData path hardcoded in config → use {{AIDE_MEMORY_GLOBAL}} placeholder",
+}
+
+# Các file config phải sạch hardcoded paths
+HARDCODED_CONFIG_GLOBS = [
+    ".devin/config.json",
+    ".devin/mcp_config.json",
+]
+
 # Các đường dẫn cần verify tồn tại
 PATH_PREFIXES = (
     ".devin/scripts/",
@@ -178,6 +191,25 @@ def _extract_plain_refs(text: str) -> list[tuple[int, str, str]]:
     return findings
 
 
+def _audit_hardcoded_configs() -> list[dict]:
+    """Quét configs tìm hardcoded platform paths (R-02)."""
+    findings = []
+    for glob in HARDCODED_CONFIG_GLOBS:
+        for cfg_path in REPO_ROOT.glob(glob):
+            try:
+                text = cfg_path.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                continue
+            for pat, reason in HARDCODED_PATH_PATTERNS.items():
+                for m in re.finditer(pat, text):
+                    findings.append({
+                        "file": str(cfg_path.relative_to(REPO_ROOT)),
+                        "match": m.group(0),
+                        "reason": reason,
+                    })
+    return findings
+
+
 def _should_exclude(md: Path) -> bool:
     rel = str(md.relative_to(REPO_ROOT)).replace("\\", "/")
     for pat in EXCLUDE_GLOB:
@@ -200,7 +232,6 @@ def audit() -> dict:
     missing_paths = []
     stale_refs = []
     checked = set()
-
     for md in sorted(all_md):
         if _should_exclude(md):
             continue
@@ -251,6 +282,7 @@ def audit() -> dict:
         "scanned_files": len(all_md),
         "missing_paths": missing_paths,
         "stale_refs": stale_refs,
+        "hardcoded_paths": _audit_hardcoded_configs(),
     }
 
 

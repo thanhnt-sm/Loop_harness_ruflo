@@ -46,21 +46,10 @@ except (ImportError, ModuleNotFoundError, SyntaxError, ValueError):
     ahd_session = None  # type: ignore[assignment]
 
 # T4.13: Import shared path_zones (single source of truth cho blocked/safe zones).
-except Exception as e:  # pragma: no cover
-    print(f"[coverage_enforce] unexpected exception: {e}", file=sys.stderr)
-    ahd_session = None  # type: ignore[assignment]
-
-# T4.13: Import shared path_zones (single source of truth cho blocked/safe zones).
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 try:
     from path_zones import is_blocked as _pathzones_is_blocked, is_safe as _pathzones_is_safe
 except (ImportError, ModuleNotFoundError, SyntaxError, ValueError):
-    _pathzones_is_blocked = None
-    _pathzones_is_safe = None
-
-# U15: Timeout nội bộ — coverage_enforce chạy grep nên cần dư thời gian.
-except Exception as e:
-    print(f"[coverage_enforce] unexpected exception: {e}", file=sys.stderr)
     _pathzones_is_blocked = None
     _pathzones_is_safe = None
 
@@ -128,15 +117,6 @@ def _parse_plan(plan_path: Path) -> dict:
         return {"plan_name": plan_name, "tasks": {}}
 
     # Pattern 1: "- [ ] T01: src/foo.py (functions: bar, baz)"
-    # Pattern 2: "- [x] T02: scripts/util.py (functions: run)"
-    # Pattern 3: "## T03 — src/qux.py (functions: quux)"
-    except Exception as e:
-        print(f"[coverage_enforce] unexpected exception: {e}", file=sys.stderr)
-        return {"plan_name": plan_name, "tasks": {}}
-
-    # Pattern 1: "- [ ] T01: src/foo.py (functions: bar, baz)"
-    # Pattern 2: "- [x] T02: scripts/util.py (functions: run)"
-    # Pattern 3: "## T03 — src/qux.py (functions: quux)"
     line_pattern = re.compile(
         r"(?:^|\n)\s*(?:-\s*\[[ xX]\]\s*|##\s*)"
         r"(?P<task_id>[A-Za-z0-9_\-]+)\s*[:—-]\s*"
@@ -169,9 +149,6 @@ def _load_coverage_state(state_path: Path, plan_name: str) -> dict:
                 return data
         except (json.JSONDecodeError, TypeError, ValueError):
             pass  # state hỏng -> tạo mới
-        except Exception as e:
-            print(f"[coverage_enforce] unexpected exception: {e}", file=sys.stderr)
-            pass  # state hỏng -> tạo mới
     return {"plan_name": plan_name, "tasks": {}}
 
 
@@ -193,10 +170,6 @@ def _save_coverage_state(state_path: Path, state: dict) -> None:
     except (TimeoutError, OSError, FileExistsError):
         pass
     # Fallback: ghi tạm với tên duy nhất để tránh đè nhau giữa các hook song song.
-    except Exception as e:
-        print(f"[coverage_enforce] unexpected exception: {e}", file=sys.stderr)
-        pass
-    # Fallback: ghi tạm với tên duy nhất để tránh đè nhau giữa các hook song song.
     try:
         tmp_name = f"{state_path.stem}_{os.getpid()}_{threading.current_thread().ident or 0}.tmp"
         tmp = state_path.with_name(tmp_name)
@@ -204,11 +177,8 @@ def _save_coverage_state(state_path: Path, state: dict) -> None:
         tmp.replace(state_path)
     except (json.JSONDecodeError, TypeError, ValueError):
         pass
-
-
     except Exception as e:
         print(f"[coverage_enforce] unexpected exception: {e}", file=sys.stderr)
-        pass
 
 
 def _grep_symbol_in_file(file_path: Path, symbol: str) -> bool:
@@ -270,8 +240,6 @@ def _is_path_blocked(file_path: str) -> bool:
         return _pathzones_is_blocked(file_path)
     except (TimeoutError, OSError, FileExistsError):
         return False
-
-
     except Exception as e:
         print(f"[coverage_enforce] unexpected exception: {e}", file=sys.stderr)
         return False
@@ -367,12 +335,6 @@ def main():
         print(json.dumps({"coverage_pct": 0.0, "executed": 0, "total": 0, "gaps": []}))
         sys.exit(0)
 
-    except Exception as e:
-        print(f"[coverage_enforce] unexpected exception: {e}", file=sys.stderr)
-        # Không parse được -> skip silently (advisory)
-        print(json.dumps({"coverage_pct": 0.0, "executed": 0, "total": 0, "gaps": []}))
-        sys.exit(0)
-
     tool_name = data.get("tool_name", "")
     tool_input = data.get("tool_input", {}) or {}
 
@@ -383,11 +345,6 @@ def main():
         import ahd_session
         root = ahd_session.get_repo_root()
     except (ImportError, ModuleNotFoundError, SyntaxError, ValueError):
-        pass
-
-    # Tìm plan file — nếu không có -> skip silently
-    except Exception as e:
-        print(f"[coverage_enforce] unexpected exception: {e}", file=sys.stderr)
         pass
 
     # Tìm plan file — nếu không có -> skip silently

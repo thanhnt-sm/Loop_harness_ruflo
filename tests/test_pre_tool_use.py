@@ -74,6 +74,86 @@ def test_pip_install_warned():
     assert "pip install" in res.stderr.lower()
 
 
+# ---- Fail-closed: internal error trong gate phải BLOCK, trừ khi AHD_FAIL_OPEN=1 ----
+
+def _import_hook():
+    sys.path.insert(0, str(REPO_ROOT / ".devin" / "hooks"))
+    sys.path.insert(0, str(REPO_ROOT / ".devin" / "scripts"))
+    import pre_tool_use  # noqa: PLC0415
+    return pre_tool_use
+
+
+def _reset_env(monkeypatch):
+    monkeypatch.delenv("AHD_FAIL_OPEN", raising=False)
+
+
+def test_gate_error_fails_closed_by_default(monkeypatch):
+    _reset_env(monkeypatch)
+    hook = _import_hook()
+    import pytest  # noqa: PLC0415
+    with pytest.raises(SystemExit) as ei:
+        hook._gate_error("test_gate", RuntimeError("boom"))
+    assert ei.value.code == 2
+
+
+def test_gate_error_opt_in_fail_open(monkeypatch):
+    monkeypatch.setenv("AHD_FAIL_OPEN", "1")
+    hook = _import_hook()
+    hook._gate_error("test_gate", RuntimeError("boom"))
+    assert True  # không raise = cho phép
+
+
+GATE_PATCH = {
+    "ssrf": {"attr": "check_ssrf", "data": {"tool_name": "Bash", "tool_input": {"command": "curl http://example.com"}}},
+    "encoding_bypass": {"attr": "detect_encoding_bypass", "data": {"tool_name": "Bash", "tool_input": {"command": "echo hi"}}},
+}
+
+
+def test_gates_fail_closed_on_internal_error(monkeypatch):
+    _reset_env(monkeypatch)
+    hook = _import_hook()
+    import pytest  # noqa: PLC0415
+    for gate, cfg in GATE_PATCH.items():
+        monkeypatch.setattr(hook, cfg["attr"], lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
+        fn = getattr(hook, f"_check_{gate}_gate")
+        with pytest.raises(SystemExit) as ei:
+            fn(cfg["data"])
+        assert ei.value.code == 2, f"{gate} must fail closed"
+
+
+def test_gates_allow_on_internal_error_when_fail_open(monkeypatch):
+    monkeypatch.setenv("AHD_FAIL_OPEN", "1")
+    hook = _import_hook()
+    for gate, cfg in GATE_PATCH.items():
+        monkeypatch.setattr(hook, cfg["attr"], lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
+        fn = getattr(hook, f"_check_{gate}_gate")
+        fn(cfg["data"])  # không raise = allowed
+
+
+def test_reflection_gate_fails_closed_on_internal_error(monkeypatch):
+    _reset_env(monkeypatch)
+    hook = _import_hook()
+    import pytest  # noqa: PLC0415
+    if hook._check_reflection is None:
+        pytest.skip("reflection_gate not importable")
+    monkeypatch.setattr(hook, "_check_reflection", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
+    data = {"tool_name": "Bash", "tool_input": {"command": "rm -rf /"}}
+    with pytest.raises(SystemExit) as ei:
+        hook._check_reflection_gate(data)
+    assert ei.value.code == 2
+
+
+def test_context_oversized_gate_fails_closed_on_internal_error(monkeypatch):
+    _reset_env(monkeypatch)
+    hook = _import_hook()
+    import pytest  # noqa: PLC0415
+    data = {"tool_name": "Bash", "tool_input": {"command": "git status"}}
+    monkeypatch.setattr(hook.ahd_session, "get_session_id", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
+    with pytest.raises(SystemExit) as ei:
+        hook._check_context_oversized_gate(data)
+    assert ei.value.code == 2
+
+
 if __name__ == "__main__":
     import pytest
     sys.exit(pytest.main([__file__, "-v"]))

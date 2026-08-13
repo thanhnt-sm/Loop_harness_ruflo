@@ -73,6 +73,34 @@ def test_check_ssrf_blocks_private():
 
 
 # ---------------------------------------------------------------------------
+# 1.1 S-03: SSRF bypass qua IP encoding (decimal/hex/octal/mapped-IPv6)
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://2130706433/",            # decimal 127.0.0.1
+        "http://0x7f000001/",            # hex 127.0.0.1
+        "http://017700000001/",          # octal integer 127.0.0.1
+        "http://0177.0.0.1/",            # octal dotted
+        "http://0x7f.0.0.1/",            # hex dotted
+        "http://127.1/",                 # short-form
+        "http://127.0.1/",               # short-form 3-part
+        "http://[::ffff:127.0.0.1]/",    # IPv4-mapped IPv6
+        "http://[::ffff:7f00:1]/",       # IPv4-mapped IPv6 (hex)
+    ],
+)
+def test_check_ssrf_blocks_ip_encoding_bypass(url):
+    from pre_tool_use import check_ssrf
+    assert check_ssrf(url, set()) == 2, f"SSRF bypass not blocked: {url}"
+
+
+def test_check_ssrf_allowlist_still_allows_public():
+    from pre_tool_use import check_ssrf
+    assert check_ssrf("https://example.com/x", {"example.com"}) == 0
+    assert check_ssrf("https://8.8.8.8/x", set()) == 0
+
+
+# ---------------------------------------------------------------------------
 # 3. pre_tool_use block command curl tới private IP
 # ---------------------------------------------------------------------------
 def test_pre_tool_use_blocks_private_url(patched_root, capsys):

@@ -161,6 +161,77 @@ export function listTrackedSensitiveFiles(cwd = process.cwd()) {
   return suspicious;
 }
 
+// ---------------------------------------------------------------------------
+// Audit tracked artifacts (toàn bộ tree, không chỉ staged)
+// ---------------------------------------------------------------------------
+
+// High-confidence secret patterns — tái dùng từ checkpoint.py redaction (T2.6).
+const TRACKED_SECRET_PATTERNS = [
+  /\bsk-[a-zA-Z0-9]{32,}\b/,
+  /\bghp_[a-zA-Z0-9]{36}\b/,
+  /\bghs_[a-zA-Z0-9]{36}\b/,
+  /\bgho_[a-zA-Z0-9]{36}\b/,
+  /\bghu_[a-zA-Z0-9]{36}\b/,
+  /\bAKIA[A-Z0-9]{16}\b/,
+  /\bAIza[A-Za-z0-9_-]{35}\b/,
+  /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/,
+  /\beyJ[a-zA-Z0-9_-]*\.eyJ[a-zA-Z0-9_-]*\.[a-zA-Z0-9_-]*\b/,
+  /-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----/,
+  /\bghp_[a-f0-9]{36}\b/,
+];
+
+export function auditTrackedArtifacts(cwd = process.cwd()) {
+  const r = runGit(['ls-files'], { cwd });
+  if (r.status !== 0) return { status: 'error', findings: [] };
+
+  const findings = [];
+  for (const f of r.stdout.split('\n').filter(Boolean)) {
+    const lower = f.toLowerCase();
+
+    // Sensitive filename trong tracked tree
+    const sensitiveName =
+      lower.includes('secrets.env') ||
+      (lower.includes('.env') && !lower.includes('.env.example')) ||
+      lower.endsWith('.rvf') ||
+      lower.endsWith('.rvf.lock') ||
+      lower.endsWith('.pem') ||
+      lower.endsWith('.key') ||
+      lower.includes('id_rsa') ||
+      lower.includes('id_ed25519');
+
+    const p = path.join(cwd, f);
+    let content = null;
+    try {
+      const stat = fs.lstatSync(p);
+      if (stat.isFile() && stat.size <= 1024 * 1024) {
+        content = fs.readFileSync(p, 'utf8');
+      }
+    } catch { /* ignore */ }
+
+    if (sensitiveName) {
+      findings.push({ file: f, type: 'sensitive_filename', sample: f, pattern: 'sensitive_name' });
+      continue;
+    }
+
+    if (content) {
+      for (const pattern of TRACKED_SECRET_PATTERNS) {
+        const m = content.match(pattern);
+        if (m) {
+          findings.push({
+            file: f,
+            type: 'secret',
+            pattern: pattern.toString(),
+            sample: m[0].slice(0, 60) + (m[0].length > 60 ? '...' : ''),
+          });
+          break;
+        }
+      }
+    }
+  }
+
+  return { status: 'ok', findings };
+}
+
 export function listStagedSensitiveFiles(cwd = process.cwd()) {
   // Chỉ kiểm tra file đang được thêm (A) hoặc sửa (M); bỏ qua file đang xóa (D)
   const r = runGit(['diff', '--cached', '--diff-filter=AM', '--name-only'], { cwd });

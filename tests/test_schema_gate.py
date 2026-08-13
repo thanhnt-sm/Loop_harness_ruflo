@@ -91,6 +91,41 @@ def test_missing_required_field_blocked():
     assert data["gate"] == "required_fields"
 
 
+def test_unexpected_exception_fails_closed():
+    # S-01: Lỗi không ngờ trong schema_gate phải fail-closed (block), không fail-open.
+    # JSON array (không phải dict) -> data.get() ném AttributeError trong main()
+    # -> rơi vào except Exception của wrapper -> phải block (exit 1).
+    cmd = [sys.executable, str(REPO_ROOT / ".devin" / "hooks" / "schema_gate.py")]
+    env = os.environ.copy()
+    env["PYTHONUTF8"] = "1"
+    result = subprocess.run(
+        cmd,
+        input=json.dumps(["write", {}]),
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        env=env,
+    )
+    assert result.returncode == 1, f"fail-open! rc={result.returncode} stderr={result.stderr}"
+
+
+def test_fail_open_opt_in_env():
+    # Vẫn cho phép opt-in fail-open qua env AHD_SCHEMA_GATE_FAIL_OPEN=1.
+    cmd = [sys.executable, str(REPO_ROOT / ".devin" / "hooks" / "schema_gate.py")]
+    env = os.environ.copy()
+    env["PYTHONUTF8"] = "1"
+    env["AHD_SCHEMA_GATE_FAIL_OPEN"] = "1"
+    result = subprocess.run(
+        cmd,
+        input=json.dumps(["write", {}]),
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        env=env,
+    )
+    assert result.returncode == 0
+
+
 if __name__ == "__main__":
     import pytest
     sys.exit(pytest.main([__file__, "-v"]))
