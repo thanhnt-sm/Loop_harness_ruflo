@@ -34,7 +34,10 @@
       "(?i)(mongodb\\+srv|postgresql|postgres|mysql|redis|amqp)://[^:\\s]+:[^@\\s]+@[^/\\s]+",
       "AIza[0-9A-Za-z_-]{35}",
       "xox[baprs]-[0-9A-Za-z-]+",
-      "(sk|pk|rk)_(live|test)_[0-9a-zA-Z]{24,}"
+      "(sk|pk|rk)_(live|test)_[0-9a-zA-Z]{24,}",
+      "-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----",
+      "[a-z]+://[^:\\s]+:[^@\\s]+@[^/\\s]+",
+      "glpat-[A-Za-z0-9_-]{20}"
     ],
     "redact_replacement": "[REDACTED]",
     "scan_paths": [
@@ -46,7 +49,11 @@
       "node_modules/**",
       "dist/**",
       "HLK/logs/**"
-    ]
+    ],
+    "reviewer_keys": [],
+    "approval_signature_required": false,
+    "failClosedOnConfigError": false,
+    "secretPrecedence": "file>env"
   },
   "telemetry_overrides": {
     "CLAUDE_CODE_ENABLE_TELEMETRY": "0",

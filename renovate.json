@@ -1,0 +1,30 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard"
+  ],
+  "packageRules": [
+    {
+      "matchManagers": ["pip_requirements", "pep621", "pyproject"],
+      "groupName": "python dependencies",
+      "enabled": true
+    },
+    {
+      "matchManagers": ["npm"],
+      "groupName": "npm dependencies",
+      "enabled": true
+    }
+  ],
+  "lockFileMaintenance": {
+    "enabled": true,
+    "automerge": false
+  },
+  "dependencyDashboardAutoclose": true,
+  "automerge": false,
+  "rebaseWhen": "behind-base-branch",
+  "prHourlyLimit": 4,
+  "assignees": [],
+  "reviewers": [],
+  "schedule": ["after 8am every monday", "before 10am every monday"]
+}

@@ -89,7 +89,20 @@ def _state_dir() -> Path:
 def _state_file(workflow_id: str) -> Path:
     """Trả về đường dẫn file trạng thái thực thi cho workflow."""
     safe_id = workflow_id.replace("/", "_").replace("\\", "_")
+    # Task 3.9: namespace isolation — loop_id prefix nếu cấu hình AHD_LOOP_ID
+    loop_id = os.environ.get("AHD_LOOP_ID", "")
+    if loop_id:
+        safe_id = f"{loop_id.replace('/', '_')}__{safe_id}"
     return _state_dir() / f"{safe_id}_execution.json"
+
+
+# Task 3.9: hard max iterations (configurable, default 50)
+def _max_loop_iterations() -> int:
+    """Đọc giới hạn loop từ env mỗi lần gọi (cho phép đổi lúc runtime)."""
+    try:
+        return int(os.environ.get("AHD_MAX_LOOP_ITERATIONS", "50"))
+    except (TypeError, ValueError):
+        return 50
 
 
 # Kích thước lô mặc định (số task tối đa trả về mỗi lần).
@@ -139,6 +152,17 @@ def _save_state(state: dict) -> bool:
     try:
         f.write_text(json.dumps(state, ensure_ascii=False, indent=2),
                      encoding="utf-8")
+        # Task 3.9: immutable state log (append-only Merkle chain) —
+        # best-effort, không chặn execution khi telemetry lỗi.
+        try:
+            from loop_memory_sync import append_state_log
+            append_state_log(
+                _repo_root(), str(wf_id), "dag_state_saved",
+                {"step": state.get("last_executed_step", ""),
+                 "status": state.get("status", "")},
+            )
+        except (ImportError, ModuleNotFoundError):
+            pass
         return True
     except OSError as exc:
         print(f"[dag_executor] Lỗi lưu trạng thái: {exc}", file=sys.stderr)
@@ -254,9 +278,9 @@ def _get_ready_tasks(state: dict, batch_size: int) -> list[str]:
 
 
 def _get_status_summary(state: dict) -> dict:
-    """Tóm tắt trạng thái workflow: completed, ready, running, pending, failed."""
+    """Tóm tắt trạng thái workflow: completed, ready, running, pending, failed, blocked."""
     tasks = state.get("tasks", {})
-    counts = {"complete": 0, "ready": 0, "running": 0, "pending": 0, "failed": 0}
+    counts = {"complete": 0, "ready": 0, "running": 0, "pending": 0, "failed": 0, "blocked": 0}
     by_status: dict[str, list[str]] = {k: [] for k in counts}
     for tid, info in tasks.items():
         st = info.get("status", "pending")
@@ -265,6 +289,7 @@ def _get_status_summary(state: dict) -> dict:
     total = len(tasks)
     all_complete = total > 0 and counts["complete"] == total
     any_failed = counts.get("failed", 0) > 0
+    any_blocked = counts.get("blocked", 0) > 0
     return {
         "workflow_id": state.get("workflow_id"),
         "total_tasks": total,
@@ -272,6 +297,7 @@ def _get_status_summary(state: dict) -> dict:
         "by_status": by_status,
         "all_complete": all_complete,
         "any_failed": any_failed,
+        "any_blocked": any_blocked,
     }
 
 
@@ -485,6 +511,15 @@ def execute(
             return ExecResult(success=False, status=summary, results={}, error="deadlock or waiting for running tasks")
 
         iteration += 1
+        # Task 3.9: hard max iterations — còn batch nhưng đã vượt ngưỡng ->
+        # dừng (không loop vô hạn). Chỉ áp dụng khi vẫn còn việc phải chạy.
+        if iteration > _max_loop_iterations():
+            _save_state(state)
+            summary = _get_status_summary(state)
+            return ExecResult(
+                success=False, status=summary, results={},
+                error=f"max loop iterations exceeded ({_max_loop_iterations()})",
+            )
         # Đánh dấu running
         for tid in batch:
             state["tasks"][tid]["status"] = "running"
@@ -492,6 +527,7 @@ def execute(
 
         # Chạy batch song song
         results: dict[str, Any] = {}
+        blocked: str | None = None
         with ThreadPoolExecutor(max_workers=min(len(batch), 8)) as pool:
             futures = {pool.submit(_run_task, tid, state["tasks"][tid], runner, max_retries, wf_id): tid for tid in batch}
             for future in as_completed(futures):
@@ -502,6 +538,14 @@ def execute(
                     state["tasks"][tid]["status"] = "complete"
                     state["tasks"][tid]["result"] = result
                     state["tasks"][tid]["completed_at"] = datetime.now(timezone.utc).isoformat()
+                except IdempotencyBlockedError as exc:
+                    # CVE-2026-AHD-003: lock failure -> BLOCK toàn bộ execution.
+                    # Không đánh dấu "failed" (failed = có thể retry/continue),
+                    # mà đánh dấu "blocked" và dừng DAG ngay.
+                    blocked = str(exc)
+                    state["tasks"][tid]["status"] = "blocked"
+                    state["tasks"][tid]["result"] = {"error": str(exc)}
+                    state["tasks"][tid]["completed_at"] = datetime.now(timezone.utc).isoformat()
                 except (ValueError, TypeError, KeyError, AttributeError) as exc:
                     state["tasks"][tid]["status"] = "failed"
                     state["tasks"][tid]["result"] = {"error": str(exc)}
@@ -511,6 +555,12 @@ def execute(
                     state["tasks"][tid]["status"] = "failed"
                     state["tasks"][tid]["result"] = {"error": str(exc)}
                     state["tasks"][tid]["completed_at"] = datetime.now(timezone.utc).isoformat()
+
+        if blocked is not None:
+            # Fail-closed: dừng DAG, không chạy batch kế tiếp.
+            _save_state(state)
+            summary = _get_status_summary(state)
+            return ExecResult(success=False, status=summary, results={}, error=blocked)
 
         state["last_executed_step"] = f"batch_{iteration}"
         _save_state(state)
@@ -534,6 +584,11 @@ def _run_task(task_id: str, task_info: dict, runner: Callable[[str, str], Any], 
                 _op,
                 run_id=run_id,
             )
+        except idempotency_module.IdempotencyLockError as exc:
+            # CVE-2026-AHD-003: lock failure = fail CLOSED.
+            # KHÔNG retry, KHÔNG đánh dấu task "failed" rồi tiếp tục —
+            # phải block toàn bộ execution (caller dừng DAG ngay).
+            raise IdempotencyBlockedError(task_id, str(exc)) from exc
         except Exception as exc:
             last_exc = exc
             if not _transient_exception(exc):
@@ -541,6 +596,17 @@ def _run_task(task_id: str, task_info: dict, runner: Callable[[str, str], Any], 
             attempts += 1
 
     raise last_exc or RuntimeError(f"task {task_id} failed after {max_retries} retries")
+
+
+class IdempotencyBlockedError(RuntimeError):
+    """Execution bị BLOCK vì không giữ được idempotency lock (fail-closed).
+
+    Khác task failed: đây là lỗi hạ tầng an toàn — DAG phải dừng, không tiếp tục.
+    """
+
+    def __init__(self, task_id: str, detail: str):
+        super().__init__(f"idempotency lock failure blocked task '{task_id}': {detail}")
+        self.task_id = task_id
 
 
 def on_node_complete(node_id: str, result: Any, run_id: str | None = None) -> None:

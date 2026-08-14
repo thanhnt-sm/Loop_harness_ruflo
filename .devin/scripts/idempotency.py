@@ -22,6 +22,14 @@ _LEDGER_DIR = "idempotency"
 _RUN_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 
 
+class IdempotencyLockError(RuntimeError):
+    """Lock không thể được giữ — execution phải BLOCK (fail-closed, CVE-2026-AHD-003).
+
+    Khác RuntimeError thường: caller (dag_executor) không được retry/đánh dấu
+    failed rồi tiếp tục — phải dừng execution ngay.
+    """
+
+
 def _sanitize_run_id(run_id: str) -> str:
     """Làm sạch run_id theo allowlist, chống path traversal (../../HLK/evil).
 
@@ -76,6 +84,43 @@ def ledger_path(run_id: str, root: Path | None = None) -> Path:
 def _lock_path(ledger: Path) -> Path:
     """Đường dẫn lock cho ledger."""
     return ledger.with_suffix(".lock")
+
+
+def _acquire_redis_lock(lock: Path) -> Any:
+    """CVE-2026-AHD-003: Distributed lock qua Redis (optional).
+
+    Kích hoạt khi env `AHD_REDIS_LOCK` được cấu hình (vd redis://localhost:6379/0).
+    Trả về handle có `.release()` nếu thành công, None nếu không dùng Redis.
+    """
+    redis_url = os.environ.get("AHD_REDIS_LOCK", "")
+    if not redis_url:
+        return None
+    try:
+        import redis  # type: ignore  # optional extra
+        r = redis.Redis.from_url(redis_url, decode_responses=True)
+        lock_name = f"ahd:idem:{lock.name}"
+        acquired = r.set(lock_name, "1", nx=True, ex=30)
+        if not acquired:
+            raise RuntimeError(f"redis lock held: {lock_name}")
+
+        class _RedisLockHandle:
+            def __init__(self, client, name):
+                self._client = client
+                self._name = name
+
+            def release(self):
+                try:
+                    self._client.delete(self._name)
+                except Exception:
+                    pass
+
+        return _RedisLockHandle(r, lock_name)
+    except ImportError:
+        print("[idempotency] AHD_REDIS_LOCK set but redis client not installed; skipping", file=sys.stderr)
+        return None
+    except Exception as e:
+        print(f"[idempotency] redis lock unavailable, fallback file lock: {e}", file=sys.stderr)
+        return None
 
 
 def _read_ledger(path: Path) -> dict[str, Any]:
@@ -137,21 +182,29 @@ def register(
     path = ledger_path(run_id)
     lock = _lock_path(path)
 
-    # Lấy lock để tránh race condition.
-    # Pentest fix: khi ahd_session._acquire_lock fail, fallback sang filelock
-    # trực tiếp. Nếu vẫn fail -> raise, KHÔNG proceed unlocked (tránh duplicate).
+    # Lấy lock để tránh race condition (CVE-2026-AHD-003 fix).
+    # Fail CLOSED: nếu không lấy được lock (dù bằng ahd_session hay filelock)
+    # → raise RuntimeError, KHÔNG BAO GIỜ chạy unlocked. filelock là hard
+    # dependency (xem pyproject.toml [project] dependencies).
+    # Distributed lock (Redis) được hỗ trợ qua extra `redis` nếu AHD_REDIS_LOCK
+    # được cấu hình (host dạng redis://...).
     handle = None
     lock_acquired = False
-    try:
-        import ahd_session
-        handle = ahd_session._acquire_lock(lock, timeout=5.0)
-        lock_acquired = handle is not None
-    except Exception as e:
-        print(f"[idempotency] ahd_session lock unavailable, try filelock fallback: {e}", file=sys.stderr)
-        handle = None
+
+    redis_lock = _acquire_redis_lock(lock)
+    if redis_lock is not None:
+        handle, lock_acquired = redis_lock, True
+    else:
+        try:
+            import ahd_session
+            handle = ahd_session._acquire_lock(lock, timeout=5.0)
+            lock_acquired = handle is not None
+        except Exception as e:
+            print(f"[idempotency] ahd_session lock unavailable, try filelock fallback: {e}", file=sys.stderr)
+            handle = None
 
     if not lock_acquired:
-        # Fallback: dùng filelock trực tiếp
+        # Fallback bắt buộc: filelock (hard dependency, KHÔNG có lối thoát unlocked).
         try:
             from filelock import FileLock, Timeout  # type: ignore
             fl = FileLock(str(lock))
@@ -159,15 +212,23 @@ def register(
             handle = fl
             lock_acquired = True
         except ImportError:
-            # filelock không có -> không thể đảm bảo an toàn, raise
-            raise RuntimeError(
-                "idempotency.register: không lấy được lock và filelock không có sẵn; "
-                "từ chối chạy unlocked để tránh race condition"
+            # filelock không có -> không thể đảm bảo an toàn, raise (fail CLOSED).
+            raise IdempotencyLockError(
+                "idempotency.register: filelock not installed (hard dependency) "
+                "and no lock could be acquired; refusing to run unlocked to "
+                "prevent duplicate execution (CVE-2026-AHD-003)"
             )
         except (TimeoutError, OSError, RuntimeError) as exc:
-            raise RuntimeError(
+            raise IdempotencyLockError(
                 f"idempotency.register: không lấy được lock cho run_id={run_id}: {exc}"
             ) from exc
+
+    if not lock_acquired:
+        # Fail CLOSED: không proceed nếu lock vẫn chưa được giữ.
+        raise IdempotencyLockError(
+            f"idempotency.register: lock không được giữ cho run_id={run_id}; "
+            "từ chối chạy unlocked (CVE-2026-AHD-003 fail-closed)"
+        )
 
     try:
         ledger = _read_ledger(path)

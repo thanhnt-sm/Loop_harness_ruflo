@@ -21,6 +21,7 @@ import json
 import re
 import sys
 import threading
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -40,6 +41,19 @@ import ahd_session
 
 CONTEXT_OVERSIZE_THRESHOLD = 3000  # characters in response
 CANDIDATE_MEMORY_MAX = 50
+
+# CVE-2026-AHD-015: allowlist các "correct_action" hợp lệ — candidate memory
+# chỉ được capture nếu correct_action nằm trong allowlist (chống memory injection
+# qua tool_response ngoại lai).
+VALID_CORRECT_ACTIONS = frozenset({
+    "check file permissions or use a command that does not require elevation",
+    "verify the path exists before running the command",
+    "recheck the command syntax and flags",
+})
+
+# CVE-2026-AHD-015: rate limit — tối đa 5 candidate memories/session/giờ
+CANDIDATE_MEMORY_PER_HOUR = 5
+CANDIDATE_MEMORY_WINDOW_SECONDS = 3600
 
 # Simple secret redaction patterns
 _SECRET_PATTERNS = [
@@ -226,6 +240,52 @@ def _extract_candidate_memory(tool_name: str, tool_input: dict, tool_response, t
         return None
 
 
+def _memory_rate_limited(candidate_path: Path) -> bool:
+    """CVE-2026-AHD-015: rate limit — max 5 candidate memories/session/giờ."""
+    if not candidate_path.exists():
+        return False
+    now = time.time()
+    recent = 0
+    try:
+        for line in candidate_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                record = json.loads(line)
+                ts = record.get("ts", "")
+                try:
+                    t = datetime.fromisoformat(ts).timestamp()
+                except (TypeError, ValueError):
+                    continue
+                if now - t <= CANDIDATE_MEMORY_WINDOW_SECONDS:
+                    recent += 1
+            except (json.JSONDecodeError, TypeError, ValueError):
+                continue
+    except (OSError, UnicodeDecodeError):
+        return False
+    return recent >= CANDIDATE_MEMORY_PER_HOUR
+
+
+def _audit_candidate(root: Path, candidate: dict, session_id: str) -> None:
+    """CVE-2026-AHD-015: log candidate memory ra telemetry để audit."""
+    try:
+        from datetime import datetime as _dt
+        audit_path = ahd_session.get_config_root(root) / "telemetry" / "candidate_memory_audit.jsonl"
+        audit_path.parent.mkdir(parents=True, exist_ok=True)
+        record = {
+            "ts": _dt.now(timezone.utc).isoformat(),
+            "session_id": session_id,
+            "trigger": candidate.get("trigger", ""),
+            "correct_action": candidate.get("correct_action", ""),
+            "human_confirmed": False,
+        }
+        with open(audit_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    except Exception as e:
+        print(f"[post_tool_use] candidate audit lỗi: {e}", file=sys.stderr)
+
+
 def _append_bounded_jsonl(path: Path, record: dict, max_records: int = CANDIDATE_MEMORY_MAX) -> None:
     """Append a record to a jsonl file, keeping the file bounded."""
     try:
@@ -383,6 +443,14 @@ def main():
     except (ValueError, TypeError, KeyError, AttributeError):
         pass
 
+    # CVE-2026-AHD-013: append entry vào cost ledger (append-only + HMAC).
+    # Lỗi ledger KHÔNG chặn tool call — chỉ best-effort (fail mềm, log stderr).
+    try:
+        from cost_ledger import append_entry
+        append_entry(root, session_id, tool_name, cost, cumulative)
+    except Exception as e:
+        print(f"[post_tool_use] WARNING: cost_ledger append lỗi: {e}", file=sys.stderr)
+
     # Write per-session journal
     except Exception as e:
         print(f"[post_tool_use] unexpected exception: {e}", file=sys.stderr)
@@ -449,12 +517,33 @@ def main():
     try:
         candidate = _extract_candidate_memory(tool_name, tool_input, tool_response, ts, ok=ok)
         if candidate:
+            # CVE-2026-AHD-015: chỉ accept correct_action trong allowlist
+            if candidate.get("correct_action") not in VALID_CORRECT_ACTIONS:
+                print(
+                    f"[CVE-015] candidate memory bị từ chối: correct_action ngoài allowlist",
+                    file=sys.stderr,
+                )
+                candidate = None
+        if candidate:
             # The current failure has already been appended to the journal
             fail_count = _repeated_failure_count(journal_path, tool_name, command, session_id)
             if fail_count >= 2:
-                candidate["session_id"] = session_id
                 candidate_path = ahd_session.get_config_root(root) / "session_state" / session_id / "candidate_memory.jsonl"
-                _append_bounded_jsonl(candidate_path, candidate)
+                # CVE-2026-AHD-015: rate limit 5/session/giờ
+                if _memory_rate_limited(candidate_path):
+                    print(
+                        f"[CVE-015] candidate memory bị bỏ: vượt rate limit "
+                        f"{CANDIDATE_MEMORY_PER_HOUR}/giờ/session",
+                        file=sys.stderr,
+                    )
+                else:
+                    # CVE-2026-AHD-015: human confirmation bắt buộc để promote
+                    # lên long-term memory (memory_audit.py skip nếu chưa confirm)
+                    candidate["session_id"] = session_id
+                    candidate["human_confirmed"] = False
+                    _append_bounded_jsonl(candidate_path, candidate)
+                    # CVE-2026-AHD-015: telemetry audit log
+                    _audit_candidate(root, candidate, session_id)
     except Exception as e:
         print(f"[post_tool_use] unexpected exception: {e}", file=sys.stderr)
         pass

@@ -51,6 +51,9 @@ NUM_REVIEWERS = 6
 MAX_REVISION_ROUNDS = 7
 MAX_QC_ROUNDS = 7
 MAX_ENHANCE_ROUNDS = 3
+# TLA+ spec-derived (specs/plan_orchestrator.tla): chặn loop vô hạn
+# SDD_APPROVAL/PLAN_APPROVAL changes_requested -> phải hội tụ (liveness).
+MAX_APPROVAL_ROUNDS = 7
 
 # ---------------------------------------------------------------------------
 # Helper mapping

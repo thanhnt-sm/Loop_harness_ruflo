@@ -437,8 +437,20 @@ def _handle_sdd_approval(state: dict, results: dict, root: Path) -> dict:
     elif decision == "changes_requested":
         state["approval_status"] = "changes_requested"
         modifications = results.get("modifications", "")
-        state["state"] = C.STATE_DESIGN
-        append_history(state, "sdd_approval", f"SDD changes requested: {modifications}")
+        # TLA+ spec-derived convergence bound: tối đa MAX_APPROVAL_ROUNDS lần
+        # changes_requested liên tiếp, sau đó ESCALATE (không loop vô hạn).
+        approval_round = state.get("approval_round", 0) + 1
+        state["approval_round"] = approval_round
+        if approval_round >= C.MAX_APPROVAL_ROUNDS:
+            state["state"] = C.STATE_ESCALATE
+            state["escalate_reason"] = (
+                f"Max {C.MAX_APPROVAL_ROUNDS} approval rounds exceeded, "
+                f"changes still requested"
+            )
+            append_history(state, "sdd_approval", "Max approval rounds exceeded, escalating")
+        else:
+            state["state"] = C.STATE_DESIGN
+            append_history(state, "sdd_approval", f"SDD changes requested: {modifications}")
     else:
         return {"action": "error", "instructions": f"Invalid SDD approval decision: {decision}", "params": {}}
     return next_action(state, root)
@@ -532,9 +544,21 @@ def _handle_plan_approval(state: dict, results: dict, root: Path) -> dict:
     elif decision == "changes_requested":
         state["approval_status"] = "changes_requested"
         modifications = results.get("modifications", "")
-        # Nếu user yêu cầu sửa SDD → quay về DESIGN; nếu sửa plan → quay về PLAN
-        state["state"] = C.STATE_DESIGN if target == "sdd" else C.STATE_PLAN
-        append_history(state, "plan_approval", f"Plan changes requested ({target}): {modifications}")
+        # TLA+ spec-derived convergence bound: tối đa MAX_APPROVAL_ROUNDS lần
+        # changes_requested liên tiếp, sau đó ESCALATE (không loop vô hạn).
+        approval_round = state.get("approval_round", 0) + 1
+        state["approval_round"] = approval_round
+        if approval_round >= C.MAX_APPROVAL_ROUNDS:
+            state["state"] = C.STATE_ESCALATE
+            state["escalate_reason"] = (
+                f"Max {C.MAX_APPROVAL_ROUNDS} approval rounds exceeded, "
+                f"changes still requested"
+            )
+            append_history(state, "plan_approval", "Max approval rounds exceeded, escalating")
+        else:
+            # Nếu user yêu cầu sửa SDD → quay về DESIGN; nếu sửa plan → quay về PLAN
+            state["state"] = C.STATE_DESIGN if target == "sdd" else C.STATE_PLAN
+            append_history(state, "plan_approval", f"Plan changes requested ({target}): {modifications}")
     else:
         return {"action": "error", "instructions": f"Invalid plan approval decision: {decision}", "params": {}}
     return next_action(state, root)

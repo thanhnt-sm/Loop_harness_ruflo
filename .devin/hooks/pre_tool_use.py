@@ -27,8 +27,11 @@ import ipaddress
 import json
 import os
 import re
+import shlex
+import socket
 import sys
 import threading
+import time
 import urllib.parse
 from datetime import datetime, timezone
 from pathlib import Path
@@ -114,6 +117,88 @@ def detect_encoding_bypass(text: str) -> list[str]:
         findings.append("base64_pipe")
 
     return findings
+
+
+# CVE-2026-AHD-007: phân tích cấu trúc shell bằng shlex (sau khi decode).
+def analyze_shell_structure(command: str) -> list[str]:
+    """Phát hiện cấu trúc shell khả nghi (CVE-2026-AHD-007).
+
+    - unbalanced_quotes : shlex không parse được (quote không cân bằng).
+    - quote_breakout    : metachar (; & |) dính sát vào quote — dấu hiệu
+                          breakout/ghép lệnh ẩn.
+    - control_chars     : ký tự điều khiển (trừ \t \n \r) — encoding bypass.
+
+    KHÔNG flag `&&`/`||`/`;` có khoảng trắng thông thường (vẫn là lệnh hợp lệ).
+    """
+    findings: list[str] = []
+    if not command:
+        return findings
+
+    # 1. Unbalanced quotes -> shlex raise ValueError
+    try:
+        lexer = shlex.shlex(command, posix=True, punctuation_chars=True)
+        list(lexer)
+    except ValueError:
+        findings.append("unbalanced_quotes")
+
+    # 2. Metachar dính sát quote (không có khoảng trắng) — quote breakout
+    if re.search(r'["\'][;&|]|[;&|]["\']', command):
+        findings.append("quote_breakout")
+
+    # 3. Control chars (trừ \t \n \r hợp lệ trong shell)
+    if re.search(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', command):
+        findings.append("control_chars")
+
+    return findings
+
+
+def _hlk_repo_root() -> Path:
+    """Repo root cho HLK config: env AHD_REPO_ROOT > cwd (hoặc walk lên)."""
+    env = os.environ.get("AHD_REPO_ROOT", "")
+    if env:
+        return Path(env)
+    cwd = Path.cwd()
+    for parent in [cwd, *cwd.parents]:
+        if (parent / ".devin").exists() or (parent / ".git").exists():
+            return parent
+    return cwd
+
+
+def _hlk_secret_patterns(root: Path | None = None) -> list[str]:
+    """Load redact_patterns từ HLK config (CVE-2026-AHD-007 unified detection).
+
+    Override test: env AHD_HLK_PATTERNS (JSON list) hoặc AHD_HLK_PATTERNS_FILE.
+    """
+    env = os.environ.get("AHD_HLK_PATTERNS", "")
+    if env:
+        try:
+            pats = json.loads(env)
+            if isinstance(pats, list):
+                return [str(p) for p in pats]
+        except (ValueError, TypeError):
+            pass
+    root = root or _hlk_repo_root()
+    try:
+        cfg_path = root / "HLK" / "config" / "hlk.config.json"
+        if cfg_path.exists():
+            cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+            pats = cfg.get("security_rules", {}).get("redact_patterns", []) or []
+            return [str(p) for p in pats]
+    except (OSError, json.JSONDecodeError):
+        pass
+    return []
+
+
+def detect_hlk_secret(command: str, root: Path | None = None) -> list[str]:
+    """Quét command bằng HLK sanitizer patterns — trả pattern khớp (rỗng nếu sạch)."""
+    hits: list[str] = []
+    for pattern in _hlk_secret_patterns(root):
+        try:
+            if re.search(pattern, command, re.IGNORECASE):
+                hits.append(pattern)
+        except re.error:
+            continue
+    return hits
 
 
 def normalize_command(command: str) -> str:
@@ -419,6 +504,112 @@ def _log_ssrf_block(url: str, reason: str, session_id: str) -> None:
         # Best-effort logging only — never blocks the tool call on log failure.
 
 
+# ---------------------------------------------------------------------------
+# CVE-2026-AHD-008: SSRF DNS pinning
+# ---------------------------------------------------------------------------
+def _ssrf_pin_ttl() -> int:
+    """TTL pin DNS (giây). Cấu hình qua env AHD_SSRF_PIN_TTL, default 60."""
+    try:
+        return max(1, int(os.environ.get("AHD_SSRF_PIN_TTL", "60")))
+    except (ValueError, TypeError):
+        return 60
+
+
+def _ssrf_pins_path() -> Path:
+    """Đường dẫn file pin: <config_root>/state/ssrf_pins.json."""
+    root = ahd_session.get_repo_root()
+    cfg = ahd_session.get_config_root(root)
+    return cfg / "state" / "ssrf_pins.json"
+
+
+def _load_ssrf_pins() -> dict:
+    try:
+        p = _ssrf_pins_path()
+        if p.exists():
+            data = json.loads(p.read_text(encoding="utf-8"))
+            return data if isinstance(data, dict) else {}
+    except (OSError, json.JSONDecodeError):
+        pass
+    return {}
+
+
+def _save_ssrf_pins(pins: dict) -> None:
+    """Ghi pin atomic (tmp + rename). Lỗi ghi không chặn tool call."""
+    try:
+        p = _ssrf_pins_path()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        tmp = p.with_name(p.name + ".tmp")
+        tmp.write_text(json.dumps(pins), encoding="utf-8")
+        tmp.replace(p)
+    except OSError:
+        pass
+
+
+def _resolve_host(host: str) -> tuple[list[str], bool]:
+    """getaddrinfo → list IP (sorted, dedup). Trả (ips, ok); ok=False khi DNS lỗi."""
+    try:
+        infos = socket.getaddrinfo(host, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
+        ips = sorted({info[4][0] for info in infos})
+        return ips, True
+    except (socket.gaierror, OSError):
+        return [], False
+
+
+def _pin_and_verify_url(url: str) -> tuple[int, str]:
+    """CVE-2026-AHD-008: DNS pinning — resolve + verify chống rebinding.
+
+    - Hostname resolve ra private/loopback/link-local → block (SSRF qua DNS).
+    - DNS resolve lỗi → block (fail CLOSED).
+    - Pin IP tại lần check đầu; lần sau (trong TTL) resolve lại:
+      không còn IP chung → DNS rebinding → block.
+    - IP literal (kể cả dạng encoded) không cần DNS — đã check ở check_ssrf.
+
+    Trả (0, "") nếu OK; (2, reason) nếu block.
+    """
+    parsed = urllib.parse.urlparse(url)
+    host = (parsed.hostname or "").lower().strip()
+    if not host:
+        return 0, ""
+    # IP literal / encoded → không cần DNS (đã xử lý trong check_ssrf)
+    try:
+        ipaddress.ip_address(host)
+        return 0, ""
+    except ValueError:
+        pass
+    if _decode_ip_encoding(host) is not None:
+        return 0, ""
+
+    ips, ok = _resolve_host(host)
+    if not ok:
+        # DNS lỗi tại check time → fail CLOSED (CVE-2026-AHD-008)
+        return 2, f"dns_resolution_failed:{host}"
+    for ip in ips:
+        try:
+            addr = ipaddress.ip_address(ip.split("%")[0])
+        except ValueError:
+            continue
+        if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved or addr.is_unspecified:
+            return 2, f"dns_resolves_to_private:{host}:{ip}"
+
+    # Verify pin (rebinding check)
+    ttl = _ssrf_pin_ttl()
+    now = time.time()
+    pins = _load_ssrf_pins()
+    pin = pins.get(host)
+    if pin and isinstance(pin, dict) and now - pin.get("ts", 0) < ttl:
+        old_ips = set(pin.get("ips", []) or [])
+        if not old_ips.intersection(set(ips)):
+            # Không còn IP nào trùng trong TTL → DNS rebinding
+            return 2, f"dns_rebinding:{host}:{sorted(old_ips)}->{ips}"
+        pin["ips"] = sorted(old_ips | set(ips))
+        pin["ts"] = now
+    else:
+        pin = {"host": host, "ips": sorted(ips), "ts": now}
+    pins[host] = pin
+    _save_ssrf_pins(pins)
+    return 0, ""
+
+
 # Patterns that are warned but allowed (exit 0 with stderr note)
 WARN_PATTERNS = [
     (r"\bgit\s+push\b(?!.*--force)", "git push (not force)"),
@@ -522,6 +713,10 @@ def _check_cost_cap_gate(data: dict) -> None:
     - Dưới 80%: cho phép.
     - Từ 80% đến dưới 100%: in cảnh báo stderr, vẫn cho phép.
     - Đạt/vượt 100%: block (exit 2), set flag cost_cap_exceeded.
+
+    CVE-2026-AHD-013: cumulative cost đọc từ append-only LEDGER
+    (cost_ledger.py, HMAC-signed) — không tin session state (dễ bị sửa).
+    Nếu ledger không cấu hình key -> fallback session state (legacy).
     """
     try:
         session_id = ahd_session.get_session_id(data)
@@ -530,6 +725,16 @@ def _check_cost_cap_gate(data: dict) -> None:
 
         root = ahd_session.get_repo_root()
         state = ahd_session.read_session_state(session_id, root)
+
+        # CVE-2026-AHD-013: ưu tiên ledger đã verify (HMAC)
+        try:
+            from cost_ledger import cumulative_from_ledger
+            ledger_cum = cumulative_from_ledger(root, session_id)
+            if ledger_cum is not None:
+                state["cumulative_cost"] = ledger_cum
+        except (ImportError, ModuleNotFoundError, ValueError, TypeError):
+            pass
+
         status = check_cost_cap(state)
         if status == 0:
             return
@@ -598,6 +803,15 @@ def _check_ssrf_gate(data: dict) -> None:
                     )
                     _log_ssrf_block(url, "private_or_internal_host", session_id)
                     sys.exit(2)
+                # CVE-2026-AHD-008: DNS pinning — resolve + verify rebinding
+                pin_status, reason = _pin_and_verify_url(url)
+                if pin_status == 2:
+                    print(
+                        f"[CVE-2026-AHD-008 SSRF DNS pinning] BLOCKED: {url} ({reason}).",
+                        file=sys.stderr,
+                    )
+                    _log_ssrf_block(url, reason, session_id)
+                    sys.exit(2)
     except SystemExit:
         raise
     except Exception as e:
@@ -605,10 +819,17 @@ def _check_ssrf_gate(data: dict) -> None:
 
 
 def _check_encoding_bypass_gate(data: dict) -> None:
-    """T2.10: Phát hiện encoding bypass trong lệnh shell.
+    """T2.10 + CVE-2026-AHD-007: Phát hiện encoding bypass trong lệnh shell.
 
-    Nếu command chứa UTF-7, Punycode, HTML entity, hex/unicode/octal escape,
-    hoặc base64 pipe-to-shell, block (exit 2).
+    CVE-2026-AHD-007 fix — detection order:
+    1. Chạy detect_encoding_bypass TRÊN normalize_command() trước (payload
+       decode-revealed như UTF-7 ẩn trong \\xNN bị lộ sau khi decode).
+    2. Chạy tiếp trên command raw (escape gốc vẫn bị flag).
+    3. analyze_shell_structure() bằng shlex: unbalanced quotes / quote
+       breakout / control chars.
+    4. HLK sanitizer patterns (redact_patterns) quét secret trong command.
+
+    Block (exit 2) nếu BẤT KỲ detection nào có finding.
     """
     try:
         tool_name = data.get("tool_name", "")
@@ -620,10 +841,23 @@ def _check_encoding_bypass_gate(data: dict) -> None:
         if not command:
             return
 
-        findings = detect_encoding_bypass(command)
-        if findings:
+        # CVE-2026-AHD-007: ưu tiên phát hiện trên command ĐÃ normalize
+        normalized = normalize_command(command)
+        findings = detect_encoding_bypass(normalized)
+        if not findings:
+            findings = detect_encoding_bypass(command)
+
+        # Phân tích cấu trúc shell (shlex)
+        findings += analyze_shell_structure(command)
+
+        # HLK sanitizer patterns — secret trong command
+        hlk_hits = detect_hlk_secret(command)
+        if findings or hlk_hits:
+            detail = ", ".join(findings) if findings else ""
+            if hlk_hits:
+                detail = f"{detail}; hlk_secret({len(hlk_hits)} pattern)" if detail else f"hlk_secret({len(hlk_hits)} pattern)"
             print(
-                f"[T2.10 Encoding bypass] BLOCKED: detected {', '.join(findings)}",
+                f"[T2.10 Encoding bypass] BLOCKED: detected {detail}",
                 file=sys.stderr,
             )
             sys.exit(2)
@@ -686,6 +920,12 @@ def _check_reflection_gate(data: dict) -> None:
             "args": {},
             "destructive": destructive,
         }
+        # CVE-2026-AHD-014: verdict theo schema chuẩn + input đã sanitize
+        try:
+            from reflection_gate import verdict_to_dict, sanitize_action_input
+            action_input = sanitize_action_input(action_input)
+        except (ImportError, ModuleNotFoundError):
+            pass
         verdict = _check_reflection(action_input)
         if verdict is None:
             return

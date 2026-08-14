@@ -29,9 +29,17 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any, Callable
+
+# CVE-2026-AHD-002: schema validation + HMAC integrity cho state.
+from state_schema import (
+    StateValidationError,
+    sign_state,
+    validate_state,
+)
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -217,19 +225,16 @@ EDGES: list[Edge] = [
 # ---------------------------------------------------------------------------
 
 def _normalize_state(raw: Any) -> dict:
-    """Chuẩn hóa trạng thái đầu vào: điền giá trị mặc định cho trường thiếu.
+    """Chuẩn hóa trạng thái đầu vào — STRICT validation (CVE-2026-AHD-002).
 
-    Bước 1: Nếu raw không phải dict → trả về trạng thái mặc định.
-    Bước 2: Với mỗi trường trong DEFAULT_STATE, nếu thiếu thì điền mặc định.
-    Bước 3: Trả về state đã chuẩn hóa.
+    - Không còn merge tự do: state phải khớp StateSchema (extra='forbid').
+    - Unknown fields (vd `approved: true`, `all_gates_pass: true`,
+      `phase: EXECUTE` inject) → StateValidationError → caller fail closed.
+    - HMAC signature bắt buộc khi khóa được cấu hình.
     """
     if not isinstance(raw, dict):
-        return dict(DEFAULT_STATE)
-    state = dict(DEFAULT_STATE)
-    for key, default in DEFAULT_STATE.items():
-        if key in raw:
-            state[key] = raw[key]
-    return state
+        raise StateValidationError("state input must be a dict")
+    return validate_state(raw)
 
 
 def _find_edge(step: str, state: dict) -> Edge | None:
@@ -259,7 +264,10 @@ def route(state: dict) -> dict:
 
     Trả về dict: {next_step, next_agent, reason, state_update}.
     Nếu không có cạnh thỏa → next_step = "DONE", exit code nên là 1.
+
+    CVE-2026-AHD-002: state được validate (schema + HMAC) trước khi route.
     """
+    state = validate_state(state)
     step = state.get("step", "ANALYZE")
     return route_next(step, state)
 
@@ -273,6 +281,7 @@ def route_next(current_step: str, state: dict) -> dict:
     Bước 4: Nếu không tìm thấy → trả DONE (không có chuyển tiếp hợp lệ).
     """
     step = (current_step or "ANALYZE").strip().upper()
+    state = validate_state(state)
     edge = _find_edge(step, state)
     if edge is None:
         # Không có cạnh nào thỏa → kết thúc.
@@ -280,7 +289,7 @@ def route_next(current_step: str, state: dict) -> dict:
             "next_step": "DONE",
             "next_agent": STEP_TO_AGENT.get("DONE", "NONE"),
             "reason": f"Không có chuyển tiếp hợp lệ từ bước {step}",
-            "state_update": {"phase": "DONE", "step": "DONE"},
+            "state_update": sign_state({"phase": "DONE", "step": "DONE"}),
             "_exit_code": 1,
         }
     src, _cond, dst, reason, update = edge
@@ -289,12 +298,48 @@ def route_next(current_step: str, state: dict) -> dict:
     full_update = dict(update)
     full_update.setdefault("phase", phase)
     full_update["step"] = dst
+    # CVE-2026-AHD-002: ký state_update để caller không thể sửa sau khi route.
+    full_update = sign_state(full_update)
     return {
         "next_step": dst,
         "next_agent": STEP_TO_AGENT.get(dst, "UNKNOWN"),
         "reason": reason,
         "state_update": full_update,
         "_exit_code": 0,
+    }
+
+
+# Task 3.9: hard max iterations cho caller loop route_next (default 50)
+MAX_ROUTE_ITERATIONS = int(os.environ.get("AHD_MAX_ROUTE_ITERATIONS", "50"))
+
+
+def route_with_guard(current_step: str, state: dict,
+                     max_iterations: int | None = None) -> dict:
+    """Task 3.9: route_next với hard cap số bước liên tiếp (dead man's switch).
+
+    Đếm số lần route liên tiếp trên cùng một vòng; nếu vượt max_iterations
+    (mặc định MAX_ROUTE_ITERATIONS) -> ép DONE (không loop vô hạn giữa các
+    bước ANALYZE/EXECUTE/VERIFY...). Không sửa state — chỉ chặn tại đây.
+    """
+    cap = max_iterations if max_iterations is not None else MAX_ROUTE_ITERATIONS
+    result = route_next(current_step, state)
+    if result.get("next_step") == "DONE":
+        return result
+    hops = 1
+    step = result.get("next_step", "DONE")
+    probe = state
+    while hops < cap:
+        nxt = route_next(step, probe)
+        if nxt.get("next_step") == "DONE":
+            return nxt
+        step = nxt.get("next_step", "DONE")
+        hops += 1
+    return {
+        "next_step": "DONE",
+        "next_agent": STEP_TO_AGENT.get("DONE", "NONE"),
+        "reason": f"Max {cap} route iterations exceeded (Task 3.9 dead man's switch)",
+        "state_update": sign_state({"phase": "DONE", "step": "DONE"}),
+        "_exit_code": 1,
     }
 
 
@@ -337,13 +382,24 @@ def main(argv: list[str] | None = None) -> int:
     if args.route:
         # Chế độ --route: đọc toàn bộ trạng thái, tự xác định step hiện tại.
         raw = _read_state_file(args.route)
-        state = _normalize_state(raw)
+        try:
+            state = _normalize_state(raw)
+        except StateValidationError as e:
+            # CVE-2026-AHD-002: state malformed/injected → fail closed, KHÔNG route.
+            print(json.dumps({"error": f"state validation failed: {e}", "next_step": "BLOCKED"},
+                             ensure_ascii=False, indent=2))
+            return 1
         result = route(state)
     else:
         # Chế độ --next: bước hiện tại + trạng thái.
         current_step, state_path = args.next
         raw = _read_state_file(state_path)
-        state = _normalize_state(raw)
+        try:
+            state = _normalize_state(raw)
+        except StateValidationError as e:
+            print(json.dumps({"error": f"state validation failed: {e}", "next_step": "BLOCKED"},
+                             ensure_ascii=False, indent=2))
+            return 1
         result = route_next(current_step, state)
 
     exit_code = result.pop("_exit_code", 0)

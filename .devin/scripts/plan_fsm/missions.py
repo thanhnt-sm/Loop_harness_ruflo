@@ -9,7 +9,33 @@ Bước 4: Tạo brainstorm missions — 5+ góc nhìn khác nhau cho task.
 """
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
 from .constants import NUM_REVIEWERS, NUM_SCOUTS
+
+# Task 3.8: mọi prompt chứa task_description (input user) phải qua template
+# engine strict + auto-escape + injection check (prompt_template.py).
+_SCRIPTS_DIR = Path(__file__).resolve().parent.parent
+if str(_SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS_DIR))
+
+from prompt_template import PromptInjectionError, PromptTemplate  # noqa: E402
+
+_MISSION_TEMPLATE = PromptTemplate(
+    "{{mission}}",  # placeholder — các mission cụ thể render qua _render_mission
+)
+
+
+def _render_mission(template: str, task_description: str) -> str:
+    """Render mission prompt: task_description auto-escaped + injection-check."""
+    tpl = PromptTemplate(template)
+    try:
+        return tpl.render_check({"task_description": task_description})[0]
+    except PromptInjectionError as e:
+        raise ValueError(
+            f"Task description chứa prompt injection, từ chối tạo mission: {e}"
+        ) from e
 
 
 def scout_missions(task_description: str) -> list[dict]:
@@ -21,18 +47,19 @@ def scout_missions(task_description: str) -> list[dict]:
     return [
         {
             "id": "SCOUT-1",
-            "mission": (
-                f"Scan codebase structure for task: '{task_description}'. "
+            "mission": _render_mission(
+                "Scan codebase structure for task: '{{task_description | escape}}'. "
                 "Map directory tree, module boundaries, entry points, build system. "
                 "Output: structure map + dependency graph. "
-                "MUST run at least 1 web_search query for best practices on similar codebase structures."
+                "MUST run at least 1 web_search query for best practices on similar codebase structures.",
+                task_description,
             ),
             "tools": ["grep", "glob", "read", "web_search"],
         },
         {
             "id": "SCOUT-2",
             "mission": (
-                f"Find relevant files + dependencies for: '{task_description}'. "
+                _render_mission("Find relevant files + dependencies for: '{{task_description | escape}}'. ", task_description) +
                 "Trace call paths, locate interfaces, identify blast radius. "
                 "Output: file list with relevance rationale. "
                 "MUST run at least 1 web_search query for dependency analysis patterns."
@@ -42,7 +69,7 @@ def scout_missions(task_description: str) -> list[dict]:
         {
             "id": "SCOUT-3",
             "mission": (
-                f"Research cutting-edge solutions for: '{task_description}'. "
+                _render_mission("Research cutting-edge solutions for: '{{task_description | escape}}'. ", task_description) +
                 "Use web_search for patterns, libraries, prior art, pitfalls. "
                 "Output: external research brief with citations."
             ),
@@ -51,7 +78,7 @@ def scout_missions(task_description: str) -> list[dict]:
         {
             "id": "SCOUT-4",
             "mission": (
-                f"Analyze test coverage gaps for: '{task_description}'. "
+                _render_mission("Analyze test coverage gaps for: '{{task_description | escape}}'. ", task_description) +
                 "Find existing tests, untested paths, test infrastructure. "
                 "Output: coverage gap report. "
                 "MUST run at least 1 web_search query for testing best practices relevant to this task."
@@ -61,7 +88,7 @@ def scout_missions(task_description: str) -> list[dict]:
         {
             "id": "SCOUT-5",
             "mission": (
-                f"Check constraints for: '{task_description}'. "
+                _render_mission("Check constraints for: '{{task_description | escape}}'. ", task_description) +
                 "Security policies, performance budgets, compatibility matrix, compliance. "
                 "Output: constraint ledger. "
                 "MUST run at least 1 web_search query for compliance/security standards relevant to this task."
@@ -71,7 +98,7 @@ def scout_missions(task_description: str) -> list[dict]:
         {
             "id": "SCOUT-6",
             "mission": (
-                f"Competitive analysis online for: '{task_description}'. "
+                _render_mission("Competitive analysis online for: '{{task_description | escape}}'. ", task_description) +
                 "Search for how other projects/teams solve similar problems. "
                 "Compare approaches, tools, architectures. "
                 "Output: competitive analysis brief with pros/cons."
@@ -81,7 +108,7 @@ def scout_missions(task_description: str) -> list[dict]:
         {
             "id": "SCOUT-7",
             "mission": (
-                f"Known pitfalls + anti-patterns online for: '{task_description}'. "
+                _render_mission("Known pitfalls + anti-patterns online for: '{{task_description | escape}}'. ", task_description) +
                 "Search for common mistakes, failure modes, gotchas when doing similar work. "
                 "Output: anti-pattern catalog with avoidance strategies."
             ),
@@ -90,7 +117,7 @@ def scout_missions(task_description: str) -> list[dict]:
         {
             "id": "SCOUT-8",
             "mission": (
-                f"DeepWiki MCP — GitHub repo docs for: '{task_description}'. "
+                _render_mission("DeepWiki MCP — GitHub repo docs for: '{{task_description | escape}}'. ", task_description) +
                 "Query DeepWiki MCP for relevant GitHub repos. "
                 "Search for documentation, architecture guides, API references. "
                 "Output: external documentation brief with key findings."
@@ -235,32 +262,32 @@ def brainstorm_missions(task_description: str) -> list[dict]:
         {
             "id": "BRAINSTORM-FASTEST",
             "angle": "Fastest to implement",
-            "question": f"What is the fastest way to implement '{task_description}'? Minimal viable, fewest steps.",
+            "question": _render_mission("What is the fastest way to implement '{{task_description | escape}}'? Minimal viable, fewest steps.", task_description),
         },
         {
             "id": "BRAINSTORM-SAFEST",
             "angle": "Safest / most secure",
-            "question": f"What is the safest way to implement '{task_description}'? Defense in depth, fail-safe defaults.",
+            "question": _render_mission("What is the safest way to implement '{{task_description | escape}}'? Defense in depth, fail-safe defaults.", task_description),
         },
         {
             "id": "BRAINSTORM-SIMPLEST",
             "angle": "Simplest to understand",
-            "question": f"What is the simplest way to implement '{task_description}'? Minimal cognitive load, easy to explain.",
+            "question": _render_mission("What is the simplest way to implement '{{task_description | escape}}'? Minimal cognitive load, easy to explain.", task_description),
         },
         {
             "id": "BRAINSTORM-SCALE",
             "angle": "Most scalable",
-            "question": f"What is the most scalable way to implement '{task_description}'? Handles 10x growth, horizontal scale.",
+            "question": _render_mission("What is the most scalable way to implement '{{task_description | escape}}'? Handles 10x growth, horizontal scale.", task_description),
         },
         {
             "id": "BRAINSTORM-CHEAPEST",
             "angle": "Cheapest to run",
-            "question": f"What is the cheapest way to implement '{task_description}'? Minimal resources, cost optimization.",
+            "question": _render_mission("What is the cheapest way to implement '{{task_description | escape}}'? Minimal resources, cost optimization.", task_description),
         },
         {
             "id": "BRAINSTORM-ROBUST",
             "angle": "Most robust against black swans",
-            "question": f"What is the most robust way to implement '{task_description}'? Survives unexpected failures, tail risks.",
+            "question": _render_mission("What is the most robust way to implement '{{task_description | escape}}'? Survives unexpected failures, tail risks.", task_description),
         },
     ]
 
@@ -270,7 +297,7 @@ def technical_writer_mission(task_description: str, sdd_path: str) -> dict:
     return {
         "id": "TECHNICAL_WRITER",
         "mission": (
-            f"Polish the Solution Design Document for '{task_description}'. "
+            _render_mission("Polish the Solution Design Document for '{{task_description | escape}}'. ", task_description) + 
             f"Input: draft at {sdd_path}. "
             "Output: improved clarity, consistent terminology, readable diagrams, "
             "well-structured sections. Do NOT change technical decisions."
@@ -284,7 +311,7 @@ def requirement_analyst_mission(task_description: str, sdd_path: str, plan_path:
     return {
         "id": "REQUIREMENT_ANALYST",
         "mission": (
-            f"Verify requirement traceability for '{task_description}'. "
+            _render_mission("Verify requirement traceability for '{{task_description | escape}}'. ", task_description) + 
             f"Inputs: {sdd_path} and {plan_path}. "
             "Output: mapping REQ ID -> Task ID -> File Path -> Function, "
             "flag any missing or ambiguous trace."

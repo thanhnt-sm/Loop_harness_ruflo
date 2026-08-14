@@ -28,6 +28,70 @@ from urllib.parse import urlparse
 
 from data_models import Action, ReflectVerdict  # noqa: E402
 
+# CVE-2026-AHD-014: JSON schema chuẩn cho reflection verdict
+VERDICT_SCHEMA = {
+    "block": bool,
+    "reason": str,
+    "human_confirm_required": bool,
+}
+
+
+def validate_verdict(verdict: dict) -> dict:
+    """CVE-2026-AHD-014: validate verdict theo schema chuẩn.
+
+    {block: bool, reason: str, human_confirm_required: bool} — thiếu/khác
+    kiểu -> raise ValueError (fail closed, không chấp nhận verdict lạ).
+    """
+    if not isinstance(verdict, dict):
+        raise ValueError("verdict phải là dict")
+    normalized = {
+        "block": bool(verdict.get("block", False)),
+        "reason": str(verdict.get("reason", "")),
+        "human_confirm_required": bool(verdict.get("human_confirm_required", False)),
+    }
+    for field, expected in VERDICT_SCHEMA.items():
+        raw = verdict.get(field)
+        if raw is not None and not isinstance(raw, expected):
+            raise ValueError(f"verdict field '{field}' phải là {expected.__name__}, nhận {type(raw).__name__}")
+    return normalized
+
+
+# Prompt injection markers — bị loại khỏi input trước khi phân tích
+_INJECTION_MARKERS = (
+    "ignore previous instructions",
+    "ignore all instructions",
+    "forget everything",
+    "system prompt",
+    "you are now",
+    "<|im_start|>",
+    "<|im_end|>",
+    "## SYSTEM",
+    "disregard prior",
+)
+
+
+def sanitize_action_input(raw: str | dict) -> dict:
+    """CVE-2026-AHD-014: làm sạch input trước khi phân tích.
+
+    - Loại control chars.
+    - Truncate giới hạn độ dài.
+    - Loại prompt-injection markers (thay bằng [REDACTED]).
+    - Chỉ giữ lại key cho phép.
+    """
+    if isinstance(raw, dict):
+        out: dict = {}
+        for key in ("id", "category", "target", "args", "destructive"):
+            if key in raw:
+                out[key] = raw[key]
+        return out
+    if not isinstance(raw, str):
+        return {}
+    text = "".join(ch for ch in raw if ord(ch) >= 0x20 or ch in "\t\n")
+    text = text[:4096]
+    for marker in _INJECTION_MARKERS:
+        text = text.replace(marker, "[REDACTED]")
+    return {"text": text}
+
 
 # Danh mục action destructive — luôn block + yêu cầu human confirm
 DESTRUCTIVE_CATEGORIES = frozenset({
@@ -159,17 +223,22 @@ def check_reflection(action_input: dict) -> ReflectVerdict | None:
 
     Trả về ReflectVerdict hoặc None nếu không thể xây Action (không phải action
     cần reflection — vd read thuần).
+
+    CVE-2026-AHD-014: input được sanitize (bỏ prompt injection + control
+    chars) trước khi phân tích; verdict luôn theo VERDICT_SCHEMA.
     """
     if not isinstance(action_input, dict):
         return None
+    # Sanitize input trước khi phân tích (CVE-2026-AHD-014)
+    action_input = sanitize_action_input(action_input)
     category = action_input.get("category")
     if not category:
         return None
     try:
         action = Action(
-            id=str(action_input.get("id", "unknown")),
+            id=str(action_input.get("id", "unknown"))[:128],
             category=category,  # type: ignore[arg-type]
-            target=str(action_input.get("target", "")),
+            target=str(action_input.get("target", ""))[:512],
             args=action_input.get("args", {}) or {},
             destructive=bool(action_input.get("destructive", False)),
         )
@@ -178,6 +247,11 @@ def check_reflection(action_input: dict) -> ReflectVerdict | None:
         return None
     # Dùng cấp foresight (sâu nhất) cho hook integration
     return reflect(action, level="foresight")
+
+
+def verdict_to_dict(verdict: ReflectVerdict) -> dict:
+    """CVE-2026-AHD-014: xuất verdict dạng dict theo schema chuẩn."""
+    return validate_verdict(verdict.model_dump(by_alias=True))
 
 
 def _cli() -> int:
@@ -190,7 +264,7 @@ def _cli() -> int:
         if verdict is None:
             print(json.dumps({"block": False, "reason": "không phải action cần reflection"}))
             return 0
-        print(json.dumps(verdict.model_dump(by_alias=True), ensure_ascii=False, indent=2))
+        print(json.dumps(verdict_to_dict(verdict), ensure_ascii=False, indent=2))
         return 0 if not verdict.block else 2
     except (json.JSONDecodeError, TypeError, ValueError) as e:
         print(f"[reflection_gate] lỗi: {e}", file=sys.stderr)

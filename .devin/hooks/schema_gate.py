@@ -94,18 +94,233 @@ BLOCKED_ZONES = (
     )
 )
 
-# --- Regex quét secret (không bao giờ cho phép trong output) ---
-# Bao gồm: GitHub token, OpenAI key, AWS key, generic key=value, Bearer token
-SECRET_PATTERNS = [
-    re.compile(r"ghp_[A-Za-z0-9]{36}"),                       # GitHub personal access token
-    re.compile(r"gho_[A-Za-z0-9]{36}"),                       # GitHub OAuth token
-    re.compile(r"sk-[A-Za-z0-9_-]{20,}"),                     # OpenAI / Anthropic API key
-    re.compile(r"AKIA[A-Z0-9]{16}"),                          # AWS access key ID
-    re.compile(r"AIza[A-Za-z0-9_-]{35}"),                     # Google API key
-    re.compile(r"xox[baprs]-[A-Za-z0-9-]{10,}"),              # Slack token
-    re.compile(r"(?i)Bearer\s+[A-Za-z0-9_-]{20,}"),           # Bearer token (Authorization header)
-    re.compile(r"(?i)\b(token|password|passwd|api_key|apikey|secret|private_key)\s*[:=]\s*['\"]?[^\s'\"&;|]{8,}"),  # key=value
+# --- Secret scan (CVE-2026-AHD-005) ---
+# Không còn giới hạn SCAN_TRUNCATE_CHARS: quét TOÀN BỘ output theo chunk
+# (64KB) để secret ở giữa output lớn (>400K chars) vẫn bị phát hiện.
+# Source of truth: HLK/config/hlk.config.json security_rules.redact_patterns
+# (cùng nguồn với HLK/security/sanitizer.js), union với defaults đầy đủ.
+SCAN_CHUNK_SIZE = 65536
+SCAN_OVERLAP = 1024  # đủ lớn hơn pattern dài nhất; chống secret nằm lệch chunk
+
+# Default patterns (python) — khớp danh sách HLK/security/sanitizer.js + mở rộng
+DEFAULT_SECRET_PATTERNS: list[str] = [
+    r"ghp_[A-Za-z0-9]{36}",                       # GitHub PAT
+    r"gho_[A-Za-z0-9]{36}",                       # GitHub OAuth
+    r"ghs_[A-Za-z0-9]{36}",                       # GitHub SSH/session
+    r"ghu_[A-Za-z0-9]{36}",                       # GitHub user token
+    r"github_pat_[A-Za-z0-9_]{22,}",              # GitHub fine-grained PAT
+    r"glpat-[A-Za-z0-9_-]{20}",                   # GitLab PAT
+    r"sk-[A-Za-z0-9_-]{20,}",                     # OpenAI/Anthropic key
+    r"AKIA[A-Z0-9]{16}",                          # AWS access key ID
+    r"AIza[A-Za-z0-9_-]{35}",                     # Google API key
+    r"AIzaSy[A-Za-z0-9_-]{33,}",                  # Firebase
+    r"xox[baprs]-[A-Za-z0-9-]{10,}",              # Slack token
+    r"(sk|pk|rk)_(live|test)_[0-9a-zA-Z]{24,}",   # Stripe
+    r"AC[a-z0-9]{32}",                            # Twilio SID
+    r"SG\.[a-zA-Z0-9_-]{22}\.[a-zA-Z0-9_-]{43}",  # SendGrid
+    r"pub[a-f0-9]{32}",                           # Datadog
+    r"npm_[A-Za-z0-9]{36}",                       # npm token
+    r"(?i)-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----",  # private key
+    r"(?i)Bearer\s+[A-Za-z0-9._-]{20,}",          # Bearer token
+    r"(?i)aws[_-]?secret[_-]?access[_-]?key\s*=\s*['\"]?[A-Za-z0-9/+=]{40}",
+    r"(?i)aws[_-]?session[_-]?token\s*=\s*['\"]?[A-Za-z0-9/+=]{40,}",
+    r"\b[a-z][a-z0-9+.-]*://[^:\s]+:[^@\s]+@[^/\s]+",  # DB conn string w/ creds (anchor \b chống backtracking)
+    r"\b[a-z][a-z0-9+.-]*://:[^@\s]+@[^/\s]+",  # DB conn, empty userinfo (redis://:pass@host)
+    r"(?i)\b(token|password|passwd|api_key|apikey|secret|private_key|client_secret|access_token)\s*[:=]\s*['\"]?[^\s'\"&;|]{8,}",
 ]
+
+# JWT (3 segments) — KHÔNG dùng regex {20,}\.{20,}\.{20,} (catastrophic
+# backtracking O(n²) trên chunk dài). Dùng split-based linear check.
+_JWT_MIN_SEGMENT = 20
+
+
+def _find_jwt(chunk: str) -> bool:
+    """Linear JWT detection: 3 segment liên tiếp, mỗi segment >= 20 chars
+    base64url ([A-Za-z0-9_-]), phân cách bởi '.'. Không backtracking.
+    Cho phép segment đầu/cuối bị bao bởi ký tự không phải base64url
+    (vd: 'text eyJ...' hoặc '...R8U end')."""
+    if "." not in chunk:
+        return False
+    parts = chunk.split(".")
+    for i in range(len(parts) - 2):
+        segs = [parts[i], parts[i + 1], parts[i + 2]]
+        valid = True
+        for seg in segs:
+            # Strip ký tự không hợp lệ ở 2 đầu (space, quote, ...)
+            start, end = 0, len(seg)
+            while start < end and not (seg[start].isalnum() or seg[start] in "_-"):
+                start += 1
+            while end > start and not (seg[end - 1].isalnum() or seg[end - 1] in "_-"):
+                end -= 1
+            if end - start < _JWT_MIN_SEGMENT:
+                valid = False
+                break
+            for ch in seg[start:end]:
+                if not (ch.isalnum() or ch in "_-"):
+                    valid = False
+                    break
+            if not valid:
+                break
+        if valid:
+            return True
+    return False
+
+# Entropy detection (CVE-2026-AHD-005): pattern chưa biết → Shannon entropy.
+# Ngưỡng: entropy > 4.5 bits/char trên chuỗi >= 20 chars = khả nghi secret.
+# KHÔNG dùng lookahead (?=...\d) — O(n²) trên run dài không có chữ số.
+# Regex thuần class (linear); check chữ số theo token sau khi match.
+ENTROPY_MIN_LENGTH = 20
+ENTROPY_THRESHOLD = 4.5
+_ENTROPY_TOKEN_RE = re.compile(r"[A-Za-z0-9_\-./+]{20,}")
+
+
+def _shannon_entropy(token: str) -> float:
+    """Tính Shannon entropy (bits/char) của chuỗi."""
+    if not token:
+        return 0.0
+    counts: dict[str, int] = {}
+    for ch in token:
+        counts[ch] = counts.get(ch, 0) + 1
+    n = len(token)
+    ent = 0.0
+    for c in counts.values():
+        p = c / n
+        ent -= p * (p and __import__("math").log2(p))
+    return ent
+
+
+def _load_hlk_secret_patterns() -> list[str]:
+    """Load patterns từ HLK config (source of truth) — union với defaults.
+
+    HLK config lỗi/thiếu → chỉ dùng defaults (KHÔNG silent fail: ghi cảnh báo).
+    """
+    patterns = list(DEFAULT_SECRET_PATTERNS)
+    try:
+        root = Path(__file__).resolve().parent.parent.parent  # repo root
+        hlk_cfg = root / "HLK" / "config" / "hlk.config.json"
+        if hlk_cfg.exists():
+            cfg = json.loads(hlk_cfg.read_text(encoding="utf-8"))
+            for p in cfg.get("security_rules", {}).get("redact_patterns", []) or []:
+                if isinstance(p, str) and p not in patterns:
+                    patterns.append(p)
+    except (json.JSONDecodeError, OSError, UnicodeDecodeError) as e:
+        print(f"[schema_gate] WARN: HLK config load failed, using defaults only: {e}", file=sys.stderr)
+    return patterns
+
+
+SECRET_PATTERNS: list[re.Pattern] = [re.compile(p) for p in _load_hlk_secret_patterns()]
+
+# --- Two-stage scan (CVE-2026-AHD-005) ---
+# Stage A: _FAST_PREFIX_RE — prefilter tuyến tính (không có tail nặng {n,}).
+# Bỏ qua chunk sạch ngay. Stage B: scan patterns — chỉ chạy khi Stage A khớp.
+# Stage B dùng các search RỜI (không gộp alternation: 38 branch → 78ms/chunk
+# do engine thử mọi branch tại mọi vị trí). Các pattern chậm (có tail {n,}
+# hoặc (?i) alternation) được guard bằng pre-check rẻ (substring/regex nhỏ)
+# để fail nhanh trên chunk vô hại.
+# Stage A: chỉ giữ "phần đầu" đặc trưng của mỗi pattern, bỏ tail nặng.
+# Thiết kế để thất bại nhanh: literal prefix / char class có giới hạn, không
+# có {n,} dài theo sau literal gây backtracking. Linear trên mọi input.
+# Tách 2 regex:
+#  - _TRIGGER_RE: shape cụ thể (ghp_, AKIA, keyword:, ://, BEGIN...) → chạy
+#    FULL pattern scan (chunk thật sự khả nghi).
+#  - _ENTROPY_TRIGGER_RE: run 20+ chars (có thể chứa secret lạ) → chỉ chạy
+#    entropy + jwt check (rẻ). Chunk chỉ khớp regex này KHÔNG chạy full scan
+#    (tiết kiệm 35 pattern × mọi chunk — ví dụ văn bản có từ dài 20+ ký tự).
+_TRIGGER_RE: re.Pattern = re.compile(
+    r"://[^:\s]+:[^@\s]+@"                       # DB conn string (bắt tại ://)
+    r"|://:[^@\s]+@"                             # DB conn, empty userinfo (redis://:pass@)
+    r"|-----BEGIN"                               # private key
+    r"|(?:ghp|gho|ghs|ghu)_[A-Za-z0-9]{30,}"     # GitHub tokens
+    r"|github_pat_"                              # GitHub fine-grained PAT
+    r"|glpat-[A-Za-z0-9_-]{15,}"                 # GitLab PAT
+    r"|sk-[A-Za-z0-9_-]{15,}"                    # OpenAI/Anthropic
+    r"|AKIA[A-Z0-9]{12,}"                        # AWS key ID
+    r"|AIza[A-Za-z0-9_-]{25,}"                   # Google API key
+    r"|xox[baprs]-[A-Za-z0-9-]{6,}"              # Slack token
+    r"|(?:sk|pk|rk)_(?:live|test)_[0-9a-zA-Z]{20,}"  # Stripe
+    r"|SG\.[A-Za-z0-9_-]{15,}"                   # SendGrid
+    r"|npm_[A-Za-z0-9]{20,}"                     # npm token
+    r"|AC[a-z0-9]{8,}"                           # Twilio SID
+    r"|pub[a-f0-9]{8,}"                          # Datadog key
+    r"|(?i:Bearer\s+[A-Za-z0-9._-]{15,})"        # Bearer
+    r"|(?i:\b(?:token|password|passwd|api_key|apikey|secret|private_key|client_secret|access_token)\s*[:=])"
+    r"|(?i:aws_?secret_?access_?key\s*[:=])"
+    r"|(?i:aws_?session_?token\s*[:=])"
+)
+
+_ENTROPY_TRIGGER_RE: re.Pattern = re.compile(r"[A-Za-z0-9_\-./+]{20,}")
+
+# Trigger cho chunk KHÔNG có ký tự [a-z_:.=] (toàn uppercase): chỉ còn
+# AKIA (AWS) và -----BEGIN (private key) có thể khớp.
+_UPPER_ONLY_RE: re.Pattern = re.compile(r"AKIA[A-Z0-9]{12,}|-----BEGIN")
+
+# Keyword pre-check cho pattern key=value generic (chạy pattern nặng chỉ khi
+# có keyword + [:=] trong chunk).
+_KEYWORD_PRE: re.Pattern = re.compile(
+    r"\b(?:token|password|passwd|api_key|apikey|secret|private_key|client_secret|access_token)\s*[:=]",
+    re.IGNORECASE,
+)
+
+
+def _finalize_slow_indices() -> None:
+    """Xác định chỉ mục pattern chậm theo nội dung (không phụ thuộc thứ tự).
+
+    - _SLOW_URL_IDXS: pattern có '://' → guard bằng substring '://'.
+    - _SLOW_PATTERN_IDXS: pattern có \b + tail {n,} → guard bằng substring
+      keyword (sk-/pk-/eyJ) hoặc _KEYWORD_PRE.
+    """
+    for i, p in enumerate(SECRET_PATTERNS):
+        pat = p.pattern
+        if "://" in pat:
+            SLOW_URL_IDXS.add(i)
+        elif "\\b(" in pat or "\\b[a-z]" in pat or "\\beyJ" in pat:
+            SLOW_PATTERN_IDXS.add(i)
+        elif "(token|password|passwd|api_key|apikey|secret" in pat and "\\s*[:=]" in pat:
+            KEYWORD_PATTERN_IDX.append(i)
+
+
+SLOW_URL_IDXS: set[int] = set()
+SLOW_PATTERN_IDXS: set[int] = set()
+KEYWORD_PATTERN_IDX: list[int] = []
+
+_finalize_slow_indices()
+
+
+def _scan_chunk_secrets(chunk: str) -> tuple[re.Match, int] | None:
+    """Stage B: scan patterns trên 1 chunk. Trả (match, index) nếu tìm thấy.
+
+    Thứ tự: patterns nhanh (literal prefix) trước; patterns chậm chỉ chạy
+    khi pre-check guard khớp (fail-fast trên chunk vô hại).
+    """
+    for i, p in enumerate(SECRET_PATTERNS):
+        if i in SLOW_PATTERN_IDXS or i in SLOW_URL_IDXS or i in KEYWORD_PATTERN_IDX:
+            continue
+        m = p.search(chunk)
+        if m:
+            return m, i
+    # Patterns chậm với guard riêng
+    if "://" in chunk:
+        for i in SLOW_URL_IDXS:
+            m = SECRET_PATTERNS[i].search(chunk)
+            if m:
+                return m, i
+    if _KEYWORD_PRE.search(chunk):
+        for i in KEYWORD_PATTERN_IDX:
+            m = SECRET_PATTERNS[i].search(chunk)
+            if m:
+                return m, i
+    for i in list(SLOW_PATTERN_IDXS):
+        pat = SECRET_PATTERNS[i].pattern
+        if ("sk-" in chunk or "pk-" in chunk) and ("sk-" in pat or "pk-" in pat):
+            m = SECRET_PATTERNS[i].search(chunk)
+            if m:
+                return m, i
+        if "eyJ" in chunk and "eyJ" in pat:
+            m = SECRET_PATTERNS[i].search(chunk)
+            if m:
+                return m, i
+    return None
+
 
 # --- Trường bắt buộc theo loại tool (required fields) ---
 # Mỗi tool có cấu trúc output kỳ vọng khác nhau; thiếu trường -> fail
@@ -118,9 +333,6 @@ REQUIRED_FIELDS_BY_TOOL: dict[str, list[str]] = {
     "Glob": ["pattern"],
     "TodoWrite": ["todos"],
 }
-
-# Giới hạn kích thước output khi quét secret (tránh quét file quá lớn)
-SCAN_TRUNCATE_CHARS = 200_000
 
 
 def _extract_file_path(tool_input: dict) -> str:
@@ -206,11 +418,34 @@ def _gate_required_fields(tool_name: str, tool_input: dict, tool_output) -> dict
     return None
 
 
-def _gate_secret_scan(tool_output) -> dict | None:
-    """Cổng 3: Secret scan — quét regex tìm secret trong output.
+def _iter_chunks(text: str) -> list[str]:
+    """CVE-2026-AHD-005: Chia text thành các chunk có overlap.
 
-    KHÔNG bao giờ cho phép secret trong output (red line).
-    Trả về dict lỗi nếu tìm thấy, None nếu sạch.
+    Chunk 64KB + overlap 1KB ở hai đầu để pattern không bị cắt lệch chunk.
+    """
+    if len(text) <= SCAN_CHUNK_SIZE:
+        return [text]
+    chunks: list[str] = []
+    start = 0
+    n = len(text)
+    while start < n:
+        end = min(start + SCAN_CHUNK_SIZE, n)
+        # Thêm overlap trước (trừ chunk đầu) và sau (trừ chunk cuối)
+        chunk_start = max(0, start - SCAN_OVERLAP) if start > 0 else 0
+        chunk_end = min(n, end + SCAN_OVERLAP) if end < n else n
+        chunks.append(text[chunk_start:chunk_end])
+        start = end
+    return chunks
+
+
+def _gate_secret_scan(tool_output) -> dict | None:
+    """Cổng 3: Secret scan — quét TOÀN BỘ output (chunked, không truncate).
+
+    CVE-2026-AHD-005 fix:
+    - Bỏ giới hạn SCAN_TRUNCATE_CHARS (trước đây bỏ sót secret ở giữa output
+      lớn > 400K chars).
+    - Quét từng chunk 64KB + overlap; pattern = HLK config ∪ defaults.
+    - Bổ sung entropy-based detection cho định dạng secret chưa biết.
     """
     if tool_output is None:
         return None
@@ -221,20 +456,50 @@ def _gate_secret_scan(tool_output) -> dict | None:
         text = tool_output
     else:
         text = str(tool_output)
-    # Pentest fix: secret có thể nằm ở cuối file (padding bypass).
-    # Quét đầu và cuối text; nếu vừa khít giới hạn thì giữ nguyên.
-    if len(text) > SCAN_TRUNCATE_CHARS * 2:
-        text = text[:SCAN_TRUNCATE_CHARS] + text[-SCAN_TRUNCATE_CHARS:]
-    # Quét từng pattern
-    for pattern in SECRET_PATTERNS:
-        match = pattern.search(text)
-        if match:
+
+    for chunk in _iter_chunks(text):
+        # Stage A1: trigger cụ thể → full pattern scan
+        # Guard [a-z_:.=] rẻ: chunk toàn uppercase không cần chạy _TRIGGER_RE
+        # (chỉ AKIA/BEGIN khớp được → _UPPER_ONLY_RE).
+        if re.search(r"[a-z_:.=]", chunk) is not None:
+            hit = _scan_chunk_secrets(chunk) if _TRIGGER_RE.search(chunk) is not None else None
+        elif _UPPER_ONLY_RE.search(chunk) is not None:
+            hit = _scan_chunk_secrets(chunk)
+        else:
+            hit = None
+        if hit is not None:
+            match, pattern_idx = hit
+            pattern = SECRET_PATTERNS[pattern_idx]
             # Che giá trị secret trước khi báo cáo (không log secret thật)
             masked = match.group(0)[:4] + "***" + match.group(0)[-2:]
             return {
                 "reason": f"Secret detected in output (masked): {masked}",
                 "details": {"pattern": pattern.pattern, "masked_value": masked},
             }
+        # Stage A2: run dài 20+ (khả năng secret lạ) → entropy + jwt
+        if _ENTROPY_TRIGGER_RE.search(chunk) is None:
+            continue
+        # 2) JWT-style token — linear split-based check
+        if _find_jwt(chunk):
+            return {
+                "reason": "JWT token detected in output",
+                "details": {"pattern": "jwt", "masked_value": "***"},
+            }
+        # 3) Entropy-based: định dạng secret chưa biết (finditer linear).
+        #    Digit check bằng regex C-level (không dùng any() Python — chậm).
+        if re.search(r"\d", chunk) is not None:
+            for token_match in _ENTROPY_TOKEN_RE.finditer(chunk):
+                token = token_match.group(0)
+                # Regex {20,} nên len(token) >= 20 luôn; chỉ cần check digit
+                if re.search(r"\d", token) is None:
+                    continue
+                if _shannon_entropy(token) > ENTROPY_THRESHOLD:
+                    masked = token[:4] + "***" + token[-2:]
+                    return {
+                        "reason": f"High-entropy secret-like token detected (masked): {masked}",
+                        "details": {"pattern": "entropy", "masked_value": masked,
+                                    "entropy": round(_shannon_entropy(token), 2)},
+                    }
     return None
 
 

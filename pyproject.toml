@@ -20,19 +20,32 @@ authors = [
 keywords = ["agent", "harness", "devin", "loop"]
 
 # Dependency bắt buộc: giữ tối thiểu để không tăng khối lượng cài đặt.
+# - filelock: HARD dependency (CVE-2026-AHD-003) — idempotency fail-closed
+#   cần filelock làm lock backend; nếu thiếu, register() từ chối chạy (raise).
+# - <3.13: filelock 3.13+ eagerly import asyncio (~6s import trên máy chậm)
+#   làm mọi hook (schema_gate, pre_tool_use...) vượt timeout 2.5s. 3.12.x
+#   không import asyncio (~0.5s). Pin chặn regression.
+# - cryptography: HARD dependency (CVE-2026-AHD-006) — approval_gate cần
+#   Ed25519 verify chữ ký reviewer; thiếu -> không thể verify -> fail closed.
 dependencies = [
     "pydantic>=2.0",
+    "filelock>=3.0,<3.13",
+    "cryptography>=41.0",
 ]
 
 # Dependency tùy chọn theo nhóm:
 # - [test] : chạy pytest, đo coverage, property-based test (hypothesis), khóa file (filelock).
+# - [redis] : distributed lock cho idempotency (CVE-2026-AHD-003 multi-node).
 [project.optional-dependencies]
 test = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
     "hypothesis>=6.0",
     "pydantic>=2.0",
-    "filelock>=3.0",
+    "filelock>=3.0,<3.13",
+]
+redis = [
+    "redis>=5.0",
 ]
 
 # Cấu hình công cụ (tùy chọn, không bắt buộc phải có để chạy test).

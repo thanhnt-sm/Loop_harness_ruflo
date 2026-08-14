@@ -40,30 +40,38 @@ def _repo_root() -> Path:
 
 
 def _get_session_state(root: Path, session_id: str = "") -> dict:
-    """Đọc session state cụ thể theo session_id.
+    """Đọc session state cụ thể theo session_id — STRICT binding (CVE-2026-AHD-001).
 
-    Nếu có session_id: load file session_state tương ứng.
-    Nếu không có hoặc file lỗi: fallback về file mới nhất (backward compat).
-    Pentest fix: tránh nhầm session khi chạy song song.
+    Security contract (fail closed):
+    1. Nếu session_id rỗng/không xác định → trả {} (KHÔNG fallback "newest file").
+       Fallback newest-file gây session confusion khi chạy nhiều session song song:
+       session B có thể thừa hưởng approved plan của session A.
+    2. Nếu session_id có nhưng state file không tồn tại → trả {} (không thừa hưởng).
+    3. Nếu state file lỗi (JSON hỏng) → trả {} (fail closed, không fallback).
+    4. Ownership check: session_id trong state phải khớp session_id yêu cầu;
+       nếu state có session_nonce nhưng thiếu/sai → trả {} (state bị tráo/copy).
     """
-    if session_id:
-        state_path = ahd_session.get_session_state_path(session_id, root)
-        if state_path.exists():
-            try:
-                return json.loads(state_path.read_text(encoding="utf-8"))
-            except (json.JSONDecodeError, OSError):
-                pass
-
-    state_dir = root / ".devin" / "session_state"
-    if not state_dir.exists():
+    if not session_id:
         return {}
-    states = sorted(state_dir.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
-    if not states:
+    state_path = ahd_session.get_session_state_path(session_id, root)
+    if not state_path.exists():
         return {}
     try:
-        return json.loads(states[0].read_text(encoding="utf-8"))
+        state = json.loads(state_path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return {}
+    if not isinstance(state, dict):
+        return {}
+    # Ownership verification: session_id trong state phải khớp chính xác.
+    state_sid = state.get("session_id", "")
+    if state_sid and state_sid != ahd_session.slugify_session_id(session_id):
+        return {}
+    # Cryptographic nonce binding: nếu state đã có nonce, bắt buộc khớp env nonce.
+    stored_nonce = state.get("session_nonce", "")
+    env_nonce = os.environ.get("AHD_SESSION_NONCE", "")
+    if stored_nonce and env_nonce and stored_nonce != env_nonce:
+        return {}
+    return state
 
 
 def _slugify(text: str) -> str:
@@ -230,6 +238,17 @@ def main():
         sys.exit(0)
 
     root = _repo_root()
+    # CVE-2026-AHD-001: session_id BẮT BUỘC cho write tools (fail closed).
+    # Thiếu session_id → không thể xác định ownership → không allow write.
+    if not session_id:
+        block_reason = (
+            "PLAN ENFORCEMENT: session_id missing. Strict session binding "
+            "requires a valid session_id (CVE-2026-AHD-001). Rejecting to "
+            "prevent session confusion."
+        )
+        print(json.dumps({"allow": False, "reason": block_reason, "enforcement": "session_id_required"}))
+        sys.exit(1)
+
     session_state = _get_session_state(root, session_id)
     task_desc = session_state.get("goal", "") or hook_input.get("task", "")
     task_slug = _slugify(task_desc)

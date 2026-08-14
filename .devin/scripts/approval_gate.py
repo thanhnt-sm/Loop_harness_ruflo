@@ -18,6 +18,7 @@ Usage:
     python .devin/scripts/approval_gate.py <plan_file.md> --status [--artifact sd|plan]
     python .devin/scripts/approval_gate.py <plan_file.md> --approve --artifact plan
     python .devin/scripts/approval_gate.py <sdd_file.md> --approve --artifact sd
+    python .devin/scripts/approval_gate.py <plan_file.md> --approve --signature <base64_ed25519> --reviewer <name>
     python .devin/scripts/approval_gate.py <plan_file.md> --reject --reason "Thiếu test"
     python .devin/scripts/approval_gate.py <plan_file.md> --request-changes --reason "Cần thêm D9"
     python .devin/scripts/approval_gate.py <plan_file.md> --interactive --quality-report <qr.md> --artifact plan
@@ -29,10 +30,28 @@ Exit codes:
 """
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
+import os
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+
+# CVE-2026-AHD-006: Ed25519 — bắt buộc khi reviewer_keys được cấu hình.
+try:
+    from cryptography.exceptions import InvalidSignature
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import (
+        Ed25519PrivateKey,
+        Ed25519PublicKey,
+    )
+    _CRYPTO_AVAILABLE = True
+except ImportError:  # pragma: no cover - phụ thuộc môi trường
+    Ed25519PrivateKey = None  # type: ignore
+    Ed25519PublicKey = None  # type: ignore
+    InvalidSignature = Exception  # type: ignore
+    _CRYPTO_AVAILABLE = False
 
 
 # Bước 0: Ép stdout/stderr dùng UTF-8 khi chạy CLI (tránh lỗi cp1258 trên Windows console)
@@ -56,9 +75,158 @@ VALID_STATUSES = (STATUS_PENDING, STATUS_APPROVED, STATUS_REJECTED, STATUS_CHANG
 def _repo_root(plan_path: Path) -> Path:
     """Xác định repo root (thư mục chứa .devin hoặc .git)."""
     for parent in [plan_path.parent, *plan_path.parents]:
+        if parent.parent == parent:  # dừng tại filesystem root
+            return plan_path.parent
         if (parent / ".devin").exists() or (parent / ".git").exists():
             return parent
     return plan_path.parent
+
+
+# ---------------------------------------------------------------------------
+# CVE-2026-AHD-006: Ed25519 signatures + audit log
+# ---------------------------------------------------------------------------
+def plan_hash(plan_path: Path) -> str:
+    """SHA-256 của nội dung plan/SDD file — được ký bởi reviewer."""
+    content = plan_path.read_bytes()
+    return hashlib.sha256(content).hexdigest()
+
+
+def load_reviewer_keys(root: Path) -> list[str]:
+    """Load reviewer public keys (base64 Ed25519) từ HLK config.
+
+    Source of truth: HLK/config/hlk.config.json -> security_rules.reviewer_keys.
+    Override cho test/ops: env AHD_REVIEWER_KEYS (comma-separated base64).
+    """
+    env_keys = os.environ.get("AHD_REVIEWER_KEYS", "")
+    if env_keys.strip():
+        return [k.strip() for k in env_keys.split(",") if k.strip()]
+    try:
+        cfg_path = root / "HLK" / "config" / "hlk.config.json"
+        if cfg_path.exists():
+            cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+            keys = cfg.get("security_rules", {}).get("reviewer_keys", []) or []
+            return [str(k) for k in keys if k]
+    except (OSError, json.JSONDecodeError):
+        pass
+    return []
+
+
+def signature_required(root: Path) -> bool:
+    """Signature bắt buộc khi có reviewer_keys được cấu hình.
+
+    Nếu HLK config bật approval_signature_required, bắt buộc kể cả khi
+    chưa có key (fail closed — không approve thiếu chữ ký).
+    """
+    if load_reviewer_keys(root):
+        return True
+    try:
+        cfg_path = root / "HLK" / "config" / "hlk.config.json"
+        if cfg_path.exists():
+            cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+            return bool(cfg.get("security_rules", {}).get("approval_signature_required", False))
+    except (OSError, json.JSONDecodeError):
+        pass
+    return False
+
+
+def _sig_message(plan_hash_hex: str, reviewer: str, ts: str) -> bytes:
+    """Message được ký: plan_hash|reviewer|timestamp (deterministic)."""
+    return f"{plan_hash_hex}|{reviewer}|{ts}".encode("utf-8")
+
+
+def verify_signature(message: bytes, signature_b64: str, reviewer_keys: list[str]) -> bool:
+    """Verify Ed25519 signature với bất kỳ key nào trong allowlist.
+
+    Fail closed: không có cryptography / key rỗng / sig rỗng → False.
+    """
+    if not _CRYPTO_AVAILABLE or not signature_b64 or not reviewer_keys:
+        return False
+    try:
+        raw_sig = base64.b64decode(signature_b64)
+    except (ValueError, TypeError):
+        return False
+    for key_b64 in reviewer_keys:
+        try:
+            raw_key = base64.b64decode(key_b64)
+            pub = Ed25519PublicKey.from_public_bytes(raw_key)
+            pub.verify(raw_sig, message)
+            return True
+        except (InvalidSignature, ValueError, TypeError):
+            continue
+    return False
+
+
+def _sha256_chunked(path: Path, chunk_size: int = 65536) -> str:
+    """SHA-256 theo chunk (CVE-2026-AHD-010): không load toàn bộ file lớn."""
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        while True:
+            block = fh.read(chunk_size)
+            if not block:
+                break
+            h.update(block)
+    return h.hexdigest()
+
+
+def _plan_file_hashes(plan_path: Path, root: Path) -> dict:
+    """CVE-2026-AHD-010: SHA-256 của từng file được plan tham chiếu.
+
+    Key = đường dẫn tương đối (forward slash) như trong plan. File chưa tồn
+    tại lúc approval → ghi null (verify sẽ bỏ qua hash, dùng tồn tại-check).
+    """
+    try:
+        text = plan_path.read_text(encoding="utf-8")
+    except OSError:
+        return {}
+    file_paths = set(re.findall(r"`([^`]*[/\\][^`]*)`", text))
+    hashes: dict[str, str | None] = {}
+    for fp in sorted(file_paths):
+        rel = fp.replace("\\", "/").lstrip("/")
+        if not rel:
+            continue
+        candidate = root / rel
+        if candidate.exists() and candidate.is_file():
+            try:
+                hashes[rel] = _sha256_chunked(candidate)
+            except OSError:
+                hashes[rel] = None
+        else:
+            hashes[rel] = None
+    return hashes
+
+
+def _archive_approved_plan(root: Path, plan_path: Path, phash: str) -> str | None:
+    """CVE-2026-AHD-010: lưu bản copy bất biến vào .devin/artifacts/<plan_hash>/.
+
+    Trả đường dẫn tương đối artifact (hoặc None nếu lỗi — không chặn approval).
+    """
+    try:
+        artifact_dir = root / ".devin" / "artifacts" / phash
+        artifact_dir.mkdir(parents=True, exist_ok=True)
+        dest = artifact_dir / plan_path.name
+        if not dest.exists():
+            dest.write_bytes(plan_path.read_bytes())
+        return str(dest.relative_to(root))
+    except OSError:
+        return None
+
+
+def _append_approval_audit(root: Path, record: dict) -> None:
+    """Ghi approval vào telemetry append-only (JSONL).
+
+    Append-only: luôn mở mode 'a' (không bao giờ ghi đè/truncate). Mỗi
+    approval/reject ghi 1 dòng mới — không thể sửa lịch sử.
+    """
+    try:
+        telemetry_dir = root / ".devin" / "telemetry"
+        telemetry_dir.mkdir(parents=True, exist_ok=True)
+        audit_path = telemetry_dir / "approvals.jsonl"
+        record.setdefault("ts", datetime.now(timezone.utc).isoformat())
+        with open(audit_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    except OSError:
+        # Audit lỗi KHÔNG chặn approval — nhưng cảnh báo rõ ràng.
+        print(f"[approval_gate] WARN: không thể ghi audit log: {audit_path}", file=sys.stderr)
 
 
 def _state_dir(repo_root: Path) -> Path:
@@ -151,27 +319,83 @@ def cmd_status(plan_path: Path, artifact: str = "plan") -> dict:
     return state
 
 
-def _write_approval_state(plan_path: Path, artifact: str, status: str, reviewer: str, comments: str) -> dict:
-    """Helper ghi approval state cho plan hoặc SDD."""
+def _write_approval_state(plan_path: Path, artifact: str, status: str, reviewer: str, comments: str, signature: str = "", signed_ts: str = "") -> dict:
+    """Helper ghi approval state cho plan hoặc SDD.
+
+    CVE-2026-AHD-006: nếu reviewer_keys được cấu hình (hoặc HLK config bật
+    approval_signature_required), status=approved BẮT BUỘC có Ed25519
+    signature hợp lệ (base64, ký trên plan_hash|reviewer|timestamp).
+    `signed_ts` (nếu có) là timestamp ĐÃ ký — được ghi verbatim vào state/audit
+    để replay verify; mặc định = now.
+    Mọi thao tác đều được ghi vào telemetry append-only.
+    """
     if not plan_path.exists():
         return {"error": f"Không tìm thấy file: {plan_path}"}
     root = _repo_root(plan_path)
     sp = _state_path(root, plan_path, artifact)
+
+    phash = plan_hash(plan_path)
+    ts = signed_ts or datetime.now(timezone.utc).isoformat()
+
+    # CVE-2026-AHD-006: verify signature cho approval
+    if status == STATUS_APPROVED:
+        keys = load_reviewer_keys(root)
+        if signature_required(root):
+            if not signature:
+                _append_approval_audit(root, {
+                    "event": "approval_rejected", "plan_hash": phash,
+                    "artifact": artifact, "reviewer": reviewer,
+                    "reason": "missing_signature", "date": ts,
+                })
+                return {
+                    "error": "Signature bắt buộc (CVE-2026-AHD-006): approve cần "
+                             "--signature <base64 Ed25519> từ reviewer được ủy quyền",
+                    "status": STATUS_PENDING,
+                }
+            if not verify_signature(_sig_message(phash, reviewer, ts), signature, keys):
+                _append_approval_audit(root, {
+                    "event": "approval_rejected", "plan_hash": phash,
+                    "artifact": artifact, "reviewer": reviewer,
+                    "reason": "invalid_signature", "date": ts,
+                })
+                return {
+                    "error": "Chữ ký không hợp lệ hoặc reviewer không được ủy quyền "
+                             "(CVE-2026-AHD-006)",
+                    "status": STATUS_PENDING,
+                }
+
     state = {
         "plan_file": str(plan_path.relative_to(root)),
         "artifact": artifact,
         "status": status,
         "reviewer": reviewer,
-        "date": datetime.now(timezone.utc).isoformat(),
+        "date": ts,
         "comments": comments,
+        "plan_hash": phash,
     }
+    if signature:
+        state["signature"] = signature
+    # CVE-2026-AHD-010: ghi SHA-256 từng file tham chiếu + archive bất biến
+    if status == STATUS_APPROVED and artifact == "plan":
+        state["file_hashes"] = _plan_file_hashes(plan_path, root)
+        archived = _archive_approved_plan(root, plan_path, phash)
+        if archived:
+            state["artifact_path"] = archived
     _save_state(sp, state)
+
+    # Audit log append-only (mọi event: approve/reject/changes_requested)
+    _append_approval_audit(root, {
+        "event": f"approval_{status}", "plan_hash": phash,
+        "artifact": artifact, "reviewer": reviewer,
+        "plan_file": state["plan_file"], "date": ts,
+        "has_signature": bool(signature),
+    })
     return state
 
 
-def cmd_approve(plan_path: Path, reviewer: str, comments: str, artifact: str = "plan") -> dict:
-    """--approve: Đánh dấu plan/SDD approved."""
-    return _write_approval_state(plan_path, artifact, STATUS_APPROVED, reviewer, comments)
+def cmd_approve(plan_path: Path, reviewer: str, comments: str, artifact: str = "plan", signature: str = "", signed_ts: str = "") -> dict:
+    """--approve: Đánh dấu plan/SDD approved (cần Ed25519 signature nếu cấu hình)."""
+    return _write_approval_state(plan_path, artifact, STATUS_APPROVED, reviewer, comments, signature=signature, signed_ts=signed_ts)
 
 
 def cmd_reject(plan_path: Path, reviewer: str, reason: str, artifact: str = "plan") -> dict:
@@ -354,6 +578,8 @@ def _parse_args(argv: list[str]) -> dict:
         "comments": "",
         "quality_report": "",
         "artifact": "plan",
+        "signature": "",
+        "date": "",
     }
     i = 0
     # Bước 1: Tìm plan_file (đối số đầu tiên không phải flag)
@@ -390,6 +616,14 @@ def _parse_args(argv: list[str]) -> dict:
             i += 1
             if i < len(argv):
                 args["artifact"] = argv[i]
+        elif a in ("--signature",):
+            i += 1
+            if i < len(argv):
+                args["signature"] = argv[i]
+        elif a in ("--date",):
+            i += 1
+            if i < len(argv):
+                args["date"] = argv[i]
         elif a.startswith("--"):
             # Flag không nhận dạng -> bỏ qua
             pass
@@ -420,7 +654,7 @@ def main() -> int:
     if args["status"]:
         result = cmd_status(plan_path, artifact)
     elif args["approve"]:
-        result = cmd_approve(plan_path, args["reviewer"], args["comments"], artifact)
+        result = cmd_approve(plan_path, args["reviewer"], args["comments"], artifact, signature=args["signature"], signed_ts=args["date"])
     elif args["reject"]:
         result = cmd_reject(plan_path, args["reviewer"], args["comments"], artifact)
     elif args["request_changes"]:

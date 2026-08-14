@@ -12,6 +12,8 @@ Script này validate một file plan Markdown dựa trên 10 dimension:
   D8  Risk Assessment            — mọi task R3+ có mitigation?
   D9  Test Coverage              — mọi requirement có test case?
   D10 Rollback Plan              — mọi task R2+ có rollback?
+  D11 REQ Traceability to SDD    — mọi plan REQ ID có trong SDD đã approved?
+                                  (CVE-2026-AHD-009; active khi có SDD approval)
 
 Usage:
     python .devin/scripts/plan_quality_check.py <plan_file.md>
@@ -22,6 +24,7 @@ Exit codes:
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import sys
@@ -68,6 +71,103 @@ def _read_plan(plan_path: Path) -> str:
     if not text.strip():
         raise ValueError("Plan file rỗng (không có nội dung)")
     return text
+
+
+# ---------------------------------------------------------------------------
+# CVE-2026-AHD-009: REQ ID cross-reference với SDD đã approved
+# ---------------------------------------------------------------------------
+def _repo_root(plan_path: Path) -> Path:
+    """Tìm repo root: walk lên cha cho tới khi có .devin hoặc .git."""
+    for parent in [plan_path.parent, *plan_path.parents]:
+        if (parent / ".devin").exists() or (parent / ".git").exists():
+            return parent
+    return plan_path.parent
+
+
+def _task_slug(plan_path: Path) -> str:
+    """Slug từ path docs/plans/<task_slug>/... — khớp quy ước approval_gate."""
+    parts = plan_path.resolve().parts
+    if "plans" in parts:
+        idx = parts.index("plans")
+        if idx + 1 < len(parts):
+            return parts[idx + 1]
+    return plan_path.stem
+
+
+def _approved_sdd_state(plan_path: Path) -> dict | None:
+    """Load SDD approval state (.devin/plan_state/<slug>_sd_approved.json).
+
+    Trả None nếu chưa có SDD approval (legacy flow — D11 bỏ qua).
+    """
+    try:
+        root = _repo_root(plan_path)
+        state_path = root / ".devin" / "plan_state" / f"{_task_slug(plan_path)}_sd_approved.json"
+        if not state_path.exists():
+            return None
+        data = json.loads(state_path.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else None
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _sdd_trace_info(plan_path: Path) -> dict:
+    """CVE-2026-AHD-009: verify SDD đã approved + hash còn khớp, trích REQ IDs.
+
+    Trả về:
+      {"ok": True, "sdd_req_ids": [...], "sdd_path": "..."} — SDD approved,
+        chưa bị sửa sau approval, REQ IDs trích được.
+      {"ok": False, "reason": "..."} — không có SDD approved / hash mismatch
+        / SDD file thiếu. FAIL CLOSED: plan không được pass D11.
+    """
+    state = _approved_sdd_state(plan_path)
+    if state is None:
+        return {"ok": False, "reason": "no_approved_sdd"}
+    if state.get("status") != "approved":
+        return {"ok": False, "reason": f"sdd_not_approved:{state.get('status')}"}
+    signed_hash = state.get("plan_hash", "")
+    sdd_rel = state.get("plan_file", "")
+    sdd_path = (_repo_root(plan_path) / sdd_rel) if sdd_rel else None
+    if sdd_path is None or not sdd_path.exists():
+        return {"ok": False, "reason": "sdd_file_missing"}
+    if signed_hash:
+        current = hashlib.sha256(sdd_path.read_bytes()).hexdigest()
+        if current != signed_hash:
+            return {"ok": False, "reason": "sdd_hash_mismatch"}
+    try:
+        sdd_text = sdd_path.read_text(encoding="utf-8")
+    except OSError:
+        return {"ok": False, "reason": "sdd_file_unreadable"}
+    return {"ok": True, "sdd_req_ids": _parse_req_ids(sdd_text), "sdd_path": sdd_rel}
+
+
+def _check_d11(req_ids: list[str], sdd_info: dict) -> dict:
+    """D11: REQ Traceability — mọi plan REQ ID phải có trong approved SDD.
+
+    CVE-2026-AHD-009: plan giới thiệu REQ ID không có trong SDD đã approved
+    (hoặc SDD bị sửa sau approval) -> FAIL.
+    """
+    if not sdd_info["ok"]:
+        return {
+            "id": "D11",
+            "name": "REQ Traceability to SDD",
+            "pass": False,
+            "detail": f"D11 FAIL: {sdd_info['reason']} — plan REQ IDs không thể trace về SDD approved",
+        }
+    sdd_ids = set(sdd_info["sdd_req_ids"])
+    extra = [rid for rid in req_ids if rid not in sdd_ids]
+    if extra:
+        return {
+            "id": "D11",
+            "name": "REQ Traceability to SDD",
+            "pass": False,
+            "detail": f"D11 FAIL: REQ IDs không có trong approved SDD: {', '.join(sorted(extra))}",
+        }
+    return {
+        "id": "D11",
+        "name": "REQ Traceability to SDD",
+        "pass": True,
+        "detail": "Mọi plan REQ ID trace về approved SDD",
+    }
 
 
 def _extract_section(text: str, heading: str) -> str:
@@ -586,7 +686,7 @@ def _check_d10(tasks: list[dict]) -> dict:
 
 
 def run_checks(plan_path: Path) -> dict:
-    """Chạy toàn bộ 10 dimension check, trả về scorecard dict."""
+    """Chạy toàn bộ 10 dimension check (+ D11 khi có SDD approval), trả scorecard dict."""
     text = _read_plan(plan_path)
     req_ids = _parse_req_ids(text)
     tasks = _parse_tasks(text)
@@ -603,6 +703,14 @@ def run_checks(plan_path: Path) -> dict:
         _check_d9(text, req_ids),
         _check_d10(tasks),
     ]
+
+    # CVE-2026-AHD-009: D11 — REQ traceability với SDD approved.
+    # Chỉ active khi có SDD approval state (legacy flow không có SDD vẫn 10D).
+    if _approved_sdd_state(plan_path) is not None:
+        sdd_info = _sdd_trace_info(plan_path)
+        results.append(_check_d11(req_ids, sdd_info))
+        results[-1]["detail"] += f" (sdd: {sdd_info.get('sdd_path', '?')})"
+
     passed = sum(1 for r in results if r["pass"])
     scorecard = {
         "plan_file": str(plan_path),

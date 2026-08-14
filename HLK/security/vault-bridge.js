@@ -4,10 +4,15 @@
  * Mục đích tổng thể:
  *   Quản lý secrets/API keys một cách độc lập với ruflo core.
  *
- * Thứ tự ưu tiên khi tìm một secret:
- *   1. process.env — biến môi trường hệ điều hành
- *   2. HLK/config/secrets.env — file local (đã được .gitignore)
- *   3. defaultValue (nếu truyền vào) hoặc undefined
+ * Thứ tự ưu tiên khi tìm một secret (CVE-2026-AHD-012):
+ *   Mặc định "file>env" (an toàn hơn — file local không bị lộ qua
+ *   environment của process cha/CI):
+ *     1. HLK/config/secrets.env — file local (đã được .gitignore)
+ *     2. process.env — biến môi trường hệ điều hành
+ *     3. defaultValue (nếu truyền vào) hoặc undefined
+ *
+ *   Có thể cấu hình lại qua `security_rules.secretPrecedence` trong
+ *   hlk.config.json: "file>env" (default) | "env>file" (legacy).
  *
  * Tuyệt đối không lưu secrets vào bất kỳ file tracked nào.
  */
@@ -21,11 +26,33 @@ const __dirname = path.dirname(__filename);
 
 // File secrets local, được .gitignore bảo vệ
 const SECRETS_PATH = path.resolve(__dirname, '../config/secrets.env');
+const CONFIG_PATH = path.resolve(__dirname, '../config/hlk.config.json');
 
 // Cache để tránh đọc file nhiều lần
 /** @type {Map<string, string>} */
 const secretsCache = new Map();
 let loaded = false;
+let precedence = 'file>env';
+
+/**
+ * CVE-2026-AHD-012: đọc secretPrecedence từ hlk.config.json.
+ * Default "file>env" (an toàn hơn). Lỗi config -> giữ default + warning.
+ */
+function loadPrecedence() {
+  try {
+    if (fs.existsSync(CONFIG_PATH)) {
+      const cfg = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+      const value = cfg?.security_rules?.secretPrecedence;
+      if (value === 'env>file' || value === 'file>env') {
+        precedence = value;
+      } else if (value !== undefined) {
+        process.stderr.write(`[HLK Vault] WARNING: secretPrecedence không hợp lệ: ${value} — dùng default 'file>env'\n`);
+      }
+    }
+  } catch (err) {
+    process.stderr.write(`[HLK Vault] WARNING: không đọc được config precedence: ${err.message} — dùng default 'file>env'\n`);
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Bước 1: Parse file .env đơn giản
@@ -79,7 +106,7 @@ function parseDotEnv(filePath) {
 // ---------------------------------------------------------------------------
 
 function ensureLoaded() {
-  if (loaded) return;
+  if (loaded) return true;
 
   const fileSecrets = parseDotEnv(SECRETS_PATH);
   for (const [k, v] of fileSecrets) {
@@ -87,6 +114,40 @@ function ensureLoaded() {
   }
 
   loaded = true;
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// Bước 2b: Audit log (CVE-2026-AHD-012)
+// ---------------------------------------------------------------------------
+
+/**
+ * Ghi nguồn secret vào telemetry/vault_audit.jsonl (append-only, không ghi
+ * giá trị secret — chỉ key + nguồn).
+ */
+function auditSecretAccess(key, source) {
+  try {
+    const auditDir = path.resolve(__dirname, '../../.devin/telemetry');
+    fs.mkdirSync(auditDir, { recursive: true });
+    const entry = {
+      ts: new Date().toISOString(),
+      event: 'vault.getSecret',
+      key,
+      source,
+    };
+    fs.appendFileSync(path.join(auditDir, 'vault_audit.jsonl'), JSON.stringify(entry) + '\n');
+  } catch (err) {
+    // Best-effort: audit lỗi không chặn getSecret
+    process.stderr.write(`[HLK Vault] WARNING: audit log lỗi: ${err.message}\n`);
+  }
+}
+
+/**
+ * CVE-2026-AHD-012: trả về precedence đang dùng (cho diagnostics/tests).
+ */
+export function getSecretPrecedence() {
+  loadPrecedence();
+  return precedence;
 }
 
 // ---------------------------------------------------------------------------
@@ -96,26 +157,43 @@ function ensureLoaded() {
 /**
  * Lấy giá trị secret.
  *
- * Thứ tự ưu tiên:
- *   1. process.env
- *   2. HLK/config/secrets.env
- *   3. defaultValue
+ * Thứ tự ưu tiên (CVE-2026-AHD-012):
+ *   file>env (default, an toàn): 1. secrets.env  2. process.env  3. defaultValue
+ *   env>file (legacy):            1. process.env  2. secrets.env  3. defaultValue
+ *
+ * Ghi audit log nguồn secret (file|env|default) vào telemetry/vault_audit.jsonl.
  */
 export function getSecret(key, defaultValue) {
-  if (process.env[key] !== undefined) {
-    return process.env[key];
+  loadPrecedence();
+  const fileValue = ensureLoaded() ? secretsCache.get(key) : undefined;
+  const envValue = process.env[key];
+
+  let value;
+  let source;
+  if (precedence === 'file>env') {
+    if (fileValue !== undefined) { value = fileValue; source = 'file'; }
+    else if (envValue !== undefined) { value = envValue; source = 'env'; }
+    else { value = defaultValue; source = 'default'; }
+  } else {
+    if (envValue !== undefined) { value = envValue; source = 'env'; }
+    else if (fileValue !== undefined) { value = fileValue; source = 'file'; }
+    else { value = defaultValue; source = 'default'; }
   }
-  ensureLoaded();
-  return secretsCache.get(key) ?? defaultValue;
+
+  auditSecretAccess(key, source);
+  return value;
 }
 
 /**
- * Kiểm tra secret có tồn tại không.
+ * Kiểm tra secret có tồn tại không (theo thứ tự ưu tiên hiện hành).
  */
 export function hasSecret(key) {
-  if (process.env[key] !== undefined) return true;
-  ensureLoaded();
-  return secretsCache.has(key);
+  loadPrecedence();
+  const fileValue = ensureLoaded() ? secretsCache.has(key) : false;
+  if (precedence === 'file>env') {
+    return fileValue || process.env[key] !== undefined;
+  }
+  return process.env[key] !== undefined || fileValue;
 }
 
 /**
@@ -142,4 +220,4 @@ export function getSecretsPath() {
   return SECRETS_PATH;
 }
 
-export default { getSecret, hasSecret, listSecretKeys, reload, getSecretsPath };
+export default { getSecret, hasSecret, listSecretKeys, reload, getSecretsPath, getSecretPrecedence };

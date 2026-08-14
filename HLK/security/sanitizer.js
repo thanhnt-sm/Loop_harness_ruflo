@@ -70,6 +70,24 @@ const DEFAULT_PATTERNS = [
 // Bước 1: Đọc pattern từ config
 // ---------------------------------------------------------------------------
 
+// CVE-2026-AHD-011: patterns "critical" — nếu thiếu và failClosedOnConfigError
+// bật, sanitizer từ chối hoạt động (fail CLOSED) thay vì chạy với bộ thiếu.
+const CRITICAL_SUBSTRINGS = [
+  'AKIA',           // AWS access key
+  'PRIVATE KEY',    // private key blocks
+  'ghp_',           // GitHub PAT
+  'glpat-',         // GitLab PAT
+  'sk-',            // OpenAI-style keys
+  '://',            // DB/URL connection string (creds)
+  'Bearer',         // OAuth bearer tokens
+  'eyJ',            // JWT
+];
+
+function isCriticalPattern(pattern) {
+  const cleaned = pattern.startsWith('(?i)') ? pattern.slice(4) : pattern;
+  return CRITICAL_SUBSTRINGS.some((sub) => cleaned.includes(sub));
+}
+
 /**
  * Đọc các regex pattern redact từ `hlk.config.json`.
  *
@@ -78,24 +96,49 @@ const DEFAULT_PATTERNS = [
  *
  * Chuỗi `(?i)` trong regex JavaScript không hỗ trợ trực tiếp,
  * nên hàm `compilePattern` sẽ chuyển thành flag `gi`.
+ *
+ * CVE-2026-AHD-011: trả thêm { configValid, errors, warn } — lỗi config
+ * không còn silent; `failClosedOnConfigError` đọc từ security_rules.
  */
 function loadConfigRules() {
+  const errors = [];
+  const warnings = [];
+  let configValid = false;
+  let failClosedOnConfigError = false;
+  let patterns = null;
+  let replacement = '[REDACTED]';
+
   try {
     if (fs.existsSync(CONFIG_PATH)) {
       const raw = fs.readFileSync(CONFIG_PATH, 'utf8');
       const cfg = JSON.parse(raw);
-      const patterns = cfg?.security_rules?.redact_patterns;
-      const replacement = cfg?.security_rules?.redact_replacement || '[REDACTED]';
+      patterns = cfg?.security_rules?.redact_patterns;
+      replacement = cfg?.security_rules?.redact_replacement || '[REDACTED]';
+      failClosedOnConfigError = Boolean(cfg?.security_rules?.failClosedOnConfigError);
 
       if (Array.isArray(patterns) && patterns.length > 0) {
-        return { patterns, replacement };
+        configValid = true;
+      } else {
+        errors.push('security_rules.redact_patterns missing or empty in hlk.config.json');
       }
+    } else {
+      errors.push(`config not found: ${CONFIG_PATH}`);
     }
   } catch (err) {
-    // Config lỗi → dùng mặc định, không throw
+    errors.push(`config parse error: ${err.message}`);
   }
 
-  return { patterns: DEFAULT_PATTERNS, replacement: '[REDACTED]' };
+  if (!configValid) {
+    // CVE-2026-AHD-011: warning rõ ràng, KHÔNG silent nữa
+    warnings.push(
+      `config invalid (${errors.join('; ')}) — falling back to ${DEFAULT_PATTERNS.length} default patterns`,
+    );
+    for (const w of warnings) {
+      process.stderr.write(`[HLK Sanitizer] WARNING: ${w}\n`);
+    }
+    return { patterns: DEFAULT_PATTERNS, replacement: '[REDACTED]', configValid: false, errors, warnings, failClosedOnConfigError };
+  }
+  return { patterns, replacement, configValid: true, errors, warnings, failClosedOnConfigError };
 }
 
 // ---------------------------------------------------------------------------
@@ -134,11 +177,29 @@ function compilePattern(pattern) {
  * @returns {{ sanitize: Function, patterns: RegExp[], replacement: string }}
  */
 export function createSanitizer() {
-  const { patterns, replacement } = loadConfigRules();
+  const { patterns, replacement, configValid, errors, warnings, failClosedOnConfigError } = loadConfigRules();
 
   const compiledPatterns = patterns
     .map(compilePattern)
     .filter(Boolean);
+
+  // CVE-2026-AHD-011: fail CLOSED nếu cấu hình lỗi/thiếu critical patterns
+  // và security_rules.failClosedOnConfigError = true.
+  // Critical baseline = DEFAULT_PATTERNS (bộ chuẩn); config chỉ được phép
+  // THÊM pattern, không được BỚT pattern critical.
+  if (failClosedOnConfigError) {
+    const compiledSources = new Set(compiledPatterns.map((re) => re.source));
+    const requiredCritical = DEFAULT_PATTERNS.filter(isCriticalPattern);
+    const missingCritical = requiredCritical.filter((p) => !compiledSources.has(compileSource(p)));
+    const problems = [];
+    if (!configValid) problems.push('config invalid');
+    if (missingCritical.length > 0) problems.push(`critical patterns missing: ${missingCritical.join(', ')}`);
+    if (problems.length > 0) {
+      const msg = `[HLK Sanitizer] FAIL-CLOSED: ${problems.join('; ')} — refusing to sanitize with incomplete rules (CVE-2026-AHD-011)`;
+      process.stderr.write(`${msg}\n`);
+      throw new Error(msg);
+    }
+  }
 
   /**
    * Thay thế các chuỗi khớp pattern bằng `replacement`.
@@ -156,19 +217,59 @@ export function createSanitizer() {
     return result;
   }
 
-  return { sanitize, patterns: compiledPatterns, replacement };
+  /**
+   * CVE-2026-AHD-011: health check — trạng thái cấu hình + pattern đã load.
+   */
+  function healthCheck() {
+    const compiledSources = new Set(compiledPatterns.map((re) => re.source));
+    const requiredCritical = DEFAULT_PATTERNS.filter(isCriticalPattern);
+    const missingCritical = requiredCritical.filter((p) => !compiledSources.has(compileSource(p)));
+    return {
+      patternsLoaded: compiledPatterns.length,
+      patternsConfigured: patterns.length,
+      configValid,
+      failClosedOnConfigError,
+      criticalMissing: missingCritical,
+      errors,
+      warnings,
+      ok: configValid && missingCritical.length === 0,
+    };
+  }
+
+  return { sanitize, patterns: compiledPatterns, replacement, healthCheck };
+}
+
+function compileSource(pattern) {
+  const hasCaseInsensitive = pattern.startsWith('(?i)');
+  const cleaned = hasCaseInsensitive ? pattern.replace(/^\(\?i\)/, '') : pattern;
+  const flags = hasCaseInsensitive ? 'gi' : 'g';
+  try {
+    return new RegExp(cleaned, flags).source;
+  } catch (err) {
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
 // Bước 4: Singleton mặc định
 // ---------------------------------------------------------------------------
 
-const defaultSanitizer = createSanitizer();
+const defaultSanitizer = (() => {
+  try {
+    return createSanitizer();
+  } catch (err) {
+    // CVE-2026-AHD-011: fail-closed — sanitize() sẽ throw, không pass-through
+    return null;
+  }
+})();
 
 /**
  * Sanitize một chuỗi dùng sanitizer mặc định.
  */
 export function sanitize(text) {
+  if (!defaultSanitizer) {
+    throw new Error('[HLK Sanitizer] FAIL-CLOSED: sanitizer unavailable (CVE-2026-AHD-011)');
+  }
   return defaultSanitizer.sanitize(text);
 }
 

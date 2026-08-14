@@ -87,7 +87,7 @@ def _distill(entries: list[dict]) -> list[dict]:
     return result[-20:]
 
 
-def run(root: Path, session_id: str) -> None:
+def run(root: Path, session_id: str, allow_unconfirmed: bool = False) -> None:
     sid = ahd_session.slugify_session_id(session_id)
     candidate_path = ahd_session.get_config_root(root) / "session_state" / sid / "candidate_memory.jsonl"
     # Read: fallback to old location for backward compat.
@@ -105,6 +105,22 @@ def run(root: Path, session_id: str) -> None:
                 candidates.append(json.loads(line))
             except (json.JSONDecodeError, TypeError, ValueError):
                 pass
+
+    # CVE-2026-AHD-015: human confirmation bắt buộc để promote lên long-term
+    # memory. Candidate chưa được xác nhận (human_confirmed != true) bị skip,
+    # trừ khi operator chạy --allow-unconfirmed (opt-in, in cảnh báo).
+    if not allow_unconfirmed:
+        unconfirmed = [
+            c for c in candidates
+            if not c.get("human_confirmed")
+        ]
+        for c in unconfirmed:
+            print(
+                f"[memory_audit] SKIP candidate '{c.get('trigger', '')}' — "
+                f"chưa có human confirmation (CVE-2026-AHD-015)",
+                file=sys.stderr,
+            )
+        candidates = [c for c in candidates if c.get("human_confirmed")]
 
     if not candidates:
         return
@@ -134,10 +150,12 @@ def run(root: Path, session_id: str) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser(description="Merge candidate memory into knowledge_distill.md")
     ap.add_argument("--session", required=True, help="Session ID")
+    ap.add_argument("--allow-unconfirmed", action="store_true",
+                    help="CVE-2026-AHD-015: promote cả candidate chưa được human confirm (không khuyến khích)")
     args = ap.parse_args()
 
     root = ahd_session.get_repo_root()
-    run(root, args.session)
+    run(root, args.session, allow_unconfirmed=args.allow_unconfirmed)
     return 0
 
 

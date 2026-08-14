@@ -20,6 +20,7 @@ Exit codes:
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import subprocess
@@ -249,6 +250,49 @@ def _file_exists(repo_root: Path, file_path: str) -> Path | None:
     return None
 
 
+# ---------------------------------------------------------------------------
+# CVE-2026-AHD-010: file hash verification với approval state
+# ---------------------------------------------------------------------------
+def _sha256_chunked(path: Path, chunk_size: int = 65536) -> str:
+    """SHA-256 theo chunk — không load toàn bộ file lớn vào RAM."""
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        while True:
+            block = fh.read(chunk_size)
+            if not block:
+                break
+            h.update(block)
+    return h.hexdigest()
+
+
+def _plan_approval_state(plan_path: Path, repo_root: Path) -> dict | None:
+    """Load plan approval state (.devin/plan_state/<slug>_approved.json).
+
+    Trả None nếu chưa có approval (legacy flow — bỏ qua hash check).
+    """
+    parts = plan_path.resolve().parts
+    slug = ""
+    if "plans" in parts:
+        idx = parts.index("plans")
+        if idx + 1 < len(parts):
+            slug = parts[idx + 1]
+    if not slug:
+        slug = plan_path.stem
+    try:
+        state_path = repo_root / ".devin" / "plan_state" / f"{slug}_approved.json"
+        if not state_path.exists():
+            return None
+        data = json.loads(state_path.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else None
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _normalize_rel(fp: str) -> str:
+    """Chuẩn hóa đường dẫn tương đối (forward slash, bỏ leading slash)."""
+    return fp.replace("\\", "/").lstrip("/")
+
+
 def _grep_function(repo_root: Path, file_path: Path, function: str) -> bool:
     """Kiểm tra function có mặt trong file không (dùng grep qua subprocess).
 
@@ -300,6 +344,12 @@ def verify_matrix(plan_path: Path) -> dict:
             repo_root = parent
             break
 
+    # CVE-2026-AHD-010: load approval state (hash chuẩn lúc plan được duyệt)
+    approval = _plan_approval_state(plan_path, repo_root)
+    approved_hashes = (
+        approval.get("file_hashes", {}) if approval and approval.get("status") == "approved" else {}
+    )
+
     # Bước 2: Verify từng entry
     for rid, entry in matrix.items():
         fp = entry["file_path"]
@@ -308,6 +358,19 @@ def verify_matrix(plan_path: Path) -> dict:
             # Không có file path -> giữ PLANNED (chưa thể verify)
             entry["evidence"] = "Không có file_path để verify"
             continue
+        # CVE-2026-AHD-010: file bị sửa sau approval -> FAIL (trước cả tồn tại-check)
+        rel = _normalize_rel(fp)
+        if rel in approved_hashes and approved_hashes[rel]:
+            found_for_hash = _file_exists(repo_root, rel)
+            if found_for_hash is not None:
+                try:
+                    current = _sha256_chunked(found_for_hash)
+                except OSError:
+                    current = ""
+                if current != approved_hashes[rel]:
+                    entry["status"] = STATUS_FAIL
+                    entry["evidence"] = f"file modified since approval: {rel}"
+                    continue
         # Kiểm tra file tồn tại
         found = _file_exists(repo_root, fp)
         if found is None:

@@ -74,19 +74,48 @@ def _save_json(path: Path, data) -> None:
 
 
 def _checkpoints_root(root: Path, workflow_id: str) -> Path:
-    """Duong dan thu muc checkpoint cho workflow."""
-    # Pentest fix: sanitize workflow_id để chống path traversal (../../HLK/evil).
+    """Duong dan thu muc checkpoint cho workflow — chroot vào .devin/checkpoints/.
+
+    CVE-2026-AHD-004 fix:
+    1. REJECT '..' ngay trên input raw (trước sanitize).
+    2. Sau sanitize: resolve() và verify nằm trong root/.devin/checkpoints/.
+    3. Mọi file operation sau đó đều nằm dưới ckpt_root (chroot).
+    """
+    _reject_dotdot(workflow_id, "workflow_id")
     workflow_id = _sanitize_workflow_id(workflow_id)
-    return root / CHECKPOINTS_DIR / workflow_id
+    ckpt_root = (root / CHECKPOINTS_DIR).resolve()
+    resolved = (ckpt_root / workflow_id).resolve()
+    try:
+        resolved.relative_to(ckpt_root)
+    except ValueError:
+        # Không thể xảy ra sau khi reject '..', nhưng fail-closed phòng hộ.
+        raise ValueError(f"workflow_id '{workflow_id}' resolves outside checkpoints root")
+    return resolved
+
+
+def _reject_dotdot(value: str, label: str) -> None:
+    """CVE-2026-AHD-004: REJECT bất kỳ '..' sequence nào trong input raw.
+
+    Không chỉ thay thế: '....//HLK/config' có thể sanitize thành tên hợp lệ
+    nhưng resolve ra ngoài root. Kiểm tra raw TRƯỚC khi sanitize là bắt buộc.
+    """
+    if not value:
+        return
+    # '..' với các separator khác nhau, kể cả unicode slash
+    if ".." in value.replace("\\", "/"):
+        raise ValueError(f"{label} chứa '..' (path traversal) — bị từ chối")
 
 
 def _sanitize_workflow_id(workflow_id: str) -> str:
     """Làm sạch workflow_id theo allowlist, chống path traversal.
 
     Thay path separator bằng _, chỉ giữ [a-zA-Z0-9_-], giới hạn 64 ký tự.
+    Gọi _reject_dotdot trước (CVE-2026-AHD-004): '..' bị REJECT, không bị
+    vô hiệu hóa bằng sanitize (vì '....' cũng bypass được sanitize).
     """
     if not workflow_id:
         return "default"
+    _reject_dotdot(workflow_id, "workflow_id")
     wid = workflow_id.replace("/", "_").replace("\\", "_")
     wid = re.sub(r"[^a-zA-Z0-9_-]", "_", wid)
     wid = re.sub(r"_+", "_", wid)
@@ -144,9 +173,11 @@ def _sanitize_step_id(step_id: str) -> str:
     """T2.6: Làm sạch step_id theo allowlist ^[a-zA-Z0-9_-]{1,64}$.
 
     Đảm bảo Path(step_id).name == step_id, không chứa path separator.
+    CVE-2026-AHD-004: REJECT '..' trước khi sanitize (fail closed).
     """
     if not step_id:
         return "unnamed"
+    _reject_dotdot(step_id, "step_id")
     # Thay path separator bằng _ rồi dùng allowlist
     step_id = step_id.replace("/", "_").replace("\\", "_")
     step_id = re.sub(r"[^a-zA-Z0-9_-]", "_", step_id)
@@ -377,6 +408,26 @@ def cmd_save(root: Path, workflow: dict, workflow_id: str, step_id: str, state_f
     return 0
 
 
+def _safe_ckpt_path(ckpt_dir: Path, name: str) -> Path | None:
+    """CVE-2026-AHD-004: Build checkpoint file path chroot trong ckpt_dir.
+
+    Chống index.json/checkpoint tampered: name chứa '..' hoặc resolve ra ngoài
+    ckpt_dir → trả None (không đọc/ghi ngoài vùng checkpoint).
+    """
+    if not name:
+        return None
+    try:
+        _reject_dotdot(name, "checkpoint file")
+    except ValueError:
+        return None
+    resolved = (ckpt_dir / name).resolve()
+    try:
+        resolved.relative_to(ckpt_dir.resolve())
+    except ValueError:
+        return None
+    return resolved
+
+
 def _find_latest_checkpoint(ckpt_dir: Path, step_id: str) -> Path | None:
     """Tim checkpoint moi nhat cho 1 step_id."""
     index = _load_json(ckpt_dir / "index.json", {"checkpoints": []})
@@ -385,7 +436,11 @@ def _find_latest_checkpoint(ckpt_dir: Path, step_id: str) -> Path | None:
         return None
     # Sap xep theo timestamp giam dan
     entries.sort(key=lambda c: c.get("timestamp", ""), reverse=True)
-    return ckpt_dir / entries[0]["file"]
+    for entry in entries:
+        p = _safe_ckpt_path(ckpt_dir, entry.get("file", ""))
+        if p is not None:
+            return p
+    return None
 
 
 def _find_safe_checkpoint_before(ckpt_dir: Path, failed_step: str, workflow: dict) -> Path | None:
@@ -410,8 +465,8 @@ def _find_safe_checkpoint_before(ckpt_dir: Path, failed_step: str, workflow: dic
         all_entries = [c for c in all_entries if c.get("step_id") != failed_step]
         all_entries.sort(key=lambda c: c.get("timestamp", ""), reverse=True)
         for entry in all_entries:
-            p = ckpt_dir / entry["file"]
-            if p.exists():
+            p = _safe_ckpt_path(ckpt_dir, entry.get("file", ""))
+            if p is not None and p.exists():
                 candidates.append(p)
                 break
     return candidates[0] if candidates else None
@@ -439,10 +494,13 @@ def cmd_restore(root: Path, workflow: dict, workflow_id: str, failed_step: str) 
         return 1
 
     # Bước 3: phuc hoi state snapshot
-    restored_step = checkpoint["step_id"]
+    restored_step = _sanitize_step_id(str(checkpoint.get("step_id", "unknown")))
     snapshot = checkpoint.get("state_snapshot", {})
-    # Ghi snapshot ra file restore
-    restore_path = ckpt_dir / f"restored_{restored_step}.json"
+    # Ghi snapshot ra file restore (chroot trong ckpt_dir — CVE-2026-AHD-004)
+    restore_path = _safe_ckpt_path(ckpt_dir, f"restored_{restored_step}.json")
+    if restore_path is None:
+        print(f"[ERROR] Khong the tao file restore (path traversal blocked)", file=sys.stderr)
+        return 1
     _save_json(restore_path, snapshot)
 
     # Bước 4: invalidate downstream (danh dau needs_replay)
