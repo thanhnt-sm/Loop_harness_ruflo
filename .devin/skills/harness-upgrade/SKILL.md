@@ -30,7 +30,7 @@ triggers:
   - "security audit harness"
   - "tăng cường workspace"
   - "đạt chất lượng top-tier"
-argument-hint: "[<focus-area> | <repo-id> | full | --red-team]"
+argument-hint: "[] — MẶC ĐỊNH FULL CHAIN (không cần tham số). Tùy chọn giới hạn: <focus-area> | <repo-id> | --check | --apply | --no-red-team | --no-apply | --red-team"
 permissions:
   allow:
     - Read
@@ -57,34 +57,53 @@ permissions:
 
 ## Cách gọi
 ```
-/harness-upgrade                      # MẶC ĐỊNH: FULL pipeline (dry-run trước → apply sau)
-/harness-upgrade --check              # Chỉ dry-run: review + đo + đề xuất, KHÔNG apply
+/harness-upgrade                      # MẶC ĐỊNH = FULL CHAIN HOÀN CHỈNH (không cần tham số):
+                                      #   PREFLIGHT → REVIEW → LEARN → UPGRADE → VERIFY → RED-TEAM →
+                                      #   ROOT-CAUSE REMEDIATION → COMPENSATION → REPORT → APPLY
+/harness-upgrade --check              # Chỉ dry-run: review + đo + đề xuất, KHÔNG apply (bỏ GĐ apply/red-team apply)
 /harness-upgrade --apply              # Chỉ apply (dùng plan lần --check trước)
-/harness-upgrade <focus-area>         # FULL, giới hạn 1 vùng (canon|skills|scripts|hooks|context|repos)
-/harness-upgrade <repo-id>            # FULL, học 1 repo trong REPOS.md
-/harness-upgrade --red-team           # Chế độ triệt để: red-team + root-cause remediation
+/harness-upgrade --no-red-team        # FULL nhưng BỎ phase red-team/root-cause
+/harness-upgrade --no-apply           # FULL phân tích + report, KHÔNG apply (dry-run thuần)
+/harness-upgrade <focus-area>         # FULL CHAIN, giới hạn phạm vi 1 vùng (canon|skills|scripts|hooks|context|repos)
+/harness-upgrade <repo-id>            # FULL CHAIN, ưu tiên học 1 repo trong REPOS.md
+/harness-upgrade --red-team           # FULL CHAIN + nhấn mạnh chế độ triệt để red-team (mặc định đã chạy)
 ```
 
-## Flow tổng quan (full pipeline)
+> **Mặc định KHÔNG cần tham số.** Gọi trần `/harness-upgrade` = chạy **đầy đủ mọi thứ**: toàn bộ
+> flow, toàn bộ option, toàn bộ phase, toàn bộ chi tiết. Các tham số chỉ dùng để **giới hạn/điều
+> chỉnh** khi user cần, không phải để kích hoạt.
+
+## Flow tổng quan (FULL CHAIN — chạy mọi phase, mặc định)
 ```
-PREFLIGHT (scripts song song) → REVIEW (đo token/context) → LEARN (repos+web)
-  → [apply] UPGRADE từng candidate → VERIFY (token-delta + regression)
+PREFLIGHT (scripts song song)
+  → REVIEW (đo token/context + slop scan)
+  → LEARN (repos + web research 2026)
+  → UPGRADE từng candidate
+  → VERIFY (token-delta + regression, deterministic gate)
+  → RED-TEAM + ROOT-CAUSE REMEDIATION (Protocol v2.0, GĐ0-6)
+  → COMPENSATION (frontier-quality, C1-C7)
   → REPORT → HARNESS_UPGRADE_REPORT.md
+  → APPLY (M+ qua /full-power; S-tier sửa trực tiếp)
 ```
+- **Mặc định = MAX POWER + FULL COVERAGE**: KHÔNG cắt phase nào, KHÔNG skip red-team, KHÔNG skip compensation.
 - Mọi upgrade **M+** đi qua `/full-power` (Plan→Approve→Execute). **S-tier** (1 file, <5 dòng) sửa trực tiếp.
 - Max parallel subagents (SCOUT/ARCHITECT/personas/VERIFIER) theo Commander mode.
+- Model yếu / context <50K: vẫn chạy đủ chain nhưng tuần tự từng phase, giữ 5 rule + few-shot
+  (xem `detail/adaptation.md`) — KHÔNG bỏ phase.
 
-## Load chi tiết theo nhu cầu (2-phase — U-H7)
-| Khi cần | Đọc file |
-|---------|----------|
-| Model yếu / context nhỏ → cách tối giản | `detail/adaptation.md` |
-| Muốn đạt chất lượng top-tier → compensation | `detail/compensation.md` |
-| Token-efficiency playbook (giảm token) | `detail/compensation.md` (phần A-D) |
-| REVIEW chi tiết + đo token + slop scan | `detail/review.md` |
-| LEARN: nguồn học 2026 + websearch + upstream check | `detail/learn.md` |
-| Red-team + root cause remediation (--red-team) | `detail/redteam.md` |
-| Upgrade template library (U-H1..U-H16) | `detail/upgrade.md` |
-| VERIFY + token-delta + REPORT format | `detail/verify.md` |
+## Load chi tiết (FULL CHAIN = load tất cả detail files)
+| Đọc file | Mục đích |
+|----------|----------|
+| `detail/adaptation.md` | Cách tối giản cho model yếu / context nhỏ |
+| `detail/compensation.md` | Frontier-quality compensation (C1-C7) + token-efficiency playbook |
+| `detail/review.md` | REVIEW chi tiết + đo token + slop scan |
+| `detail/learn.md` | LEARN: nguồn học 2026 + websearch + upstream check |
+| `detail/redteam.md` | RED-TEAM + root cause remediation Protocol v2.0 |
+| `detail/upgrade.md` | Upgrade template library (U-H1..U-H16) |
+| `detail/verify.md` | VERIFY + token-delta + REPORT format |
+
+> Mặc định đọc **TẤT CẢ** các file trên (full flow, full option). Chỉ bỏ bớt khi user gọi
+> `--no-red-team` (bỏ redteam.md) hoặc context cực nhỏ (adaptation.md hướng dẫn ưu tiên).
 
 ## Guardrails (top 5, cho model yếu)
 1. Smallest coherent diff; preserve user changes.
@@ -94,12 +113,17 @@ PREFLIGHT (scripts song song) → REVIEW (đo token/context) → LEARN (repos+we
 5. Harness là thước đo sức mạnh, không phải model — model yếu output kém → bổ sung compensation layer, không đổ lỗi model.
 
 ## Mode map
-| Invocation | dry-run | apply |
-|------------|:---:|:---:|
-| *(mặc định)* / `full` | ✅ | ✅ |
-| `--check` | ✅ | ❌ |
-| `--apply` | ❌ (dùng plan cũ) | ✅ |
-| `--red-team` | GĐ0-3 | GĐ4-6 |
-| model yếu / context<50K | **tối giản 5 rule** (detail/adaptation.md) | tối giản |
+| Invocation | Flow đầy đủ | dry-run | apply | red-team |
+|------------|:---:|:---:|:---:|:---:|
+| *(mặc định)* / `full` | ✅ FULL CHAIN | ✅ | ✅ | ✅ |
+| `--check` | một phần | ✅ | ❌ | chỉ GĐ0-3 |
+| `--apply` | một phần | ❌ (plan cũ) | ✅ | ❌ |
+| `--no-red-team` | FULL, bỏ red-team | ✅ | ✅ | ❌ |
+| `--no-apply` | FULL phân tích | ✅ | ❌ | ✅ |
+| `--red-team` | FULL CHAIN, nhấn triệt để | ✅ | ✅ | ✅ |
+| model yếu / context<50K | FULL CHAIN tuần tự | ✅ | ✅ | ✅ (tối giản) |
+
+> **Invocation mặc định (không tham số) = FULL CHAIN: toàn bộ flow + toàn bộ option + toàn bộ
+> phase + toàn bộ detail files, gồm cả red-team/root-cause lẫn compensation/apply.**
 
 TASK: <task sẽ được inject khi gọi skill>
