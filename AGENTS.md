@@ -34,6 +34,7 @@ devin -p -- "mô tả công việc"          # Non-interactive
 /auditor              # Audit code
 /tdd                 # Test-driven development
 /gap-scan            # Scan thiếu sót
+/harness-upgrade     # Rà soát + nâng cấp workspace thành best harness (token-efficient, small-context)
 ```
 
 ## 3-Phase Architecture (Plan → Approve → Execute) — BẮT BUỘC
