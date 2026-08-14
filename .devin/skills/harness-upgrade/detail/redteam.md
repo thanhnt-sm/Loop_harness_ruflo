@@ -3,10 +3,11 @@
 > **HARNESS RED-TEAM & ROOT-CAUSE REMEDIATION PROTOCOL v2.0**
 > Iteration #: [ĐIỀN SỐ] | Chế độ: TRIỆT ĐỂ — CẤM QUICK-FIX
 
-> **V4 UPGRADE**: Sau GĐ0-6 này, chạy tiếp **V4 CONTINUOUS RED-TEAM STEP** (`detail/redteam-v4.md`):
-> Protocol v4.0 với evidence ledger, role separation, control/data plane, fail-closed và technology
-> refresh. v2.0 = quét cấu trúc nhanh; v4.0 = deep red-team bounded. Xem routing cuối file này.
-> Payload v4.0 nằm ở `detail/v4-redteam-prompt.md` (load-on-demand).
+> **V5 UPGRADE**: Sau GĐ0-6 này, chạy tiếp **V5 CONTINUOUS RED-TEAM STEP** (`detail/redteam-v5.md`):
+> Protocol v5.0 (thay thế v4.0) với identity/delegation lifecycle, MCP pack, evaluation transfer,
+> human oversight, observability/resilience, fail-closed và technology refresh. v2.0 = quét cấu trúc
+> nhanh; v5.0 = deep red-team bounded. Xem routing cuối file này.
+> Payload v5.0 nằm ở `detail/v5-redteam-prompt.md` (load-on-demand).
 
 > **Chế độ TRIỆT ĐỂ.** Mục tiêu KHÔNG phải "sửa được nhiều lỗi" mà là **"sửa ĐÚNG GỐC những lỗi
 > quan trọng nhất"**. Một Critical finding sửa tận gốc còn giá trị hơn 20 finding vá bề mặt.
@@ -122,6 +123,6 @@ Cập nhật `harness-upgrade-log.md`:
 ## Routing
 - `--red-team --check` → GĐ0-3 → Solution Matrix, KHÔNG deploy.
 - `--red-team` → GĐ0-6. Fix M+ đi qua `/full-power`. S-tier fix (1 file, <5 dòng) sửa trực tiếp + re-attack ngay.
-- **→ SAU GĐ0-6 (mọi chế độ red-team được bật): chạy `detail/redteam-v4.md` (Protocol v4.0).**
-  `--check`/`--no-apply` → `AUDIT_ONLY` (PHASE 0-8); `--red-team` → đủ PHASE 0-11.
-  `--no-red-team` → KHÔNG chạy v2.0 lẫn v4.0.
+- **→ SAU GĐ0-6 (mọi chế độ red-team được bật): chạy `detail/redteam-v5.md` (Protocol v5.0, thay v4.0).**
+  `--check`/`--no-apply` → `AUDIT_ONLY` (PHASE 1-16); `--red-team` → đủ PHASE 1-19.
+  `--no-red-team` → KHÔNG chạy v2.0 lẫn v5.0.

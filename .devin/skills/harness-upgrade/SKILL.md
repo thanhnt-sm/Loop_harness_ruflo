@@ -81,7 +81,7 @@ PREFLIGHT (scripts song song)
   → UPGRADE từng candidate
   → VERIFY (token-delta + regression, deterministic gate)
   → RED-TEAM + ROOT-CAUSE REMEDIATION (Protocol v2.0, GĐ0-6)
-  → V4 CONTINUOUS RED-TEAM (Protocol v4.0 — evidence ledger, role separation, fail-closed, tech refresh)
+  → V5 CONTINUOUS RED-TEAM (Protocol v5.0 — identity/delegation, MCP pack, eval transfer, human oversight, resilience)
   → COMPENSATION (frontier-quality, C1-C7)
   → REPORT → HARNESS_UPGRADE_REPORT.md
   → APPLY (M+ qua /full-power; S-tier sửa trực tiếp)
@@ -100,15 +100,15 @@ PREFLIGHT (scripts song song)
 | `detail/review.md` | REVIEW chi tiết + đo token + slop scan |
 | `detail/learn.md` | LEARN: nguồn học 2026 + websearch + upstream check |
 | `detail/redteam.md` | RED-TEAM + root cause remediation Protocol v2.0 |
-| `detail/redteam-v4.md` | V4 RED-TEAM STEP: chạy Protocol v4.0 (bounded iteration, role separation) |
-| `detail/v4-redteam-prompt.md` | **LOAD-ON-DEMAND** payload v4.0 — CHỈ nạp khi bước V4 chạy, KHÔNG load chung |
+| `detail/redteam-v5.md` | V5 RED-TEAM STEP: chạy Protocol v5.0 (identity/delegation, MCP pack, eval transfer) |
+| `detail/v5-redteam-prompt.md` | **LOAD-ON-DEMAND** payload v5.0 — CHỈ nạp khi bước V5 chạy, KHÔNG load chung |
 | `detail/upgrade.md` | Upgrade template library (U-H1..U-H16) |
 | `detail/verify.md` | VERIFY + token-delta + REPORT format |
 
 > Mặc định đọc **TẤT CẢ** các file trên (full flow, full option). Chỉ bỏ bớt khi user gọi
-> `--no-red-team` (bỏ redteam.md + redteam-v4.md) hoặc context cực nhỏ (adaptation.md hướng dẫn ưu tiên).
-> ⚠️ `detail/v4-redteam-prompt.md` là payload load-on-demand — **KHÔNG** load chung ở đây; chỉ nạp
-> khi bước V4 (`detail/redteam-v4.md`) thực thi.
+> `--no-red-team` (bỏ redteam.md + redteam-v5.md) hoặc context cực nhỏ (adaptation.md hướng dẫn ưu tiên).
+> ⚠️ `detail/v5-redteam-prompt.md` là payload load-on-demand — **KHÔNG** load chung ở đây; chỉ nạp
+> khi bước V5 (`detail/redteam-v5.md`) thực thi.
 
 ## Guardrails (top 5, cho model yếu)
 1. Smallest coherent diff; preserve user changes.
@@ -129,11 +129,11 @@ PREFLIGHT (scripts song song)
 | model yếu / context<50K | FULL CHAIN tuần tự | ✅ | ✅ | ✅ (tối giản) |
 
 > **Invocation mặc định (không tham số) = FULL CHAIN: toàn bộ flow + toàn bộ option + toàn bộ
-> phase + toàn bộ detail files, gồm cả red-team/root-cause (v2.0 + v4.0) lẫn compensation/apply.**
+> phase + toàn bộ detail files, gồm cả red-team/root-cause (v2.0 + v5.0) lẫn compensation/apply.**
 >
-> **V4 RED-TEAM** = bước chạy Protocol v4.0 (payload `detail/v4-redteam-prompt.md`) như iteration
-> bounded sau v2.0 GĐ0-6. `--check`/`--no-apply` → `AUDIT_ONLY` (chỉ PHASE 0-8). `--no-red-team` →
-> bỏ v2.0 + v4.0. Nếu thiếu Runtime Manifest (scope/environment/approver...) → `BLOCKED`, chỉ
-> static analysis, không active red-team.
+> **V5 RED-TEAM** = bước chạy Protocol v5.0 (payload `detail/v5-redteam-prompt.md`) như iteration
+> bounded sau v2.0 GĐ0-6; v5.0 thay thế v4.0. `--check`/`--no-apply` → `AUDIT_ONLY` (chỉ PHASE 1-16).
+> `--no-red-team` → bỏ v2.0 + v5.0. Nếu thiếu Runtime Manifest (scope/environment/approver...) →
+> `BLOCKED`, chỉ static analysis, không active red-team.
 
 TASK: <task sẽ được inject khi gọi skill>
