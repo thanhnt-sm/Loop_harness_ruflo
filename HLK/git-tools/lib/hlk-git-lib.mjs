@@ -188,6 +188,9 @@ export function auditTrackedArtifacts(cwd = process.cwd()) {
   for (const f of r.stdout.split('\n').filter(Boolean)) {
     const lower = f.toLowerCase();
 
+    // Bỏ qua template/example (nhất quán với listTrackedSensitiveFiles)
+    if (lower.endsWith('.example') || lower.endsWith('.example.env')) continue;
+
     // Sensitive filename trong tracked tree
     const sensitiveName =
       lower.includes('secrets.env') ||
@@ -240,6 +243,8 @@ export function listStagedSensitiveFiles(cwd = process.cwd()) {
   const files = r.stdout.split('\n').filter(Boolean);
   return files.filter((f) => {
     const lower = f.toLowerCase();
+    // Bỏ qua template/example (file mẫu luôn được phép)
+    if (lower.endsWith('.example') || lower.endsWith('.example.env')) return false;
     return (
       lower.includes('secrets.env') ||
       lower.includes('.env') ||
