@@ -1,21 +1,30 @@
-MIT License
+Copyright (c) 2026 thanhnt-sm. All rights reserved.
 
-Copyright (c) 2024-2026 ruvnet
+This repository and all files contained within are proprietary and protected by copyright law.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+No part of the source code, files, or documentation in this repository may be copied, reproduced,
+modified, published, distributed, transmitted, uploaded, posted, displayed, performed, or
+otherwise used in whole or in part for any purpose — commercial or non-commercial — without
+the prior express written permission of the copyright owner.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+Specifically, you are NOT permitted to:
+- Use the source code for any commercial purposes, including selling, sublicensing, offering
+  as a service, or integrating into a product provided for a fee.
+- Create derivative works, modify, translate, adapt, or otherwise transform the source code.
+- Distribute, transmit, sell, rent, lease, sublicense, or make available the source code or
+  derivative works to any third party.
+- Reverse-engineer, decompile, disassemble, or attempt to discover the source code by any means.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+Any unauthorized use, reproduction, distribution, or exploitation of this repository is a breach
+of copyright and will be pursued to the fullest extent permitted by law, including injunctive
+relief and damages.
+
+If you wish to request a license or permission to use this code (including for commercial use),
+contact: <your-email@example.com>
+
+---
+Note to repository owner (thanhnt-sm):
+- The most restrictive practical protections are: (1) keep the repository private, (2) keep this
+  "All Rights Reserved" notice, and (3) enforce via contracts or takedown requests when
+  violations occur. GitHub does not provide a special "highest protection" license — using
+  "All Rights Reserved" or no license plus a private repository is the most restrictive option.
