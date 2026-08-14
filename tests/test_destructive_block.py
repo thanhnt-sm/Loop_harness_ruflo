@@ -55,7 +55,8 @@ def importlib_reload(mod):
 
 
 def _make_session_state(tmp_path: Path, session_id: str, goal: str, complexity: str = "M"):
-    state_dir = tmp_path / ".devin" / "session_state"
+    # Config root khi chạy từ source repo = root/.agents (xem get_config_root)
+    state_dir = tmp_path / ".agents" / "session_state"
     state_dir.mkdir(parents=True, exist_ok=True)
     (state_dir / f"{session_id}.json").write_text(json.dumps({
         "session_id": session_id,
@@ -96,7 +97,8 @@ def plan_enforce_state_name(plan_path: str) -> str:
 def test_plan_enforce_s_tier_allows(capsys, monkeypatch, tmp_path):
     _make_session_state(tmp_path, "s1", "fix typo", complexity="S")
     code, out, err = _run_plan_enforce(
-        {"tool_name": "write", "tool_input": {"file_path": "src/app.py", "content": "x"}},
+        {"tool_name": "write", "session_id": "s1",
+         "tool_input": {"file_path": "src/app.py", "content": "x"}},
         capsys, monkeypatch, tmp_path,
     )
     assert code == 0
@@ -107,7 +109,8 @@ def test_plan_enforce_s_tier_allows(capsys, monkeypatch, tmp_path):
 def test_plan_enforce_m_tier_blocks_without_plan(capsys, monkeypatch, tmp_path):
     _make_session_state(tmp_path, "s2", "add feature with logic", complexity="M")
     code, out, err = _run_plan_enforce(
-        {"tool_name": "write", "tool_input": {"file_path": "src/app.py", "content": "x"}},
+        {"tool_name": "write", "session_id": "s2",
+         "tool_input": {"file_path": "src/app.py", "content": "x"}},
         capsys, monkeypatch, tmp_path,
     )
     assert code == 1
@@ -119,7 +122,8 @@ def test_plan_enforce_m_tier_blocks_without_plan(capsys, monkeypatch, tmp_path):
 def test_plan_enforce_allows_plan_file(capsys, monkeypatch, tmp_path):
     _make_session_state(tmp_path, "s3", "add feature with logic", complexity="M")
     code, out, err = _run_plan_enforce(
-        {"tool_name": "write", "tool_input": {"file_path": "docs/plans/my/PLAN.md", "content": "x"}},
+        {"tool_name": "write", "session_id": "s3",
+         "tool_input": {"file_path": "docs/plans/my/PLAN.md", "content": "x"}},
         capsys, monkeypatch, tmp_path,
     )
     assert code == 0
@@ -130,7 +134,8 @@ def test_plan_enforce_allows_plan_file(capsys, monkeypatch, tmp_path):
 def test_plan_enforce_allows_template_file(capsys, monkeypatch, tmp_path):
     _make_session_state(tmp_path, "s4", "add feature with logic", complexity="M")
     code, out, err = _run_plan_enforce(
-        {"tool_name": "write", "tool_input": {"file_path": "docs/templates/PLAN.md", "content": "x"}},
+        {"tool_name": "write", "session_id": "s4",
+         "tool_input": {"file_path": "docs/templates/PLAN.md", "content": "x"}},
         capsys, monkeypatch, tmp_path,
     )
     assert code == 0
@@ -143,7 +148,8 @@ def test_plan_enforce_allows_with_approved_plan(capsys, monkeypatch, tmp_path):
     plan_path = "docs/plans/add-feature-with-logic/IMPLEMENTATION_PLAN.md"
     _make_approved_plan(tmp_path, task_slug, plan_path)
     code, out, err = _run_plan_enforce(
-        {"tool_name": "write", "tool_input": {"file_path": "src/app.py", "content": "x"}},
+        {"tool_name": "write", "session_id": "s5",
+         "tool_input": {"file_path": "src/app.py", "content": "x"}},
         capsys, monkeypatch, tmp_path,
     )
     assert code == 0

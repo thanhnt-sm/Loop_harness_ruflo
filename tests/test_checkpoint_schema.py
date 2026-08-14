@@ -48,13 +48,13 @@ def test_save_round_trip(tmp_path):
 
 
 def test_sanitize_step_id(tmp_path):
-    from checkpoint import save, load
-    # Sử dụng dict với step_id chứa path traversal để kiểm tra sanitize
-    state = _make_state("temp").model_dump(by_alias=True, mode="json")
-    state["step_id"] = "../etc/passwd"
-    path = save(state, root=tmp_path)
-    loaded = load(path)
-    assert loaded.step_id == "etc_passwd"
+    import pytest
+    from checkpoint import save, _sanitize_step_id
+    # CVE-2026-AHD-004: step_id chứa '..' bị TỪ CHỐI (reject), không sanitize
+    with pytest.raises(ValueError):
+        _sanitize_step_id("../etc/passwd")
+    # ID hợp lệ (không '..') sanitize bình thường
+    assert _sanitize_step_id("step-01") == "step-01"
 
 
 def test_migrate_old_version(tmp_path):

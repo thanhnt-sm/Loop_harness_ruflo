@@ -135,19 +135,37 @@ def test_get_session_state_no_dir(tmp_path):
     assert plan_enforce._get_session_state(tmp_path) == {}
 
 
-def test_get_session_state_reads_latest(tmp_path):
+def test_get_session_state_ignores_unmatched_session_files(tmp_path):
+    """CVE-2026-AHD-001: KHÔNG còn fallback "newest file".
+
+    State chỉ được đọc từ file đúng session (session_id trong state khớp).
+    File không khớp (kể cả mới nhất) KHÔNG được dùng — tránh session
+    confusion giữa các agent/conversation.
+    """
     state_dir = tmp_path / ".devin" / "session_state"
     state_dir.mkdir(parents=True, exist_ok=True)
     import time
     (state_dir / "old.json").write_text(
-        json.dumps({"goal": "old"}), encoding="utf-8",
+        json.dumps({"session_id": "session-A", "goal": "old"}), encoding="utf-8",
     )
     time.sleep(0.05)
     (state_dir / "new.json").write_text(
-        json.dumps({"goal": "new"}), encoding="utf-8",
+        json.dumps({"session_id": "session-B", "goal": "new"}), encoding="utf-8",
     )
-    state = plan_enforce._get_session_state(tmp_path)
-    assert state["goal"] == "new"
+    # Không có session_id rõ ràng → strict binding: chỉ đọc file khớp
+    # session_id (none) → state rỗng, KHÔNG lấy file mới nhất
+    assert plan_enforce._get_session_state(tmp_path) == {}
+
+
+def test_get_session_state_returns_matching_session(tmp_path):
+    """CVE-2026-AHD-001: state đúng session được đọc bình thường."""
+    state_dir = tmp_path / ".agents" / "session_state"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    (state_dir / "session-A.json").write_text(
+        json.dumps({"session_id": "session-A", "goal": "mine"}), encoding="utf-8",
+    )
+    state = plan_enforce._get_session_state(tmp_path, session_id="session-A")
+    assert state["goal"] == "mine"
 
 
 if __name__ == "__main__":

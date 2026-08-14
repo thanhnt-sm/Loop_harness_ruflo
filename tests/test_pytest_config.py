@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Kiểm tra pytest/coverage config theo T1.2."""
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -33,7 +34,7 @@ def test_pyproject_toml_has_coverage_config():
 
 def test_pytest_collect_only_passes():
     result = subprocess.run(
-        ["python", "-m", "pytest", "--collect-only", "-q"],
+        [sys.executable, "-m", "pytest", "--collect-only", "-q"],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
