@@ -599,14 +599,14 @@ Nuwa cognitive verification is expensive (tokens + time). Without ROI measuremen
 ### Usage
 ```bash
 # Record a Nuwa run
-python .devin/scripts/nuwa_roi.py --session <sid> --record-nuwa --bugs 3 --tokens 5000
+.venv/bin/python .devin/scripts/nuwa_roi.py --session <sid> --record-nuwa --bugs 3 --tokens 5000
 
 # Record a standard run
-python .devin/scripts/nuwa_roi.py --session <sid> --record-standard --bugs 1 --tokens 1500
+.venv/bin/python .devin/scripts/nuwa_roi.py --session <sid> --record-standard --bugs 1 --tokens 1500
 
 # Get ROI report
-python .devin/scripts/nuwa_roi.py --session <sid> --report
+.venv/bin/python .devin/scripts/nuwa_roi.py --session <sid> --report
 
 # Reset metrics (when switching projects)
-python .devin/scripts/nuwa_roi.py --session <sid> --reset
+.venv/bin/python .devin/scripts/nuwa_roi.py --session <sid> --reset
 ```

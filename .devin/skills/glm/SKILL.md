@@ -66,23 +66,23 @@ Chạy trước khi frame:
 
 ```bash
 # 1. Rotate log
-python .devin/scripts/log_rotation.py --rotate
+.venv/bin/python .devin/scripts/log_rotation.py --rotate
 
 # 2. Verify hooks
-python .devin/scripts/hook_integrity.py --verify
+.venv/bin/python .devin/scripts/hook_integrity.py --verify
 
 # 3. Khởi tạo session
-python .devin/scripts/session_manager.py init <session_id> --goal "<task>" --complexity M
+.venv/bin/python .devin/scripts/session_manager.py init <session_id> --goal "<task>" --complexity M
 
 # 4. Pre-task audit
-python .devin/scripts/pre_task_audit.py --tags "<task_slug>" --session <session_id> --json
+.venv/bin/python .devin/scripts/pre_task_audit.py --tags "<task_slug>" --session <session_id> --json
 
 # 5. Cost cap
-python .devin/scripts/cost_tracker.py --session <session_id> --set-cap 5.0
+.venv/bin/python .devin/scripts/cost_tracker.py --session <session_id> --set-cap 5.0
 ```
 
 - Nếu `pre_task_audit` trả `ok: false` → stop, hỏi user.
-- Sau **mỗi step** sau này, chạy `python .devin/scripts/cost_tracker.py --session <session_id> --check`.
+- Sau **mỗi step** sau này, chạy `.venv/bin/python .devin/scripts/cost_tracker.py --session <session_id> --check`.
 
 ## 1. Frame the task
 
@@ -192,10 +192,10 @@ Do not expose internal orchestration chatter or repeat the executor's full repor
 Trước khi kết thúc:
 
 ```bash
-python .devin/scripts/cost_tracker.py --session <session_id> --check
-python .devin/scripts/session_manager.py status <session_id> completed
-python .devin/scripts/memory_audit.py
-python .devin/scripts/loop_memory_sync.py
+.venv/bin/python .devin/scripts/cost_tracker.py --session <session_id> --check
+.venv/bin/python .devin/scripts/session_manager.py status <session_id> completed
+.venv/bin/python .devin/scripts/memory_audit.py
+.venv/bin/python .devin/scripts/loop_memory_sync.py
 ```
 
 # Scope and quality guardrails

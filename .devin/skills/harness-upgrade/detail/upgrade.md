@@ -6,6 +6,14 @@
 - ✅ `src/`, `.devin/skills/`, `.devin/agents/`, `.devin/canon/`, `AGENTS.md`, `.devin/scripts/`
 - ❌ `HLK/`, security policies, `.env` — KHÔNG đụng (trừ khi task chính là HLK nâng cấp được chỉ định rõ).
 
+## Quy trình nâng cấp HLK (khi được chỉ định rõ là task chính)
+Chỉ sửa `HLK/` khi user gõ rõ (vd `/harness-upgrade áp dụng cho hlk`). Trình tự:
+1. **Snapshot trước**: chạy `node HLK/wrappers/hlk-verify-integrity.js` — ghi baseline PASS/FAIL.
+2. **Smallest diff**: 1 thay đổi, 1 lần; mỗi file node `--check` sau khi sửa.
+3. **Verify hành vi**: chạy lại `hlk-verify-integrity.js` (gồm sanitizer smoke test + merge.ours.driver + core.hooksPath) → phải PASS.
+4. **Không** force-push, không ghi đè `.env`, không bỏ qua `HLK/config/secrets.*` guard.
+5. Tham chiếu `.devin/skills/hlk-integrity-check/` để phát hiện upstream ghi đè HLK.
+
 ## Token-efficiency templates (U-H1..U-H12)
 **U-H1 — Nén canon bằng Caveman** (khi canon dài + cấu trúc rõ): rút prose → bullet action; cắt redundancy;
 giữ mọi RED LINE + semantic. Verify: đọc lại canon cũ→mới, không mất instruction.

@@ -289,15 +289,15 @@ Tất cả trong `.devin/scripts/`.
 
 | Script | Mục đích | Cách gọi |
 |--------|----------|----------|
-| plan_dispatch.py | Dependency graph + file ownership + conflict detection before dispatch | `python .devin/scripts/plan_dispatch.py --analyze --subtasks subtasks.json` hoặc `python .devin/scripts/plan_dispatch.py --analyze --plan docs/plans/<task>/IMPLEMENTATION_PLAN.md` |
-| worktree.py | Git worktree management | `python .devin/scripts/worktree.py` |
-| session_manager.py | Session state management | `python .devin/scripts/session_manager.py init <sid> --goal "<task>" --complexity <S|M|L|XL>`, `heartbeat`, `status`, `sync` |
-| loop_memory_sync.py | Sync loop state cross-session | `python .devin/scripts/loop_memory_sync.py` |
-| memory_audit.py | Audit memory quality | `python .devin/scripts/memory_audit.py` |
-| pre_task_audit.py | Pre-task conflict audit (active sessions) | `python .devin/scripts/pre_task_audit.py --tags "<tags>" --session <sid>` |
-| hook_integrity.py | Verify hook integrity | `python .devin/scripts/hook_integrity.py --verify` |
-| log_rotation.py | Rotate logs | `python .devin/scripts/log_rotation.py --rotate` |
-| cost_tracker.py | Cost cap tracker | `python .devin/scripts/cost_tracker.py --session <sid> --check` hoặc `--set-cap <USD>` |
+| plan_dispatch.py | Dependency graph + file ownership + conflict detection before dispatch | `.venv/bin/python .devin/scripts/plan_dispatch.py --analyze --subtasks subtasks.json` hoặc `.venv/bin/python .devin/scripts/plan_dispatch.py --analyze --plan docs/plans/<task>/IMPLEMENTATION_PLAN.md` |
+| worktree.py | Git worktree management | `.venv/bin/python .devin/scripts/worktree.py` |
+| session_manager.py | Session state management | `.venv/bin/python .devin/scripts/session_manager.py init <sid> --goal "<task>" --complexity <S|M|L|XL>`, `heartbeat`, `status`, `sync` |
+| loop_memory_sync.py | Sync loop state cross-session | `.venv/bin/python .devin/scripts/loop_memory_sync.py` |
+| memory_audit.py | Audit memory quality | `.venv/bin/python .devin/scripts/memory_audit.py` |
+| pre_task_audit.py | Pre-task conflict audit (active sessions) | `.venv/bin/python .devin/scripts/pre_task_audit.py --tags "<tags>" --session <sid>` |
+| hook_integrity.py | Verify hook integrity | `.venv/bin/python .devin/scripts/hook_integrity.py --verify` |
+| log_rotation.py | Rotate logs | `.venv/bin/python .devin/scripts/log_rotation.py --rotate` |
+| cost_tracker.py | Cost cap tracker | `.venv/bin/python .devin/scripts/cost_tracker.py --session <sid> --check` hoặc `--set-cap <USD>` |
 
 ---
 

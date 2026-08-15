@@ -17,7 +17,7 @@ description: "Plan Phase — Tự động orchestrate qua plan_orchestrator.py. 
 1. **NGAY LẬP TỨC** chạy lệnh sau (thay `<task>` bằng task description thực tế):
 
 ```bash
-python .devin/scripts/plan_orchestrator.py --init --task "<task>"
+.venv/bin/python .devin/scripts/plan_orchestrator.py --init --task "<task>"
 ```
 
 2. Đọc `next_action` từ JSON output. Thực hiện action đó:
@@ -36,7 +36,7 @@ python .devin/scripts/plan_orchestrator.py --init --task "<task>"
 3. Sau mỗi action, viết results vào temp JSON file, rồi gọi:
 
 ```bash
-python .devin/scripts/plan_orchestrator.py --step --state <state_file> --results <results_file>
+.venv/bin/python .devin/scripts/plan_orchestrator.py --step --state <state_file> --results <results_file>
 ```
 
 4. Lặp lại bước 2-3 cho đến khi `state` = `DONE` hoặc `REJECTED` hoặc `ESCALATE`.
@@ -53,16 +53,16 @@ Chạy tuần tự:
 
 ```bash
 # 1. Rotate log nếu quá lớn
-python .devin/scripts/log_rotation.py --rotate
+.venv/bin/python .devin/scripts/log_rotation.py --rotate
 
 # 2. Verify hooks chưa bị tamper
-python .devin/scripts/hook_integrity.py --verify
+.venv/bin/python .devin/scripts/hook_integrity.py --verify
 
 # 3. Khởi tạo session
-python .devin/scripts/session_manager.py init <session_id> --goal "<task>" --complexity <S|M|L|XL>
+.venv/bin/python .devin/scripts/session_manager.py init <session_id> --goal "<task>" --complexity <S|M|L|XL>
 
 # 4. Pre-task audit — kiểm tra active sessions
-python .devin/scripts/pre_task_audit.py --tags "<task_slug>" --session <session_id> --json
+.venv/bin/python .devin/scripts/pre_task_audit.py --tags "<task_slug>" --session <session_id> --json
 ```
 
 - Nếu `pre_task_audit` trả `ok: false` → stop, đọc conflicts, hỏi user.
@@ -77,7 +77,7 @@ Sau đó tiếp tục `plan_orchestrator.py --init`.
 Sau **mỗi lần gọi `--step`**, chạy:
 
 ```bash
-python .devin/scripts/cost_tracker.py --session <session_id> --check
+.venv/bin/python .devin/scripts/cost_tracker.py --session <session_id> --check
 ```
 
 Nếu exit code 1 (cost cap exceeded) → stop và báo user.
@@ -125,7 +125,7 @@ Each state transition produces a **next_action** that tells the agent exactly wh
 ## Step 1 — INIT: Khởi tạo orchestrator
 
 ```bash
-python .devin/scripts/plan_orchestrator.py --init --task "<task description>"
+.venv/bin/python .devin/scripts/plan_orchestrator.py --init --task "<task description>"
 ```
 
 The orchestrator:
@@ -156,7 +156,7 @@ Feed brainstorm results into ARCHITECT input for multi-perspective design.
 
 Write results JSON and call `--step`:
 ```bash
-python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
+.venv/bin/python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
 ```
 
 The orchestrator transitions to ANALYZE.
@@ -178,7 +178,7 @@ Collect all 5 results with `read_subagent`. Then write results to a temp JSON fi
 ```bash
 # Write results JSON
 # Format: {"action": "wait_scouts", "scout_results": [...]}
-python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
+.venv/bin/python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
 ```
 
 The orchestrator transitions to DESIGN and returns `action: dispatch_architect`.
@@ -197,7 +197,7 @@ After architect completes, write results JSON and call `--step`:
 
 ```bash
 # Format: {"action": "dispatch_architect", "sdd_path": "docs/plans/<task_slug>/SOLUTION_DESIGN.md"}
-python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
+.venv/bin/python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
 ```
 
 The orchestrator transitions to REVIEW.
@@ -223,7 +223,7 @@ Write results JSON and call `--step`:
 
 ```bash
 # Format: {"action": "dispatch_reviewers", "findings": [{"severity": "BLOCKING", ...}, ...]}
-python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
+.venv/bin/python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
 ```
 
 **If BLOCKING issues + revision rounds < 3** → orchestrator transitions to REVISION → dispatch architect with issues to fix → re-review.
@@ -237,7 +237,7 @@ The orchestrator returns `action: present_sdd_approval` with the SDD path.
 Run the interactive approval gate for the Solution Design:
 
 ```bash
-python .devin/scripts/approval_gate.py docs/plans/<task_slug>/SOLUTION_DESIGN.md --interactive --artifact sd
+.venv/bin/python .devin/scripts/approval_gate.py docs/plans/<task_slug>/SOLUTION_DESIGN.md --interactive --artifact sd
 ```
 
 The gate presents:
@@ -249,7 +249,7 @@ Wait for user decision, then write results JSON and call `--step`:
 
 ```bash
 # Format: {"action": "present_sdd_approval", "decision": "approved"/"rejected"/"changes_requested", "reason": "...", "modifications": "..."}
-python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
+.venv/bin/python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
 ```
 
 **If approved** → orchestrator transitions to PLAN (Step 6).
@@ -271,7 +271,7 @@ Write results JSON and call `--step`:
 
 ```bash
 # Format: {"action": "decompose_plan", "plan_path": "docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md"}
-python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
+.venv/bin/python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
 ```
 
 The orchestrator transitions to QC.
@@ -288,7 +288,7 @@ Dispatch 1 gap-scan subagent (background, profile: subagent_explore) to scan the
 
 Write results JSON and call `--step`:
 ```bash
-python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
+.venv/bin/python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
 ```
 
 The orchestrator transitions to QC.
@@ -298,7 +298,7 @@ The orchestrator transitions to QC.
 The orchestrator returns `action: run_qc` with the command to run.
 
 ```bash
-python .devin/scripts/plan_quality_check.py docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md
+.venv/bin/python .devin/scripts/plan_quality_check.py docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md
 ```
 
 The script evaluates the plan across 10 dimensions (D1–D10):
@@ -320,7 +320,7 @@ Write results JSON and call `--step`:
 
 ```bash
 # Format: {"action": "run_qc", "qc_result": {"all_pass": true/false, "report_path": "..."}}
-python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
+.venv/bin/python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
 ```
 
 **If all PASS** → orchestrator transitions to PLAN_APPROVAL.
@@ -344,7 +344,7 @@ If clean → proceed to PLAN_APPROVAL.
 
 Write results JSON and call `--step`:
 ```bash
-python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
+.venv/bin/python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
 ```
 
 The orchestrator transitions to PLAN_APPROVAL (if clean) or back to PLAN (if issues).
@@ -356,7 +356,7 @@ The orchestrator returns `action: present_plan_approval` with the plan and quali
 Run the interactive approval gate for the Implementation Plan:
 
 ```bash
-python .devin/scripts/approval_gate.py docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md --interactive --quality-report docs/plans/<task_slug>/QUALITY_REPORT.md --artifact plan
+.venv/bin/python .devin/scripts/approval_gate.py docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md --interactive --quality-report docs/plans/<task_slug>/QUALITY_REPORT.md --artifact plan
 ```
 
 The gate presents:
@@ -368,7 +368,7 @@ Wait for user decision, then write results JSON and call `--step`:
 
 ```bash
 # Format: {"action": "present_plan_approval", "decision": "approved"/"rejected"/"changes_requested", "reason": "...", "modifications": "...", "target": "plan"/"sdd"}
-python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
+.venv/bin/python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
 ```
 
 **If approved** → orchestrator transitions to WRITE_STATE.
@@ -382,7 +382,7 @@ python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results
 The orchestrator returns `action: write_plan_state` with the command to run.
 
 ```bash
-python .devin/scripts/approval_gate.py docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md --approve --artifact plan
+.venv/bin/python .devin/scripts/approval_gate.py docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md --approve --artifact plan
 ```
 
 This writes the plan state file that activates `plan_enforce.py` hook — allowing execution to proceed.
@@ -391,7 +391,7 @@ Write results JSON and call `--step`:
 
 ```bash
 # Format: {"action": "write_plan_state"}
-python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
+.venv/bin/python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
 ```
 
 The orchestrator transitions to DONE. Plan phase complete.
@@ -445,13 +445,13 @@ Khi orchestrator đạt `DONE` hoặc `REJECTED`:
 
 ```bash
 # 1. Final cost check
-python .devin/scripts/cost_tracker.py --session <session_id> --check
+.venv/bin/python .devin/scripts/cost_tracker.py --session <session_id> --check
 
 # 2. Cập nhật session status
-python .devin/scripts/session_manager.py status <session_id> completed
+.venv/bin/python .devin/scripts/session_manager.py status <session_id> completed
 # hoặc `crashed` nếu plan bị reject / escalate
 
 # 3. Merge memory
-python .devin/scripts/memory_audit.py
-python .devin/scripts/loop_memory_sync.py
+.venv/bin/python .devin/scripts/memory_audit.py
+.venv/bin/python .devin/scripts/loop_memory_sync.py
 ```

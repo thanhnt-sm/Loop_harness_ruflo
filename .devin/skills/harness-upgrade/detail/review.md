@@ -10,7 +10,7 @@ ls .devin/skills/ ; ls .devin/canon/ ; ls .devin/scripts/ ; ls .devin/hooks/ ; l
 
 ## 2. Đo token footprint (bắt buộc)
 ```bash
-python .devin/scripts/context_projection.py --report 2>/dev/null || echo "no context_projection"
+.venv/bin/python .devin/scripts/context_projection.py --report 2>/dev/null || echo "no context_projection"
 wc -c AGENTS.md .devin/canon/CORE_CANON.md .devin/canon/REDLINES.md 2>/dev/null
 ```
 Ghi baseline: `always_on_tokens`, `boot_payload_kb`, `per_task_tokens` nếu đo được.
@@ -34,7 +34,7 @@ grep -rniE "importantly|essentially|it is worth noting|in order to|please note|a
 ## 5. Context-rot & signal-to-noise scan (bắt buộc)
 ```bash
 grep -rniE "git workflow|subagent|orchestration|deployment" .devin/canon/CORE_CANON.md 2>/dev/null
-python -c "import json;d=json.load(open('.devin/tool_registry.json'));print('tools:',len(d.get('tools',d)) if isinstance(d,(dict,list)) else 'n/a')" 2>/dev/null || echo "no tool_registry"
+.venv/bin/python -c "import json;d=json.load(open('.devin/tool_registry.json'));print('tools:',len(d.get('tools',d)) if isinstance(d,(dict,list)) else 'n/a')" 2>/dev/null || echo "no tool_registry"
 grep -rniE "no destructive|no secrets|verify" AGENTS.md CLAUDE.md .devin/AGENTS.md 2>/dev/null | wc -l
 ```
 > **stale info trong repo không phân biệt được với latest truth** (OpenAI harness engineering).

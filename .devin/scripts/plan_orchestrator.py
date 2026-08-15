@@ -1,16 +1,14 @@
 #!/usr/bin/env python3
-"""plan_orchestrator.py — FSM orchestrator cho Plan Phase.
+"""plan_orchestrator.py — Graph-based Plan Phase orchestrator v2.
 
-Điểm vào mỏng: logic chính đã được module hóa vào package `plan_fsm`.
-
-Usage:
-  python plan_orchestrator.py --init --task "<task>"
-  python plan_orchestrator.py --step --state <state.json> --results <results.json>
-  python plan_orchestrator.py --status --state <state.json>
+Replaces the FSM-based orchestrator with a StateGraph-based orchestrator.
 """
 import sys
+import os
 
-from plan_fsm.cli import main
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from plan_fsm.state_machine_v2 import PlanOrchestratorV2, main as cli_main
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    sys.exit(cli_main(sys.argv[1:]))

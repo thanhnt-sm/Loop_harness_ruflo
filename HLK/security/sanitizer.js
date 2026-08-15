@@ -81,6 +81,12 @@ const CRITICAL_SUBSTRINGS = [
   '://',            // DB/URL connection string (creds)
   'Bearer',         // OAuth bearer tokens
   'eyJ',            // JWT
+  'github_pat_',    // GitHub fine-grained PAT
+  'npm_',           // npm publish token
+  'SG.',            // SendGrid API key
+  'AIzaSy',         // Google/Firebase long API key
+  'xox',            // Slack token
+  '(sk|pk|rk)_',    // Stripe live/test keys
 ];
 
 function isCriticalPattern(pattern) {

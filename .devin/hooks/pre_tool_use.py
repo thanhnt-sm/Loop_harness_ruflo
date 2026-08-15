@@ -715,8 +715,8 @@ def _check_cost_cap_gate(data: dict) -> None:
     - Đạt/vượt 100%: block (exit 2), set flag cost_cap_exceeded.
 
     CVE-2026-AHD-013: cumulative cost đọc từ append-only LEDGER
-    (cost_ledger.py, HMAC-signed) — không tin session state (dễ bị sửa).
-    Nếu ledger không cấu hình key -> fallback session state (legacy).
+    (cost_ledger.py, HMAC-signed) — KHÔNG fallback session state.
+    Ledger bắt buộc phải có HMAC key cấu hình.
     """
     try:
         session_id = ahd_session.get_session_id(data)
@@ -724,16 +724,28 @@ def _check_cost_cap_gate(data: dict) -> None:
             return
 
         root = ahd_session.get_repo_root()
-        state = ahd_session.read_session_state(session_id, root)
 
-        # CVE-2026-AHD-013: ưu tiên ledger đã verify (HMAC)
+        # CVE-2026-AHD-013: BẮT BUỘC ledger đã verify (HMAC)
         try:
             from cost_ledger import cumulative_from_ledger
             ledger_cum = cumulative_from_ledger(root, session_id)
-            if ledger_cum is not None:
-                state["cumulative_cost"] = ledger_cum
-        except (ImportError, ModuleNotFoundError, ValueError, TypeError):
-            pass
+            if ledger_cum is None:
+                # Không có key hoặc ledger không verify được -> FAIL CLOSED
+                print(
+                    "[U17 COST CAP] BLOCKED: Cost ledger unavailable or HMAC key not configured. "
+                    "Cannot verify cumulative cost (CVE-2026-AHD-013 fail-closed).",
+                    file=sys.stderr,
+                )
+                sys.exit(2)
+        except (ImportError, ModuleNotFoundError) as e:
+            print(
+                f"[U17 COST CAP] BLOCKED: cost_ledger module unavailable: {e}",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+
+        state = ahd_session.read_session_state(session_id, root)
+        state["cumulative_cost"] = ledger_cum
 
         status = check_cost_cap(state)
         if status == 0:

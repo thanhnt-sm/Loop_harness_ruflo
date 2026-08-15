@@ -192,19 +192,38 @@ def _shannon_entropy(token: str) -> float:
 def _load_hlk_secret_patterns() -> list[str]:
     """Load patterns từ HLK config (source of truth) — union với defaults.
 
-    HLK config lỗi/thiếu → chỉ dùng defaults (KHÔNG silent fail: ghi cảnh báo).
+    HLK config lỗi/thiếu → FAIL CLOSED nếu security_rules.failClosedOnConfigError=true.
+    Nếu false → dùng defaults + warning (legacy behavior).
     """
     patterns = list(DEFAULT_SECRET_PATTERNS)
+    fail_closed = False
+    config_patterns_loaded = 0
     try:
         root = Path(__file__).resolve().parent.parent.parent  # repo root
         hlk_cfg = root / "HLK" / "config" / "hlk.config.json"
         if hlk_cfg.exists():
             cfg = json.loads(hlk_cfg.read_text(encoding="utf-8"))
-            for p in cfg.get("security_rules", {}).get("redact_patterns", []) or []:
+            security_rules = cfg.get("security_rules", {})
+            fail_closed = bool(security_rules.get("failClosedOnConfigError", False))
+            config_patterns = security_rules.get("redact_patterns", []) or []
+            for p in config_patterns:
                 if isinstance(p, str) and p not in patterns:
                     patterns.append(p)
-    except (json.JSONDecodeError, OSError, UnicodeDecodeError) as e:
+                    config_patterns_loaded += 1
+        else:
+            raise FileNotFoundError("HLK config not found")
+    except (json.JSONDecodeError, OSError, UnicodeDecodeError, FileNotFoundError) as e:
+        if fail_closed:
+            raise RuntimeError(
+                f"[schema_gate] FAIL-CLOSED: HLK config load failed, cannot proceed without patterns: {e}"
+            ) from e
         print(f"[schema_gate] WARN: HLK config load failed, using defaults only: {e}", file=sys.stderr)
+    
+    # Fail-closed: if configured to fail closed but no config patterns loaded (only defaults)
+    if fail_closed and config_patterns_loaded == 0:
+        raise RuntimeError(
+            "[schema_gate] FAIL-CLOSED: HLK config has failClosedOnConfigError=true but no redact_patterns loaded"
+        )
     return patterns
 
 

@@ -109,13 +109,21 @@ if (!config.hlk_enabled) {
 // ---------------------------------------------------------------------------
 
 let sanitizer = null;
+let sanitizerFailed = false;
 
 if (config.features?.data_sanitization) {
   try {
     const sanitizerModule = await import('../security/sanitizer.js');
-    sanitizer = sanitizerModule.sanitize || ((text) => text);
+    if (typeof sanitizerModule.sanitize === 'function') {
+      sanitizer = sanitizerModule.sanitize;
+    } else {
+      throw new Error('module sanitize không phải function');
+    }
   } catch (err) {
-    log(`Không nạp được sanitizer: ${err.message}`);
+    // CVE-2026-AHD-018: fail CLOSED — data_sanitization bật nhưng sanitizer không
+    // load được → KHÔNG được fallback passthrough (secret sẽ đi qua model).
+    sanitizerFailed = true;
+    log(`⚠️ data_sanitization bật nhưng sanitizer không nạp được: ${err.message}`);
   }
 }
 
@@ -178,10 +186,19 @@ let input;
 try {
   input = rawInput ? JSON.parse(rawInput) : {};
 } catch (err) {
-  log(`Input không phải JSON hợp lệ: ${err.message}`);
-  // Fail-open: nếu input lạ, không chặn, chỉ trả input gốc
-  console.log(rawInput || '{}');
-  process.exit(0);
+  // CVE-2026-AHD-015: fail CLOSED — input JSON lạ/hỏng KHÔNG được pass-through.
+  // Pass-through có thể để secret (dạng không khớp redact regex) đi vào model.
+  log(`Input không phải JSON hợp lệ — từ chối (fail-closed): ${err.message}`);
+  // exit 2 = block mọi tác vụ. JSON dùng schema chuẩn hookSpecificOutput cho
+  // môi trường đọc JSON (opencode / Claude Code) — decision deny nhất quán.
+  console.log(JSON.stringify({
+    hookSpecificOutput: {
+      hookEventName: 'PreToolUse',
+      permissionDecision: 'deny',
+      permissionDecisionReason: 'invalid_json_input',
+    },
+  }));
+  process.exit(2);
 }
 
 // ---------------------------------------------------------------------------
@@ -214,6 +231,13 @@ if (agentToolHooks.length > 0) {
  * có thể tạo ra hành vi không mong muốn.
  */
 const BLOCK_TOOLS = ['Bash', 'ApplyPatch'];
+
+// CVE-2026-AHD-018: nếu data_sanitization yêu cầu mà sanitizer không nạp được,
+// KHÔNG thể tin redaction — block mọi tool chạy lệnh để tránh secret lọt qua.
+if (sanitizerFailed) {
+  log('🚫 data_sanitization bật nhưng sanitizer lỗi — fail-closed: chặn tool để tránh rò rỉ secret');
+  process.exit(2);
+}
 
 if (sanitizer && BLOCK_TOOLS.includes(toolName)) {
   const allStrings = findAllStrings(toolInput);

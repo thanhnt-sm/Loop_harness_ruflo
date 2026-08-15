@@ -23,7 +23,7 @@ LLMs are stateless between runs. Every new session starts cold. If rules, lesson
 - **Every iteration ends by writing the per-session files.** Non-negotiable. Skipping = red line.
   - Update `.devin/loop_state/<session_id>.md` with the GoalSpec, subtasks, last action, and notes.
   - Update `.devin/session_state/<session_id>.json` with `current_subtask`, `last_action`, `last_state_write`, `state_written: true`, `context_fill_pct`, `caveman_level`, and `context_flags`.
-  - Then call `python .devin/scripts/loop_memory_sync.py` to regenerate `.devin/loop_state.md` registry.
+  - Then call `.venv/bin/python .devin/scripts/loop_memory_sync.py` to regenerate `.devin/loop_state.md` registry.
 - **Knowledge layer grows by distillation only.** Don't dump raw logs. Extract 1-3 takeaways,
   each with: trigger situation + correct action + counter-example.
 - **Cold layer is append-only.** Never edit; archive rotates hot→cold when hot exceeds cap.
@@ -80,7 +80,7 @@ A knowledge candidate is **moat-worthy** (worth distilling into `knowledge_disti
 When a task reaches high completion, the Commander dispatches the **Memory Keeper** worker
 (`.devin/agents/workers/MEMORY_KEEPER.md`) to:
 
-1. Call `python .devin/scripts/memory_audit.py --session <session_id>` to merge candidate memory.
+1. Call `.venv/bin/python .devin/scripts/memory_audit.py --session <session_id>` to merge candidate memory.
 2. Extract 1-3 reusable takeaways and write them to cold memory.
 3. Write project spirit / one-shot judgment to `.agents/handoff_letter.md` (not the canonical `.devin/canon/HANDOFF_LETTER.md`).
 4. Append a session-end marker to `.devin/loop_state_archive.md`.
@@ -101,7 +101,7 @@ Not every lesson waits for a high-completion task. Some patterns appear after a 
 
 ### Distillation
 - Every 5 iterations, or at scope change, run `memory-audit` skill.
-- `memory-audit` invokes `python .devin/scripts/memory_audit.py --session <session_id>`.
+- `memory-audit` invokes `.venv/bin/python .devin/scripts/memory_audit.py --session <session_id>`.
   It reads `.devin/session_state/<session_id>/candidate_memory.jsonl`, validates
   `trigger + correct_action + counter`, merges valid entries into `.agents/knowledge_distill.md`,
   and clears the per-session candidate list.
@@ -177,7 +177,7 @@ if both are older than 30 minutes, an `in_progress` session is marked `suspected
 2. At the end of each iteration:
    - Update `.devin/loop_state/<session_id>.md` (GoalSpec, subtasks, last action, notes, caveman level).
    - Update `.devin/session_state/<session_id>.json` (current subtask, last action, `last_state_write`, `state_written: true`, `context_fill_pct`, `caveman_level`, `context_flags`, `owned_files`, `affected_files`, `tags`).
-   - Call `python .devin/scripts/loop_memory_sync.py` to regenerate `.devin/loop_state.md`.
+   - Call `.venv/bin/python .devin/scripts/loop_memory_sync.py` to regenerate `.devin/loop_state.md`.
 3. Never let the per-session hot file exceed 8KB. Rotate to archive, don't truncate.
 
 ## Anti-patterns (do not)

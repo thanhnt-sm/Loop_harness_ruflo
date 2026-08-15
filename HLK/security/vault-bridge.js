@@ -59,11 +59,12 @@ function loadPrecedence() {
 // ---------------------------------------------------------------------------
 
 /**
- * Parse file .env theo định dạng đơn giản:
+ * Parse file .env:
  *   KEY=VALUE
- *   # comment
+ *   export KEY=VALUE     (hỗ trợ export prefix — dotenv convention)
+ *   KEY=VALUE # comment  (bỏ inline comment khi value không quote)
+ *   KEY="VALUE" / KEY='VALUE'
  *
- * Hỗ trợ value có dấu ngoặc đơn/kép.
  * Không hỗ trợ interpolation hay multi-line.
  *
  * @param {string} filePath
@@ -77,8 +78,13 @@ function parseDotEnv(filePath) {
 
     const lines = fs.readFileSync(filePath, 'utf8').split('\n');
     for (const raw of lines) {
-      const line = raw.trim();
+      let line = raw.trim();
       if (!line || line.startsWith('#')) continue;
+
+      // Bỏ export prefix (dotenv convention)
+      if (line.startsWith('export ')) {
+        line = line.slice('export '.length).trim();
+      }
 
       const eqIdx = line.indexOf('=');
       if (eqIdx < 1) continue;
@@ -86,10 +92,20 @@ function parseDotEnv(filePath) {
       const key = line.slice(0, eqIdx).trim();
       let value = line.slice(eqIdx + 1).trim();
 
+      const isQuoted = (value.startsWith('"') && value.endsWith('"')) ||
+                       (value.startsWith("'") && value.endsWith("'"));
+
       // Bỏ dấu ngoặc bao quanh value
-      if ((value.startsWith('"') && value.endsWith('"')) ||
-          (value.startsWith("'") && value.endsWith("'"))) {
+      if (isQuoted) {
         value = value.slice(1, -1);
+        // Giải escape dấu ngoặc bên trong (\" → ", \' → ')
+        value = value.replace(/\\(["'])/g, '$1');
+      } else {
+        // Không quote → cắt inline comment (sau '#' không trong quote)
+        const hashIdx = value.indexOf(' #');
+        if (hashIdx >= 0) {
+          value = value.slice(0, hashIdx).trim();
+        }
       }
 
       map.set(key, value);
@@ -180,7 +196,14 @@ export function getSecret(key, defaultValue) {
     else { value = defaultValue; source = 'default'; }
   }
 
-  auditSecretAccess(key, source);
+  // CVE-2026-AHD-016: tránh log-spam audit file cho source='default' (key không
+  // tồn tại), NHƯNG vẫn cảnh báo stderr — fallback về default không an toàn cần
+  // được phát hiện (miss-config / credential yếu), chỉ khác là không ghi jsonl.
+  if (source === 'file' || source === 'env') {
+    auditSecretAccess(key, source);
+  } else if (source === 'default') {
+    process.stderr.write(`[HLK Vault] WARNING: getSecret('${key}') không tìm thấy file/env — đang dùng defaultValue (fallback).\n`);
+  }
   return value;
 }
 

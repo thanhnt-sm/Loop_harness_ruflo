@@ -64,7 +64,7 @@ For tools with hooks: configure `afterEdit` hook to run check command on `exit_c
 
 ### The defense: background sweep loop
 
-A dedicated `/loop` that periodically: (1) scans for pattern drift, (2) updates quality scores, (3) opens refactor PRs. Cadence: [e.g. every 24 hours]. Max iterations: [1 per run]. Time limit: [30 min per run]. Steps: scan repo for anti-patterns → score each module (clean/drift/degraded) → drift: open refactor PR (L2), degraded: flag in `knowledge_distill.md` + escalate → write sweep results to state, call `python .devin/scripts/loop_memory_sync.py`. Exit when: sweep complete. State: §State contract (with sweep results).
+A dedicated `/loop` that periodically: (1) scans for pattern drift, (2) updates quality scores, (3) opens refactor PRs. Cadence: [e.g. every 24 hours]. Max iterations: [1 per run]. Time limit: [30 min per run]. Steps: scan repo for anti-patterns → score each module (clean/drift/degraded) → drift: open refactor PR (L2), degraded: flag in `knowledge_distill.md` + escalate → write sweep results to state, call `.venv/bin/python .devin/scripts/loop_memory_sync.py`. Exit when: sweep complete. State: §State contract (with sweep results).
 
 ### Entropy accumulation chain
 

@@ -12,7 +12,7 @@
 Start the "[LOOP NAME]" goal-loop.
 Goal/Purpose: [verifiable end state]
 Max iterations: [N]  Budget cap: [tokens]  Time limit: [wall-clock]
-Between iterations run: [check command, e.g. "python -m pytest tests/ --tb=short"]
+Between iterations run: [check command, e.g. ".venv/bin/python -m pytest tests/ --tb=short"]
 Exit when: [exit condition, e.g. "check returns 0 AND no new failures for 2 consecutive runs"]
 
 Step 1: [first action]  Step 2: [second action]  Step 3: [third action]
@@ -36,7 +36,7 @@ Maker/checker: the agent that fixes does not judge exit condition. Re-run check 
 
 ### Standard loop body (applies to all)
 
-Steps: (1) check status/read state/run check command. (2) If problem found → read logs, fix, verify. (3) Re-check, write state, call `python .devin/scripts/loop_memory_sync.py`. State: §State contract. Maker/checker: CI/verifier checks; agent fixes. No self-approval.
+Steps: (1) check status/read state/run check command. (2) If problem found → read logs, fix, verify. (3) Re-check, write state, call `.venv/bin/python .devin/scripts/loop_memory_sync.py`. State: §State contract. Maker/checker: CI/verifier checks; agent fixes. No self-approval.
 
 ### Loop-specific notes
 

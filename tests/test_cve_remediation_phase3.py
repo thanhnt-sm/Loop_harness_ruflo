@@ -58,7 +58,7 @@ class TestSanitizerFailClosed:
         out = json.loads(result.stdout)
         assert out["ok"] is True
         assert out["configValid"] is True
-        assert out["failClosedOnConfigError"] is False
+        assert out["failClosedOnConfigError"] is True
         assert out["patternsLoaded"] >= 1
         assert out["criticalMissing"] == []
 

@@ -211,8 +211,8 @@ run_subagent(SECURITY_AUDITOR, background=true)  # → 3 kết quả cùng lúc
 
 **Step 7 (EXECUTE)**: DAG-based parallel:
 ```
-python .devin/scripts/dag_compile.py plan.md → workflow.json
-python .devin/scripts/dag_executor.py workflow.json --execute --max-parallel 5
+.venv/bin/python .devin/scripts/dag_compile.py plan.md → workflow.json
+.venv/bin/python .devin/scripts/dag_executor.py workflow.json --execute --max-parallel 5
 ```
 - Tasks không phụ thuộc nhau → chạy song song (batch 5)
 - Tasks phụ thuộc → đợi prerequisite hoàn thành
@@ -419,7 +419,7 @@ Run plan_orchestrator.py to execute Phase 1 (PLAN) automatically.
 1. Classify task tier (S/M/L/XL)
 2. If S-tier → return (skip plan)
 3. If M-tier+ → run:
-   python .devin/scripts/plan_orchestrator.py --task "<task>" --session <session_id>
+   .venv/bin/python .devin/scripts/plan_orchestrator.py --task "<task>" --session <session_id>
 4. Orchestrator tự động:
    - Dispatch 5 SCOUTs song song
    - Dispatch ARCHITECT + 3 reviewers

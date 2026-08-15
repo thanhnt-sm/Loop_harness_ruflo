@@ -50,7 +50,7 @@ permissions:
 2. **Giảm input context là ưu tiên số 1** (bottleneck model yếu).
 3. **Verify deterministic sau mỗi thay đổi** (chạy script, không tự đoán).
 4. **Smallest coherent diff**; không scope creep.
-5. **Không destructive**; HLK/.env không đụng.
+5. **Không destructive**; HLK/.env không đụng (trừ khi task chính là nâng cấp HLK được chỉ định rõ).
 
 > ⚠️ **Nếu model yếu / context < 50K**: chỉ giữ 5 rule trên, **1 upgrade 1 lần**, dùng few-shot
 > 2-3 mẫu, làm xong Phase 1 → báo → mới sang Phase 2 (xem `detail/adaptation.md`).
@@ -116,6 +116,7 @@ PREFLIGHT (scripts song song)
 3. Token savings KHÔNG làm giảm correctness/safety.
 4. Mọi output quan trọng phải có deterministic gate — cấm model yếu tự verify chính nó.
 5. Harness là thước đo sức mạnh, không phải model — model yếu output kém → bổ sung compensation layer, không đổ lỗi model.
+6. HLK/ & .env không đụng (trừ khi task chính là nâng cấp HLK được chỉ định rõ — xem detail/upgrade.md quy trình HLK).
 
 ## Mode map
 | Invocation | Flow đầy đủ | dry-run | apply | red-team |

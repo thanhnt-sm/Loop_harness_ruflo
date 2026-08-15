@@ -41,7 +41,7 @@ You are operating inside a **Agent Harness Deploy-distilled harness**:
 
 ## 4. Deploy contract
 
-When canon is being *installed* (not used): `python scripts/memory_audit.py`. Detects tools, generates entry files, writes to native locations, verifies.
+When canon is being *installed* (not used): `.venv/bin/python scripts/memory_audit.py`. Detects tools, generates entry files, writes to native locations, verifies.
 
 ## 4b. Project-specific rules layer
 

@@ -4,8 +4,8 @@
 
 ### Full verify
 ```bash
-python .devin/scripts/hook_integrity.py --verify 2>/dev/null || echo "skip"
-python .devin/scripts/context_projection.py --report 2>/dev/null || echo "skip"
+.venv/bin/python .devin/scripts/hook_integrity.py --verify 2>/dev/null || echo "skip"
+.venv/bin/python .devin/scripts/context_projection.py --report 2>/dev/null || echo "skip"
 pytest -q 2>/dev/null || echo "no tests"
 ```
 So sánh trước/sau: `wc -c` canon, boot payload, always-on context.

@@ -448,6 +448,25 @@ async function main() {
     }
     if (modified) { fs.writeFileSync(p, content, 'utf8'); log('success', 'Đã cập nhật .gitattributes'); }
     else { log('info', '.gitattributes đã chứa HLK merge rules'); }
+    configureMergeOursDriver();
+  }
+
+  // CVE-2026-AHD-013: .gitattributes merge=ours chỉ có tác dụng nếu git driver
+  // "ours" được khai báo. Nếu thiếu, HLK KHÔNG được bảo vệ khỏi upstream overwrite.
+  function configureMergeOursDriver() {
+    log('info', 'Bước 5b: Cấu hình git merge.ours driver...');
+    try {
+      // Driver ghi log khi giữ ours (không silent) — CVE-2026-AHD-017
+      const driverPath = path.join(__dirname, '..', 'git-tools', 'hlk-merge-ours.mjs');
+      const r = spawnSync('git', ['config', 'merge.ours.driver', `node ${JSON.stringify(driverPath)} %A %O %B`], { cwd: WORKSPACE_ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
+      if (r.status === 0) {
+        log('success', 'Đã cấu hình git merge.ours.driver (log-aware, không còn silent).');
+      } else {
+        log('warn', `Không thể cấu hình merge.ours.driver: ${(r.stderr || '').toString().trim()}`);
+      }
+    } catch (err) {
+      log('warn', `Không thể cấu hình merge.ours.driver: ${err.message}`);
+    }
   }
 
   const REQUIRED_IGNORE_PATTERNS = [

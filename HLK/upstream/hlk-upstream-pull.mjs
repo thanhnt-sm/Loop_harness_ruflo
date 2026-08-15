@@ -389,6 +389,20 @@ function patchGitAttributes() {
   } else {
     log('info', '.gitattributes đã chứa HLK merge rules.');
   }
+
+  // CVE-2026-AHD-013: merge=ours chỉ hiệu lực nếu git driver "ours" được khai báo.
+  ensureMergeOursDriver();
+}
+
+function ensureMergeOursDriver() {
+  // Driver ghi log khi giữ ours (không silent) — CVE-2026-AHD-017
+  const driverPath = path.resolve(__dirname, '..', 'git-tools', 'hlk-merge-ours.mjs');
+  const res = spawnSync('git', ['config', 'merge.ours.driver', `node ${JSON.stringify(driverPath)} %A %O %B`], { cwd: WORKSPACE_ROOT, encoding: 'utf8' });
+  if (res.status === 0) {
+    log('success', 'Đã cấu hình git merge.ours.driver (log-aware, không còn silent).');
+  } else {
+    log('warn', `Không thể cấu hình merge.ours.driver: ${(res.stderr || '').trim()}`);
+  }
 }
 
 function patchGitIgnore() {
@@ -489,11 +503,17 @@ function installPostMergeHook() {
 
   log('success', 'Đã cài .githooks/post-merge — HLK verify sẽ chạy sau mỗi pull/merge.');
 
-  // Nhắc user kích hoạt core.hooksPath nếu chưa
+  // CVE-2026-AHD-014: chủ động kích hoạt core.hooksPath thay vì chỉ nhắc — nếu
+  // không set, post-merge hook không bao giờ chạy.
   const r = spawnSync('git', ['config', 'core.hooksPath'], { cwd: WORKSPACE_ROOT, encoding: 'utf8' });
   const currentHooksPath = r.stdout?.trim();
   if (r.status !== 0 || !currentHooksPath) {
-    log('info', 'Kích hoạt git hooks: git config core.hooksPath .githooks');
+    const set = spawnSync('git', ['config', 'core.hooksPath', '.githooks'], { cwd: WORKSPACE_ROOT, encoding: 'utf8' });
+    if (set.status === 0) {
+      log('success', 'Đã kích hoạt core.hooksPath = .githooks — post-merge verify sẽ chạy.');
+    } else {
+      log('warn', `Không thể set core.hooksPath: ${(set.stderr || '').trim()}`);
+    }
   } else if (currentHooksPath !== '.githooks') {
     log('warn', `core.hooksPath hiện tại = "${currentHooksPath}" (không phải .githooks).`);
     log('warn', 'Chạy: git config core.hooksPath .githooks');

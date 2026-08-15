@@ -47,7 +47,7 @@ devin -p -- "mô tả công việc"          # Non-interactive
 
 1. Skill được inject vào agent context
 2. Agent đọc **AUTO-ACTIVATION directive** (section đầu tiên của skill)
-3. Agent **NGAY LẬP TỨC** chạy `python .devin/scripts/plan_orchestrator.py --init --task "<task>"`
+3. Agent **NGAY LẬP TỨC** chạy `.venv/bin/python .devin/scripts/plan_orchestrator.py --init --task "<task>"`
 4. Orchestrator trả `next_action` → agent thực hiện → báo results qua `--step` → lặp lại cho đến DONE
 
 #### Khi user chỉ đưa ra task (không gõ slash skill)

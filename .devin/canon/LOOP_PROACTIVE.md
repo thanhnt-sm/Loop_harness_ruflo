@@ -45,7 +45,7 @@ Per triggered task:
   Step 3 — Adversarial review agent (fresh context, ≠ fix): attack the fix.
     Try to break it. Find edge cases. Check it doesn't solve X by breaking Y.
     Pass → close task. Fail → back to Step 2 (count toward retry cap).
-  Step 4 — Write outcome to state, call python .devin/scripts/loop_memory_sync.py.
+  Step 4 — Write outcome to state, call .venv/bin/python .devin/scripts/loop_memory_sync.py.
 
 Exit per task: adversarial review passes OR retry cap hit (escalate).
 Exit routine: user stops OR channel decommissioned.

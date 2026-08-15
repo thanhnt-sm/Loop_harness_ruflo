@@ -137,6 +137,52 @@ checkTracked('agentdb.rvf');
 checkTracked('agentdb.rvf.lock');
 
 // ---------------------------------------------------------------------------
+// Kiểm tra 6: Sanitizer smoke test (hành vi bảo mật, không chỉ file tồn tại)
+// ---------------------------------------------------------------------------
+
+console.log('\n🛡️ Sanitizer behavior smoke test:');
+
+try {
+  const sanitizer = await import('../security/sanitizer.js');
+  const sc = sanitizer.createSanitizer();
+  const health = sc.healthCheck();
+  check('sanitizer healthCheck().ok', health.ok === true);
+
+  const samples = [
+    ['ghp_abcdefghijklmnopqrstuvwxyz0123456789', 'ghp_'],
+    ['github_pat_abcdefghijklmnopqrstuvwxyz1234567890', 'github_pat_'],
+    ['sk-abcdefghijklmnopqrstuvwxyz0123456789abcdefgh', 'sk-'],
+    ['AKIA1234567890ABCDEF', 'AKIA'],
+  ];
+  for (const [input, marker] of samples) {
+    const out = sc.sanitize(input);
+    check(`redact ${marker}...`, !out.includes(marker));
+  }
+} catch (err) {
+  check(`sanitizer smoke test: ${err.message}`, false);
+}
+
+// ---------------------------------------------------------------------------
+// Kiểm tra 7: merge.ours.driver + core.hooksPath (CVE-2026-AHD-013/014)
+// ---------------------------------------------------------------------------
+
+console.log('\n🔒 Git protection active:');
+
+try {
+  const driver = spawnSync('git', ['config', 'merge.ours.driver'], { cwd: REPO_ROOT, encoding: 'utf8' });
+  check('merge.ours.driver được cấu hình', driver.status === 0 && driver.stdout.trim().length > 0);
+} catch {
+  check('merge.ours.driver được cấu hình', false);
+}
+
+try {
+  const hp = spawnSync('git', ['config', 'core.hooksPath'], { cwd: REPO_ROOT, encoding: 'utf8' });
+  check('core.hooksPath = .githooks', hp.status === 0 && hp.stdout.trim() === '.githooks');
+} catch {
+  check('core.hooksPath = .githooks', false);
+}
+
+// ---------------------------------------------------------------------------
 // Tổng kết
 // ---------------------------------------------------------------------------
 

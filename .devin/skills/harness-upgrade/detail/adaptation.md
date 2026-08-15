@@ -11,7 +11,7 @@ KHÔNG tuân theo toàn skill. Chỉ giữ:
    2. Giảm input context là ưu tiên số 1 (bottleneck model yếu).
    3. Verify deterministic sau mỗi thay đổi (chạy script, không tự đoán).
    4. Smallest coherent diff; không scope creep.
-   5. Không destructive; HLK/.env không đụng.
+   5. Không destructive; HLK/.env không đụng (trừ khi task chính là nâng cấp HLK được chỉ định rõ).
 2. **1 upgrade tại một thời điểm** (tránh one-shot problem, giảm rework ~59%).
 3. **Few-shot 2-3 mẫu** thay vì dài dòng: cho model yếu xem ví dụ input→output đúng thay vì 10 rule.
 4. **Chunk workflow**: làm xong Phase 1 → báo → mới sang Phase 2. Không bơm cả 5 phase 1 lần.

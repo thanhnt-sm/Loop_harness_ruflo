@@ -165,7 +165,7 @@ The `grep` command is not available on Windows by default. The code has a fallba
 The approval gate stores approval state in a JSON file with a `reviewer` field, but **the reviewer name is a free-text CLI argument with no verification**:
 
 ```bash
-python approval_gate.py plan.md --approve --reviewer "Anyone"
+.venv/bin/python approval_gate.py plan.md --approve --reviewer "Anyone"
 ```
 
 There is no authentication, no signature, no token verification. The agent itself can run this command to self-approve its own plan. The `--reviewer` field is purely cosmetic.
@@ -502,7 +502,7 @@ The deny list includes `Exec(rm -rf:*)` but not `Exec(Remove-Item:*)` without th
 
 ### Bypass 2: Self-approval (H-04)
 
-**Path**: Agent runs `python approval_gate.py plan.md --approve --reviewer "human"`
+**Path**: Agent runs `.venv/bin/python approval_gate.py plan.md --approve --reviewer "human"`
 **Blocked by**: Nothing. No authentication.
 **Mitigation needed**: External approval mechanism (e.g., GitHub PR review, signed tokens).
 

@@ -361,3 +361,7 @@ state/
 .devin/idempotency/
 .devin/hook_order.json
 
+
+# omo runtime session state + backup (not source)
+.omo/
+*.bak.omo-before

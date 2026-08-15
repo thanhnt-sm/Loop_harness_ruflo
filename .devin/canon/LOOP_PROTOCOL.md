@@ -90,7 +90,7 @@ Every iteration:
 2. Read `.devin/loop_state/<session_id>.md` for the active session (where did I get to?).
 3. Do one unit of work.
 4. Write `.devin/loop_state/<session_id>.md` and `.devin/session_state/<session_id>.json`.
-5. Call `python .devin/scripts/loop_memory_sync.py` to regenerate `.devin/loop_state.md` registry.
+5. Call `.venv/bin/python .devin/scripts/loop_memory_sync.py` to regenerate `.devin/loop_state.md` registry.
 6. Check stop condition.
 7. Not met → next iteration. Met → stop, archive result.
 

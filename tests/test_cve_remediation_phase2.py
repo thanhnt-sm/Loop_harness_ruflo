@@ -144,9 +144,16 @@ def test_verify_signature_bad_inputs(plan_file):
 # ---------------------------------------------------------------------------
 # CVE-007: encoding bypass detection order (pre_tool_use)
 # ---------------------------------------------------------------------------
-def _run_pre_tool_use(command: str, reload: bool = True) -> int:
+def _run_pre_tool_use(command: str, reload: bool = True, monkeypatch=None) -> int:
     import io
     import pre_tool_use
+    # Set cost ledger key for tests (CVE-2026-AHD-013 fail-closed requires it)
+    # Use monkeypatch if available, otherwise set directly and clean up
+    key = "test-key-" + "k" * 32
+    if monkeypatch is not None:
+        monkeypatch.setenv("AHD_COST_LEDGER_KEY", key)
+    else:
+        os.environ["AHD_COST_LEDGER_KEY"] = key
     if reload:
         importlib.reload(pre_tool_use)
     old_stdin = sys.stdin
@@ -158,6 +165,8 @@ def _run_pre_tool_use(command: str, reload: bool = True) -> int:
             return e.code if e.code is not None else 0
     finally:
         sys.stdin = old_stdin
+        if monkeypatch is None:
+            os.environ.pop("AHD_COST_LEDGER_KEY", None)
     return 0
 
 

@@ -205,7 +205,7 @@ Mỗi transition xảy ra khi agent gọi `--step` với results JSON:
 
 ```bash
 # Agent thực hiện action → collect results → write to temp file → call --step
-python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
+.venv/bin/python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
 ```
 
 Results JSON format cho mỗi action:
@@ -255,7 +255,7 @@ Section đầu tiên của `/plan` skill (sau frontmatter) chứa **AUTO-ACTIVAT
 # AUTO-ACTIVATION — Kích hoạt ngay lập tức
 
 KHI SKILL NÀY ĐƯỢC INVOKE:
-1. NGAY LẬP TỨC chạy: python .devin/scripts/plan_orchestrator.py --init --task "<task>"
+1. NGAY LẬP TỨC chạy: .venv/bin/python .devin/scripts/plan_orchestrator.py --init --task "<task>"
 2. Đọc next_action từ output JSON
 3. Thực hiện action (dispatch subagents, viết files, v.v.)
 4. Báo results qua --step
@@ -277,9 +277,9 @@ Chỉ chạy orchestrator và follow instructions.
 {
   "permissions": {
     "allow": [
-      "Exec(python .devin/scripts/plan_orchestrator.py:*)",
-      "Exec(python .devin/scripts/approval_gate.py:*)",
-      "Exec(python .devin/scripts/plan_quality_check.py:*)"
+      "Exec(.venv/bin/python .devin/scripts/plan_orchestrator.py:*)",
+      "Exec(.venv/bin/python .devin/scripts/approval_gate.py:*)",
+      "Exec(.venv/bin/python .devin/scripts/plan_quality_check.py:*)"
     ]
   }
 }
@@ -291,11 +291,11 @@ Khi user gõ `/plan add JWT authentication to the API`:
 
 ```
 [Agent] Đọc skill → thấy AUTO-ACTIVATION directive
-[Agent] Chạy: python .devin/scripts/plan_orchestrator.py --init --task "add JWT authentication to the API"
+[Agent] Chạy: .venv/bin/python .devin/scripts/plan_orchestrator.py --init --task "add JWT authentication to the API"
 [Script] Tạo state file → phân loại tier=M → trả next_action=dispatch_scouts
 [Agent] Dispatch 5 SCOUT subagents (background, parallel)
 [Agent] Collect 5 results → write results.json
-[Agent] Chạy: python .devin/scripts/plan_orchestrator.py --step --state <state> --results <results>
+[Agent] Chạy: .venv/bin/python .devin/scripts/plan_orchestrator.py --step --state <state> --results <results>
 [Script] State ANALYZE→DESIGN → trả next_action=dispatch_architect
 [Agent] Dispatch 1 ARCHITECT (foreground)
 [Agent] Sau architect xong → write results.json
@@ -305,12 +305,12 @@ Khi user gõ `/plan add JWT authentication to the API`:
 [Agent] Chạy: --step → state REVIEW→PLAN (no blocking) → trả next_action=decompose_plan
 [Agent] Decompose SDD → write IMPLEMENTATION_PLAN.md → write results.json
 [Agent] Chạy: --step → state PLAN→QC → trả next_action=run_qc
-[Agent] Chạy: python .devin/scripts/plan_quality_check.py <plan.md>
+[Agent] Chạy: .venv/bin/python .devin/scripts/plan_quality_check.py <plan.md>
 [Agent] Write QC results → Chạy: --step → state QC→APPROVAL → trả next_action=present_approval
-[Agent] Chạy: python .devin/scripts/approval_gate.py <plan.md> --interactive --quality-report <qr.md>
+[Agent] Chạy: .venv/bin/python .devin/scripts/approval_gate.py <plan.md> --interactive --quality-report <qr.md>
 [User] Nhìn plan summary → gõ "y" (approve)
 [Agent] Write approval results → Chạy: --step → state APPROVAL→WRITE_STATE → trả next_action=write_plan_state
-[Agent] Chạy: python .devin/scripts/approval_gate.py <plan.md> --approve
+[Agent] Chạy: .venv/bin/python .devin/scripts/approval_gate.py <plan.md> --approve
 [Agent] Write results → Chạy: --step → state WRITE_STATE→DONE
 [Agent] Plan phase complete → báo user → sẵn sàng execute
 ```
@@ -363,13 +363,13 @@ Hook được đăng ký cho **2 matchers**: `write`, `edit`:
       {
         "matcher": "write",
         "hooks": [
-          { "type": "command", "command": "python .devin/hooks/plan_enforce.py", "timeout": 3 }
+          { "type": "command", "command": ".venv/bin/python .devin/hooks/plan_enforce.py", "timeout": 3 }
         ]
       },
       {
         "matcher": "edit",
         "hooks": [
-          { "type": "command", "command": "python .devin/hooks/plan_enforce.py", "timeout": 3 }
+          { "type": "command", "command": ".venv/bin/python .devin/hooks/plan_enforce.py", "timeout": 3 }
         ]
       }
     ]
@@ -377,7 +377,7 @@ Hook được đăng ký cho **2 matchers**: `write`, `edit`:
 }
 ```
 
-> **Lưu ý**: `plan_enforce.py` không đăng ký cho matcher `exec` vì logic hook chỉ xử lý Write/Edit tools. Exec bypass (ví dụ: `python -c "open('file.py','w').write('...')"`) cần được kiểm soát ở lớp permissions hoặc OS-level sandbox, không phải hook này.
+> **Lưu ý**: `plan_enforce.py` không đăng ký cho matcher `exec` vì logic hook chỉ xử lý Write/Edit tools. Exec bypass (ví dụ: `.venv/bin/python -c "open('file.py','w').write('...')"`) cần được kiểm soát ở lớp permissions hoặc OS-level sandbox, không phải hook này.
 
 ### Logic phân loại tier trong hook
 
@@ -642,42 +642,42 @@ Ví dụ: `"Add JWT authentication to the API"` → `"add-jwt-authentication-to-
 
 ```bash
 # Khởi tạo Plan phase
-python .devin/scripts/plan_orchestrator.py --init --task "<task description>"
+.venv/bin/python .devin/scripts/plan_orchestrator.py --init --task "<task description>"
 
 # Xử lý results, chuyển state, nhận next action
-python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
+.venv/bin/python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <results.json>
 
 # Kiểm tra trạng thái hiện tại
-python .devin/scripts/plan_orchestrator.py --status --state <state.json>
+.venv/bin/python .devin/scripts/plan_orchestrator.py --status --state <state.json>
 ```
 
 ### approval_gate.py
 
 ```bash
 # Kiểm tra trạng thái phê duyệt
-python .devin/scripts/approval_gate.py <plan_file.md> --status
+.venv/bin/python .devin/scripts/approval_gate.py <plan_file.md> --status
 
 # Phê duyệt plan
-python .devin/scripts/approval_gate.py <plan_file.md> --approve --reviewer "name"
+.venv/bin/python .devin/scripts/approval_gate.py <plan_file.md> --approve --reviewer "name"
 
 # Từ chối plan
-python .devin/scripts/approval_gate.py <plan_file.md> --reject --reason "lý do"
+.venv/bin/python .devin/scripts/approval_gate.py <plan_file.md> --reject --reason "lý do"
 
 # Yêu cầu sửa đổi
-python .devin/scripts/approval_gate.py <plan_file.md> --request-changes --reason "cần sửa"
+.venv/bin/python .devin/scripts/approval_gate.py <plan_file.md> --request-changes --reason "cần sửa"
 
 # Interactive mode (present summary + hỏi user)
-python .devin/scripts/approval_gate.py <plan_file.md> --interactive
+.venv/bin/python .devin/scripts/approval_gate.py <plan_file.md> --interactive
 
 # Interactive mode với quality report
-python .devin/scripts/approval_gate.py <plan_file.md> --interactive --quality-report <qr.md>
+.venv/bin/python .devin/scripts/approval_gate.py <plan_file.md> --interactive --quality-report <qr.md>
 ```
 
 ### plan_quality_check.py
 
 ```bash
 # Run 10-dimension quality check
-python .devin/scripts/plan_quality_check.py <plan_file.md>
+.venv/bin/python .devin/scripts/plan_quality_check.py <plan_file.md>
 ```
 
 ### plan_enforce.py (hook — không gọi trực tiếp)
@@ -746,14 +746,14 @@ PostToolUse hooks (matcher: "write")
 
 ```bash
 # Kiểm tra orchestrator state
-python .devin/scripts/plan_orchestrator.py --status --state .devin/plan_state/<slug>_orchestrator.json
+.venv/bin/python .devin/scripts/plan_orchestrator.py --status --state .devin/plan_state/<slug>_orchestrator.json
 
 # Kiểm tra approval state
-python .devin/scripts/approval_gate.py docs/plans/<slug>/IMPLEMENTATION_PLAN.md --status
+.venv/bin/python .devin/scripts/approval_gate.py docs/plans/<slug>/IMPLEMENTATION_PLAN.md --status
 
 # Test plan_enforce manually
-echo '{"tool_name":"write","tool_input":{"file_path":"src/test.py"},"task":"add auth"}' | python .devin/hooks/plan_enforce.py
+echo '{"tool_name":"write","tool_input":{"file_path":"src/test.py"},"task":"add auth"}' | .venv/bin/python .devin/hooks/plan_enforce.py
 
 # Test orchestrator init
-python .devin/scripts/plan_orchestrator.py --init --task "test task"
+.venv/bin/python .devin/scripts/plan_orchestrator.py --init --task "test task"
 ```

@@ -94,12 +94,12 @@ Trước khi làm bất kỳ update nào, đọc:
 5. Chạy baseline verify:
    - `pwsh tools/verify-workspace.ps1`
    - `node HLK/wrappers/hlk-verify-integrity.js`
-   - `python .devin/scripts/hook_integrity.py --verify` nếu có.
+   - `.venv/bin/python .devin/scripts/hook_integrity.py --verify` nếu có.
 6. Nếu baseline FAIL, **dừng ngay**, sửa trước khi update.
 
 ### Phase 1 — Discover & inventory
 
-1. Chạy `python .devin/scripts/check_updates.py --tracker .devin/metadata/REPOS_TRACKER.json`.
+1. Chạy `.venv/bin/python .devin/scripts/check_updates.py --tracker .devin/metadata/REPOS_TRACKER.json`.
 2. Đọc `UPDATES_REPORT.md` hoặc output để biết repo nào behind.
 3. Phân loại từng repo theo **Decision matrix**:
 
@@ -142,8 +142,8 @@ Với mỗi repo behind, trả lời:
 #### 4.1 vendored-skill (nuwa-skill)
 
 - Clone upstream tạm.
-- Diff local vs upstream: `python .devin/scripts/show_diff.py --source-id nuwa-skill`.
-- Chạy dry-run trước: `python .devin/scripts/merge_updates.py --source-id <id> --dry-run`.
+- Diff local vs upstream: `.venv/bin/python .devin/scripts/show_diff.py --source-id nuwa-skill`.
+- Chạy dry-run trước: `.venv/bin/python .devin/scripts/merge_updates.py --source-id <id> --dry-run`.
 - Liệt kê **tất cả file đã tồn tại ở target** mà upstream cũng có. Phân loại:
   - **core file** (`SKILL.md`, `README*.md`, `COMMUNITY.md`, `CONTRIBUTING.md`, `LICENSE`, `references/`, `scripts/`): copy nếu upstream mới hơn.
   - **local customization** (`ATTRIBUTION.md`, ví dụ cũ, file user đã sửa): **không tự động overwrite** — diff + báo user từng file.
@@ -184,8 +184,8 @@ Sau mỗi repo / commit:
 
 1. `pwsh tools/verify-workspace.ps1` — PASS.
 2. `node HLK/wrappers/hlk-verify-integrity.js` — PASS.
-3. `python -m py_compile` với mọi file `.py` mới/đổi.
-4. `python tools/import_smoke_test.py` (hoặc import test tương đương) — PASS.
+3. `.venv/bin/python -m py_compile` với mọi file `.py` mới/đổi.
+4. `.venv/bin/python tools/import_smoke_test.py` (hoặc import test tương đương) — PASS.
 5. `harness-sensor` code mode nếu có thay đổi `.py`/`.md`.
 6. `git diff --stat` — kiểm tra không có file cũ bị xóa bất ngờ.
 7. `git status --short` — phải sạch hoặc chỉ có file dự kiến.

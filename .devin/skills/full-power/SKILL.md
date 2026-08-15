@@ -96,25 +96,25 @@ Chạy tuần tự, không skip:
 
 ```bash
 # 1. Log rotation
-python .devin/scripts/log_rotation.py --rotate
+.venv/bin/python .devin/scripts/log_rotation.py --rotate
 
 # 2. Hook integrity
-python .devin/scripts/hook_integrity.py --verify
+.venv/bin/python .devin/scripts/hook_integrity.py --verify
 
 # 3. Khởi tạo session với tier từ Bước 4
-python .devin/scripts/session_manager.py init <session_id> --goal "<task>" --complexity <S|M|L|XL>
+.venv/bin/python .devin/scripts/session_manager.py init <session_id> --goal "<task>" --complexity <S|M|L|XL>
 
 # 4. Cost cap theo tier (S=1, M=5, L=10, XL=20)
-python .devin/scripts/cost_tracker.py --session <session_id> --set-cap <cap>
+.venv/bin/python .devin/scripts/cost_tracker.py --session <session_id> --set-cap <cap>
 
 # 5. Pre-task audit
-python .devin/scripts/pre_task_audit.py --tags "<task_slug>" --session <session_id> --json
+.venv/bin/python .devin/scripts/pre_task_audit.py --tags "<task_slug>" --session <session_id> --json
 ```
 
 - Nếu `pre_task_audit` trả `ok: false` → stop, hỏi user.
-- Sau mỗi bước tiếp theo, gọi `python .devin/scripts/session_manager.py heartbeat <session_id>` để giữ session active.
+- Sau mỗi bước tiếp theo, gọi `.venv/bin/python .devin/scripts/session_manager.py heartbeat <session_id>` để giữ session active.
 
-**Cost guardrail**: Sau **mỗi step**, chạy `python .devin/scripts/cost_tracker.py --session <session_id> --check`. Nếu exit code 1 → stop, báo user.
+**Cost guardrail**: Sau **mỗi step**, chạy `.venv/bin/python .devin/scripts/cost_tracker.py --session <session_id> --check`. Nếu exit code 1 → stop, báo user.
 
 **Script auto-activation map**:
 
@@ -158,7 +158,7 @@ Trước khi vào Plan phase, chạy brainstorm đa góc nhìn:
 4. Output: `BRAINSTORM_REPORT.md` — feed vào ARCHITECT input
 
 ```bash
-python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <brainstorm_results.json>
+.venv/bin/python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results <brainstorm_results.json>
 ```
 
 ---
@@ -173,23 +173,23 @@ python .devin/scripts/plan_orchestrator.py --step --state <state.json> --results
 Kích hoạt `/plan <task>` — skill này chạy toàn bộ Phase 1 qua `plan_orchestrator.py`:
 
 ```bash
-python .devin/scripts/plan_orchestrator.py --init --task "<task>"
+.venv/bin/python .devin/scripts/plan_orchestrator.py --init --task "<task>"
 # sau mỗi action:
-python .devin/scripts/plan_orchestrator.py --step --state <state_file> --results <results_file>
+.venv/bin/python .devin/scripts/plan_orchestrator.py --step --state <state_file> --results <results_file>
 ```
 
 FSM: `INIT → CLASSIFY → BRAINSTORM → ANALYZE → DESIGN → REVIEW → REVISION(max 7, convergence) → SDD_APPROVAL → PLAN → GAP_SCAN → QC(max 7, convergence) → PLAN_ENHANCE(max 3) → PLAN_APPROVAL → WRITE_STATE → DONE`
 
 Sau **mỗi step** chạy:
-- `python .devin/scripts/session_manager.py heartbeat <session_id>`
-- `python .devin/scripts/cost_tracker.py --session <session_id> --check`
+- `.venv/bin/python .devin/scripts/session_manager.py heartbeat <session_id>`
+- `.venv/bin/python .devin/scripts/cost_tracker.py --session <session_id> --check`
 
 ### 5b. CỔNG 1 — DUYỆT TÀI LIỆU GIẢI PHÁP (SDD)
 
 Sau khi `SOLUTION_DESIGN.md` được viết và review xong, mở gate:
 
 ```bash
-python .devin/scripts/approval_gate.py docs/plans/<task_slug>/SOLUTION_DESIGN.md --interactive --artifact sd
+.venv/bin/python .devin/scripts/approval_gate.py docs/plans/<task_slug>/SOLUTION_DESIGN.md --interactive --artifact sd
 ```
 
 - **y** → `SDD_APPROVED`, chuyển sang decompose plan.
@@ -201,7 +201,7 @@ python .devin/scripts/approval_gate.py docs/plans/<task_slug>/SOLUTION_DESIGN.md
 Sau khi `IMPLEMENTATION_PLAN.md` + `QUALITY_REPORT.md` PASS 10-D QC:
 
 ```bash
-python .devin/scripts/approval_gate.py docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md --interactive --artifact plan
+.venv/bin/python .devin/scripts/approval_gate.py docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md --interactive --artifact plan
 ```
 
 - **y** → `PLAN_APPROVED`, ghi state, kích hoạt enforcement hook.
@@ -251,7 +251,7 @@ Khi `plan_orchestrator` trả `state=DONE`, có:
 Trước khi dispatch, phân tích plan để phát hiện conflict và xác định worktree / parallel groups:
 
 ```bash
-python .devin/scripts/plan_dispatch.py --plan docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md --json
+.venv/bin/python .devin/scripts/plan_dispatch.py --plan docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md --json
 ```
 
 - Nếu có conflict → serialize hoặc hỏi user.
@@ -262,7 +262,7 @@ Re-run `pre_task_audit` với file list thực tế từ plan output:
 
 ```bash
 # Flatten owned_files + shared_files từ plan_dispatch JSON, join bằng dấu phẩy
-python .devin/scripts/pre_task_audit.py --files "<owned+shared files>" --session <session_id> --json
+.venv/bin/python .devin/scripts/pre_task_audit.py --files "<owned+shared files>" --session <session_id> --json
 ```
 
 Nếu conflict với active sessions → stop hoặc serialize.
@@ -270,12 +270,12 @@ Nếu conflict với active sessions → stop hoặc serialize.
 Sau đó biên dịch và chạy DAG:
 
 ```bash
-python .devin/scripts/dag_compile.py docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md
-python .devin/scripts/dag_executor.py .devin/plan_state/<task_slug>_workflow.json --execute
+.venv/bin/python .devin/scripts/dag_compile.py docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md
+.venv/bin/python .devin/scripts/dag_executor.py .devin/plan_state/<task_slug>_workflow.json --execute
 ```
 
 - Bounded batch (N=5 parallel, configurable)
-- Worktree isolation (mỗi worker 1 worktree — `python .devin/scripts/worktree.py create <worker_id>`)
+- Worktree isolation (mỗi worker 1 worktree — `.venv/bin/python .devin/scripts/worktree.py create <worker_id>`)
 - Topological sort: independent tasks chạy song song, dependent tasks đợi
 
 ### 6b. EXECUTE — Workers tự trị trong boundary
@@ -301,11 +301,11 @@ Dispatch workers theo DAG batch:
 | `graph-verify` | Structural claims — blast radius, call graph |
 
 Workers tự trị (max power trong boundary):
-- Mỗi worker ghi state `.devin/state/<task_id>.json`, rồi gọi `python .devin/scripts/state_router.py --route .devin/state/<task_id>.json` để xác định bước tiếp.
+- Mỗi worker ghi state `.devin/state/<task_id>.json`, rồi gọi `.venv/bin/python .devin/scripts/state_router.py --route .devin/state/<task_id>.json` để xác định bước tiếp.
 - Tự retry, tự sửa within task scope.
 - Reflexion: học từ mistake, retry smarter.
-- Sau mỗi task: `python .devin/scripts/event_bus.py --publish execute.results .devin/state/<task_id>_result.json`
-- Ghi evidence chia sẻ: `python .devin/scripts/blackboard.py --write evidence <task_id> .devin/state/<task_id>_evidence.json`
+- Sau mỗi task: `.venv/bin/python .devin/scripts/event_bus.py --publish execute.results .devin/state/<task_id>_result.json`
+- Ghi evidence chia sẻ: `.venv/bin/python .devin/scripts/blackboard.py --write evidence <task_id> .devin/state/<task_id>_evidence.json`
 
 **Boundary (KHÔNG được vượt)**:
 - KHÔNG sửa plan (plan = contract)
@@ -319,15 +319,15 @@ Workers tự trị (max power trong boundary):
 - `coverage_enforce.py` track mọi plan item
 - `drift_detect.py` phát hiện lệch plan
 - `self_heal.py` tự sửa khi fail
-- Sau mỗi batch: `python .devin/scripts/session_manager.py heartbeat <session_id>`
-- Sau mỗi batch: `python .devin/scripts/cost_tracker.py --session <session_id> --check`
-- Trước khi chạy DAG executor: `python .devin/scripts/checkpoint.py .devin/plan_state/<task_slug>_workflow.json --save pre-execute .devin/plan_state/<task_slug>_orchestrator.json`
+- Sau mỗi batch: `.venv/bin/python .devin/scripts/session_manager.py heartbeat <session_id>`
+- Sau mỗi batch: `.venv/bin/python .devin/scripts/cost_tracker.py --session <session_id> --check`
+- Trước khi chạy DAG executor: `.venv/bin/python .devin/scripts/checkpoint.py .devin/plan_state/<task_slug>_workflow.json --save pre-execute .devin/plan_state/<task_slug>_orchestrator.json`
 
 ### 6c. VERIFY — 3-layer (BẮT BUỘC)
 
 **Layer 1: Deterministic Gates** (cheap, fast, không thể bypass)
 ```bash
-python .devin/hooks/schema_gate.py    # Schema validation, secret scan, symbol verify
+.venv/bin/python .devin/hooks/schema_gate.py    # Schema validation, secret scan, symbol verify
 ```
 - JSON schema validation
 - Required fields check
@@ -350,7 +350,7 @@ python .devin/hooks/schema_gate.py    # Schema validation, secret scan, symbol v
 
 **Layer 3: Acceptance Tests** (definitive)
 ```bash
-python .devin/scripts/coverage_matrix.py docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md --verify
+.venv/bin/python .devin/scripts/coverage_matrix.py docs/plans/<task_slug>/IMPLEMENTATION_PLAN.md --verify
 ```
 - Run acceptance tests per requirement
 - Coverage matrix: 100% plan items executed?
@@ -364,7 +364,7 @@ python .devin/scripts/coverage_matrix.py docs/plans/<task_slug>/IMPLEMENTATION_P
 - Coverage matrix verification (all plan items executed?)
 - Traceability matrix (REQ → Task → Code → Test)
 - Drift detection report (PostToolUse hook `.devin/hooks/drift_detect.py`)
-- SPC check (`python .devin/scripts/spc_monitor.py --check`)
+- SPC check (`.venv/bin/python .devin/scripts/spc_monitor.py --check`)
 - Self-heal log (if triggered)
 - OTel audit trail
 
@@ -394,18 +394,18 @@ Chạy `.devin/skills/nuwa-skill/` cho adversarial cognitive review:
 Record Nuwa metrics và xem ROI recommendation:
 
 ```bash
-python .devin/scripts/nuwa_roi.py --session <session_id> --record-nuwa --bugs <n> --tokens <n>
-python .devin/scripts/nuwa_roi.py --session <session_id> --report
+.venv/bin/python .devin/scripts/nuwa_roi.py --session <session_id> --record-nuwa --bugs <n> --tokens <n>
+.venv/bin/python .devin/scripts/nuwa_roi.py --session <session_id> --report
 ```
 
 Nếu recommendation = `reduce` → giảm tần suất Nuwa, chỉ dùng cho high-stakes tasks.
 
 ## Bước 10: MEMORY WRITE-BACK + SESSION CLOSE
 
-- `python .devin/scripts/memory_audit.py` — merge candidate memories
-- `python .devin/scripts/loop_memory_sync.py` — update registry
-- `python .devin/scripts/session_manager.py sync --session <session_id>` — sync loop state
-- `python .devin/scripts/session_manager.py status <session_id> completed` — close session
+- `.venv/bin/python .devin/scripts/memory_audit.py` — merge candidate memories
+- `.venv/bin/python .devin/scripts/loop_memory_sync.py` — update registry
+- `.venv/bin/python .devin/scripts/session_manager.py sync --session <session_id>` — sync loop state
+- `.venv/bin/python .devin/scripts/session_manager.py status <session_id> completed` — close session
 - Store lessons vào aide-memory: `mcp__aide-memory__aide_remember`
 - Append handoff letter nếu có decisions worth recording
 

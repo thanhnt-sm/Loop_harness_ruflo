@@ -31,6 +31,6 @@
 
 ## Kiểm tra upstream trước khi cherry-pick
 ```bash
-python .devin/scripts/check_updates.py --check 2>/dev/null || echo "skip check_updates"
+.venv/bin/python .devin/scripts/check_updates.py --check 2>/dev/null || echo "skip check_updates"
 ```
 Nếu repo trong REPOS.md có upstream mới → xử lý theo `.devin/skills/update_from_repos/`.
