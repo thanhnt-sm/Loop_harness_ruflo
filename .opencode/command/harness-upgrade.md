@@ -17,8 +17,10 @@ Bạn đang chạy skill `harness-upgrade`. Thực thi theo đúng launcher:
    - `--check`/`--no-apply` → AUDIT_ONLY, không patch.
    - `--no-red-team` → bỏ redteam + v5.
 4. Tuân guardrails trong SKILL.md + detail/adaptation.md (model yếu / context < 50K → chunk, 1 upgrade 1 lần).
-5. Chạy đúng quy trình Plan: mọi upgrade M+ đi qua `/full-power`; S-tier (1 file, <5 dòng) sửa trực tiếp.
-   Nếu chưa có approved plan cho task M+, gọi `plan_orchestrator.py --init` trước khi sửa.
+5. Chạy đúng quy trình Plan: mọi upgrade M+ phải có approved plan trước khi sửa. Nếu chưa có, chạy
+   `python .devin/scripts/plan_orchestrator.py --init --task "<mô tả>"` để mở Plan phase, rồi tuần theo
+   orchestrator (Plan → Approve → Execute). S-tier (1 file, <5 dòng) sửa trực tiếp. Lưu ý: `/full-power`,
+   `/plan` là lệnh Devin CLI, KHÔNG tồn tại trong opencode — dùng orchestrator script trực tiếp.
 6. Không đụng `HLK/`, `.env`, security policies. Không destructive op.
 7. Ghi kết quả vào `HARNESS_UPGRADE_REPORT.md` + `harness-upgrade-log.md`, báo cáo ngắn: baseline→after,
    upgrades applied, verification, quality verdict, next candidates.

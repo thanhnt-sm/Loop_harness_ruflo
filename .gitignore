@@ -338,6 +338,8 @@ tests/__pycache__/
 bin/
 data/
 plugin/
+!.opencode/plugin/
+!.opencode/plugin/*.ts
 
 
 # Editor configs recreated by aide-memory hooks (Devin-only workspace)
