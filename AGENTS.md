@@ -10,7 +10,7 @@
 |-------|----------|-------|------|---------|
 | `/lightning` | lightning-executor | SWE-1.7 Lightning | $2.5/$12.5 MTok | Cần tốc độ (1000 tok/s) |
 | `/glm` | glm-executor | GLM-5.2 High | **Free** | Free tier, reasoning cao |
-| `/kimi` | kimi-executor | Kimi K2.7 | **Free** (đến 2026-07-05) | Free tier, open-source |
+| `/kimi` | kimi-executor | Kimi K2.7 | **Free tier** | Open-source |
 
 Pattern chung: orchestrator (active model) plan/review → executor implement/test/report.
 
@@ -123,13 +123,6 @@ S-tier (<5 lines, 1 file, no destructive op) → orchestrator auto-skip, sửa t
 - **Scripts**: `.devin/scripts/` — 21 runtime scripts
 - **HLK**: `HLK/` — security layer
 - **Tools**: `tools/` — packaging, deploy, init-new-project, verify, health-check
-
-## Red Team + Upgrades
-
-- **70/70 upgrades complete** (U01-U50 P0-P3 + U51-U70 P4-P7)
-- Red team score: 4.0 → **8.0/10**
-- Devin compatibility: 44% → **100%**
-- Trackers: `.devin/upgrade/UPGRADE_TRACKER.json` + `UPGRADE_TRACKER_V2.json`
 
 ## Safe zones cho code changes
 

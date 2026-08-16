@@ -271,3 +271,34 @@
 - hook_integrity --verify: All 13 hooks PASSED ✅
 - HLK hlk-verify-integrity: All PASS ✅ | node --check 3 files HLK ✅
 - skills python grep: sạch ✅ | pytest CLI entrypoints: 123 PASS ✅
+
+---
+
+# ITERATION 7 — Plan binding/persistence root-fix + context-rot
+**Date**: 2026-08-16 | **Mode**: FULL CHAIN (mặc định) | **Scope**: plan_orchestrator + AGENTS.md + v5 red-team
+
+## Applied (2 upgrades)
+- **U-PO-1 [HIGH]**: `plan_fsm/state_machine_v2.py`
+  - InitNode preserve task_description (trước bị `InitNode("")` clobber → plan không bao giờ bound vào task).
+  - WriteStateNode persist `.devin/plan_state/<slug>_orchestrator.json` (state=DONE, approval_status=approved, plan_path) → hết deadlock plan_enforce cho M-tier.
+  - Root cause: node ghi đè state thay vì preserve (MECHANICAL) + thiếu persistence layer (MECHANICAL).
+- **U-ROT-1 [token]**: `AGENTS.md` — xóa status claims "Red Team + Upgrades" (70/70, 8.0/10, compat) + bỏ date hết hạn Kimi. −268 chars always-on.
+
+## Verify (Iteration 7)
+- `--init --task "harness upgrade iteration 7"` → task bound ✅, slug `harness-upgrade-iteration-7` ✅, file persist ✅
+- plan_enforce mock: (orchestrator + approval_gate file) → `allow:true` ✅; thiếu 1 trong 2 → `plan_required` ✅
+- approval_gate.py --approve (Ed25519 path) exit 0 ✅
+- pytest tests/test_cli_entrypoints.py: **123 PASS** ✅ | py_compile ✅ | hook_integrity All 13 PASSED ✅
+- ATK: empty task reject ✅ | traversal `../../` sanitized ✅ | stale grep sạch ✅
+
+## Red-team v2.0 + V5.0 (bounded)
+- Runtime Manifest `scope-manifest.json` tạo được → **unblock blocker It5/It6**.
+- V5 findings: V5-01 registry lifecycle UNENFORCED [MED]; V5-02 slug-collision [MED]; V5-03 MCP remote NOT_APPLICABLE; V5-04 telemetry-outage test GAP [LOW]; V5-05 identity infra BLOCKED.
+- Verdict: `VERIFIED_REMEDIATION` cho RC-7.1/7.2/7.3; `AUDIT_ONLY_COMPLETE` phần còn lại. Không còn Tier 0/Critical mở.
+
+## Câu hỏi mở / Deferred (ưu tiên lần sau)
+1. **V5-01 [MED]**: Agent registry lifecycle (owner/expiry/revocation) — registry.py chỉ capability match.
+2. **V5-02 [MED]**: Slug-collision — cân nhắc fingerprint hash thay task_slug làm authorization key.
+3. **V5-04 [LOW]**: Telemetry-outage fail-closed test (V5 §17).
+4. [HLK] auto-review merge-ours.log — cần task chỉ định `hlk`.
+5. [Devin env] Subagent model-provider prefix — ngoài phạm vi opencode.

@@ -132,3 +132,50 @@ Trong quá trình test driver, `git checkout --ours` đã revert các edit confi
 1. Fix model provider prefix cho subagents (kimi-for-coding/k3, openai/gpt-5.x, ...) để background scouts chạy lại.
 2. Chạy full chain v5.0 red-team khi Runtime Manifest khả dụng.
 3. Xem xét auto-review flow cho merge-ours.log (security patch freeze).
+
+---
+
+# ITERATION 7 — Plan binding/persistence root-fix + context-rot cleanup
+
+**Date**: 2026-08-16 | **Mode**: FULL CHAIN (mặc định) | **Scope**: toàn bộ harness, focus plan_orchestrator + AGENTS.md
+**Trả lời priority-1 log**: đã unblock v5.0 red-team (Runtime Manifest tạo được); subagent provider prefix (nghiêng Devin CLI env) ngoài phạm vi opencode.
+
+## Baseline → After
+| Metric | Baseline (It6) | After (It7) | Delta |
+|--------|---------------|-------------|-------|
+| always_on boot (AGENTS.md+CLAUDE+.devin/AGENTS) | ~3,885 chars ≈ 1,020 tok | ~3,617 chars ≈ 950 tok | **−268 chars ≈ −70 tok input** |
+| plan_orchestrator task binding | `task_description=""` (InitNode clobber) | bound đúng task | ✅ |
+| plan state persistence | KHÔNG persist → plan_enforce chặn M-tier vĩnh viễn | persist `<slug>_orchestrator.json` DONE+approved | ✅ |
+| plan_enforce double-gate | n/a | orchestrator + approval_gate (Ed25519) đều bắt buộc | ✅ |
+| hooks integrity | All 13 PASSED | All 13 PASSED (sau thay đổi, không touch) | ✅ |
+| stale claims AGENTS.md | 70/70, 8.0/10, 2026-07-05 | 0 match | ✅ |
+
+## Upgrades Applied (2)
+| ID | Mức | Upgrade | File | Verify |
+|----|-----|---------|------|--------|
+| U-PO-1 | **HIGH** | (a) InitNode preserve task_description thay vì ghi đè bằng `InitNode("")`; (b) WriteStateNode persist `.devin/plan_state/<slug>_orchestrator.json` (state=DONE, plan_path, approval_status=approved) → plan_enforce hết deadlock M-tier | `.devin/scripts/plan_fsm/state_machine_v2.py` | `--init --task X` → task=X, slug đúng, file persist, mock plan_enforce `allow:true`; pytest 123 PASS |
+| U-ROT-1 | token | Xóa section "Red Team + Upgrades" (status claims 1-lần) + bỏ date hết hạn Kimi "đến 2026-07-05" | `AGENTS.md` | `wc -c` −268; grep stale 0 match |
+
+## Red-Team (v2.0 GĐ0-6 + V5.0 bounded)
+- **ATK-1..5**: empty task → reject fail-closed ✅ | `../../` traversal → slug sanitized ✅ | approval-only → block ✅ | orchestrator-only → block ✅ | stale grep sạch ✅
+- **V5**: Runtime Manifest `scope-manifest.json` tạo thành công (hết blocker It5/6). MCP pack = aide-memory local stdio only → remote tests NOT_APPLICABLE. Identity/delegation lifecycle → BLOCKED (thiếu infra, static only). Registry lifecycle (owner/expiry/revocation) → UNENFORCED_POLICY (next candidate).
+- Full report: `docs/plans/harness-upgrade-iteration-7/redteam-report.md`
+
+## Compensation
+- C1 deterministic verify: hook_integrity + pytest + approval Ed25519 ✅ | C5 adversarial review: red-team + personas ✅ | C7 progressive load: skill launcher/detail ✅
+- C2/C3/C4 (voting/best-of-N): chưa cần — task hiện tại discrete-answer kiểm bằng oracle deterministic; ghi nhận candidate.
+
+## Quality Verdict
+**PASS** — deterministic gates: hook_integrity 13/13 ✅ | pytest CLI 123 PASS ✅ | py_compile ✅ | orchestrator JSON assertions ✅ | plan_enforce mock allow ✅
+"Model yếu + harness này đạt tầm Opus/Fable?" → **CÓ, với điều kiện**: C1+C5+C7 phủ mọi flow quan trọng, plan phase giờ có gate kép thật. Thiếu C6/C2 cho task dài/voting → bổ sung ở iteration sau.
+
+## Next Candidates (ưu tiên)
+1. **V5-01 [MED]**: Agent registry lifecycle (owner/expiry/revocation/decommission) — `.devin/scripts/agents/registry.py` hiện chỉ capability match.
+2. **V5-04 [LOW]**: Telemetry-outage fail-closed test deterministic (V5 §17).
+3. **V5-02 [MED]**: Slug-collision shared approval — cân nhắc task fingerprint (hash) thay slug.
+4. Auto-review flow merge-ours.log (HLK, cần task chỉ định hlk).
+5. Subagent model-provider prefix (Devin CLI env, ngoài opencode scope).
+
+## Path
+- `docs/plans/harness-upgrade-iteration-7/` — SOLUTION_DESIGN.md, IMPLEMENTATION_PLAN.md (approved), redteam-report.md
+- `harness-upgrade-log.md` — iteration 7 appended

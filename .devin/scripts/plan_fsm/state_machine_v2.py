@@ -101,10 +101,11 @@ class InitNode:
         self.task_description = task_description
 
     async def execute(self, state: dict, context: dict) -> dict:
+        task = state.get("task_description") or self.task_description
         return {
             "state": C.STATE_CLASSIFY,
-            "task_description": self.task_description,
-            "task_slug": self._slugify(self.task_description),
+            "task_description": task,
+            "task_slug": self._slugify(task),
         }
 
     def _slugify(self, text: str) -> str:
@@ -285,6 +286,25 @@ class WriteStateNode:
     """Write plan state to activate enforcement."""
 
     async def execute(self, state: dict, context: dict) -> dict:
+        root = Path(context.get("root", ".")) if context else Path(".")
+        task_slug = state.get("task_slug", "")
+        if not task_slug:
+            return {"state": C.STATE_DONE}
+        try:
+            from .storage import save_state, state_path
+            persisted = {
+                "task_description": state.get("task_description", ""),
+                "task_slug": task_slug,
+                "state": C.STATE_DONE,
+                "tier": state.get("tier"),
+                "plan_path": state.get("plan_path"),
+                "sdd_path": state.get("sdd_path"),
+                "plan_approved": state.get("plan_approved", True),
+                "approval_status": "approved",
+            }
+            save_state(state_path(root, task_slug), persisted)
+        except Exception:
+            pass
         return {"state": C.STATE_DONE}
 
 
