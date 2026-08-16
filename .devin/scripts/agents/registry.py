@@ -6,6 +6,7 @@ Replaces hardcoded missions with a capability-based agent registry.
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import os
 from datetime import date
@@ -37,14 +38,64 @@ class AgentCapability(BaseModel):
 
 
 class AgentRegistry:
-    """Registry for agent capabilities with dynamic team formation."""
+    """Registry for agent capabilities with dynamic team formation.
 
-    def __init__(self, definitions_dir: Path, manifest_path: Path | None = None):
+    Revocations (revoke/decommission) được persist vào revocations_path để
+    registry reload (process mới) vẫn giữ trạng thái revocation (V5-01 ext).
+    """
+
+    def __init__(
+        self,
+        definitions_dir: Path,
+        manifest_path: Path | None = None,
+        revocations_path: Path | None = None,
+    ):
         self.definitions_dir = definitions_dir
         self.manifest_path = manifest_path or definitions_dir / "manifest.yaml"
+        if revocations_path is None:
+            revocations_path = (
+                Path(__file__).resolve().parent.parent.parent / "plan_state" / "agent_registry_revocations.json"
+            )
+        self.revocations_path = revocations_path
         self._agents: dict[str, AgentCapability] = {}
         self._manifest: dict = {}
+        self._revocations: dict = {}
         self._loaded = False
+
+    # -- revocation persistence ------------------------------------------------
+
+    def _load_revocations(self) -> dict:
+        """Đọc revocation state. File hỏng/thiếu -> {} (fail-closed: không tự un-revoke)."""
+        if not self.revocations_path or not self.revocations_path.exists():
+            return {}
+        try:
+            data = json.loads(self.revocations_path.read_text(encoding="utf-8"))
+            return data if isinstance(data, dict) else {}
+        except (json.JSONDecodeError, OSError):
+            logger.warning(f"Revocations file lỗi (coi như không có revocation mới): {self.revocations_path}")
+            return {}
+
+    def _save_revocations(self) -> None:
+        """Ghi revocation state (best-effort, không crash)."""
+        try:
+            if not self.revocations_path:
+                return
+            self.revocations_path.parent.mkdir(parents=True, exist_ok=True)
+            self.revocations_path.write_text(
+                json.dumps(self._revocations, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+        except OSError:
+            logger.warning(f"Không ghi được revocations file: {self.revocations_path}")
+
+    def _apply_persisted_revocations(self) -> None:
+        """Áp dụng revocation đã persist lên agents đã load."""
+        for agent_id, rec in self._load_revocations().items():
+            agent = self._agents.get(agent_id)
+            if agent is None:
+                continue
+            status = rec.get("status") if isinstance(rec, dict) else ""
+            if status in ("revoked", "decommissioned"):
+                self._agents[agent_id] = agent.model_copy(update={"status": status})
 
     async def load(self) -> None:
         """Load agent definitions from YAML files."""
@@ -68,6 +119,7 @@ class AgentRegistry:
                 for agent_file in subdir_path.glob("*.yaml"):
                     await self._load_agent_file(agent_file)
 
+        self._apply_persisted_revocations()
         self._loaded = True
         logger.info(f"Loaded {len(self._agents)} agent definitions")
 
@@ -108,19 +160,39 @@ class AgentRegistry:
             return False
 
     def revoke(self, agent_id: str) -> bool:
-        """Revoke an agent (status=revoked) so it no longer matches."""
+        """Revoke an agent (status=revoked) so it no longer matches. Persist qua sessions."""
         agent = self._agents.get(agent_id)
         if agent is None:
             return False
         self._agents[agent_id] = agent.model_copy(update={"status": "revoked"})
+        self._revocations[agent_id] = {
+            "status": "revoked",
+            "revoked_at": date.today().isoformat(),
+        }
+        self._save_revocations()
         return True
 
     def decommission(self, agent_id: str) -> bool:
-        """Decommission an agent (status=decommissioned) so it no longer matches."""
+        """Decommission an agent (status=decommissioned). Persist qua sessions."""
         agent = self._agents.get(agent_id)
         if agent is None:
             return False
         self._agents[agent_id] = agent.model_copy(update={"status": "decommissioned"})
+        self._revocations[agent_id] = {
+            "status": "decommissioned",
+            "revoked_at": date.today().isoformat(),
+        }
+        self._save_revocations()
+        return True
+
+    def restore(self, agent_id: str) -> bool:
+        """Restore a revoked/decommissioned agent back to active."""
+        if agent_id not in self._agents:
+            return False
+        agent = self._agents.get(agent_id)
+        self._agents[agent_id] = agent.model_copy(update={"status": "active"})
+        self._revocations.pop(agent_id, None)
+        self._save_revocations()
         return True
 
     def list_agents(self, include_inactive: bool = False) -> list[AgentCapability]:

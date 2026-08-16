@@ -2,6 +2,7 @@
 """Storage helpers: tìm repo root, slugify, đọc/ghi state và plan files."""
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from datetime import datetime, timezone
@@ -23,6 +24,17 @@ def slugify(text: str) -> str:
     slug = re.sub(r"[\s_]+", "-", slug)
     slug = re.sub(r"-+", "-", slug).strip("-")
     return slug[:60] if slug else "task"
+
+
+def fingerprint(task_description: str) -> str:
+    """Tạo SHA-256 fingerprint từ task description — không truncate, không strip
+    ký tự (V5-02): slug bị mất thông tin (truncate 60 + strip non-word) nên 2 task
+    khác nhau có thể trùng slug. Fingerprint đầy đủ thông tin → phát hiện collision
+    tại plan_enforce. Chỉ chuẩn hóa khoảng trắng."""
+    if not task_description:
+        return ""
+    norm = re.sub(r"\s+", " ", task_description.strip())
+    return hashlib.sha256(norm.encode("utf-8")).hexdigest()
 
 
 def state_dir(root: Path) -> Path:
@@ -67,6 +79,7 @@ def create_initial_state(task_description: str, root: Path) -> dict:
     return {
         "task_description": task_description,
         "task_slug": task_slug,
+        "task_fingerprint": fingerprint(task_description),
         "state": "INIT",
         "tier": None,
         "round": 0,

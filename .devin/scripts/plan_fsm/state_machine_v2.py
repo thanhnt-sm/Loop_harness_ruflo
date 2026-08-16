@@ -44,7 +44,7 @@ from .missions import (
     scout_missions,
     technical_writer_mission,
 )
-from .storage import append_history, plans_dir
+from .storage import append_history, fingerprint, plans_dir
 
 
 class PlanState(BaseModel):
@@ -106,6 +106,7 @@ class InitNode:
             "state": C.STATE_CLASSIFY,
             "task_description": task,
             "task_slug": self._slugify(task),
+            "task_fingerprint": fingerprint(task),
         }
 
     def _slugify(self, text: str) -> str:
@@ -295,6 +296,7 @@ class WriteStateNode:
             persisted = {
                 "task_description": state.get("task_description", ""),
                 "task_slug": task_slug,
+                "task_fingerprint": state.get("task_fingerprint", "") or fingerprint(state.get("task_description", "")),
                 "state": C.STATE_DONE,
                 "tier": state.get("tier"),
                 "plan_path": state.get("plan_path"),
@@ -430,6 +432,7 @@ class PlanOrchestratorV2:
         initial_state = {
             "task_description": task_description,
             "task_slug": self._slugify(task_description),
+            "task_fingerprint": fingerprint(task_description),
         }
 
         config = {"configurable": {"thread_id": thread_id}}

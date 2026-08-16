@@ -100,3 +100,60 @@ def test_yaml_load_respects_lifecycle(tmp_path):
 
     asyncio.run(reg.load())
     assert [a.id for a in reg.match(["x"])] == ["live"]
+
+
+def test_revoke_persists_across_registry_reload(tmp_path):
+    defs = tmp_path / "defs"
+    defs.mkdir()
+    (defs / "a.yaml").write_text('id: a\nversion: "1.0"\ncapabilities: [x]\n')
+    rev_path = tmp_path / "plan_state" / "agent_registry_revocations.json"
+
+    reg1 = AgentRegistry(definitions_dir=defs, revocations_path=rev_path)
+    import asyncio
+
+    asyncio.run(reg1.load())
+    assert reg1.revoke("a")
+    assert [a.id for a in reg1.match(["x"])] == []
+
+    reg2 = AgentRegistry(definitions_dir=defs, revocations_path=rev_path)
+    asyncio.run(reg2.load())
+    assert [a.id for a in reg2.match(["x"])] == []
+
+
+def test_decommission_persists_across_registry_reload(tmp_path):
+    defs = tmp_path / "defs"
+    defs.mkdir()
+    (defs / "a.yaml").write_text('id: a\nversion: "1.0"\ncapabilities: [x]\n')
+    rev_path = tmp_path / "plan_state" / "agent_registry_revocations.json"
+
+    reg1 = AgentRegistry(definitions_dir=defs, revocations_path=rev_path)
+    import asyncio
+
+    asyncio.run(reg1.load())
+    assert reg1.decommission("a")
+    assert reg1.restore("b") is False
+
+    reg2 = AgentRegistry(definitions_dir=defs, revocations_path=rev_path)
+    asyncio.run(reg2.load())
+    assert [a.id for a in reg2.match(["x"])] == []
+
+    assert reg2.restore("a")
+    assert [a.id for a in reg2.match(["x"])] == ["a"]
+    reg3 = AgentRegistry(definitions_dir=defs, revocations_path=rev_path)
+    asyncio.run(reg3.load())
+    assert [a.id for a in reg3.match(["x"])] == ["a"]
+
+
+def test_corrupt_revocations_file_does_not_crash(tmp_path):
+    defs = tmp_path / "defs"
+    defs.mkdir()
+    (defs / "a.yaml").write_text('id: a\nversion: "1.0"\ncapabilities: [x]\n')
+    rev_path = tmp_path / "plan_state" / "agent_registry_revocations.json"
+    rev_path.parent.mkdir(parents=True)
+    rev_path.write_text("{{{not json")
+
+    reg = AgentRegistry(definitions_dir=defs, revocations_path=rev_path)
+    import asyncio
+
+    asyncio.run(reg.load())
+    assert [a.id for a in reg.match(["x"])] == ["a"]
