@@ -179,3 +179,45 @@ Trong quá trình test driver, `git checkout --ours` đã revert các edit confi
 ## Path
 - `docs/plans/harness-upgrade-iteration-7/` — SOLUTION_DESIGN.md, IMPLEMENTATION_PLAN.md (approved), redteam-report.md
 - `harness-upgrade-log.md` — iteration 7 appended
+
+---
+
+# ITERATION 8 — HLK Auto-Review Flow cho merge-ours.log (U-HLK-12)
+
+**Date**: 2026-08-16 | **Mode**: FULL CHAIN — focus `hlk` (task chính: HLK, user yêu cầu "áp dụng cho HLK")
+**Trả lời priority-1**: known-risk "merge=ours đóng băng security patch upstream âm thầm" → giờ có gate review + nhắc CI/hook.
+
+## Baseline → After
+| Metric | Baseline (It5b) | After (It8) | Delta |
+|--------|----------------|-------------|-------|
+| merge-ours log review | log chỉ ghi file, không ai đọc | checker gate: pending/resolved + exit-code 1 | ✅ |
+| Nhắc review khi log mới | 0 (operator phải nhớ) | doctor + post-merge hook tự nhắc | ✅ |
+| Trạng thái review | n/a (append-only) | `HLK/logs/merge-ours-reviewed.json` (--ack) | ✅ |
+| HLK integrity | All PASS | All PASS (sau 2 file edit + 1 file mới) | ✅ |
+
+## Upgrades Applied (1 feature, 3 file)
+| ID | Mức | Upgrade | File | Verify |
+|----|-----|---------|------|--------|
+| U-HLK-12 | **MED** | Auto-review flow cho merge=ours log: script gate mới (`--ack`/`--json`, exit 1 khi còn pending, tracker `merge-ours-reviewed.json`) + wire vào doctor (warning pending) + post-merge hook (nhắc, không block) | `HLK/git-tools/hlk-check-merge-ours.mjs` (mới), `HLK/git-tools/hlk-git-doctor.mjs`, `.githooks/post-merge` | node --check ✅; exit-code matrix 6 case ✅; doctor warn pending ✅; hook chạy không crash ✅; integrity All PASS ✅ |
+
+## Red-Team (v2.0 targeted + V5 bounded)
+- **ATK-1..6**: `--ack ""` benign ✅ | `--ack '$(whoami)'` không shell-exec ✅ | tracker JSON hỏng → fail-closed (mọi dòng = pending) ✅ | log line inject `[INJECT].../etc/passwd` → chỉ liệt kê, không code exec ✅ | doctor khi checker exit 1 → parse `err.stdout` (bug exit-code path đã fix trong iteration) ✅ | hook khi checker exit 1 → vẫn `exit 0`, không block merge ✅
+- **V5**: low-risk budget (1 file mới + 2 wiring, 0 dep, 0 network); §19 VERIFIED_REMEDIATION cho known-risk security-patch-freeze. Tracker trong `HLK/logs/` gitignored → trạng thái review không commit.
+- Full report: `docs/plans/hlk-auto-review-merge-ourslog/redteam-report.md`
+
+## Compensation
+- C1 deterministic verify: exit-code matrix + node --check + integrity gate ✅ | C5 adversarial: red-team ATK-1..6 ✅
+- C2/C3/C4: không cần (discrete gate, oracle deterministic).
+
+## Quality Verdict
+**PASS** — deterministic gates: node --check 2/2 ✅ | checker exit-code matrix 6/6 ✅ | doctor warn pending/clean ✅ | post-merge hook ✅ | hlk-verify-integrity All PASS ✅
+
+## Next Candidates (ưu tiên)
+1. **V5-01 [MED]**: Agent registry lifecycle (owner/expiry/revocation) — registry.py chỉ capability match.
+2. **V5-02 [MED]**: Slug-collision — cân nhắc fingerprint hash thay task_slug.
+3. **V5-04 [LOW]**: Telemetry-outage fail-closed test.
+4. Subagent model-provider prefix (Devin CLI env, ngoài opencode scope).
+
+## Path
+- `docs/plans/hlk-auto-review-merge-ourslog/` — SOLUTION_DESIGN.md, IMPLEMENTATION_PLAN.md (approved), redteam-report.md
+- `harness-upgrade-log.md` — iteration 8 appended

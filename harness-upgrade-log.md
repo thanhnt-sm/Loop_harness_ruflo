@@ -302,3 +302,30 @@
 3. **V5-04 [LOW]**: Telemetry-outage fail-closed test (V5 §17).
 4. [HLK] auto-review merge-ours.log — cần task chỉ định `hlk`.
 5. [Devin env] Subagent model-provider prefix — ngoài phạm vi opencode.
+
+# ITERATION 8 — HLK Auto-Review Flow cho merge-ours.log (U-HLK-12)
+**Date**: 2026-08-16 | **Mode**: FULL CHAIN focus `hlk` (task chính: HLK)
+
+## Applied (1 feature, 3 file)
+- **U-HLK-12 [MED]**: Auto-review flow cho merge=ours log (known-risk security-patch-freeze):
+  - Mới: `HLK/git-tools/hlk-check-merge-ours.mjs` — gate deterministic: pending = dòng `GIỮ bản địa` (merge active, không phải informational); tracker `HLK/logs/merge-ours-reviewed.json`; `--ack <ts>` mark reviewed; `--json`; exit 0 = hết pending, 1 = còn pending.
+  - `HLK/git-tools/hlk-git-doctor.mjs` — wire `checkMergeOurs()` (warning per pending; parse `err.stdout` khi checker exit 1).
+  - `.githooks/post-merge` — chạy checker sau integrity check, nhắc không block (exit 0).
+
+## Verify (Iteration 8)
+- node --check 2/2 ✅ | checker exit-code matrix: pending→1 ✅ | ack→0 ✅ | ack invalid→1 ✅ | informational không tính pending ✅
+- doctor: pending → warn hiện ✅ | clean → không warn ✅
+- hook: bash -n + chạy thử → integrity PASSED + "Không có merge=ours cần review" ✅
+- hlk-verify-integrity: **All PASS** (19 checks) ✅
+
+## Red-team (v2.0 targeted)
+- ATK-1..6 PASS: no shell injection (`--ack '$(whoami)'`), fail-closed corrupt tracker, injected log line inert, hook không block merge, doctor exit-code path fixed.
+
+## Compensation
+- C1 deterministic ✅ | C5 adversarial ✅ | C2/C3/C4 không cần.
+
+## Verdict
+**PASS** — mọi deterministic gate xanh. Đã review + ack dòng pending cũ (hlk.config.json It5b).
+
+## Next
+- V5-01 registry lifecycle [MED], V5-02 slug-collision [MED], V5-04 telemetry-outage [LOW].

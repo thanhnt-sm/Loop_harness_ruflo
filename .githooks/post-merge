@@ -23,4 +23,9 @@ else
   echo "⚠️  [HLK] Không tìm thấy HLK/wrappers/hlk-verify-integrity.js — bỏ qua."
 fi
 
+# Nhắc review merge=ours (security patch giữ bản địa) — không block merge.
+if [ -f "HLK/git-tools/hlk-check-merge-ours.mjs" ]; then
+  node HLK/git-tools/hlk-check-merge-ours.mjs
+fi
+
 exit 0

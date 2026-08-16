@@ -15,6 +15,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
 import {
   log,
   runGit,
@@ -353,6 +354,34 @@ function checkDivergence() {
 }
 
 // ---------------------------------------------------------------------------
+// merge=ours review gate
+// ---------------------------------------------------------------------------
+
+function checkMergeOurs() {
+  const checker = path.resolve(__dirname, 'hlk-check-merge-ours.mjs');
+  if (!fs.existsSync(checker)) return;
+  try {
+    const out = execFileSync(process.execPath, [checker, '--json'], {
+      encoding: 'utf8',
+    });
+    const parsed = JSON.parse(out);
+    for (const p of parsed.pending || []) {
+      reportIssue('warn', `merge=ours giữ bản địa chưa review (${p.ts}): ${p.line}`, p.path || null);
+    }
+  } catch (err) {
+    const out = err.stdout ? err.stdout.toString() : '';
+    try {
+      const parsed = JSON.parse(out);
+      for (const p of parsed.pending || []) {
+        reportIssue('warn', `merge=ours giữ bản địa chưa review (${p.ts}): ${p.line}`, p.path || null);
+      }
+    } catch {
+      /* không parse được → bỏ qua lỗi phụ */
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -373,6 +402,7 @@ async function main() {
   checkLargeFiles();
   await checkEmbeddedRepos();
   checkDivergence();
+  checkMergeOurs();
 
   log('info', '');
   if (issues.length === 0) {
