@@ -152,7 +152,7 @@ async function main() {
     const ok = await ask(`Push ${localBranch} lên origin/${remoteBranch}?`);
     if (!ok) {
       log('info', 'Hủy push.');
-      process.exit(0);
+      process.exit(2);
     }
   }
 

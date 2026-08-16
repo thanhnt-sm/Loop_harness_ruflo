@@ -279,6 +279,7 @@ async function getCommitMessage() {
         resolve(msg);
       }
     });
+    process.stdin.on('end', () => resolve(suggestion));
   });
 }
 
@@ -302,7 +303,7 @@ async function main() {
     const ok = await ask(`Commit với message: "${message}"?`);
     if (!ok) {
       log('info', 'Hủy commit.');
-      process.exit(0);
+      process.exit(2);
     }
   }
 

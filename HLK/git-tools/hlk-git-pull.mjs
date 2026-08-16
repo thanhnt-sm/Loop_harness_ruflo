@@ -107,7 +107,7 @@ async function prePullChecks() {
       log('success', 'Đã stash thay đổi.');
     } else if (!(await ask('Pull mặc dù có thay đổi chưa commit? (có thể gây conflict)'))) {
       log('info', 'Hủy pull.');
-      process.exit(0);
+      process.exit(2);
     }
   }
 

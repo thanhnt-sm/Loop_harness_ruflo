@@ -180,6 +180,40 @@ const TRACKED_SECRET_PATTERNS = [
   /\bghp_[a-f0-9]{36}\b/,
 ];
 
+// Match-level allowlist: các chuỗi secret-like đã xác minh là test fixture hoặc
+// ví dụ trong tài liệu (không phải secret thật). Chỉ bỏ qua khi trùng CHÍNH XÁC
+// cả file lẫn chuỗi — secret mới ở bất kỳ đâu vẫn bị phát hiện.
+// Giá trị match ghép từ nhiều phần để file này không tự trigger scanner.
+const TRACKED_SECRET_ALLOWLIST = [
+  { file: 'HLK/docs/02-thanh-phan-va-luong-hoat-dong.md', match: '-----BEGIN ' + 'PRIVATE KEY-----' },
+  { file: 'HLK/reports/07_hardening_implementation.md', match: 'sk-' + 'abc123def456ghijk789lmno01234567' },
+  { file: 'HLK/wrappers/hlk-verify-integrity.js', match: 'sk-' + 'abcdefghijklmnopqrstuvwxyz0123456789abcdefgh' },
+  { file: 'HLK/wrappers/hlk-verify-integrity.js', match: 'ghp_' + 'abcdefghijklmnopqrstuvwxyz0123456789' },
+  { file: 'HLK/wrappers/hlk-verify-integrity.js', match: 'AKIA' + '1234567890ABCDEF' },
+  { file: 'docs/reports/SECURITY_HARDENING_2026-08-13.md', match: 'AKIA' + 'IOSFODNN7EXAMPLE' },
+  { file: 'tests/test_checkpoint_schema.py', match: 'sk-' + 'abcdefghijklmnopqrstuvwxyz123456' },
+  { file: 'tests/test_cognitive_scaffold_memory.py', match: 'sk-' + 'abcdefghijklmnopqrstuvwxyz0123456789' },
+  { file: 'tests/test_cognitive_scaffold_memory.py', match: 'ghp_' + 'abcdefghijklmnopqrstuvwxyz0123456789' },
+  { file: 'tests/test_cve_remediation_phase1.py', match: 'AKIA' + 'IOSFODNN7EXAMPLE' },
+  { file: 'tests/test_cve_remediation_phase1.py', match: '-----BEGIN ' + 'PRIVATE KEY-----' },
+  { file: 'tests/test_no_secret_log.py', match: 'sk-' + 'abcdefghijklmnopqrstuvwxyz1234567890' },
+  { file: 'tests/test_pentest_secret_redaction.py', match: 'sk-' + 'abcdefghijklmnopqrstuvwxyz1234567890' },
+  { file: 'tests/test_red_team_suite.py', match: 'sk-' + 'abcdefghijklmnopqrstuvwxyz1234567890' },
+  { file: 'tests/test_schema_gate.py', match: 'ghp_' + '1234567890abcdef1234567890abcdef1234' },
+  { file: 'tests/test_targeted_coverage_low_modules.py', match: 'AKIA' + 'ABCDEFGHIJKLMNOP' },
+  { file: 'tests/test_targeted_coverage_low_modules.py', match: 'xoxb-' + '1234567890-abcdefghij' },
+];
+
+function stripAllowlistedFixtures(text, file) {
+  let out = text;
+  for (const e of TRACKED_SECRET_ALLOWLIST) {
+    if (e.file === file) {
+      out = out.split(e.match).join(' ');
+    }
+  }
+  return out;
+}
+
 export function auditTrackedArtifacts(cwd = process.cwd()) {
   const r = runGit(['ls-files'], { cwd });
   if (r.status !== 0) return { status: 'error', findings: [] };
@@ -217,8 +251,9 @@ export function auditTrackedArtifacts(cwd = process.cwd()) {
     }
 
     if (content) {
+      const scanContent = stripAllowlistedFixtures(content, f);
       for (const pattern of TRACKED_SECRET_PATTERNS) {
-        const m = content.match(pattern);
+        const m = scanContent.match(pattern);
         if (m) {
           findings.push({
             file: f,
@@ -282,7 +317,7 @@ export function scanFilesForSecrets(filePaths, cwd = process.cwd()) {
     }
     if (!line.startsWith('+') || line.startsWith('++')) continue;
 
-    const added = line.slice(1);
+    const added = stripAllowlistedFixtures(line.slice(1), currentFile ?? '');
     for (const pattern of SECRET_PATTERNS) {
       const matches = added.match(pattern);
       if (matches) {
@@ -364,7 +399,7 @@ export function scanUnstagedForSecrets(cwd = process.cwd()) {
     if (line.startsWith('+++') || line.startsWith('---') || line.startsWith('@@') || line.startsWith(' ')) continue;
     if (!line.startsWith('+') || line.startsWith('++')) continue;
 
-    const added = line.slice(1);
+    const added = stripAllowlistedFixtures(line.slice(1), currentFile ?? '');
     for (const pattern of SECRET_PATTERNS) {
       const matches = added.match(pattern);
       if (matches) {
@@ -393,7 +428,7 @@ export function scanUntrackedForSecrets(cwd = process.cwd()) {
       const stat = fs.lstatSync(p);
       if (!stat.isFile() || stat.size > 1024 * 1024) continue; // skip > 1MB
 
-      const content = fs.readFileSync(p, 'utf8');
+      const content = stripAllowlistedFixtures(fs.readFileSync(p, 'utf8'), f);
       for (const pattern of SECRET_PATTERNS) {
         const matches = content.match(pattern);
         if (matches) {
@@ -507,6 +542,10 @@ export function listFilesNotIgnored(cwd, patterns) {
 export function prompt(question) {
   process.stderr.write(`${question} [y/N]: `);
   return new Promise((resolve) => {
+    if (process.stdin.readableEnded) {
+      resolve(false);
+      return;
+    }
     let input = '';
     process.stdin.resume();
     process.stdin.on('data', (data) => {
@@ -517,6 +556,7 @@ export function prompt(question) {
         resolve(answer === 'y' || answer === 'yes');
       }
     });
+    process.stdin.on('end', () => resolve(false));
   });
 }
 
