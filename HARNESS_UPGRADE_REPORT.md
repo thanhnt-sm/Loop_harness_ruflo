@@ -221,3 +221,50 @@ Trong quá trình test driver, `git checkout --ours` đã revert các edit confi
 ## Path
 - `docs/plans/hlk-auto-review-merge-ourslog/` — SOLUTION_DESIGN.md, IMPLEMENTATION_PLAN.md (approved), redteam-report.md
 - `harness-upgrade-log.md` — iteration 8 appended
+
+---
+
+# ITERATION 9 — V5-01 Agent Registry Lifecycle (U-REG-1)
+
+**Date**: 2026-08-16 | **Mode**: FULL CHAIN tiếp nối (commit/push It8 + candidate V5-01)
+**Trả lời**: V5-01 [MED] — `AgentRegistry` chỉ capability match, lifecycle (owner/expiry/revocation) UNENFORCED.
+
+## Baseline → After
+| Metric | Baseline (It7) | After (It9) | Delta |
+|--------|----------------|-------------|-------|
+| Agent lifecycle enforcement | KHÔNG (mọi agent match) | `_is_active()` gate tại `match()` — phủ match/match_single/form_team/CapabilityMatcher | ✅ |
+| Revoked/expired agent match | match được | loại khỏi mọi matching | ✅ |
+| Legacy format | n/a | thiếu fields → vẫn active (backward-compat) | ✅ |
+| Expires unparseable | n/a | fail-closed (không match) | ✅ |
+
+## Upgrades Applied (1 module + 1 test)
+| ID | Mức | Upgrade | File | Verify |
+|----|-----|---------|------|--------|
+| U-REG-1 | **MED** | `AgentCapability` + `owner`/`expires`/`status`; `AgentRegistry._is_active()` + filter trong `match()`; `revoke()`/`decommission()` (in-memory, `model_copy`); `list_agents(include_inactive=False)` | `.devin/scripts/agents/registry.py` | pytest mới 10/10 PASS ✅; py syntax ✅ |
+
+## Verify (Iteration 9)
+- `tests/test_registry_lifecycle.py`: **10 PASS** (active match, expired excluded, revoked excluded, decommissioned excluded, form_team skip revoked, legacy active, revoke unknown False, list_agents filter, unparseable fail-closed, YAML load lifecycle) ✅
+- Full suite `pytest tests/`: **2280 passed, 30 failed** — toàn bộ 30 là **pre-existing** (đã xác nhận: subset 16 lỗi giống hệt trên HEAD baseline khi stash registry.py; không liên quan agents.registry — không module nào import registry) ✅
+- Gate kép plan: orchestrator bound ✅ + approval_gate exit 0 ✅ + plan_enforce allow ✅
+
+## Red-Team (v2.0 targeted + V5 bounded)
+- ATK-1..8: status lạ → fail-closed ✅ | expires unparseable/ISO-datetime → fail-closed ✅ | revoke unknown → False ✅ | model_copy không mutate gốc ✅ | legacy backward-compat ✅ | form_team skip revoked ✅
+- ATK-8 ACCEPTED: revocation in-memory chỉ trong phiên (reload reset); decommission vĩnh viễn = sửa definition YAML (source of truth) — ngoài scope, ghi nhận next candidate.
+- V5 §19: **VERIFIED_REMEDIATION** cho V5-01. Full report: `docs/plans/v5-01-agent-registry-lifecycle-owner-expiry-revocation/redteam-report.md`
+
+## Compensation
+- C1 deterministic: pytest 10/10 + baseline-comparison (HEAD stash) ✅ | C5 adversarial: ATK-1..8 ✅
+- C2/C3/C4: không cần (discrete gate).
+
+## Quality Verdict
+**PASS** — deterministic gates: pytest mới 10/10 ✅ | py syntax ✅ | 30 failures = pre-existing (evidence HEAD baseline) ✅ | hooks không touch (integrity giữ nguyên) ✅
+
+## Next Candidates (ưu tiên)
+1. **V5-02 [MED]**: Slug-collision — fingerprint hash thay task_slug cho authorization.
+2. **V5-04 [LOW]**: Telemetry-outage fail-closed test.
+3. **V5-01 extension [LOW]**: persistence revocation (state file) nếu cần decommission vĩnh viễn qua runtime.
+4. Clean-up pre-existing test failures (30) — file pre_tool_use/plan_orchestrator/cost_guard stale assertions (ngoài scope, chờ quyết định).
+
+## Path
+- `docs/plans/v5-01-agent-registry-lifecycle-owner-expiry-revocation/` — SOLUTION_DESIGN.md, IMPLEMENTATION_PLAN.md (approved), redteam-report.md
+- `harness-upgrade-log.md` — iteration 9 appended

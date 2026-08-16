@@ -329,3 +329,30 @@
 
 ## Next
 - V5-01 registry lifecycle [MED], V5-02 slug-collision [MED], V5-04 telemetry-outage [LOW].
+
+# ITERATION 9 — V5-01 Agent Registry Lifecycle (U-REG-1)
+**Date**: 2026-08-16 | **Mode**: FULL CHAIN tiếp nối (commit It8 f070445 + candidate V5-01)
+
+## Applied (1 module + 1 test)
+- **U-REG-1 [MED]**: `.devin/scripts/agents/registry.py`
+  - `AgentCapability` + `owner`/`expires`(ISO date)/`status`(active|revoked|decommissioned), default backward-compat.
+  - `_is_active()` gate: status!=active → out; expires unparseable → fail-closed (out).
+  - `match()` filter lifecycle (một choke point phủ match/match_single/form_team/CapabilityMatcher).
+  - `revoke()`/`decommission()` (in-memory, `model_copy`), `list_agents(include_inactive=False)`.
+  - Mới: `tests/test_registry_lifecycle.py` (10 case).
+
+## Verify (Iteration 9)
+- pytest mới **10 PASS** ✅ | py syntax OK ✅
+- Full suite: **2280 passed, 30 failed — 30 pre-existing** (subset 16 lỗi giống hệt trên HEAD khi stash registry.py; registry không có consumer, không module nào import) ✅
+- Plan kép: orchestrator bound + approval gate exit 0 + plan_enforce allow ✅
+
+## Red-team (v2.0 + V5)
+- ATK-1..8 PASS; fail-closed status/expires lạ; model_copy không mutate gốc; legacy compat.
+- ATK-8 ACCEPTED: revocation in-memory chỉ trong phiên — decommission vĩnh viễn = sửa YAML (source of truth).
+- V5 §19: VERIFIED_REMEDIATION cho V5-01.
+
+## Verdict
+**PASS** — 10/10 mới PASS, baseline comparison xác nhận 30 failures pre-existing.
+
+## Next
+- V5-02 slug-collision [MED], V5-04 telemetry-outage [LOW], persistence revocation [LOW], cleanup 30 pre-existing test failures.

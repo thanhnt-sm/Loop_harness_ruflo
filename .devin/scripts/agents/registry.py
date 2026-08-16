@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
+from datetime import date
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
@@ -30,6 +31,9 @@ class AgentCapability(BaseModel):
     tools: list[str] = Field(default_factory=list)
     max_parallel: int = 1
     description: str = ""
+    owner: str = ""
+    expires: str | None = None
+    status: str = "active"
 
 
 class AgentRegistry:
@@ -87,9 +91,44 @@ class AgentRegistry:
         """Get agent capability by ID."""
         return self._agents.get(agent_id)
 
-    def list_agents(self) -> list[AgentCapability]:
-        """List all registered agents."""
-        return list(self._agents.values())
+    def _is_active(self, agent: AgentCapability) -> bool:
+        """Lifecycle gate: active status AND not expired.
+
+        Missing fields = active (backward-compatible). Unparseable `expires`
+        is treated as expired (fail-closed — never match a misconfigured agent).
+        """
+        if agent.status != "active":
+            return False
+        if not agent.expires:
+            return True
+        try:
+            return date.fromisoformat(agent.expires) >= date.today()
+        except ValueError:
+            logger.warning(f"Agent {agent.id}: unparseable expires={agent.expires!r} — treated as expired")
+            return False
+
+    def revoke(self, agent_id: str) -> bool:
+        """Revoke an agent (status=revoked) so it no longer matches."""
+        agent = self._agents.get(agent_id)
+        if agent is None:
+            return False
+        self._agents[agent_id] = agent.model_copy(update={"status": "revoked"})
+        return True
+
+    def decommission(self, agent_id: str) -> bool:
+        """Decommission an agent (status=decommissioned) so it no longer matches."""
+        agent = self._agents.get(agent_id)
+        if agent is None:
+            return False
+        self._agents[agent_id] = agent.model_copy(update={"status": "decommissioned"})
+        return True
+
+    def list_agents(self, include_inactive: bool = False) -> list[AgentCapability]:
+        """List registered agents. Default: only active (non-revoked, non-expired)."""
+        agents = list(self._agents.values())
+        if not include_inactive:
+            agents = [a for a in agents if self._is_active(a)]
+        return agents
 
     def match(
         self,
@@ -104,6 +143,9 @@ class AgentRegistry:
 
         candidates = []
         for agent in self._agents.values():
+            # Lifecycle gate: revoked/expired/decommissioned agents never match
+            if not self._is_active(agent):
+                continue
             # Check capabilities
             if not all(cap in agent.capabilities for cap in required_capabilities):
                 continue
