@@ -4,6 +4,17 @@
 > **Usage guide**: `docs/USAGE_GUIDE.md` — tất cả skills/agents/flows
 > **Loop guide**: `docs/CONTINUOUS_LOOP_GUIDE.md` — chạy loop liên tục
 
+## Language Policy (BẮT BUỘC cho mọi agent)
+
+> **TẤT CẢ AI agent trong workspace này PHẢI phản hồi bằng tiếng Việt có dấu.**
+> - Response language: **tiếng Việt** (có dấu đầy đủ: à, á, ả, ã, ạ, ă, â, đ, ê, ô, ơ, ư...)
+> - Code comments: **tiếng Việt**, tự nhiên, dễ hiểu
+> - Technical terms giữ nguyên tiếng Anh: API, token, commit, branch, merge, deploy, hook, skill, agent...
+> - Lần đầu dùng technical term: ghi chú ngắn trong ngoặc đơn, ví dụ: "commit (đánh dấu một phiên bản code)"
+> - Commit messages: giữ nguyên tiếng Anh (theo git convention)
+> - File names, variable names: giữ nguyên tiếng Anh (không dấu)
+> - **KHÔNG BAO GIỜ** trả lời bằng tiếng Anh với user trừ khi user yêu cầu rõ ràng
+
 ## Orchestrator skills (3 executors)
 
 | Skill | Executor | Model | Cost | Khi nào |

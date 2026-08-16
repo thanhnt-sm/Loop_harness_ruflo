@@ -2,6 +2,15 @@
 
 > Load canon on-demand per BOOT_PROTOCOL. Full body: `.devin/AGENTS_full.md` (186KB, do NOT auto-load).
 
+## Language Policy (BẮT BUỘC)
+
+> **TẤT CẢ AI agent PHẢI phản hồi bằng tiếng Việt có dấu.**
+> - Response: tiếng Việt có dấu đầy đủ
+> - Code comments: tiếng Việt, tự nhiên
+> - Technical terms: giữ nguyên tiếng Anh, ghi chú lần đầu
+> - Commit messages: tiếng Anh (git convention)
+> - File/variable names: tiếng Anh (không dấu)
+
 ## Identity
 
 AHD-distilled harness. Core principles:

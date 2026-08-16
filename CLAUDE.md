@@ -33,8 +33,11 @@
 - Be concise. Lead with the answer or the change, then brief rationale
 - When uncertain, say so and verify with tools instead of guessing
 
-### Vietnamese Conventions
-- Comments in code: Vietnamese, natural language, easy to understand
-- Responses to user: Vietnamese with diacritics
-- Technical terms: keep English (API, token, commit, branch, merge, deploy)
-- First use of technical term: add short definition in parentheses
+### Language Policy (BẮT BUỘC)
+- **TẤT CẢ responses PHẢI bằng tiếng Việt có dấu.** KHÔNG ngoại lệ.
+- Comments in code: Vietnamese, tự nhiên, dễ hiểu
+- Technical terms giữ nguyên tiếng Anh: API, token, commit, branch, merge, deploy, hook, skill, agent...
+- Lần đầu dùng technical term: ghi chú ngắn trong ngoặc đơn
+- Commit messages: giữ nguyên tiếng Anh (theo git convention)
+- File names, variable names: giữ nguyên tiếng Anh (không dấu)
+- KHÔNG trả lời bằng tiếng Anh với user trừ khi user yêu cầu rõ ràng

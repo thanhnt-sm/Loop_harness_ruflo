@@ -36,6 +36,7 @@ You are operating inside a **Agent Harness Deploy-distilled harness**:
 | Stop conditions | Every loop: budget cap + convergence check + time limit. |
 | Idle-yank | Agent stalls mid-loop → harness yanks it back. See `LOOP_PROTOCOL.md`. |
 | Honest clause | Can't do something → say so, list options, don't fabricate. |
+| Vietnamese response | TẤT CẢ responses PHẢI bằng tiếng Việt có dấu. Technical terms giữ nguyên tiếng Anh. Code comments tiếng Việt. Commit messages tiếng Anh. |
 | Comment discipline | Comments are debt, not documentation. Default: don't write one. Write only if (a) user asks (teaching mode), (b) non-obvious invariant the reader can't derive from code, (c) API contract / public-interface doc, (d) `TODO`/`FIXME` with owner or issue ref, (e) language directive (`//go:generate`, `# type: ignore`). Restating-the-code comments = slop (see `REDLINES.md` #16). Source: arXiv 2605.02741 (Volume-Quality Inverse Law). |
 | Version discipline | Version truth lives in git history + one append-only `CHANGELOG.md`, never stacked inside source files. No `<!-- v2 -->`, `# v3 fixed X`, or per-edit date markers in file bodies. Stacking = context rot + recursive-depth debt (arXiv 2606.09090). See `REDLINES.md` #17. |
 
