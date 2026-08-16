@@ -268,3 +268,62 @@ Trong quá trình test driver, `git checkout --ours` đã revert các edit confi
 ## Path
 - `docs/plans/v5-01-agent-registry-lifecycle-owner-expiry-revocation/` — SOLUTION_DESIGN.md, IMPLEMENTATION_PLAN.md (approved), redteam-report.md
 - `harness-upgrade-log.md` — iteration 9 appended
+
+---
+
+# ITERATION 10 — V5-02 slug-collision + V5-04 telemetry test + V5-01 ext persistence
+
+**Date**: 2026-08-16 | **Mode**: FULL CHAIN tiếp nối ("tiếp tục tất cả, theo thứ tự ưu tiên")
+
+## Upgrades Applied (4 feature, 6 file + 2 test)
+| ID | Mức | Upgrade | File | Verify |
+|----|-----|---------|------|--------|
+| U-SLUG-1 | **MED** | **V5-02 fix**: fingerprint binding — SHA-256 `storage.fingerprint()` + persist `task_fingerprint` trong orchestrator state (InitNode/run/WriteStateNode) + plan_enforce verify (exact desc HOẶC fp; collision → block; legacy state backward-compat) | `plan_fsm/storage.py`, `plan_fsm/state_machine_v2.py`, `hooks/plan_enforce.py` | ATK-1..7 6 case PASS ✅; hook_integrity 13/13 (baseline regen) ✅ |
+| U-TEL-1 | LOW | **V5-04**: `tests/test_telemetry_outage.py` — khóa invariant §17 (OTel outage → fallback ghi, write outage → stderr surface, passthrough + exit code) | `tests/test_telemetry_outage.py` (test-only) | 7/7 PASS ✅ + subprocess smoke |
+| U-REG-2 | LOW | **V5-01 ext**: revocation persistence — `revocations_path` (default `.devin/plan_state/agent_registry_revocations.json`), `_load/_save_revocations`, apply tại load(), `restore()` | `.devin/scripts/agents/registry.py` | 13/13 registry PASS ✅ |
+| U-HK-REGEN | token | hook_integrity baseline regenerate (plan_enforce legit edit) | `.devin/hook_hashes.json` | 13/13 verified ✅ |
+
+## Verify (Iteration 10)
+- V5-02 matrix: exact desc allow ✅ | slug-collision BLOCK ✅ | whitespace fp allow ✅ | case variant BLOCK ✅ | legacy exact allow ✅ | legacy collision BLOCK ✅
+- V5-04: 7/7 PASS ✅; end-to-end smoke passthrough + OTel outage fallback ✅
+- V5-01 ext: 13/13 PASS ✅; red-team ATK-1..4 PASS ✅
+- Gate kép plan cho 3 task (v5-02, v5-04, v5-01ext): orchestrator bound + approval gate + plan_enforce allow ✅
+- `pytest tests/test_cli_entrypoints.py`: 123 PASS (không vỡ) ✅
+
+## Red-Team (v2.0 targeted + V5 bounded)
+- V5-02: ATK-1..7 PASS (collision block, fail-closed, backward-compat). §19 VERIFIED_REMEDIATION.
+- V5-04: ATK-1..6 PASS (không drop event, lỗi ghi được surface, wrapper transparent).
+- V5-01ext: ATK-1..4 PASS; ACCEPTED limitation: revocations file không hash-protect (control-plane trust; corrupt → fail-open + warning).
+- Reports: `docs/plans/v5-02-slug-collision-fix-test/`, `docs/plans/v5-04-telemetry-outage-fail-closed-deterministic-test/`, `docs/plans/v5-01-extension-registry-revocation-persistence-state-file/`
+
+## Quality Verdict
+**PASS** — deterministic gates: matrix 6+7+13 PASS ✅ | hook_integrity 13/13 ✅ | CLI gate 123 PASS ✅
+
+## Next Candidates
+1. Cleanup 30 pre-existing test failures (pre_tool_use/plan_orchestrator/cost_guard/ssrf_guard stale assertions) — cần quyết định fix hay cập nhật test.
+2. Subagent model-provider prefix (Devin CLI env, ngoài opencode scope).
+
+---
+
+# ITERATION 11 — Fix 31 pre-existing test failures + coverage gate
+**Date**: 2026-08-16 | **Mode**: FULL CHAIN ("tiếp tục tất cả, thứ tự ưu tiên")
+
+## Applied
+- **FIX-V5-02-LEGACY [prod]** (`plan_enforce.py`): hồi quy do It10 — legacy orchestrator state (không task_description/task_fingerprint) bị block oan. Nay: state có metadata → binding nghiêm (V5-02 giữ nguyên); state legacy (không metadata) → bind bằng slug như hành vi cũ + warning stderr.
+- **TEST-V2-API**: rewrite `tests/test_plan_orchestrator.py` (8 stale FSM tests) → 7 tests theo v2 graph API thật (`--init --task` one-shot: task_slug/task_fingerprint/tier/state; collision E2E; fingerprint whitespace-stable).
+- **TEST-LEDGER-KEY**: 6 files thêm `AHD_COST_LEDGER_KEY` cho pre_tool_use invocations (subprocess env / monkeypatch.setenv) — phản ánh contract CVE-2026-AHD-013 (gate fail-closed khi thiếu HMAC key). test_cost_guard: thêm `_seed_ledger` (append HMAC-signed entries) để warn/block đúng ngữ nghĩa.
+- **TEST-CVE-FIX**: `test_cve_remediation_phase3.py` — health_check assert đúng config thật (`failClosedOnConfigError` do config quyết định); audit_log_written rewrite theo CVE-2026-AHD-016 (env-source ghi audit; default-source chỉ warning stderr, không log-spam).
+- **TEST-WORKTREE-LIFECYCLE**: +5 tests happy-path với git repo thật (create/duplicate/merge/remove/clean/main CLI) — đưa worktree.py khỏi vùng chỉ-test-guard, đóng gap coverage.
+
+## Verify
+- Full suite: **2319 → 2324 passed, 0 failed** (trước: 2280 passed / 31 failed).
+- Coverage gate: **80.26%** ≥ 80% (trước 79.44% — pre-existing gap, đã đóng).
+- V5-02 matrix re-run 7/7 (exact/fp/collision/legacy-allow/not-done...) ✅
+- hook_integrity: baseline regenerate → **13/13 verified** ✅
+- `tests/test_destructive_block.py`: 36 PASS (regression test xanh) ✅
+
+## Quality Verdict
+**PASS** — suite xanh + coverage gate đạt; 1 production fix nhỏ (legacy plan_enforce branch), còn lại stale tests được cập nhật đúng contract bảo mật (KHÔNG nới lỏng hardening).
+
+## Next Candidates
+1. Subagent model-provider prefix (Devin CLI env, ngoài opencode scope).

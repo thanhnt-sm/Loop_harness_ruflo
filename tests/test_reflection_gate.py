@@ -136,6 +136,7 @@ def _run_pre_tool(command: str) -> subprocess.CompletedProcess:
     cmd = [sys.executable, str(REPO_ROOT / ".devin" / "hooks" / "pre_tool_use.py")]
     env = os.environ.copy()
     env["PYTHONUTF8"] = "1"
+    env["AHD_COST_LEDGER_KEY"] = "test-key"
     return subprocess.run(
         cmd,
         input=json.dumps({"tool_name": "exec", "tool_input": {"command": command}}),

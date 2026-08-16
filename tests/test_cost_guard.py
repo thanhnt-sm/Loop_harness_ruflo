@@ -48,9 +48,18 @@ def patched_root(tmp_path, monkeypatch):
     """Chuyển repo root và config root của ahd_session sang tmp_path."""
     devin_dir = tmp_path / ".devin"
     (devin_dir / "session_state").mkdir(parents=True, exist_ok=True)
+    (devin_dir / "telemetry").mkdir(parents=True, exist_ok=True)
     monkeypatch.setattr(ahd_session, "get_repo_root", lambda _start_from=None: tmp_path)
     monkeypatch.setattr(ahd_session, "get_config_root", lambda _root=None: devin_dir)
+    # CVE-2026-AHD-013: cost cap gate fail-closed khi thiếu HMAC key → cấu hình key test.
+    monkeypatch.setenv("AHD_COST_LEDGER_KEY", "test-key")
     return tmp_path
+
+
+def _seed_ledger(root: Path, session_id: str, cumulative: float) -> None:
+    """Ghi entry HMAC-signed vào ledger để gate đọc cumulative đúng (CVE-2026-AHD-013)."""
+    import cost_ledger
+    cost_ledger.append_entry(root, session_id, "Write", cumulative, cumulative)
 
 
 def _run_pre_tool_use(data: dict, capsys):
@@ -92,6 +101,7 @@ def test_check_cost_cap_states():
 def test_below_cap_allows(patched_root, capsys):
     session_id = "s-cost-below"
     _make_session_file(patched_root, session_id, 3.0, 10.0)
+    _seed_ledger(patched_root, session_id, 3.0)
     code, stderr = _run_pre_tool_use({"tool_name": "write", "tool_input": {"file_path": "x"}, "session_id": session_id}, capsys)
     assert code == 0
     assert "COST CAP" not in stderr
@@ -103,6 +113,7 @@ def test_below_cap_allows(patched_root, capsys):
 def test_eighty_percent_warns(patched_root, capsys):
     session_id = "s-cost-warn"
     _make_session_file(patched_root, session_id, 8.1, 10.0)
+    _seed_ledger(patched_root, session_id, 8.1)
     code, stderr = _run_pre_tool_use({"tool_name": "write", "tool_input": {"file_path": "x"}, "session_id": session_id}, capsys)
     assert code == 0
     assert "WARNING" in stderr
@@ -114,6 +125,7 @@ def test_eighty_percent_warns(patched_root, capsys):
 def test_at_cap_blocks(patched_root, capsys):
     session_id = "s-cost-block"
     _make_session_file(patched_root, session_id, 10.0, 10.0)
+    _seed_ledger(patched_root, session_id, 10.0)
     code, stderr = _run_pre_tool_use({"tool_name": "write", "tool_input": {"file_path": "x"}, "session_id": session_id}, capsys)
     assert code == 2
     assert "BLOCKED" in stderr
@@ -125,6 +137,7 @@ def test_at_cap_blocks(patched_root, capsys):
 def test_custom_cap(patched_root, capsys):
     session_id = "s-cost-custom"
     _make_session_file(patched_root, session_id, 4.5, 5.0)
+    _seed_ledger(patched_root, session_id, 4.5)
     code, stderr = _run_pre_tool_use({"tool_name": "write", "tool_input": {"file_path": "x"}, "session_id": session_id}, capsys)
     assert code == 0  # 4.5/5 = 90% → warn nhưng vẫn cho phép
     assert "WARNING" in stderr

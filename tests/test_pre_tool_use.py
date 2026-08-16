@@ -14,6 +14,8 @@ def _run(command):
     cmd = [sys.executable, str(REPO_ROOT / ".devin" / "hooks" / "pre_tool_use.py")]
     env = os.environ.copy()
     env["PYTHONUTF8"] = "1"
+    # CVE-2026-AHD-013: gate cost cap fail-closed khi thiếu HMAC key → cấu hình key test.
+    env["AHD_COST_LEDGER_KEY"] = "test-key"
     result = subprocess.run(
         cmd,
         input=json.dumps({"tool_name": "exec", "tool_input": {"command": command}}),

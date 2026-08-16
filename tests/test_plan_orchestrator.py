@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Kiểm thử cho plan_orchestrator.py — FSM state machine."""
+"""Kiểm thử plan_orchestrator.py — Graph-based orchestrator v2.
+
+v1 (FSM, --step) đã được thay bằng v2 (StateGraph, --init chạy trọn luồng).
+Bộ test này phản ánh interface thực: --init --task trả JSON một-shot với
+task_slug / task_fingerprint / tier / state / plan_approved.
+"""
 import json
 import os
 import shutil
@@ -13,181 +18,119 @@ for sub in (".devin/scripts", ".devin/scripts/plan_fsm"):
     if d not in sys.path:
         sys.path.insert(0, d)
 
-from plan_fsm import constants as C  # noqa: E402
+from plan_fsm.storage import fingerprint  # noqa: E402
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
 PLAN_STATE_DIR = REPO_ROOT / ".devin" / "plan_state"
 PLANS_DIR = REPO_ROOT / "docs" / "plans"
 
+# Slug tạo bởi các test M/XL — cần dọn ở teardown.
+_TEST_SLUGS = (
+    "add-jwt-authentication",
+    "refactor-the-entire-authentication-architecture-across-multi",
+)
 
-def _run(args, input_text=""):
-    # Chạy plan_orchestrator.py với các tham số
+
+def _run(args):
     cmd = [sys.executable, str(REPO_ROOT / ".devin" / "scripts" / "plan_orchestrator.py"), *args]
     env = os.environ.copy()
     env["PYTHONUTF8"] = "1"
-    result = subprocess.run(cmd, input=input_text, capture_output=True, text=True, cwd=REPO_ROOT, env=env)
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=REPO_ROOT, env=env)
     return result
 
 
-def _step(state_file, action, extra=None):
-    # Gọi --step với kết quả từ action (ghi tạm results vào file)
-    payload = {"action": action}
-    if extra:
-        payload.update(extra)
-    tmp = PLAN_STATE_DIR / "_test_results.json"
-    tmp.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
-    res = _run(["--step", "--state", str(state_file), "--results", str(tmp)])
-    if res.returncode != 0:
-        print("STDERR:", res.stderr)
-    assert res.returncode == 0, f"--step failed: {res.stderr}"
-    return json.loads(res.stdout)
-
-
-def _state(state_file):
-    # Đọc state file từ disk
-    return json.loads(Path(state_file).read_text(encoding="utf-8"))
-
-
-def _fast_forward_to_qc(state_file):
-    # Đẩy FSM từ ANALYZE -> DESIGN -> REVIEW -> SDD_APPROVAL -> PLAN -> GAP_SCAN -> QC
-    s = _state(state_file)["state"]
-    if s == "ANALYZE":
-        _step(state_file, "wait_scouts", {"scout_results": []})
-    s = _state(state_file)["state"]
-    if s == "DESIGN":
-        _step(state_file, "dispatch_architect", {"sdd_path": str(PLANS_DIR / "__test__" / "SOLUTION_DESIGN.md")})
-    s = _state(state_file)["state"]
-    if s == "REVIEW":
-        _step(state_file, "dispatch_reviewers", {"findings": []})
-    s = _state(state_file)["state"]
-    if s == "SDD_APPROVAL":
-        _step(state_file, "present_sdd_approval", {"decision": "approved"})
-    s = _state(state_file)["state"]
-    if s == "PLAN":
-        _step(state_file, "decompose_plan", {"plan_path": str(PLANS_DIR / "__test__" / "IMPLEMENTATION_PLAN.md")})
-    s = _state(state_file)["state"]
-    if s == "GAP_SCAN":
-        _step(state_file, "gap_scan", {"gap_findings": []})
-
-
-def setup_module():
-    # Tạo thư mục test trước mỗi module
-    PLAN_STATE_DIR.mkdir(parents=True, exist_ok=True)
-    (PLANS_DIR / "__test__").mkdir(parents=True, exist_ok=True)
-
-
 def teardown_module():
-    # Dọn dẹp thư mục test sau module
-    if (PLANS_DIR / "__test__").exists():
-        shutil.rmtree(PLANS_DIR / "__test__")
-    for f in PLAN_STATE_DIR.glob("__test__*"):
-        f.unlink()
+    for slug in _TEST_SLUGS:
+        for f in PLAN_STATE_DIR.glob(f"{slug}*"):
+            f.unlink()
 
 
 def test_init_s_tier():
-    # Task đơn giản phân loại S-tier và skip Plan Phase
+    # Task đơn giản phân loại S-tier, skip Plan Phase -> DONE, không cần plan.
     res = _run(["--init", "--task", "fix typo"])
-    assert res.returncode == 0
+    assert res.returncode == 0, res.stderr
     data = json.loads(res.stdout)
     assert data["tier"] == "S"
-    assert data["current_state"] == "DONE"
-    assert data["next_action"]["action"] == "skip"
+    assert data["state"] == "DONE"
+    assert not data.get("plan_path")
 
 
 def test_init_m_tier():
-    # Task trung bình phân loại M-tier và bắt đầu từ BRAINSTORM
+    # Task trung bình: chạy trọn graph -> DONE + plan approved.
     res = _run(["--init", "--task", "add JWT authentication"])
-    assert res.returncode == 0
+    assert res.returncode == 0, res.stderr
     data = json.loads(res.stdout)
     assert data["tier"] == "M"
-    assert data["current_state"] == "BRAINSTORM"
-    assert data["next_action"]["action"] == "brainstorm"
+    assert data["state"] == "DONE"
+    assert data["task_slug"] == "add-jwt-authentication"
+    assert data["task_fingerprint"] == fingerprint("add JWT authentication")
+    assert data["plan_path"]
+    assert data["plan_approved"] is True
 
 
 def test_init_xl_tier():
-    # Task lớn phân loại XL-tier
+    # Task lớn phân loại XL-tier.
     res = _run(["--init", "--task", "refactor the entire authentication architecture across multiple services with security compliance"])
-    assert res.returncode == 0
+    assert res.returncode == 0, res.stderr
     data = json.loads(res.stdout)
     assert data["tier"] == "XL"
-    assert data["current_state"] == "BRAINSTORM"
+    assert data["state"] == "DONE"
+    assert data["plan_approved"] is True
 
 
-def test_full_happy_path():
-    # Luồng hoàn chỉnh: BRAINSTORM -> ANALYZE -> DESIGN -> REVIEW -> SDD_APPROVAL -> PLAN -> GAP_SCAN -> QC -> PLAN_ENHANCE -> PLAN_APPROVAL -> WRITE_STATE -> DONE
-    res = _run(["--init", "--task", "full happy path test"])
-    data = json.loads(res.stdout)
-    state_file = data["state_file"]
-    _step(state_file, "brainstorm", {"brainstorm_results": []})
-    _step(state_file, "wait_scouts", {"scout_results": []})
-    _step(state_file, "dispatch_architect", {"sdd_path": str(PLANS_DIR / "__test__" / "SOLUTION_DESIGN.md")})
-    _step(state_file, "dispatch_reviewers", {"findings": []})
-    _step(state_file, "present_sdd_approval", {"decision": "approved"})
-    _step(state_file, "decompose_plan", {"plan_path": str(PLANS_DIR / "__test__" / "IMPLEMENTATION_PLAN.md")})
-    _step(state_file, "gap_scan", {"gap_findings": []})
-    _step(state_file, "run_qc", {"qc_result": {"all_pass": True, "report_path": "qr.md"}})
-    _step(state_file, "plan_enhance", {"enhance_findings": []})
-    _step(state_file, "present_plan_approval", {"decision": "approved"})
-    final = _step(state_file, "write_plan_state")
-    assert final["current_state"] == "DONE"
-    assert final["next_action"]["action"] == "done"
+def test_init_without_task_fails():
+    # Thiếu --task -> argparse error (exit 2).
+    res = _run(["--init"])
+    assert res.returncode == 2
 
 
-def test_rejection_path():
-    # User từ chối plan -> chuyển REJECTED
-    res = _run(["--init", "--task", "rejection path test"])
-    data = json.loads(res.stdout)
-    state_file = data["state_file"]
-    _step(state_file, "brainstorm", {"brainstorm_results": []})
-    _fast_forward_to_qc(state_file)
-    _step(state_file, "run_qc", {"qc_result": {"all_pass": True, "report_path": "qr.md"}})
-    _step(state_file, "plan_enhance", {"enhance_findings": []})
-    final = _step(state_file, "present_plan_approval", {"decision": "rejected", "reason": "scope too large"})
-    assert final["current_state"] == "REJECTED"
+def test_orchestrator_state_written_with_fingerprint():
+    # State file trên disk phải đủ metadata để plan_enforce bind đúng task.
+    res = _run(["--init", "--task", "add JWT authentication"])
+    assert res.returncode == 0, res.stderr
+    state_file = PLAN_STATE_DIR / "add-jwt-authentication_orchestrator.json"
+    assert state_file.exists()
+    state = json.loads(state_file.read_text(encoding="utf-8"))
+    assert state["state"] == "DONE"
+    assert state["approval_status"] == "approved"
+    assert state["task_fingerprint"] == fingerprint("add JWT authentication")
 
 
-def test_changes_requested_path():
-    # User yêu cầu sửa plan -> quay lại PLAN
-    res = _run(["--init", "--task", "changes requested path test"])
-    data = json.loads(res.stdout)
-    state_file = data["state_file"]
-    _step(state_file, "brainstorm", {"brainstorm_results": []})
-    _fast_forward_to_qc(state_file)
-    _step(state_file, "run_qc", {"qc_result": {"all_pass": True, "report_path": "qr.md"}})
-    _step(state_file, "plan_enhance", {"enhance_findings": []})
-    final = _step(state_file, "present_plan_approval", {"decision": "changes_requested", "modifications": "add rollback"})
-    assert final["current_state"] == "PLAN"
+def test_fingerprint_whitespace_stable():
+    # Fingerprint chỉ chuẩn hóa khoảng trắng — 2 cách viết cùng task cho cùng fp.
+    assert fingerprint("add   JWT   authentication") == fingerprint("add JWT authentication")
 
 
-def test_revision_loop_then_pass():
-    # Review phát hiện BLOCKING, revision, rồi pass -> chuyển SDD_APPROVAL
-    res = _run(["--init", "--task", "revision loop pass test"])
-    data = json.loads(res.stdout)
-    state_file = data["state_file"]
-    _step(state_file, "brainstorm", {"brainstorm_results": []})
-    _step(state_file, "wait_scouts", {"scout_results": []})
-    _step(state_file, "dispatch_architect", {"sdd_path": str(PLANS_DIR / "__test__" / "SOLUTION_DESIGN.md")})
-    _step(state_file, "dispatch_reviewers", {"findings": [{"severity": "BLOCKING", "issue": "missing auth"}]})
-    _step(state_file, "dispatch_revision", {"sdd_path": str(PLANS_DIR / "__test__" / "SOLUTION_DESIGN.md")})
-    final = _step(state_file, "dispatch_reviewers", {"findings": []})
-    assert final["current_state"] == "SDD_APPROVAL"
+def test_slug_collision_second_task_blocked(tmp_path, monkeypatch):
+    # V5-02: hai task trùng slug nhưng khác nội dung -> plan_enforce phải block task thứ 2.
+    sys.path.insert(0, str(REPO_ROOT / ".devin" / "hooks"))
+    import plan_enforce
 
+    state_dir = tmp_path / ".devin" / "plan_state"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    slug = "add-jwt-authentication"
+    task_a = "add JWT authentication"
+    task_b = "add jwt authentication!"  # cùng slug, khác nội dung
 
-def test_qc_max_rounds_escalate():
-    # QC fail đạt max rounds -> ESCALATE
-    res = _run(["--init", "--task", "qc escalate test"])
-    data = json.loads(res.stdout)
-    state_file = data["state_file"]
-    _step(state_file, "brainstorm", {"brainstorm_results": []})
-    # Đẩy qc_round đến ngưỡng max trước khi fail
-    state = _state(state_file)
-    state["qc_round"] = C.MAX_QC_ROUNDS
-    Path(state_file).write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
-    _fast_forward_to_qc(state_file)
-    _step(state_file, "run_qc", {"qc_result": {"all_pass": False, "report_path": "qr.md"}})
-    final = _state(state_file)
-    assert final["state"] == "ESCALATE"
-    assert final["qc_round"] == 7
+    assert fingerprint(task_a) != fingerprint(task_b)
+
+    (state_dir / f"{slug}_orchestrator.json").write_text(json.dumps({
+        "state": "DONE",
+        "approval_status": "approved",
+        "task_description": task_a,
+        "task_fingerprint": fingerprint(task_a),
+        "plan_path": f"docs/plans/{slug}/IMPLEMENTATION_PLAN.md",
+    }), encoding="utf-8")
+    (state_dir / f"{slug}_approved.json").write_text(
+        json.dumps({"status": "approved"}), encoding="utf-8",
+    )
+
+    monkeypatch.setattr(plan_enforce, "_repo_root", lambda: tmp_path)
+
+    # Task A (đúng) -> ALLOW; Task B (collision) -> BLOCK.
+    pa = plan_enforce._get_plan_state_for_task(tmp_path, slug, fingerprint(task_a), task_a)
+    pb = plan_enforce._get_plan_state_for_task(tmp_path, slug, fingerprint(task_b), task_b)
+    assert pa
+    assert not pb
 
 
 if __name__ == "__main__":

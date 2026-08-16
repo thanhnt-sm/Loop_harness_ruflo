@@ -758,6 +758,7 @@ class TestPreToolUse:
 
     def test_main_safe_command(self, monkeypatch, capsys):
         from pre_tool_use import main
+        monkeypatch.setenv("AHD_COST_LEDGER_KEY", "test-key")
         monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({
             "tool_name": "Bash",
             "tool_input": {"command": "ls -la"},
@@ -791,6 +792,7 @@ class TestPreToolUse:
 
     def test_main_non_bash_tool(self, monkeypatch, capsys):
         from pre_tool_use import main
+        monkeypatch.setenv("AHD_COST_LEDGER_KEY", "test-key")
         monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({
             "tool_name": "Read",
             "tool_input": {"file_path": "src/x.py"},
@@ -802,6 +804,7 @@ class TestPreToolUse:
 
     def test_main_bash_no_command(self, monkeypatch, capsys):
         from pre_tool_use import main
+        monkeypatch.setenv("AHD_COST_LEDGER_KEY", "test-key")
         monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({
             "tool_name": "Bash",
             "tool_input": {},
@@ -855,6 +858,7 @@ class TestPreToolUse:
 
     def test_main_warn_pattern(self, monkeypatch, capsys):
         from pre_tool_use import main
+        monkeypatch.setenv("AHD_COST_LEDGER_KEY", "test-key")
         monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({
             "tool_name": "Bash",
             "tool_input": {"command": "git push origin main"},
@@ -927,6 +931,7 @@ class TestPreToolUse:
 
     def test_check_cost_cap_gate_no_state(self, monkeypatch, tmp_path):
         from pre_tool_use import _check_cost_cap_gate
+        monkeypatch.setenv("AHD_COST_LEDGER_KEY", "test-key")
         monkeypatch.setattr("ahd_session.get_session_id", lambda _d: "sess")
         monkeypatch.setattr("ahd_session.get_repo_root", lambda: tmp_path)
         monkeypatch.setattr("ahd_session.read_session_state", lambda _s, _r: {})

@@ -32,6 +32,8 @@ def patched_root(tmp_path, monkeypatch):
     (devin_dir / "telemetry").mkdir(parents=True, exist_ok=True)
     monkeypatch.setattr(ahd_session, "get_repo_root", lambda _start_from=None: tmp_path)
     monkeypatch.setattr(ahd_session, "get_config_root", lambda _root=None: devin_dir)
+    # CVE-2026-AHD-013: cost cap gate fail-closed khi thiếu HMAC key → cấu hình key test.
+    monkeypatch.setenv("AHD_COST_LEDGER_KEY", "test-key")
     return tmp_path
 
 

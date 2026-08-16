@@ -1655,9 +1655,10 @@ class TestPreToolUseGates:
         data = {"tool_name": "WebFetch", "tool_input": {"url": "http://example.com"}}
         pre_tool_use._check_ssrf_gate(data)
 
-    def test_check_cost_cap_gate_safe(self):
+    def test_check_cost_cap_gate_safe(self, monkeypatch):
         """Test _check_cost_cap_gate với cost dưới cap."""
         import pre_tool_use
+        monkeypatch.setenv("AHD_COST_LEDGER_KEY", "test-key")
         data = {"tool_name": "Read", "tool_input": {"file_path": "src/x.py"}}
         pre_tool_use._check_cost_cap_gate(data)
 
@@ -1759,6 +1760,7 @@ class TestPreToolUseGates:
         import pre_tool_use
         import ahd_session
         # Patch check_cost_cap to return 1 (warn)
+        monkeypatch.setenv("AHD_COST_LEDGER_KEY", "test-key")
         monkeypatch.setattr(pre_tool_use, "check_cost_cap", lambda state: 1)
         monkeypatch.setattr(ahd_session, "get_session_id", lambda data: "test-sess")
         monkeypatch.setattr(ahd_session, "get_repo_root", lambda: Path("."))
@@ -1793,6 +1795,7 @@ class TestPreToolUseGates:
         """Test _check_cost_cap_gate với status == 0 (ok)."""
         import pre_tool_use
         import ahd_session
+        monkeypatch.setenv("AHD_COST_LEDGER_KEY", "test-key")
         monkeypatch.setattr(pre_tool_use, "check_cost_cap", lambda state: 0)
         monkeypatch.setattr(ahd_session, "get_session_id", lambda data: "test-sess")
         monkeypatch.setattr(ahd_session, "get_repo_root", lambda: Path("."))

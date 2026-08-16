@@ -356,3 +356,50 @@
 
 ## Next
 - V5-02 slug-collision [MED], V5-04 telemetry-outage [LOW], persistence revocation [LOW], cleanup 30 pre-existing test failures.
+
+# ITERATION 10 — V5-02 slug-collision + V5-04 telemetry test + V5-01 ext persistence
+**Date**: 2026-08-16 | **Mode**: FULL CHAIN tiếp nối ("tiếp tục tất cả, thứ tự ưu tiên")
+
+## Applied (4)
+- **U-SLUG-1 [MED]** (V5-02): fingerprint binding — `storage.fingerprint()` (SHA-256, chỉ chuẩn hóa whitespace, KHÔNG truncate/strip) + persist `task_fingerprint` (InitNode/run/WriteStateNode) + plan_enforce verify exact-desc→fp→block. Backward-compat legacy state (exact match). Baseline hook_integrity regen (13/13).
+- **U-TEL-1 [LOW]** (V5-04): `tests/test_telemetry_outage.py` 7 case khóa §17 invariant (OTel outage → fallback events.jsonl; write outage → stderr surface; passthrough + exit code; invalid stdin).
+- **U-REG-2 [LOW]** (V5-01 ext): revocation persistence — `revocations_path` default `.devin/plan_state/agent_registry_revocations.json`, apply tại load(), `restore()`.
+- **U-HK-REGEN [token]**: hook_hashes baseline regenerate.
+
+## Verify (Iteration 10)
+- V5-02 matrix: exact allow ✅ | collision BLOCK ✅ | whitespace fp allow ✅ | case BLOCK ✅ | legacy exact allow ✅ | legacy collision BLOCK ✅
+- V5-04: 7/7 PASS + subprocess smoke ✅
+- V5-01ext: 13/13 PASS + red-team ATK-1..4 ✅
+- CLI gate: 123 PASS ✅
+
+## Red-team
+- V5-02 ATK-1..7 PASS (VERIFIED_REMEDIATION). V5-04 ATK-1..6 PASS. V5-01ext ATK-1..4 PASS (ACCEPTED: revocations file không hash-protect, control-plane trust).
+- Reports: `docs/plans/v5-02-slug-collision-fix-test/`, `docs/plans/v5-04-telemetry-outage-fail-closed-deterministic-test/`, `docs/plans/v5-01-extension-registry-revocation-persistence-state-file/`
+
+## Verdict
+**PASS** — deterministic gates xanh, hook_integrity 13/13, CLI 123 PASS.
+
+## Next
+1. Cleanup 30 pre-existing test failures.
+2. Subagent model-provider prefix (ngoài opencode scope).
+
+# ITERATION 11 — Fix 31 pre-existing test failures + coverage gate
+**Date**: 2026-08-16 | **Mode**: FULL CHAIN tiếp nối ("tiếp tục tất cả")
+
+## Applied (5)
+- **FIX-V5-02-LEGACY [prod]**: plan_enforce legacy-state regression (It10 hồi quy). Metadata-bound giữ nguyên cho state mới; legacy state bind bằng slug + warning.
+- **TEST-V2-API**: rewrite test_plan_orchestrator.py → 7 tests v2 graph API.
+- **TEST-LEDGER-KEY**: 6 files cấu hình AHD_COST_LEDGER_KEY + ledger seeding (CVE-2026-AHD-013 contract).
+- **TEST-CVE-FIX**: cve_remediation_phase3 2 assertions theo config thật + CVE-2026-AHD-016.
+- **TEST-WORKTREE-LIFECYCLE**: +5 happy-path tests (git thật) → đóng coverage gap.
+
+## Verify
+- Suite: 2324 passed / 0 failed ✅ (trước 2280/31)
+- Coverage: 80.26% ≥ 80% ✅
+- V5-02 matrix 7/7, hook_integrity 13/13, destructive_block 36 ✅
+
+## Verdict
+**PASS**
+
+## Next
+1. Subagent model-provider prefix (ngoài opencode scope).

@@ -9,6 +9,7 @@ Logic:
 1. Đọc session_state để xác định current task (goal hoặc task field)
 2. Từ task description, tính task_slug
 3. Kiểm tra orchestrator state cho task_slug: nếu state=DONE và approval_status=approved → có approved plan
+   (V5-02: state phải thuộc đúng task — khớp task_description HOẶC task_fingerprint; slug-collision → block)
 4. Phân loại tier: nếu S-tier → allow
 5. Nếu M-tier+ và file không thuộc docs/plans/ → BLOCK nếu chưa có approved plan cho task hiện tại
 6. Nếu file thuộc docs/plans/ hoặc docs/templates/ → allow (cho phép viết plan)
@@ -18,6 +19,7 @@ Fail-closed: nếu hook input parse error → BLOCK (không fail-open).
 """
 
 from __future__ import annotations
+import hashlib
 import json
 import os
 import sys
@@ -84,6 +86,19 @@ def _slugify(text: str) -> str:
     return slug[:60] if slug else ""
 
 
+def _fingerprint(task_description: str) -> str:
+    """SHA-256 fingerprint của task description — khớp logic trong storage.fingerprint.
+
+    V5-02: slug mất thông tin (truncate 60 + strip non-word) → 2 task khác nhau có
+    thể trùng slug. Fingerprint giữ toàn bộ thông tin (chỉ chuẩn hóa khoảng trắng)
+    → phát hiện slug-collision tại enforcement.
+    """
+    if not task_description:
+        return ""
+    norm = re.sub(r"\s+", " ", task_description.strip())
+    return hashlib.sha256(norm.encode("utf-8")).hexdigest()
+
+
 def _plan_state_name_from_path(plan_path: str) -> str:
     """
     Tạo tên state file duy nhất cho plan — phải khớp với logic trong approval_gate.py.
@@ -104,14 +119,18 @@ def _plan_state_name_from_path(plan_path: str) -> str:
     return p.stem
 
 
-def _get_plan_state_for_task(root: Path, task_slug: str) -> dict:
+def _get_plan_state_for_task(root: Path, task_slug: str, task_fp: str = "", task_desc: str = "") -> dict:
     """
     Đọc plan state cho task cụ thể thông qua orchestrator state.
 
     1. Load orchestrator state: .devin/plan_state/<task_slug>_orchestrator.json
-    2. Nếu state=DONE và approval_status=approved → lấy plan_path
-    3. Load approval state cho plan_path (dùng task_slug_approved.json nếu trong docs/plans/<task_slug>)
-    4. Trả về approved state nếu tồn tại
+    2. BINDING CHECK (V5-02): state phải thuộc task hiện tại —
+       - task_description trong state khớp chính xác task_desc → OK (mạnh nhất)
+       - HOẶC task_fingerprint trong state == fingerprint(task_desc) → OK (dung sai khoảng trắng)
+       - Ngược lại → trả {} (slug-collision: state của task khác, KHÔNG được dùng)
+    3. Nếu state=DONE và approval_status=approved → lấy plan_path
+    4. Load approval state cho plan_path (dùng task_slug_approved.json nếu trong docs/plans/<task_slug>)
+    5. Trả về approved state nếu tồn tại
 
     KHÔNG tìm bất kỳ approved plan nào — chỉ dùng plan của task hiện tại.
     """
@@ -124,6 +143,26 @@ def _get_plan_state_for_task(root: Path, task_slug: str) -> dict:
         orch_state = json.loads(orchestrator_path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return {}
+
+    # V5-02 binding check: state phải thuộc đúng task này (chống slug-collision).
+    stored_desc = orch_state.get("task_description", "")
+    stored_fp = orch_state.get("task_fingerprint", "")
+    if stored_desc:
+        # State mang task_description: khớp chính xác HOẶC fingerprint (dung sai khoảng trắng).
+        if stored_desc != task_desc and (
+            not stored_fp or _fingerprint(task_desc) != stored_fp
+        ):
+            return {}
+    elif stored_fp:
+        if _fingerprint(task_desc) != stored_fp:
+            return {}
+    else:
+        # Legacy state (pre-V5-02, không metadata): bind bằng slug — hành vi cũ.
+        print(
+            "[plan_enforce] WARNING: orchestrator state không có task_description/"
+            "task_fingerprint (legacy) — bind bằng task_slug.",
+            file=sys.stderr,
+        )
 
     # Chỉ cho phép nếu orchestrator state = DONE và approval_status=approved
     if orch_state.get("state") != "DONE":
@@ -268,7 +307,7 @@ def main():
             sys.exit(0)
 
     # Kiểm tra: task hiện tại có approved plan không?
-    plan_state = _get_plan_state_for_task(root, task_slug)
+    plan_state = _get_plan_state_for_task(root, task_slug, _fingerprint(task_desc), task_desc)
     if plan_state.get("status") == "approved":
         print(json.dumps({"allow": True, "reason": f"plan approved: {plan_state.get('plan_file', 'unknown')}"}))
         sys.exit(0)

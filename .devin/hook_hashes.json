@@ -5,7 +5,7 @@
     ".devin/hooks/coverage_enforce.py": "5e0ae3bc7d8b1a93c6cb4892040b170402bac07fe224672ce9d218687e2b47a3",
     ".devin/hooks/drift_detect.py": "b1715e6200a988a118c4fa5834a3fc55a130bd124ebc3fd1c202511549d8993e",
     ".devin/hooks/otel_instrument.py": "e1f4ddca2b8796b2f5eb0fec9d480630199401ad923e2667c29ac3956c20eefa",
-    ".devin/hooks/plan_enforce.py": "0571e9a8230969fe88d9bcf56eb15b72bddf72fdf05bc9cb827cdac20a89aeea",
+    ".devin/hooks/plan_enforce.py": "ee7077b6bfffc0d00aec6f7923052eeb6f539374f24acff0d60287578d258417",
     ".devin/hooks/post_tool_use.py": "95da21c4452d8f0d421ce0ebd1e7dda55c1c4ab150dfb48fcf796c91d356bbc5",
     ".devin/hooks/pre_tool_use.py": "5ccedf2f070d448ee198f51b3b940989945643467f211a36d65293f4cc0ab5b4",
     ".devin/hooks/schema_gate.py": "ece102dce6cfdc7e98717377e911a32d50c10c5f0649ef1c59151943df7d3188",

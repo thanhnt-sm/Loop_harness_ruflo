@@ -148,3 +148,65 @@ class TestMergeRemoveGuard:
         rc = worktree.cmd_merge("w1")
         assert rc == 0  # path guard không chặn path hợp lệ trong .worktrees
         assert "w1" not in state["worktrees"]
+
+
+class TestWorktreeLifecycle:
+    """Happy-path lifecycle với git repo thật (tmp) — create/list/merge/remove/clean/main."""
+
+    @pytest.fixture
+    def wt_env(self, tmp_path, monkeypatch):
+        import subprocess as sp
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        git = ["git", "-c", "user.email=t@test", "-c", "user.name=t"]
+        sp.run(git + ["init", "-b", "main"], cwd=repo, check=True, capture_output=True)
+        sp.run(git + ["commit", "--allow-empty", "-m", "init"], cwd=repo, check=True, capture_output=True)
+        wt = repo / ".worktrees"
+        wt.mkdir()
+        monkeypatch.setattr(worktree, "WORKTREE_DIR", wt)
+        monkeypatch.setattr(worktree, "WORKTREE_STATE", wt / ".worktree_state.json")
+        real_git = worktree._git
+        monkeypatch.setattr(worktree, "_git", lambda *a, **k: real_git(*a, cwd=repo, **k))
+        return repo
+
+    def test_create_list_merge_remove(self, wt_env, capsys):
+        assert worktree.cmd_create("builder-a") == 0
+        state = worktree._load_state()
+        assert "builder-a" in state["worktrees"]
+        assert state["worktrees"]["builder-a"]["status"] == "active"
+        assert (wt_env / ".worktrees" / "builder-a").exists()
+
+        assert worktree.cmd_list() == 0
+        out = capsys.readouterr().out
+        assert "builder-a" in out
+
+        assert worktree.cmd_merge("builder-a") == 0
+        assert "builder-a" not in worktree._load_state()["worktrees"]
+
+        assert worktree.cmd_create("builder-b") == 0
+        assert worktree.cmd_remove("builder-b") == 0
+        assert "builder-b" not in worktree._load_state()["worktrees"]
+
+    def test_create_duplicate_returns_1(self, wt_env):
+        assert worktree.cmd_create("dup") == 0
+        assert worktree.cmd_create("dup") == 1
+
+    def test_merge_missing_returns_1(self, wt_env):
+        assert worktree.cmd_merge("nope") == 1
+
+    def test_clean_empty_and_with_entries(self, wt_env, capsys):
+        assert worktree.cmd_clean() == 0
+        capsys.readouterr()
+        assert worktree.cmd_create("c1") == 0
+        assert worktree.cmd_clean() == 0
+        assert worktree._load_state()["worktrees"] == {}
+
+    def test_main_cli_dispatch(self, wt_env, capsys, monkeypatch):
+        monkeypatch.setattr(sys, "argv", ["worktree.py", "create", "cli-worker"])
+        assert worktree.main() == 0
+        monkeypatch.setattr(sys, "argv", ["worktree.py", "list"])
+        assert worktree.main() == 0
+        monkeypatch.setattr(sys, "argv", ["worktree.py", "remove", "cli-worker"])
+        assert worktree.main() == 0
+        monkeypatch.setattr(sys, "argv", ["worktree.py", "clean"])
+        assert worktree.main() == 0
