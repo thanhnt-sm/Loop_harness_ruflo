@@ -15,6 +15,16 @@
 > - File names, variable names: giữ nguyên tiếng Anh (không dấu)
 > - **KHÔNG BAO GIỜ** trả lời bằng tiếng Anh với user trừ khi user yêu cầu rõ ràng
 
+## Workspace Governance (BẮT BUỘC — mọi agent, mọi provider)
+
+> **File gốc**: `.devin/rules/WORKSPACE_GOVERNANCE.md` (đọc khi cần chi tiết).
+> **Lint nhanh**: `python3 tools/check_governance.py` — chạy trước khi kết thúc task.
+
+- **Không sinh file rác**: không tạo scratch/`*.bak`/`*.tmp`/file vô danh ở root/docs; file tạm → `tmp/` (gitignored), xóa khi xong.
+- **File vào đúng nơi**: script → `.devin/scripts/` (+ test `tests/test_*.py`); hook → `.devin/hooks/`; plan → `docs/plans/<slug>/IMPLEMENTATION_PLAN.md`; report → `docs/plans/<slug>/EXECUTION_REPORT.md` hoặc `docs/reports/<SUBJECT>_<YYYY-MM-DD>.md`; utility → `tools/`. Markdown mới ở root = vi phạm.
+- **Khớp plan ↔ act**: Act chỉ sửa file có trong `File Path` của plan (đã duyệt) + test file của task; sau act viết execution report; self-check bằng `tools/check_governance.py --plan-act`.
+- **Đa provider**: không ghi state của provider này vào thư mục provider khác (`.devin/` ↔ Devin, `.khuym/` ↔ Khuym, `.opencode/` ↔ opencode, `.aide/` ↔ Aide); runtime state gitignored không commit; `.devin/canon/` + `HLK/` cấm sửa trực tiếp.
+
 ## Orchestrator skills (3 executors)
 
 | Skill | Executor | Model | Cost | Khi nào |

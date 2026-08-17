@@ -1,0 +1,111 @@
+# Workspace Governance — Quy hoạch file/folder cho MỌI AI agent
+
+> File gốc (canonical) quy định **file/folder vào đúng nơi**, **không sinh rác**, và **khớp plan ↔ act**.
+> Áp dụng cho mọi AI agent (Cline, Claude Code, Devin CLI, opencode, Aide, Codex/Khuym, Cursor...) và human.
+> Entry file của từng provider chỉ trỏ về đây. Kiểm tra tuân thủ: `python3 tools/check_governance.py`
+
+## 1. Mục tiêu
+
+1. **Không file rác** trong workspace (scratch, `.bak`, `.tmp`, test thử, file vô danh...).
+2. **Mọi file/folder mới vào đúng nơi quy định** — xem bản đồ mục 2 và cheat sheet mục 8.
+3. **Khớp plan ↔ act**: mọi thay đổi code thuộc plan đã duyệt; mọi plan đã duyệt đều có execution report.
+
+## 2. Bản đồ thư mục (đâu được đặt gì)
+
+| Đường dẫn | Được phép đặt | Cấm |
+|-----------|---------------|-----|
+| `.devin/scripts/*.py` | Source runtime của harness | Script tạm, file 1 lần, test lẻ |
+| `.devin/hooks/*.py` | Hook guard (lifecycle Devin) | Code không liên quan hook |
+| `.devin/canon/` | Protocol files (AHD-owned) | **Cấm sửa trực tiếp** |
+| `.devin/reports/` | Báo cáo nội bộ harness (audit) | Báo cáo feature thông thường |
+| `tests/test_*.py` | Unit/integration test | Test ở nơi khác (trừ self-test có sẵn trong `.devin/scripts/`) |
+| `tools/*.py\|ps1\|sh` | Tiện ích dùng lại được | Tiện ích 1 lần cho task cụ thể |
+| `docs/plans/<slug>/` | Plan artifacts: `IMPLEMENTATION_PLAN.md`, `SOLUTION_DESIGN.md`, `EXECUTION_REPORT.md`, `FINAL_REPORT.md`, review files | File không thuộc feature |
+| `docs/reports/*.md` | Báo cáo chung — format `<SUBJECT>_<YYYY-MM-DD>.md` | Plan artifact |
+| `docs/templates/` | Template dùng chung | File 1 lần |
+| `docs/research/` | Ghi chú nghiên cứu (chủ đề) | Kết quả task cụ thể |
+| Root (`/`) | CHỈ entry/config files (mục 3) | Mọi file mới khác |
+| `tmp/`, `logs/` | Scratch tạm (gitignored) — phải dọn | Giữ lâu dài |
+
+## 3. File root — danh sách được phép (CHỈ những file này, không thêm bừa)
+
+- Entry/rules: `AGENTS.md`, `CLAUDE.md`, `.clinerules/`, `opencode.json`, `SECURITY.md`, `REPOS.md`, `LICENSE`
+- Config/deps: `pyproject.toml`, `pytest.ini`, `package.json`, `package-lock.json`, `requirements-lock.txt`, `renovate.json`, `.gitignore`, `.gitattributes`, `.ignore`
+- Launcher: `activate.*`, `devin-run.*`, `devin-swe.*`, `loop`, `session`
+- Component maps đã có: `STRUCTURAL_COMPONENT_MAP.md`, `ITERATION_4_COMPONENT_MAP.md`, `MIGRATION_COMPONENT_MAP.md`, `COST_DASHBOARD.md`, `UPDATES_REPORT.md`
+- Báo cáo lịch sử đã commit (không thêm mới): `*_REPORT.md`, `*_ANALYSIS.md`, `*_PLAN.md`, `harness-upgrade-log.md`
+
+> **File markdown mới ở root = vi phạm.** Đưa vào `docs/` (theo bản đồ mục 2) hoặc `docs/plans/<slug>/`.
+
+## 4. Quy tắc "không rác" (bắt buộc)
+
+1. Không tạo scratch file ở root, `docs/`, `.devin/` — dùng `tmp/` (đã gitignore) hoặc `/tmp`, xóa khi xong.
+2. Không để `*.bak`, `*.tmp`, `*.orig`, `*.swp`, `*~`, `untitled*`, `scratch*`, `.DS_Store`, `*.log` (tracked) trong workspace.
+3. Mọi file mới phải được **commit trong git** khi kết thúc task; file chưa dùng → xóa, không để lại.
+4. Không tạo file `.py` ở root; không tạo test ngoài `tests/`.
+5. File/variable name tiếng Anh, không dấu. Python `snake_case.py`; shell/PowerShell `kebab-case.*`.
+
+## 5. Plan ↔ Act contract (khớp plan và act)
+
+> Mẫu plan: `docs/templates/PLAN_TEMPLATE.md`; SDD: `docs/templates/SDD_TEMPLATE.md`.
+> Slug plan: lowercase, hyphen (theo `slugify()` trong `.devin/scripts/plan_fsm/storage.py`).
+
+1. **PLAN phase** — trước khi sửa code: viết `docs/plans/<slug>/IMPLEMENTATION_PLAN.md`.
+   Mỗi task khai báo: `File Path`, `Function`, `Acceptance Criteria`, `REQ ID` (có sẵn trong template).
+   Plan chưa duyệt (Status ≠ Approved) thì không được Act đối với M/L/XL tasks.
+2. **ACT phase** — CHỈ sửa:
+   - File có trong cột `File Path` của plan, **và**
+   - Test file của task (đặt trong `tests/`).
+   Không sửa file ngoài plan (drift) — nếu phát hiện cần thiết, cập nhật plan trước, xin duyệt lại.
+3. **SAU ACT** — viết `docs/plans/<slug>/EXECUTION_REPORT.md`:
+   - Commits, files changed (đầy đủ), kết quả test + coverage, residual risks.
+   - Self-check: `git diff --name-only` (và untracked) ⊆ files đã khai trong plan/report.
+4. **VERIFY** — `python3 tools/check_governance.py` phát hiện:
+   - Plan không có execution report (plan chưa act xong).
+   - File code (`.devin/scripts/`, `.devin/hooks/`, `tests/`) thay đổi nhưng **không nằm trong plan nào** (act không plan).
+5. Không tự ý chạy `plan_orchestrator.py` từ Cline — đó là cơ chế Devin CLI (xem `.clinerules/04-workflow.md`).
+
+## 6. Đa provider — ai đọc gì, ghi ở đâu
+
+| Provider | Config / auto-load | Ghi chú |
+|----------|--------------------|---------|
+| Cline | `.clinerules/` (auto mỗi session) + `AGENTS.md` + `CLAUDE.md` | `05-file-governance.md` = bản rút gọn file này |
+| Claude Code | `CLAUDE.md` (auto) + `AGENTS.md` | `.claude/` gitignored — không commit |
+| Devin CLI | `AGENTS.md` + `.devin/AGENTS.md` + `.devin/config.json` | hooks `plan_enforce.py` chặn write nếu chưa plan |
+| opencode | `opencode.json` → `instructions` trỏ về file này | `.opencode/` wrapper — không đụng `.devin/` |
+| Aide | `.aide/config.json` | memory/cache gitignored |
+| Codex/Khuym | `AGENTS.md` (Khuym block) + `.khuym/state.json` | state theo Khuym, không commit |
+| Cursor | `.cursor/` (gitignored, được tạo lại) | Không commit |
+
+**Quy tắc chéo provider:**
+- KHÔNG ghi state của provider này vào thư mục provider khác (`.devin/` state chỉ Devin, `.khuym/` chỉ Khuym, `.opencode/` chỉ opencode, `.aide/` chỉ Aide).
+- Runtime state (`.devin/loop_state/`, `session_state/`, `plan_state/`, `telemetry/`, `blackboard/`, `context_flags/`...) là gitignored — không commit, không đọc làm nguồn.
+- `.devin/canon/` và `HLK/` = vùng cấm sửa trực tiếp (sửa qua quy trình chính thức của harness).
+
+## 7. Enforcement
+
+```bash
+python3 tools/check_governance.py            # lint đầy đủ (junk + layout + plan-act)
+python3 tools/check_governance.py --plan-act # chỉ kiểm tra khớp plan ↔ act
+```
+
+- Exit code `0` = sạch; `1` = có lỗi cần sửa; `2` = có warning nên xử lý.
+- Chạy **trước khi kết thúc task M-tier+** và khi nghi ngờ workspace bẩn.
+- Sau khi thay đổi cấu trúc: chạy `python3 tools/gen_source_map.py` để refresh `.clinerules/00-source-map.md`.
+
+## 8. Cheat sheet — file mới đặt ở đâu
+
+| Loại file mới | Nơi đặt |
+|---------------|---------|
+| Script harness | `.devin/scripts/<name>.py` (+ `tests/test_<name>.py`) |
+| Hook | `.devin/hooks/<name>.py` (+ `tests/test_<name>.py`) |
+| Test | `tests/test_*.py` |
+| Utility dùng lại | `tools/<name>.py` / `.ps1` / `.sh` |
+| Plan feature | `docs/plans/<slug>/IMPLEMENTATION_PLAN.md` |
+| Execution report | `docs/plans/<slug>/EXECUTION_REPORT.md` |
+| Báo cáo chung | `docs/reports/<SUBJECT>_<YYYY-MM-DD>.md` |
+| Nghiên cứu | `docs/research/<topic>.md` |
+| Template | `docs/templates/<NAME>_TEMPLATE.md` |
+| Scratch tạm | `tmp/` (gitignored — phải dọn) |
+| Ghi chú task nội bộ | KHÔNG tạo ở root — bỏ vào plan dir hoặc xóa |
+

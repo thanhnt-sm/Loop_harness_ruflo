@@ -3,6 +3,7 @@
 > **Devin CLI**: See `AGENTS.md` for Devin-specific instructions (AHD main engine, `/lightning` + `/glm` orchestrators, plugins, MCP servers).
 > **Full reference list**: See `REPOS.md` for all repos/sources referenced, used, and learned from.
 > **Claude Code**: Full Claude Code instructions are in git history (commit c29eab8). Restore with `git show c29eab8:CLAUDE.md > CLAUDE.full.md`.
+> **Cline**: Cline auto-loads this file + `AGENTS.md` + `.clinerules/` at session start. The source map is `.clinerules/00-source-map.md` (regenerate after structural changes with `python3 tools/gen_source_map.py`).
 
 ## Universal Rules (apply to all agents)
 
@@ -22,6 +23,7 @@
 - Source code: `.devin/scripts/` (plan/execution scripts) and `.devin/hooks/` (hook guards); `tests/` for tests; `docs/` for documentation; `.devin/scripts/` or `tools/` for utilities
 - Files under 500 lines
 - Typed interfaces for all public APIs
+- **Workspace Governance**: follow `.devin/rules/WORKSPACE_GOVERNANCE.md` — no junk files, files go to the designated directories only, plan↔act must match (`docs/plans/<slug>/IMPLEMENTATION_PLAN.md` → `EXECUTION_REPORT.md`). Run `python3 tools/check_governance.py` before finishing a task.
 
 ### Workflow
 - For non-trivial tasks, briefly state a plan before editing

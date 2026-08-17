@@ -84,7 +84,9 @@ Steps 9-17: on-demand (pre-task audit, GoalSpec, deep-memory, gap-scan)
 
 ## References
 
-- Root `AGENTS.md` — Devin CLI config
+- Root `AGENTS.md` — Devin CLI config + **Workspace Governance** (bắt buộc)
+- `.devin/rules/WORKSPACE_GOVERNANCE.md` — quy hoạch file/folder, plan↔act, đa provider
+- `tools/check_governance.py` — lint governance (chạy trước khi kết thúc task)
 - `docs/USAGE_GUIDE.md` — full usage guide
 - `docs/CONTINUOUS_LOOP_GUIDE.md` — loop guide
 - `CLAUDE.md` — universal rules
