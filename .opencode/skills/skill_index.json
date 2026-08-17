@@ -1,0 +1,119 @@
+{
+  "_description": "Skill Index for opencode - Progressive Loading (U-H7)",
+  "_version": "1.0.0",
+  "_generated": "2026-08-16",
+  "skills": {
+    "harness-verify": {
+      "path": ".devin/scripts/hook_integrity.py",
+      "triggers": ["verify", "hook integrity", "deterministic"],
+      "executor": "internal",
+      "description": "C1 Deterministic verification gate",
+      "size_kb": 15,
+      "priority": "high"
+    },
+    "harness-consensus": {
+      "path": ".devin/scripts/fable_judge_compensation.py",
+      "triggers": ["consensus", "voting", "self-consistency", "ranked"],
+      "executor": "internal",
+      "description": "C2/C3 Self-consistency + ranked voting",
+      "size_kb": 15,
+      "priority": "high"
+    },
+    "harness-bestofn": {
+      "path": ".devin/scripts/best_of_n.py",
+      "triggers": ["best-of-n", "reward", "quality selection"],
+      "executor": "internal",
+      "description": "C4 Best-of-N reward model",
+      "size_kb": 10,
+      "priority": "medium"
+    },
+    "harness-fable": {
+      "path": ".devin/scripts/fable_judge_compensation.py",
+      "triggers": ["fable", "verify", "adversarial", "done-gate"],
+      "executor": "internal",
+      "description": "C5 Fable-judge adversarial verification",
+      "size_kb": 15,
+      "priority": "high"
+    },
+    "harness-subagent": {
+      "path": ".devin/scripts/subagent_isolation.py",
+      "triggers": ["subagent", "parallel", "isolation", "parallel exploration"],
+      "executor": "internal",
+      "description": "C6 Sub-agent isolation for parallel exploration",
+      "size_kb": 10,
+      "priority": "high"
+    },
+    "harness-compress": {
+      "path": ".devin/hooks/compress_terminal_output.py",
+      "triggers": ["compress", "terminal", "git diff", "npm", "ls", "git status"],
+      "executor": "internal",
+      "description": "U-H17 Terminal output compression",
+      "size_kb": 8,
+      "priority": "high"
+    },
+    "harness-mask": {
+      "path": ".devin/hooks/observation_masking.py",
+      "triggers": ["mask", "observation", "large output"],
+      "executor": "internal",
+      "description": "U-H18 Observation masking",
+      "size_kb": 8,
+      "priority": "high"
+    },
+    "harness-compact": {
+      "path": ".devin/hooks/context_compaction.py",
+      "triggers": ["compact", "context", "compaction", "caveman"],
+      "executor": "internal",
+      "description": "U-H9 Context compaction (Caveman protocol)",
+      "size_kb": 12,
+      "priority": "medium"
+    },
+    "harness-route": {
+      "path": ".devin/scripts/auto_model_router.py",
+      "triggers": ["route", "model routing", "executor selection"],
+      "executor": "internal",
+      "description": "U-H12 Model routing",
+      "size_kb": 8,
+      "priority": "high"
+    },
+    "harness-cost": {
+      "path": ".devin/scripts/cost_dashboard.py",
+      "triggers": ["cost", "dashboard", "token", "savings"],
+      "executor": "internal",
+      "description": "Cost tracking dashboard",
+      "size_kb": 8,
+      "priority": "medium"
+    },
+    "harness-verify": {
+      "path": ".devin/scripts/hook_integrity.py",
+      "triggers": ["verify", "integrity", "hooks"],
+      "executor": "internal",
+      "description": "C1 Deterministic hook verification",
+      "size_kb": 15,
+      "priority": "high"
+    }
+  },
+  "executors": {
+    "glm-executor": {
+      "model": "GLM-5.2",
+      "cost": "Free",
+      "use_when": "Simple ops, read, grep, glob, ls"
+    },
+    "kimi-executor": {
+      "model": "Kimi K2.7",
+      "cost": "Free until 2026-07-05",
+      "use_when": "Code generation, refactor, debug"
+    },
+    "lightning-executor": {
+      "model": "SWE-1.7 Lightning",
+      "cost": "$2.5/$12.5 MTok",
+      "use_when": "Complex reasoning, multi-file, architecture"
+    },
+    "orchestrator": {
+      "model": "Current active model",
+      "cost": "N/A",
+      "use_when": "Planning, reviewing, orchestrating"
+    }
+  },
+  "load_on_demand": true,
+  "boot_payload_kb": 2
+}

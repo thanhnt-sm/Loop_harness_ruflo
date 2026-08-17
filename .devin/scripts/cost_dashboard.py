@@ -33,7 +33,7 @@ def _repo_root() -> Path:
 def _load_session_state(root: Path) -> dict:
     """Load all session states for aggregate metrics."""
     session_dir = root / ".devin" / "session_state"
-    if not session_dir.exists():
+    if not session_dir.exists() or not session_dir.is_dir():
         return {}
 
     sessions = {}
@@ -57,7 +57,7 @@ def _load_cost_ledger(root: Path) -> list[dict]:
 def _load_cache_metrics(root: Path) -> list[dict]:
     """Load cache metrics from all sessions."""
     session_dir = root / ".devin" / "session_state"
-    if not session_dir.exists():
+    if not session_dir.exists() or not session_dir.is_dir():
         return []
 
     metrics = []

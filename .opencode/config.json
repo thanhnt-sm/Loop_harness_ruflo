@@ -1,0 +1,141 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugins": [
+    ".opencode/plugins/harness-plugin.js"
+  ],
+  "agents": {
+    "harness-orchestrator": {
+      "model": "opencode/gpt-4o",
+      "description": "Harness orchestrator - plans, coordinates, verifies",
+      "tools": ["read", "write", "edit", "bash", "grep", "glob", "task"],
+      "instructions": ".opencode/agents/harness-orchestrator.md"
+    },
+    "harness-executor-glm": {
+      "model": "opencode/glm-5.2",
+      "description": "GLM-5.2 executor - free tier, high reasoning",
+      "tools": ["read", "write", "edit", "bash", "grep", "glob"],
+      "instructions": ".opencode/agents/harness-executor-glm.md"
+    },
+    "harness-executor-kimi": {
+      "model": "opencode/kimi-k2.7",
+      "description": "Kimi K2.7 executor - free tier until 2026-07-05",
+      "tools": ["read", "write", "edit", "bash", "grep", "glob"],
+      "instructions": ".opencode/agents/harness-executor-kimi.md"
+    },
+    "harness-executor-lightning": {
+      "model": "opencode/swe-1.7-lightning",
+      "description": "SWE-1.7 Lightning executor - speed optimized",
+      "tools": ["read", "write", "edit", "bash", "grep", "glob"],
+      "instructions": ".opencode/agents/harness-executor-lightning.md"
+    },
+    "harness-verifier": {
+      "model": "opencode/gpt-4o-mini",
+      "description": "Fable-judge verifier - adversarial done-gate",
+      "tools": ["read", "bash", "grep", "glob"],
+      "instructions": ".opencode/agents/harness-verifier.md"
+    },
+    "harness-subagent": {
+      "model": "opencode/glm-5.2",
+      "description": "Sub-agent for parallel isolation (C6)",
+      "tools": ["read", "bash", "grep", "glob"],
+      "instructions": ".opencode/agents/harness-subagent.md"
+    }
+  },
+  "hooks": {
+    "pre-tool-use": [
+      {
+        "matcher": "*",
+        "command": ".opencode/hooks/pre_tool_use.sh"
+      }
+    ],
+    "post-tool-use": [
+      {
+        "matcher": "*",
+        "command": ".opencode/hooks/post_tool_use.sh"
+      }
+    ],
+    "session-start": [
+      {
+        "command": ".opencode/hooks/session_start.sh"
+      }
+    ],
+    "session-end": [
+      {
+        "command": ".opencode/hooks/session_end.sh"
+      }
+    ],
+    "user-prompt-submit": [
+      {
+        "command": ".opencode/hooks/user_prompt_submit.sh"
+      }
+    ]
+  },
+  "tools": {
+    "harness-verify": {
+      "description": "Run harness verification (C1 deterministic gate)",
+      "command": ".opencode/tools/harness-verify.sh"
+    },
+    "harness-compress": {
+      "description": "Terminal output compression (U-H17)",
+      "command": ".opencode/tools/harness-compress.sh"
+    },
+    "harness-mask": {
+      "description": "Observation masking (U-H18)",
+      "command": ".opencode/tools/harness-mask.sh"
+    },
+    "harness-compact": {
+      "description": "Context compaction (U-H9)",
+      "command": ".opencode/tools/harness-compact.sh"
+    },
+    "harness-route": {
+      "description": "Model routing (U-H12)",
+      "command": ".opencode/tools/harness-route.sh"
+    },
+    "harness-consensus": {
+      "description": "Self-consistency voting (C2/C3)",
+      "command": ".opencode/tools/harness-consensus.sh"
+    },
+    "harness-bestofn": {
+      "description": "Best-of-N reward selection (C4)",
+      "command": ".opencode/tools/harness-bestofn.sh"
+    },
+    "harness-subagent": {
+      "description": "Spawn isolated sub-agent (C6)",
+      "command": ".opencode/tools/harness-subagent.sh"
+    },
+    "harness-fable": {
+      "description": "Fable-judge verification gate",
+      "command": ".opencode/tools/harness-fable.sh"
+    },
+    "harness-cost": {
+      "description": "Cost tracking dashboard",
+      "command": ".opencode/tools/harness-cost.sh"
+    }
+  },
+  "compensation": {
+    "C1": { "enabled": true, "layer": "deterministic_verify" },
+    "C2": { "enabled": true, "layer": "self_consistency", "threshold": 60 },
+    "C3": { "enabled": true, "layer": "ranked_voting", "threshold": 60 },
+    "C4": { "enabled": true, "layer": "best_of_n", "n": 5 },
+    "C5": { "enabled": true, "layer": "adversarial_review" },
+    "C6": { "enabled": true, "layer": "subagent_isolation", "budget": 3000 },
+    "C7": { "enabled": true, "layer": "progressive_disclosure" }
+  },
+  "token_efficiency": {
+    "progressive_skills": true,
+    "skill_index": ".opencode/skills/skill_index.json",
+    "terminal_compression": true,
+    "observation_masking": true,
+    "prompt_caching": true,
+    "compaction_levels": ["light", "full", "ultra", "wenyan"]
+  },
+  "model_routing": {
+    "rules": [
+      { "task": "simple_edit|read|grep|glob|ls", "executor": "harness-executor-glm" },
+      { "task": "code_generation|refactor|debug", "executor": "harness-executor-kimi" },
+      { "task": "complex_reasoning|multi_file|architecture", "executor": "harness-executor-lightning" },
+      { "task": "plan|review|verify", "executor": "harness-orchestrator" }
+    ],
+    "fallback": "harness-executor-glm"
+  }
+}
