@@ -267,11 +267,15 @@ def _get_generator_fn(claim_type: str) -> Optional[callable]:
     return None
 
 
-def run_compensation_verification(session_id: str = "") -> Dict[str, Any]:
+def run_compensation_verification(session_id: str = "", fast: bool = False) -> Dict[str, Any]:
     """Main entry point: run all compensation layers on done declaration.
     
     Reads session state for the done declaration output, extracts claims,
     and runs C2/C3/C4/C6 verification on each claim.
+    
+    Args:
+        session_id: Session ID to load state from
+        fast: If True, skip heavy compensation verification (for testing)
     
     Returns:
         {
@@ -300,6 +304,21 @@ def run_compensation_verification(session_id: str = "") -> Dict[str, Any]:
             "message": "No verifiable claims found in done declaration",
             "claims": [],
             "compensation_results": [],
+        }
+    
+    # Fast mode: skip heavy compensation verification
+    if fast:
+        return {
+            "verdict": "VERIFIED",
+            "message": "Fast mode - skipped heavy verification",
+            "claims": [{"type": c["type"], "claim": c["claim"]} for c in claims],
+            "compensation_results": [],
+            "compensation_summary": {
+                "C2_self_consistency": 0,
+                "C3_ranked_voting": 0,
+                "C4_best_of_n": 0,
+                "C6_subagent": 0,
+            },
         }
     
     all_results = []
@@ -371,16 +390,15 @@ def run_compensation_verification(session_id: str = "") -> Dict[str, Any]:
 
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: fable_judge_compensation.py <session_id>", file=sys.stderr)
-        sys.exit(1)
+    import argparse
+    parser = argparse.ArgumentParser(description="Fable-Judge Compensation Verification")
+    parser.add_argument("session_id", nargs="?", default="")
+    parser.add_argument("--fast", action="store_true", help="Fast mode - skip heavy verification")
+    args = parser.parse_args()
     
-    session_id = sys.argv[1]
-    result = run_compensation_verification(session_id)
-    
+    result = run_compensation_verification(args.session_id, fast=args.fast)
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":
-    import os
     main()

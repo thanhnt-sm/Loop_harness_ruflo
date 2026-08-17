@@ -78,3 +78,13 @@
 <!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-17T01:07:42+00:00 session_id=test status=crashed cleanup_failed=False
 
 <!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-17T01:07:50+00:00 session_id=72529e10-158b-4301-9f9f-c930a2779547 status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-17T03:02:46+00:00 session_id=test status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-17T03:02:58+00:00 session_id=19efb1ca-55a9-4efe-857f-66ca03d9e4be status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-17T03:15:18+00:00 session_id=test status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-17T03:18:47+00:00 session_id=test status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-17T03:22:50+00:00 session_id=test status=crashed cleanup_failed=False

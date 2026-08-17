@@ -14,7 +14,7 @@ if [[ ${#INPUT} -le 1000 ]]; then
   exit 0
 fi
 
-HANDLE="tool_output:$(date +%s):$(openssl rand -hex 4)"
+HANDLE="tool_output_$(date +%s)_$(openssl rand -hex 4)"
 mkdir -p ".opencode/session_state/tool_outputs"
 echo "$INPUT" > ".opencode/session_state/tool_outputs/${HANDLE}.txt"
 echo "[MASKED: $HANDLE] (original ${#INPUT} chars stored)"

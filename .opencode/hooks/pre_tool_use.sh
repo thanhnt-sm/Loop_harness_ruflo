@@ -7,25 +7,38 @@ set -euo pipefail
 TOOL="$1"
 ARGS="$2"
 CONTEXT_FILE="/tmp/opencode_context_$$.json"
+PYTHON=".venv/bin/python"
 
 # Save context for post-tool-use
-cat > "$CONTEXT_FILE" <<EOF
-{
-  "tool": "$TOOL",
-  "args": "$ARGS",
-  "compress": false,
-  "mask": false
-}
-EOF
+$PYTHON -c "
+import json, sys
+context = {'tool': '$TOOL', 'args': '$ARGS', 'compress': False, 'mask': False}
+with open('$CONTEXT_FILE', 'w') as f:
+    json.dump(context, f)
+"
 
 # Apply compression for terminal commands
 if [[ "$TOOL" == "bash" || "$TOOL" == "git" ]]; then
-  jq '.compress = true' "$CONTEXT_FILE" > "$CONTEXT_FILE.tmp" && mv "$CONTEXT_FILE.tmp" "$CONTEXT_FILE"
+    $PYTHON -c "
+import json
+with open('$CONTEXT_FILE') as f:
+    context = json.load(f)
+context['compress'] = True
+with open('$CONTEXT_FILE', 'w') as f:
+    json.dump(context, f)
+"
 fi
 
 # Apply masking for read tools
 if [[ "$TOOL" == "read" || "$TOOL" == "grep" || "$TOOL" == "glob" || "$TOOL" == "ls" ]]; then
-  jq '.mask = true' "$CONTEXT_FILE" > "$CONTEXT_FILE.tmp" && mv "$CONTEXT_FILE.tmp" "$CONTEXT_FILE"
+    $PYTHON -c "
+import json
+with open('$CONTEXT_FILE') as f:
+    context = json.load(f)
+context['mask'] = True
+with open('$CONTEXT_FILE', 'w') as f:
+    json.dump(context, f)
+"
 fi
 
 # Run pre-tool-use verification (C1)

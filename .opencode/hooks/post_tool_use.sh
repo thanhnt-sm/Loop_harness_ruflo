@@ -8,6 +8,7 @@ TOOL="$1"
 ARGS="$2"
 OUTPUT="$3"
 CONTEXT_FILE="/tmp/opencode_context_$$.json"
+PYTHON=".venv/bin/python"
 
 # Load context
 if [[ ! -f "$CONTEXT_FILE" ]]; then
@@ -15,13 +16,13 @@ if [[ ! -f "$CONTEXT_FILE" ]]; then
   exit 0
 fi
 
-COMPRESS=$(jq -r '.compress // false' "$CONTEXT_FILE")
-MASK=$(jq -r '.mask // false' "$CONTEXT_FILE")
-CMD=$(jq -r '.args // ""' "$CONTEXT_FILE")
+COMPRESS=$($PYTHON -c "import json; print(json.load(open('$CONTEXT_FILE')).get('compress', False))")
+MASK=$($PYTHON -c "import json; print(json.load(open('$CONTEXT_FILE')).get('mask', False))")
+CMD=$($PYTHON -c "import json; print(json.load(open('$CONTEXT_FILE')).get('args', ''))")
 
 # Apply terminal compression (U-H17)
-if [[ "$COMPRESS" == "true" && -n "$OUTPUT" ]]; then
-  OUTPUT=$(echo "$OUTPUT" | .venv/bin/python -c "
+if [[ "$COMPRESS" == "True" && -n "$OUTPUT" ]]; then
+  OUTPUT=$(echo "$OUTPUT" | $PYTHON -c "
 import sys, json, re
 data = sys.stdin.read()
 cmd = '$CMD'
@@ -43,19 +44,20 @@ if cmd.startswith('git diff'):
         result.append(f'  [... {unchanged - 1} more unchanged lines ...]')
     print('\n'.join(result))
 elif re.match(r'^(npm|yarn|pnpm)\s+(install|ci|add)', cmd):
-    lines = data.split('\n')
-    skip = [r'^\s*(added|removed|updated|audited)\s+\d+\s+package',
-            r'^\s*\d+\s+(package|vulnerabilit)',
-            r'^\s*(found|fixed)\s+\d+\s+(vulnerabilit|issue)',
-            r'^\s*npm\s+(notice|WARN|ERR!)',
-            r'^\s*(deprecated|warning|notice)',
-            r'^\s*[│├└─]\s',
-            r'^\s*[#▓░▒░]+\s+\d+%',
-            r'^\s*[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]',
-            r'^\s*reify:',
-            r'^\s*timing\s+']
     import re
-    skip = [re.compile(p, re.I) for p in skip]
+    lines = data.split('\n')
+    skip = [re.compile(p, re.I) for p in [
+        r'^\s*(added|removed|updated|audited)\s+\d+\s+package',
+        r'^\s*\d+\s+(package|vulnerabilit)',
+        r'^\s*(found|fixed)\s+\d+\s+(vulnerabilit|issue)',
+        r'^\s*npm\s+(notice|WARN|ERR!)',
+        r'^\s*(deprecated|warning|notice)',
+        r'^\s*[│├└─]\s',
+        r'^\s*[#▓░▒░]+\s+\d+%',
+        r'^\s*[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]',
+        r'^\s*reify:',
+        r'^\s*timing\s+',
+    ]]
     filtered = [l for l in data.split('\n') if not any(r.search(l) for r in skip)]
     print('\n'.join(filtered))
 elif cmd.startswith('ls') and '-l' in cmd:
@@ -93,7 +95,7 @@ else:
 fi
 
 # Apply observation masking (U-H18)
-if [[ "$MASK" == "true" && ${#OUTPUT} -gt 1000 ]]; then
+if [[ "$MASK" == "True" && ${#OUTPUT} -gt 1000 ]]; then
   HANDLE="tool_output:$(date +%s):$(openssl rand -hex 4)"
   echo "[MASKED: $HANDLE] (original ${#OUTPUT} chars stored)"
   # Store full output
