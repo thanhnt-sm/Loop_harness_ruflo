@@ -39,9 +39,39 @@ def test_is_protected_glob():
     assert update_common.is_protected("cert.txt", ["*.pem"]) is False
 
 
+def test_is_protected_with_leading_dot_slash():
+    # Covers lines 89-91: ./ prefix handling
+    assert update_common.is_protected("./.env", [".env"]) is True
+    assert update_common.is_protected("./src/file.py", [".env"]) is False
+    assert update_common.is_protected("./secrets/a.txt", ["secrets/**"]) is True
+
+
 def test_is_protected_default_list_covers_sensitive():
     for p in (".env", "secrets/x", "HLK/config/x.json", ".devin/config.json", ".gitignore"):
         assert update_common.is_protected(p, update_common.DEFAULT_PROTECTED_PATTERNS) is True, p
+
+
+# --- _normalize_pattern ---
+
+def test_normalize_pattern_trailing_slash():
+    # Covers line 69: trailing slash -> /**
+    assert update_common._normalize_pattern("secrets/") == "secrets/**"
+    assert update_common._normalize_pattern("folder/sub/") == "folder/sub/**"
+
+
+def test_is_protected_leading_slashes():
+    # Covers lines 90-92: leading slash handling in is_protected
+    assert update_common.is_protected("/.env", [".env"]) is True
+    assert update_common.is_protected("//.env", [".env"]) is True
+    assert update_common.is_protected("///.env", [".env"]) is True
+    assert update_common.is_protected("/src/file.py", [".env"]) is False
+
+
+def test_is_protected_dot_slash_loop():
+    # Covers line 90: while norm.startswith("./") loop body
+    # The key is that the loop must execute at least once
+    assert update_common.is_protected("./.env", [".env"]) is True
+    assert update_common.is_protected("././.env", [".env"]) is True  # multiple ./ triggers loop multiple times
 
 
 # --- run_cmd ---
@@ -64,6 +94,17 @@ def test_run_cmd_timeout():
     )
     assert code == 1
     assert "Timeout" in err
+
+
+def test_run_cmd_unexpected_exception(monkeypatch):
+    # Covers lines 130-131: unexpected exception in run_cmd
+    import subprocess
+    def mock_run(*args, **kwargs):
+        raise RuntimeError("simulated error")
+    monkeypatch.setattr(subprocess, "run", mock_run)
+    code, _, err = update_common.run_cmd(["echo", "hi"])
+    assert code == 1
+    assert "Unexpected error" in err
 
 
 # --- validate_git_url ---
@@ -96,6 +137,17 @@ def test_load_tracker_missing_exits(tmp_path):
 def test_load_tracker_invalid_json_exits(tmp_path):
     p = tmp_path / "tracker.json"
     p.write_text("{not json", encoding="utf-8")
+    with pytest.raises(SystemExit):
+        update_common.load_tracker(p)
+
+
+def test_load_tracker_unexpected_exception(tmp_path, monkeypatch):
+    # Covers lines 145-147: unexpected exception in load_tracker
+    p = tmp_path / "tracker.json"
+    p.write_text('{"a": 1}', encoding="utf-8")
+    def mock_open(*args, **kwargs):
+        raise RuntimeError("simulated error")
+    monkeypatch.setattr("builtins.open", mock_open)
     with pytest.raises(SystemExit):
         update_common.load_tracker(p)
 

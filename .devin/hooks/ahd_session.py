@@ -40,17 +40,43 @@ def get_config_root(root: Path) -> Path:
     Antigravity uses ``.devin/``, Claude Code uses ``.claude/``, Codex uses
     ``.codex/``, etc. The canonical text references ``.devin/`` as a placeholder;
     at runtime this function resolves it to the actual deployed config root.
+
+    Logic:
+    - If passed `root` is the real repo root (from get_repo_root()), do deployed config root detection
+    - Otherwise, use the passed `root` directly (test isolation)
+    - Priority for test roots: .devin > .agents > session_state/loop_state > fallback to .agents
     """
-    here = Path(__file__).resolve()
-    parent_name = here.parent.name
-    if parent_name in ("scripts", "hooks"):
-        candidate = here.parent.parent
-        # Distinguish a deployed config root from the source-repo
-        # core/assets/runtime/ directory. A deployed config root has
-        # session_state/ or loop_state/ siblings (created by _sync_runtime).
-        # The source-repo core/assets/runtime/ does not.
-        if (candidate / "session_state").is_dir() or (candidate / "loop_state").is_dir():
-            return candidate
+    # Get the real repo root for comparison
+    try:
+        real_repo_root = get_repo_root()
+    except Exception:
+        real_repo_root = None
+
+    # If caller passed the real repo root, do deployed config root detection
+    if real_repo_root and root == real_repo_root:
+        here = Path(__file__).resolve()
+        parent_name = here.parent.name
+        if parent_name in ("scripts", "hooks"):
+            candidate = here.parent.parent
+            # Distinguish a deployed config root from the source-repo
+            # core/assets/runtime/ directory. A deployed config root has
+            # session_state/ or loop_state/ siblings (created by _sync_runtime).
+            # The source-repo core/assets/runtime/ does not.
+            if (candidate / "session_state").is_dir() or (candidate / "loop_state").is_dir():
+                return candidate
+        # Real repo root but not deployed -> use .agents
+        return root / ".agents"
+
+    # Test isolation: caller passed a different root (tmp_path), use it directly
+    # Priority: .devin (deployed) > .agents (test) > session_state/loop_state (explicit) > fallback .agents
+    if (root / ".devin").is_dir():
+        return root
+    if (root / ".agents").is_dir():
+        return root / ".agents"
+    if (root / "session_state").is_dir() or (root / "loop_state").is_dir():
+        return root
+
+    # Fallback
     return root / ".agents"
 
 
