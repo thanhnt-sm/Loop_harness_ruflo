@@ -74,7 +74,7 @@ jobs:
 
       - name: Upload score artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: metaharness-score
           path: /tmp/metaharness-score.json
@@ -90,7 +90,7 @@ jobs:
 
       - name: Upload genome artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: metaharness-genome
           path: /tmp/metaharness-genome.json
@@ -118,7 +118,7 @@ jobs:
 
       - name: Upload mcp-scan artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: metaharness-mcp-scan
           path: /tmp/metaharness-mcp-scan.json
@@ -225,7 +225,7 @@ jobs:
 
       - name: Upload benchmark artifact (90-day retention for trend tracking)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: metaharness-bench-overhead-${{ github.run_id }}
           path: /tmp/bench-overhead.json
@@ -409,7 +409,7 @@ jobs:
 
       - name: Upload bench-similarity artifact (iter 82)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: bench-similarity-${{ github.run_id }}
           path: /tmp/bench-similarity.json
@@ -434,7 +434,7 @@ jobs:
 
       - name: Upload bench-parse-mcp-scan artifact (iter 87)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: bench-parse-mcp-scan-${{ github.run_id }}
           path: /tmp/bench-parse-mcp-scan.json
