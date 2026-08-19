@@ -141,7 +141,7 @@ jobs:
             console.log('OK — every agentbbs reference under ' + root + ' is dynamically guarded.');
           "
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 8
       - uses: actions/setup-node@v4
