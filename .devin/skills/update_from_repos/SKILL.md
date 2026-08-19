@@ -76,12 +76,12 @@ Tự động hóa quy trình cập nhật workspace theo các repo trong `REPOS.
 
 Trước khi làm bất kỳ update nào, đọc:
 
-- <ref_file file="D:\100.Software\Github\Loop_harness_new\Loop_harness_ruflo\REPOS.md" />
-- <ref_file file="D:\100.Software\Github\Loop_harness_new\Loop_harness_ruflo\.devin\metadata\REPOS_TRACKER.json" />
-- <ref_file file="D:\100.Software\Github\Loop_harness_new\Loop_harness_ruflo\.devin\ATTRIBUTION.md" />
-- <ref_file file="D:\100.Software\Github\Loop_harness_new\Loop_harness_ruflo\.devin\prompts\microscopic-review-prompt.md" />
-- <ref_file file="D:\100.Software\Github\Loop_harness_new\Loop_harness_ruflo\AGENTS.md" /> (top red lines)
-- <ref_file file="D:\100.Software\Github\Loop_harness_new\Loop_harness_ruflo\CLAUDE.md" /> (no auto commit/merge/push)
+- <ref_file file="REPOS.md" />
+- <ref_file file=".devin/metadata/REPOS_TRACKER.json" />
+- <ref_file file=".devin/ATTRIBUTION.md" />
+- <ref_file file=".devin/prompts/microscopic-review-prompt.md" />
+- <ref_file file="AGENTS.md" /> (top red lines)
+- <ref_file file="CLAUDE.md" /> (no auto commit/merge/push)
 
 ## 3. Workflow 6 phase
 
