@@ -304,3 +304,11 @@
 <!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-20T01:17:18+00:00 session_id=test status=crashed cleanup_failed=False
 
 <!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-20T01:17:22+00:00 session_id=s-20260819-bien-harness-upgrade-loop status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-20T09:41:26+00:00 session_id=test status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-20T09:41:28+00:00 session_id=s-20260819-bien-harness-upgrade-loop status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-20T10:45:49+00:00 session_id=test status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-20T10:45:51+00:00 session_id=s-20260819-bien-harness-upgrade-loop status=crashed cleanup_failed=False

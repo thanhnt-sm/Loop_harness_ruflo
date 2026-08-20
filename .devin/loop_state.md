@@ -10,7 +10,7 @@ active_session: s-20260819-bien-harness-upgrade-loop
 ## Active sessions
 | session_id | goal | status | tags | owned_files | last_heartbeat |
 |---|---|---|---|---|---|
-| s-20260819-bien-harness-upgrade-loop |  | suspected_crashed |  |  | 2026-08-20T01:17:20+00:00 |
+| s-20260819-bien-harness-upgrade-loop |  | suspected_crashed |  |  | 2026-08-20T10:45:50+00:00 |
 
 ## Recent sessions (last 3)
 | session_id | goal | status | tags |
