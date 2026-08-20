@@ -20,10 +20,10 @@ jobs:
   sbom-verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -62,7 +62,7 @@ jobs:
     needs: sbom-verify
     if: startsWith(github.ref, 'refs/tags/')
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
       - name: Verify SBOM signatures (keyless OIDC)
@@ -75,7 +75,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     needs: sbom-verify
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
       - name: Sign SBOMs (keyless)
