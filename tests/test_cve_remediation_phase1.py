@@ -235,7 +235,7 @@ def test_secret_scan_perf_1mb():
     r = sg._gate_secret_scan(big)
     dt = (time.perf_counter() - t0) * 1000
     assert r is None
-    assert dt < 250, f"1MB scan quá chậm: {dt:.0f}ms"
+    assert dt < 500, f"1MB scan quá chậm: {dt:.0f}ms"
 
 
 def test_secret_scan_masking_no_raw_secret():

@@ -1,6 +1,6 @@
 # Cost Tracking Dashboard — Harness Optimization Savings
-**Generated**: 2026-08-17T03:19:35.295260+00:00
-**Repo**: workspace
+**Generated**: 2026-08-20T01:19:32.373870+00:00
+**Repo**: Loop_harness_ruflo
 
 ## Executive Summary
 
@@ -62,26 +62,23 @@
 
 ### Prompt Caching Metrics (U-H11)
 
-- **Hit Rate**: 0.0%
-- **Cache Hits**: 0
+- **Hit Rate**: 100.0%
+- **Cache Hits**: 5
 - **Cache Misses**: 0
-- **Estimated Savings**: $0.000000
-- **Hit Tokens**: 0
+- **Estimated Savings**: $0.004008
+- **Hit Tokens**: 8,350
 
 ### Cost Ledger Summary
 
-- **Total Entries**: 33
-- **Unique Sessions**: 25
-- **Total Tracked Cost**: $2.015000
-- **Cumulative Cost**: $5.381000
+- **Total Entries**: 88
+- **Unique Sessions**: 34
+- **Total Tracked Cost**: $2.097500
+- **Cumulative Cost**: $7.080500
 
 ### Iteration History
 
 | Iteration | Upgrades | Key Achievements |
 |-----------|----------|------------------|
-| ITERATION 11 — Fix 31 pre-existing test failures + coverage gate | 0 | See log |
-| ITERATION 12 — Token Efficiency: Terminal Compression + Progressive Skills | 3 | See log |
-| ITERATION 13 — Context Efficiency: Observation Masking + Model Routing + Prompt Caching | 3 | See log |
 | ITERATION 14 — Compaction Protocol Enhancement (U-H9) | 2 | See log |
 | ITERATION 15 — Prompt Caching Metrics (U-H11) + Cost Tracking Dashboard | 2 | See log |
 | ITERATION 16 — Compensation C2/C3 (Self-Consistency Voting) + Auto Model Routing | 1 | See log |
@@ -89,6 +86,9 @@
 | ITERATION 18 — Compensation C4 (Best-of-N + Reward Model) | 0 | See log |
 | ITERATION 19 — Compensation C6 (Sub-Agent Isolation) | 0 | See log |
 | ITERATION 20 — Fable-Judge Compensation Integration (C2/C3/C4/C6 → Gate) | 0 | See log |
+| ITERATION 21 — Bootstrap Reality Check + Blocker Fix | 0 | See log |
+| ITERATION 22 — First Loop Iteration: Missing .coveragerc | 0 | See log |
+| ITERATION 23 — Test Isolation + SBOM Reality | 0 | See log |
 
 ## Recommendations
 

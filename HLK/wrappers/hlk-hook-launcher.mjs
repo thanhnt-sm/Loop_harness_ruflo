@@ -65,10 +65,8 @@ if (!fs.existsSync(BRIDGE_PATH)) {
   process.stderr.write(`[HLK Launcher] ❌ Không tìm thấy hlk-hook-bridge.mjs tại ${BRIDGE_PATH}\n`);
   process.stderr.write(`[HLK Launcher]    cwd = ${process.cwd()}\n`);
   process.stderr.write(`[HLK Launcher]    __dirname = ${__dirname}\n`);
-  // Fail-open: không chặn tool nếu launcher lỗi cấu hình
-  // Trả stdin nguyên ra stdout để tool vẫn chạy
-  process.stdin.pipe(process.stdout);
-  process.stdin.on('end', () => process.exit(0));
+  // Fail-closed: nếu HLK bridge không tồn tại, chặn tool để tránh secret lọt qua
+  process.exit(2);
 } else {
   // ---------------------------------------------------------------------------
   // Bước 2: Spawn hlk-hook-bridge.mjs, pipe stdin/stdout/stderr qua
@@ -88,7 +86,7 @@ if (!fs.existsSync(BRIDGE_PATH)) {
 
   child.on('error', (err) => {
     process.stderr.write(`[HLK Launcher] ❌ Lỗi spawn bridge: ${err.message}\n`);
-    // Fail-open
-    process.exit(0);
+    // Fail-closed: không thể spawn bridge → chặn tool
+    process.exit(2);
   });
 }

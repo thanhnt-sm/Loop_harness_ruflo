@@ -5,6 +5,8 @@ import subprocess
 import json
 import tempfile
 import glob
+import sys
+import shlex
 from pathlib import Path
 import pytest
 
@@ -13,6 +15,20 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 def run_cmd(cmd, input_text="", timeout=30):
     """Run command and return (code, stdout, stderr)."""
+    if sys.platform == "win32" and ".sh" in cmd:
+        parts = shlex.split(cmd, posix=False)
+        replaced = False
+        for i, token in enumerate(parts):
+            token = token.strip("'\"")
+            if not replaced and ".sh" in token:
+                if token.endswith(".sh"):
+                    token = token[:-3] + ".cmd"
+                else:
+                    token = token.replace(".sh", ".cmd")
+                token = token.replace("/", "\\")
+                replaced = True
+            parts[i] = token
+        cmd = subprocess.list2cmdline(parts)
     result = subprocess.run(
         cmd, shell=True, capture_output=True, text=True,
         timeout=timeout, input=input_text, cwd=REPO_ROOT

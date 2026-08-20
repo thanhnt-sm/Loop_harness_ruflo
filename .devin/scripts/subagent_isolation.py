@@ -84,17 +84,22 @@ TOKENS_USED: <estimate>
     
     # Simulate sub-agent execution via focused subprocess
     # In real implementation, this would call the model API with isolated context
+    scripts_dir = str(Path(__file__).resolve().parent)
+    brief_json = json.dumps(task_brief[:200])
+    probe = (
+        "import sys; "
+        f"sys.path.insert(0, {scripts_dir!r}); "
+        "try: "
+        "    from auto_model_router import select_executor; "
+        f"    print(select_executor({brief_json})['executor']); "
+        "except Exception as e: "
+        f"    print({executor!r})"
+    )
     result = subprocess.run(
-        [".venv/bin/python", "-c", f"""
-import sys
-sys.path.insert(0, '/workspace/.devin/scripts')
-from auto_model_router import select_executor
-selection = select_executor('{task_brief[:200]}')
-print(selection['executor'])
-"""],
+        [sys.executable, "-c", probe],
         capture_output=True, text=True, timeout=10
     )
-    
+
     selected_executor = result.stdout.strip() if result.returncode == 0 else executor
     
     # Return simulated result (in real implementation, this would be model output)

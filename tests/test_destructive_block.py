@@ -55,8 +55,10 @@ def importlib_reload(mod):
 
 
 def _make_session_state(tmp_path: Path, session_id: str, goal: str, complexity: str = "M"):
-    # Config root khi chạy từ source repo = root/.agents (xem get_config_root)
-    state_dir = tmp_path / ".agents" / "session_state"
+    # Tạo .devin/ trước để get_config_root xác định deployed root
+    # và đồng bộ với _make_approved_plan, tránh sai đường dẫn session_state.
+    (tmp_path / ".devin").mkdir(parents=True, exist_ok=True)
+    state_dir = ahd_session.get_config_root(tmp_path) / "session_state"
     state_dir.mkdir(parents=True, exist_ok=True)
     (state_dir / f"{session_id}.json").write_text(json.dumps({
         "session_id": session_id,

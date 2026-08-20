@@ -22,6 +22,8 @@ def cmd_init(task_description: str) -> dict:
     return {
         "state_file": str(sp),
         "task_slug": state["task_slug"],
+        "task_fingerprint": state["task_fingerprint"],
+        "task_description": state["task_description"],
         "tier": state["tier"],
         "current_state": state["state"],
         "next_action": action,
@@ -114,10 +116,19 @@ def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
 
     if args["init"]:
+        if not args["task"]:
+            print("Error: --init requires --task '<description>'", file=sys.stderr)
+            return 2
         data = cmd_init(args["task"])
     elif args["step"]:
+        if not args["state"] or not args["results"]:
+            print("Error: --step requires --state <file> and --results <file>", file=sys.stderr)
+            return 2
         data = cmd_step(args["state"], args["results"])
     elif args["status"]:
+        if not args["state"]:
+            print("Error: --status requires --state <file>", file=sys.stderr)
+            return 2
         data = cmd_status(args["state"])
     else:
         print(

@@ -24,7 +24,7 @@ import approval_gate as ag  # noqa: E402
 @pytest.fixture()
 def plan_file(tmp_path):
     p = tmp_path / "IMPLEMENTATION_PLAN.md"
-    p.write_text("# Plan\n- T1\n", encoding="utf-8")
+    p.write_text("# Plan\n- T1\n", encoding="utf-8", newline="\n")
     return p
 
 

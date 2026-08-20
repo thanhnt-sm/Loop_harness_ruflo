@@ -128,7 +128,7 @@ const SECRET_PATTERNS = [
   /\bghp_[a-zA-Z0-9]{36}\b/,
   /\bghs_[a-zA-Z0-9]{36}\b/,
   /\beyJ[a-zA-Z0-9_-]*\.eyJ[a-zA-Z0-9_-]*\.[a-zA-Z0-9_-]*\b/,
-  /\b(api[_-]?key|password|secret|token)\s*[:=]\s*['"]?[^'"\s]{8,}\b/i,
+  /\b(api[_-]?key|password|secret|token)\s*[:=]\s*['"]?(?!\1[.\[(])[^'"\s]{8,}\b/i,
   /-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----/,
 ];
 

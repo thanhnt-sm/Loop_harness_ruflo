@@ -35,6 +35,7 @@ import hashlib
 import json
 import os
 import re
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -73,13 +74,30 @@ VALID_STATUSES = (STATUS_PENDING, STATUS_APPROVED, STATUS_REJECTED, STATUS_CHANG
 
 
 def _repo_root(plan_path: Path) -> Path:
-    """Xác định repo root (thư mục chứa .devin hoặc .git)."""
-    for parent in [plan_path.parent, *plan_path.parents]:
-        if parent.parent == parent:  # dừng tại filesystem root
-            return plan_path.parent
-        if (parent / ".devin").exists() or (parent / ".git").exists():
-            return parent
-    return plan_path.parent
+    """Xác định repo root cho plan_path.
+
+    Ưu tiên git rev-parse; nếu không có git, dò các marker chuẩn (.git,
+    pyproject.toml, README.md, AGENTS.md) từ thư mục chứa plan. Không dùng
+    .devin/.agents làm marker vì chúng có thể tồn tại ở thư mục home của user,
+    gây nhầm lẫn khi chạy test trong tmp_path.
+    """
+    start = plan_path.parent
+    try:
+        r = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True, text=True, cwd=str(start)
+        )
+        if r.returncode == 0 and r.stdout.strip():
+            return Path(r.stdout.strip())
+    except (OSError, ValueError, subprocess.SubprocessError):
+        pass
+    for parent in [start, *start.parents]:
+        if parent.parent == parent:
+            break
+        for marker in (".git", "pyproject.toml", "README.md", "AGENTS.md"):
+            if (parent / marker).exists():
+                return parent
+    return start
 
 
 # ---------------------------------------------------------------------------

@@ -32,7 +32,7 @@ def _copy_module_to_tmp(tmp_path: Path, script: str, config: dict | None = None)
     """Copy module JS sang tmp dir kèm config riêng (để test fail-closed).
 
     Module resolve CONFIG_PATH từ __dirname/../config/hlk.config.json nên
-    cần copy nguyên cấu trúc security/ + config/.
+    cần copy nguyên cấu trúc security/ + config/ + package.json với type=module.
     """
     sec = tmp_path / "security"
     cfg = tmp_path / "config"
@@ -40,28 +40,39 @@ def _copy_module_to_tmp(tmp_path: Path, script: str, config: dict | None = None)
     cfg.mkdir(parents=True, exist_ok=True)
     (sec / script).write_text((HLK_SECURITY / script).read_text(encoding="utf-8"), encoding="utf-8")
     (cfg / "hlk.config.json").write_text(json.dumps(config), encoding="utf-8")
+    (tmp_path / "package.json").write_text(json.dumps({"type": "module"}), encoding="utf-8")
     return str(sec / script)
+
+
+def _run_node_esm(module: str, js: str, env: dict | None = None) -> subprocess.CompletedProcess:
+    """Chạy module JS ESM qua node với file:// URL, hỗ trợ Windows path."""
+    script = (
+        "import { pathToFileURL } from 'node:url'; "
+        f"const mod = await import(pathToFileURL({json.dumps(module)})); {js}"
+    )
+    return subprocess.run(
+        ["node", "--input-type=module", "-e", script],
+        capture_output=True, text=True, timeout=60,
+        env=env or os.environ, cwd=REPO_ROOT,
+    )
 
 
 # ---------------------------------------------------------------- 3.1 (CVE-011)
 class TestSanitizerFailClosed:
     def test_health_check_ok_with_real_config(self):
         """Với hlk.config.json thật -> ok=True, không critical missing."""
-        result = subprocess.run(
-            ["node", "-e", (
-                "const s = require('/workspace/HLK/security/sanitizer.js');"
-                "console.log(JSON.stringify(s.createSanitizer().healthCheck()));"
-            )],
-            capture_output=True, text=True, timeout=60,
+        result = _run_node_esm(
+            str(HLK_SECURITY / "sanitizer.js"),
+            "const { createSanitizer } = mod; console.log(JSON.stringify(createSanitizer().healthCheck()));",
         )
         assert result.returncode == 0, result.stderr
         out = json.loads(result.stdout)
         assert out["ok"] is True
         assert out["configValid"] is True
-        # failClosedOnConfigError do config quyết định — config thật hiện không bật (các test
-        # test_critical_pattern_missing_fails_closed / test_invalid_config_fails_closed
-        # đã cover đường throw khi bật flag).
-        assert out["failClosedOnConfigError"] is False
+        # failClosedOnConfigError đã được bật trong hlk.config.json theo best practice
+        # (fail-closed mặc định); các test test_critical_pattern_missing_fails_closed /
+        # test_invalid_config_fails_closed vẫn cover đường throw khi thiếu critical pattern.
+        assert out["failClosedOnConfigError"] is True
         assert out["patternsLoaded"] >= 1
         assert out["criticalMissing"] == []
 
@@ -73,12 +84,11 @@ class TestSanitizerFailClosed:
                 "failClosedOnConfigError": True,
             },
         })
-        script = (
-            f"const {{ createSanitizer }} = require({json.dumps(module)});"
-            "try { createSanitizer(); console.log('NO_THROW'); }"
-            "catch (e) { console.log('THREW:' + e.message); }"
+        result = _run_node_esm(
+            module,
+            "const { createSanitizer } = mod; try { createSanitizer(); console.log('NO_THROW'); } "
+            "catch (e) { console.log('THREW:' + e.message); }",
         )
-        result = subprocess.run(["node", "-e", script], capture_output=True, text=True, timeout=60)
         assert "THREW:" in result.stdout, result.stdout + result.stderr
         assert "FAIL-CLOSED" in result.stdout
 
@@ -87,12 +97,11 @@ class TestSanitizerFailClosed:
         module = _copy_module_to_tmp(tmp_path, "sanitizer.js", {
             "security_rules": {"failClosedOnConfigError": True},
         })
-        script = (
-            f"const {{ createSanitizer }} = require({json.dumps(module)});"
-            "try { createSanitizer(); console.log('NO_THROW'); }"
-            "catch (e) { console.log('THREW:' + e.message); }"
+        result = _run_node_esm(
+            module,
+            "const { createSanitizer } = mod; try { createSanitizer(); console.log('NO_THROW'); } "
+            "catch (e) { console.log('THREW:' + e.message); }",
         )
-        result = subprocess.run(["node", "-e", script], capture_output=True, text=True, timeout=60)
         assert "THREW:" in result.stdout, result.stdout + result.stderr
         assert "FAIL-CLOSED" in result.stdout
 
@@ -101,11 +110,10 @@ class TestSanitizerFailClosed:
         module = _copy_module_to_tmp(tmp_path, "sanitizer.js", {
             "security_rules": {"redact_patterns": [], "failClosedOnConfigError": False},
         })
-        script = (
-            f"const {{ createSanitizer }} = require({json.dumps(module)});"
-            "const s = createSanitizer(); console.log('OK');"
+        result = _run_node_esm(
+            module,
+            "const { createSanitizer } = mod; const s = createSanitizer(); console.log('OK');",
         )
-        result = subprocess.run(["node", "-e", script], capture_output=True, text=True, timeout=60)
         assert "OK" in result.stdout
         assert "WARNING" in result.stderr
         assert "config invalid" in result.stderr
@@ -115,12 +123,9 @@ class TestSanitizerFailClosed:
 class TestVaultBridge:
     def test_precedence_file_over_env_default(self):
         """Config thật -> precedence mặc định file>env (an toàn hơn)."""
-        result = subprocess.run(
-            ["node", "-e", (
-                "const v = require('/workspace/HLK/security/vault-bridge.js');"
-                "console.log(JSON.stringify({ precedence: v.getSecretPrecedence() }));"
-            )],
-            capture_output=True, text=True, timeout=60,
+        result = _run_node_esm(
+            str(HLK_SECURITY / "vault-bridge.js"),
+            "const { getSecretPrecedence } = mod; console.log(JSON.stringify({ precedence: getSecretPrecedence() }));",
         )
         assert result.returncode == 0, result.stderr
         assert json.loads(result.stdout)["precedence"] == "file>env"
@@ -134,12 +139,13 @@ class TestVaultBridge:
             },
         })
         (tmp_path / "config" / "secrets.env").write_text("TEST_OVERRIDE=from_file\n", encoding="utf-8")
-        script = (
-            f"const v = require({json.dumps(module)});"
-            "console.log(JSON.stringify({ p: v.getSecretPrecedence(), v: v.getSecret('TEST_OVERRIDE') }));"
-        )
         env = dict(os.environ, TEST_OVERRIDE="from_env")
-        result = subprocess.run(["node", "-e", script], capture_output=True, text=True, timeout=60, env=env)
+        result = _run_node_esm(
+            module,
+            "const { getSecretPrecedence, getSecret } = mod; "
+            "console.log(JSON.stringify({ p: getSecretPrecedence(), v: getSecret('TEST_OVERRIDE') }));",
+            env=env,
+        )
         assert result.returncode == 0, result.stderr
         out = json.loads(result.stdout)
         assert out["p"] == "env>file"
@@ -150,15 +156,15 @@ class TestVaultBridge:
         audit = REPO_ROOT / ".devin" / "telemetry" / "vault_audit.jsonl"
         before = audit.read_text(encoding="utf-8").splitlines() if audit.exists() else []
 
-        script = (
-            "const v = require('/workspace/HLK/security/vault-bridge.js');"
-            "console.log(JSON.stringify({ "
-            "  fromEnv: v.getSecret('AHD_TEST_AUDIT_KEY', 'none'), "
-            "  missing: v.getSecret('NONEXISTENT_KEY_XYZ', 'none') "
-            "}));"
-        )
         env = dict(os.environ, AHD_TEST_AUDIT_KEY="from_env")
-        result = subprocess.run(["node", "-e", script], capture_output=True, text=True, timeout=60, env=env)
+        result = _run_node_esm(
+            str(HLK_SECURITY / "vault-bridge.js"),
+            "const { getSecret } = mod; console.log(JSON.stringify({ "
+            "  fromEnv: getSecret('AHD_TEST_AUDIT_KEY', 'none'), "
+            "  missing: getSecret('NONEXISTENT_KEY_XYZ', 'none') "
+            "}));",
+            env=env,
+        )
         assert result.returncode == 0, result.stderr
 
         after = audit.read_text(encoding="utf-8").splitlines() if audit.exists() else []
@@ -361,12 +367,29 @@ class TestSupplyChain:
 
     def test_cosign_fails_closed_when_missing(self):
         """cosign chưa cài -> fail (không deploy artifact không ký)."""
+        import shutil
+        if sys.platform == "win32":
+            script = SCRIPTS / "cosign_verify.py"
+            shell_cmd = [sys.executable, str(script), "sbom/python.sbom.json"]
+        else:
+            script = SCRIPTS / "cosign_verify.sh"
+            shell_cmd = ["bash", str(script), "sbom/python.sbom.json"]
+        # Loại bỏ thư mục chứa cosign khỏi PATH để test fail-closed một cách deterministric
+        env = os.environ.copy()
+        cosign_path = shutil.which("cosign")
+        if cosign_path:
+            cosign_dir = str(Path(cosign_path).parent)
+            env["PATH"] = os.pathsep.join(
+                p for p in env.get("PATH", "").split(os.pathsep) if p and p != cosign_dir
+            )
         result = subprocess.run(
-            ["bash", str(SCRIPTS / "cosign_verify.sh"), "sbom/python.sbom.json"],
+            shell_cmd,
             capture_output=True, text=True, timeout=60,
+            env=env,
         )
         assert result.returncode != 0
-        assert "FAIL" in result.stderr
+        combined = result.stdout + result.stderr
+        assert "FAIL" in combined
 
     def test_renovate_config(self):
         cfg = json.loads((REPO_ROOT / "renovate.json").read_text(encoding="utf-8"))
