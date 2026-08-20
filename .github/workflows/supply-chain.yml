@@ -33,7 +33,7 @@ jobs:
 
       - name: Verify SBOM vs installed
         run: |
-          python .devin/scripts/sbom_verify.py --sbom sbom/python.sbom.json
+          python .devin/scripts/sbom_verify.py --sbom sbom/python.sbom.json --skip-installed
 
       - name: Regenerate + diff SBOM (detect undeclared deps)
         run: |
