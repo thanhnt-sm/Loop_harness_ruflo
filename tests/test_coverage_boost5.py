@@ -747,14 +747,14 @@ class TestPreToolUse:
         from pre_tool_use import _ssrf_allowlist
         monkeypatch.setenv("AHD_SSRF_ALLOWLIST", "a.com,b.com")
         result = _ssrf_allowlist()
-        assert "a.com" in result
-        assert "b.com" in result
+        assert any(host == "a.com" for host in result)
+        assert any(host == "b.com" for host in result)
 
     def test_ssrf_allowlist_default(self, monkeypatch):
         from pre_tool_use import _ssrf_allowlist
         monkeypatch.delenv("AHD_SSRF_ALLOWLIST", raising=False)
         result = _ssrf_allowlist()
-        assert "example.com" in result
+        assert any(host == "example.com" for host in result)
 
     def test_main_safe_command(self, monkeypatch, capsys):
         from pre_tool_use import main
