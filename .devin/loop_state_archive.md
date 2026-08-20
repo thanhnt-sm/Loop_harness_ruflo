@@ -312,3 +312,7 @@
 <!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-20T10:45:49+00:00 session_id=test status=crashed cleanup_failed=False
 
 <!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-20T10:45:51+00:00 session_id=s-20260819-bien-harness-upgrade-loop status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-20T12:34:15+00:00 session_id=test status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-20T12:34:18+00:00 session_id=s-20260819-bien-harness-upgrade-loop status=crashed cleanup_failed=False
