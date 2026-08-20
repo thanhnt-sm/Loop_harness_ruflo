@@ -279,7 +279,8 @@ def verify_after_update(touched: list[Path]) -> bool:
         ok = False
 
     # import smoke test nếu chạm scripts/hooks
-    if any(str(f).startswith((".devin/scripts/", ".devin/hooks/")) for f in touched):
+    # Dùng as_posix() để normalize backslash (Windows) -> forward slash
+    if any(f.as_posix().startswith((".devin/scripts/", ".devin/hooks/")) for f in touched):
         code, out, err = run_cmd([sys.executable, "tools/import_smoke_test.py"], cwd=REPO_ROOT, timeout=120)
         if code != 0:
             print(f"[FAIL] import_smoke_test.py exit {code}")
