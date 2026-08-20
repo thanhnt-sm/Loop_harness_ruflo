@@ -165,35 +165,20 @@ def file_hash(path: Path) -> str:
     return h.hexdigest()
 
 
-def _redact_url(url: str) -> str:
-    """Loại bỏ userinfo (credentials) khỏi URL trước khi log/hiển thị.
-
-    Tránh leak credentials ra log khi URL chứa embedded user:pass.
-    Ví dụ: https://user:pass@host/path -> https://host/path
-    """
-    from urllib.parse import urlparse, urlunparse
-    try:
-        parsed = urlparse(url)
-        # Strip userinfo: chỉ giữ scheme + host + port + path + query + fragment
-        safe_netloc = parsed.hostname or ""
-        if parsed.port:
-            safe_netloc = f"{safe_netloc}:{parsed.port}"
-        return urlunparse((parsed.scheme, safe_netloc, parsed.path, "", "", ""))
-    except Exception:
-        # Fallback: chỉ giữ scheme://host, che phần còn lại
-        return url.split("@")[-1] if "@" in url else url
-
-
 def validate_git_url(url: str) -> tuple[bool, str]:
-    """Validate URL git clone: chỉ cho https, chặn local/file protocols."""
+    """Validate URL git clone: chỉ cho https, chặn local/file protocols.
+
+    Lưu ý: error message KHÔNG chứa URL gốc để tránh leak credentials ra log
+    (CodeQL py/clear-text-logging-sensitive-data). Chỉ trả thông tin generic.
+    """
     url = url.strip()
     if not any(url.startswith(s) for s in ALLOWED_GIT_SCHEMES):
-        return False, f"Invalid URL scheme (only HTTPS allowed): {_redact_url(url)}"
+        return False, "Invalid URL scheme: only HTTPS allowed"
     # Block URLs with embedded credentials, fragments or query strings
     from urllib.parse import urlparse
     parsed = urlparse(url)
     if "@" in parsed.netloc:
-        return False, f"URL must not contain credentials: {_redact_url(url)}"
+        return False, "URL must not contain embedded credentials"
     if parsed.hostname and parsed.hostname not in TRUSTED_GIT_HOSTS:
         return False, (
             f"Untrusted git host '{parsed.hostname}'. Allowed: "
