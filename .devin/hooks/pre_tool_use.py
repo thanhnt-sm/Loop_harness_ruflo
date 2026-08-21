@@ -297,6 +297,243 @@ def normalize_command(command: str) -> str:
     return normalized
 
 
+# --- RC-3: Tool Registry Call-Graph Enforcement ---
+# Load tool registry with call-graph metadata
+def _load_tool_registry() -> dict:
+    """Load tool_registry.json with call-graph metadata."""
+    try:
+        root = ahd_session.get_repo_root()
+        registry_path = root / ".devin" / "tool_registry.json"
+        if registry_path.exists():
+            return json.loads(registry_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        pass
+    return {"tiers": {}, "call_graph": {"max_depth": 3, "allowed_chains": {}}}
+
+
+def _get_tool_tier(tool_name: str) -> str:
+    """Get the tier of a tool from the registry."""
+    registry = _load_tool_registry()
+    for tier, tier_data in registry.get("tiers", {}).items():
+        if tool_name in tier_data.get("tools", []):
+            return tier
+    return "L0"  # default to L0 if not found
+
+
+def _get_tool_metadata(tool_name: str) -> dict:
+    """Get tool metadata including max_call_depth and allowed_children."""
+    registry = _load_tool_registry()
+    for tier, tier_data in registry.get("tiers", {}).items():
+        if tool_name in tier_data.get("tools", []):
+            return {
+                "tier": tier,
+                "max_call_depth": tier_data.get("max_call_depth", 1),
+                "allowed_children": tier_data.get("allowed_children", []),
+            }
+    return {"tier": "L0", "max_call_depth": 1, "allowed_children": []}
+
+
+def _get_call_graph_config() -> dict:
+    """Get call-graph configuration from registry."""
+    registry = _load_tool_registry()
+    return registry.get("call_graph", {"max_depth": 3, "allowed_chains": {}})
+
+
+def _get_session_call_stack(session_id: str, root: Path) -> list:
+    """Get current call stack from session state."""
+    state = ahd_session.read_session_state(session_id, root)
+    return state.get("call_stack", [])
+
+
+def _update_session_call_stack(session_id: str, root: Path, tool_name: str, action: str) -> None:
+    """Update call stack in session state (push/pop)."""
+    state = ahd_session.read_session_state(session_id, root)
+    call_stack = state.get("call_stack", [])
+    
+    if action == "push":
+        call_stack.append(tool_name)
+        if len(call_stack) > 10:  # max history
+            call_stack = call_stack[-10:]
+    elif action == "pop" and call_stack:
+        call_stack.pop()
+    
+    state["call_stack"] = call_stack
+    ahd_session.update_session_state(session_id, {"call_stack": call_stack}, root)
+
+
+def _get_current_call_depth(session_id: str, root: Path) -> int:
+    """Get current call stack depth."""
+    call_stack = _get_session_call_stack(session_id, root)
+    return len(call_stack)
+
+
+def _enforce_call_depth(session_id: str, root: Path, tool_name: str) -> None:
+    """Enforce max call depth for the tool."""
+    tool_meta = _get_tool_metadata(tool_name)
+    max_depth = tool_meta.get("max_call_depth", 1)
+    current_depth = _get_current_call_depth(session_id, root)
+    
+    if current_depth >= max_depth:
+        print(
+            f"[RC-3 Call-Graph] BLOCKED: max_depth={max_depth} exceeded "
+            f"(current depth={current_depth}). Tool: {tool_name}",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
+
+def _enforce_allowed_chains(session_id: str, root: Path, tool_name: str) -> None:
+    """Enforce allowed call chains between tool tiers."""
+    call_stack = _get_session_call_stack(session_id, root)
+    if not call_stack:
+        return  # first tool in chain
+    
+    parent_tool = call_stack[-1]
+    parent_tier = _get_tool_tier(parent_tool)
+    current_tier = _get_tool_tier(tool_name)
+    
+    call_graph = _get_call_graph_config()
+    allowed_chains = call_graph.get("allowed_chains", {})
+    
+    allowed_parents = allowed_chains.get(current_tier, [])
+    if parent_tier not in allowed_parents:
+        print(
+            f"[RC-3 Call-Graph] BLOCKED: {parent_tier} -> {current_tier} "
+            f"not allowed. Parent: {parent_tool}, Current: {tool_name}",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
+
+def _log_call_violation(session_id: str, root: Path, violation: str, tool_name: str) -> None:
+    """Log call-graph violation to session state."""
+    state = ahd_session.read_session_state(session_id, root)
+    violations = state.get("call_violations", [])
+    violations.append({
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "tool": tool_name,
+        "violation": violation,
+    })
+    if len(violations) > 50:  # keep last 50
+        violations = violations[-50:]
+    state["call_violations"] = violations
+    ahd_session.update_session_state(session_id, {"call_violations": violations}, root)
+
+
+# --- RC-4: macOS Seatbelt Sandbox Integration ---
+def _seatbelt_available() -> bool:
+    """Check if seatbelt is available on this system."""
+    try:
+        subprocess.run(
+            ["seatbelt", "--help"],
+            capture_output=True,
+            timeout=2,
+            check=False
+        )
+        return True
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        return False
+
+
+def _get_seatbelt_profile_path() -> Path:
+    """Get path to seatbelt profile."""
+    root = ahd_session.get_repo_root()
+    return root / ".devin" / "hooks" / "seatbelt.hook.sb"
+
+
+def _run_hook_sandboxed(hook_script: str, *args: str) -> int:
+    """Run a hook script inside the seatbelt sandbox. Fail-open if seatbelt unavailable."""
+    if os.environ.get("HOOK_SANDBOX", "0") != "1":
+        # Sandbox disabled, run directly
+        cmd = [sys.executable, hook_script] + list(args)
+        result = subprocess.run(cmd, capture_output=False)
+        return result.returncode
+
+    profile_path = _get_seatbelt_profile_path()
+    if not profile_path.exists():
+        print(f"[sandboxed_hook] WARNING: Seatbelt profile not found at {profile_path}, running unsandboxed", file=sys.stderr)
+        cmd = [sys.executable, hook_script] + list(args)
+        result = subprocess.run(cmd, capture_output=False)
+        return result.returncode
+
+    if not _seatbelt_available():
+        print("[sandboxed_hook] WARNING: seatbelt not available, running unsandboxed (fail-open)", file=sys.stderr)
+        cmd = [sys.executable, hook_script] + list(args)
+        result = subprocess.run(cmd, capture_output=False)
+        return result.returncode
+
+    cmd = ["seatbelt", "-p", str(_get_seatbelt_profile_path()), sys.executable] + list(args)
+    result = subprocess.run(cmd, capture_output=False)
+    
+    if result.returncode != 0:
+        print(f"[sandboxed_hook] Hook exited with code {result.returncode}", file=sys.stderr)
+    
+    return result.returncode
+
+
+def _check_call_graph_gate(data: dict) -> None:
+    """RC-3: Enforce call-graph constraints on tool calls."""
+    try:
+        session_id = ahd_session.get_session_id(data)
+        tool_name = data.get("tool_name", "")
+        tool_input = data.get("tool_input", {})
+        
+        if not session_id or not tool_name:
+            return
+        
+        root = ahd_session.get_repo_root()
+        session_id = ahd_session.get_session_id(data)
+        
+        # Push current tool onto call stack
+        _update_session_call_stack(session_id, root, tool_name, "push")
+        
+        try:
+            # Enforce max depth
+            _enforce_call_depth(session_id, root, tool_name)
+            
+            # Enforce allowed chains
+            _enforce_allowed_chains(session_id, root, tool_name)
+            
+            # Update call stack on success
+            _update_session_call_stack(session_id, root, tool_name, "pop")
+        except SystemExit:
+            # Pop on failure too
+            _update_session_call_stack(session_id, root, tool_name, "pop")
+            raise
+    except SystemExit:
+        raise
+    except Exception as e:
+        _gate_error("call_graph", e)
+
+
+def _check_sandbox_gate(data: dict) -> None:
+    """RC-4: Run hook through seatbelt sandbox if HOOK_SANDBOX=1."""
+    try:
+        tool_name = data.get("tool_name", "")
+        
+        # Only sandbox hook scripts (not all tools)
+        if os.environ.get("HOOK_SANDBOX", "0") != "1":
+            return
+        
+        tool_input = data.get("tool_input", {})
+        hook_script = tool_input.get("hook_script", "")
+        
+        if not hook_script:
+            return
+        
+        result_code = _run_hook_sandboxed(hook_script)
+        if result_code != 0:
+            print(
+                f"[RC-4 Sandbox] Hook execution failed with exit code {result_code}",
+                file=sys.stderr,
+            )
+            sys.exit(result_code)
+    except SystemExit:
+        raise
+    except Exception as e:
+        _gate_error("sandbox", e)
+
+
 # Patterns that are always blocked
 DANGEROUS_PATTERNS = [
     # rm -rf with broad targets
@@ -1021,6 +1258,12 @@ def main():
     # Gate 1.4: T2.4 — Cost cap enforcement (pre-tool-use)
     if check_cost_cap is not None:
         _check_cost_cap_gate(data)
+
+    # Gate 1.8: RC-3 — Call-graph enforcement
+    _check_call_graph_gate(data)
+
+    # Gate 1.9: RC-4 — Seatbelt sandbox for hooks
+    _check_sandbox_gate(data)
 
     # Gate 1.5: U28 — Risk contract check for critical file modifications
     tool_name = data.get("tool_name", "")

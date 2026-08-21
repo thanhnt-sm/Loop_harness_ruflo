@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "last_check": "2026-08-19T04:15:04.555930+00:00",
+  "last_check": "2026-08-20T12:59:08.516717+00:00",
   "sources": [
     {
       "id": "ahd-main-engine",
@@ -34,7 +34,7 @@
         "HLK/"
       ],
       "notes": "Local deploy commit c327869 not in upstream; AHD update must be surgical only.",
-      "last_checked": "2026-08-19T04:15:00.828981+00:00"
+      "last_checked": "2026-08-20T12:59:04.837056+00:00"
     },
     {
       "id": "nuwa-skill",
@@ -54,7 +54,7 @@
         ".devin/skills/nuwa-skill/"
       ],
       "notes": "Updated to 27642f5 on 2026-08-09. Core files only, 3 examples kept.",
-      "last_checked": "2026-08-19T04:15:01.347264+00:00"
+      "last_checked": "2026-08-20T12:59:05.339861+00:00"
     },
     {
       "id": "caveman",
@@ -62,9 +62,9 @@
       "url": "https://github.com/JuliusBrussee/caveman",
       "branch": "main",
       "current_commit": "unknown",
-      "upstream_commit": "9e4356e",
+      "upstream_commit": "a42ef76",
       "current_commit_full": "",
-      "upstream_commit_full": "9e4356e717f0ec0030ee51ad169c0a41cd239d59",
+      "upstream_commit_full": "a42ef766cedef6160407418a359a52939b2d20b9",
       "status": "manual-review",
       "priority": "P3",
       "merge_strategy": "manual-canon-update",
@@ -72,7 +72,7 @@
         ".devin/canon/CAVEMAN_PROTOCOL.md"
       ],
       "notes": "Concepts distilled into CAVEMAN_PROTOCOL.md; update only if new concepts.",
-      "last_checked": "2026-08-19T04:15:01.903632+00:00"
+      "last_checked": "2026-08-20T12:59:05.852484+00:00"
     },
     {
       "id": "agency-agents",
@@ -91,7 +91,7 @@
         ".devin/agents/PERSONA_TEMPLATE.md"
       ],
       "notes": "Concepts distilled into COMMANDER.md / PERSONA_TEMPLATE.md.",
-      "last_checked": "2026-08-19T04:15:02.464444+00:00"
+      "last_checked": "2026-08-20T12:59:06.352178+00:00"
     },
     {
       "id": "superpowers",
@@ -109,7 +109,7 @@
         ".devin/canon/COMMANDER.md"
       ],
       "notes": "Concepts distilled into COMMANDER.md / systematic_debugging.md / tdd.md.",
-      "last_checked": "2026-08-19T04:15:03.252567+00:00"
+      "last_checked": "2026-08-20T12:59:07.150568+00:00"
     },
     {
       "id": "loop-engineering",
@@ -117,9 +117,9 @@
       "url": "https://github.com/cobusgreyling/loop-engineering",
       "branch": "main",
       "current_commit": "unknown",
-      "upstream_commit": "dc8d178",
+      "upstream_commit": "b71ada6",
       "current_commit_full": "",
-      "upstream_commit_full": "dc8d1781ee614898fff9f7d8e6305f3d1949df56",
+      "upstream_commit_full": "b71ada6d79e837c933f91eb1fa41f0f749c8acd3",
       "status": "manual-review",
       "priority": "P3",
       "merge_strategy": "manual-canon-update",
@@ -127,7 +127,7 @@
         ".devin/canon/LOOP_PROTOCOL.md"
       ],
       "notes": "Concepts distilled into LOOP_PROTOCOL.md.",
-      "last_checked": "2026-08-19T04:15:03.760070+00:00"
+      "last_checked": "2026-08-20T12:59:07.720241+00:00"
     },
     {
       "id": "fable-method",
@@ -145,7 +145,7 @@
         ".devin/canon/fable-judge.md"
       ],
       "notes": "Concepts distilled into fable-judge.md.",
-      "last_checked": "2026-08-19T04:15:04.555892+00:00"
+      "last_checked": "2026-08-20T12:59:08.516692+00:00"
     }
   ]
 }

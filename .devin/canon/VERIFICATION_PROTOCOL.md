@@ -1,30 +1,42 @@
-# Verification Protocol — Maker ≠ Checker
-> The agent that produces output never verifies it. Verification is a separate act.
-> Models grade their own work too leniently. "Looks good" from the author is not verification.
-## Why
-Models grade their own work too leniently. The author has invested in the answer; the author's incentives are skewed. A fresh observer with the same criteria catches what the author talked themselves past. This isn't theory — it's the most consistent quality lever in production agent systems. OpenAI, Anthropic, Cloudflare, Stripe all converge on maker/checker separation.
+# Verification Protocol — Maker ≠ Checker (Caveman Compressed)
+
+> Producer never verifies. Models self-grade leniently. Fresh observer catches what author misses. OpenAI/Anthropic/Cloudflare/Stripe converge on separation.
+
 ---
-## Verification methods (by output type)
-| Output | Verification |
-|--------|--------------|
-| File write | Fresh-context agent `read(path, offset, limit)` confirms content |
-| Code | CLI gate: build / typecheck / lint / test. Pass = verified. |
-| Config sync | `tools/verify-workspace.ps1` read-backs every written file and checks format/link integrity |
-| Visual output | Delegate to vision-capable agent. Never self-judge an image. |
-| High-risk judgment | Multi-agent debate: 2 independent agents, integrate differences |
-| Rules/docs | `read` + `grep` for version headers, link targets, referenced paths; every claim must be evidence-graded |
-| Claims | `claim-grader` skill: every worker report tags `[fact]`, `[inference]`, or `[unverified-guess]` before verification |
-| DB schema (U32) | `DESCRIBE <table>` or `\d <table>` — compare columns, types, constraints, indexes against spec. Migration files must be idempotent (reversible). Check for missing indexes on FK columns. |
-| API contracts (U32) | OpenAPI/Swagger schema validation: `swagger-cli validate <spec>`. Compare response schema against actual API response. Contract test: send request, assert response matches schema. Check status codes, error formats, pagination. |
-| IaC (U32) | `terraform plan` / `cdk diff` — review planned changes before apply. `terraform validate` for syntax. Check for drift: `terraform plan -detailed-exitcode`. Security scan: `tfsec` or `checkov`. |
-| ML artifacts (U32) | Model card exists (purpose, training data, metrics, limitations). Weights file hash verified. Inference test: run on held-out test set, compare metrics against baseline. Bias check if applicable. |
-## Fresh-context verification (for L/XL)
-Give verifier: file paths, acceptance criteria, minimal background (<2KB). Not conversation history or author's reasoning. Verifier reads files cold.
-## Report contract
+
+## Why
+Models self-grade leniently (arXiv 2306.05685). Author invested → skewed incentives. Fresh observer with same criteria catches blind spots. Not theory — top production lever.
+
+---
+
+## Verification Methods by Output
+
+| Output | Method | Anchor |
+|--------|--------|--------|
+| File write | Fresh-context `read(path,offset,limit)` | Weak ⚠️ |
+| Code | CLI gate: build/typecheck/lint/test | Strong ⚓ |
+| Config sync | `tools/verify-workspace.ps1` read-backs | Strong ⚓ |
+| Visual | Vision-capable agent, never self-judge | Weak ⚠️ |
+| High-risk judgment | 2 independent agents, integrate diff | Weak ⚠️ |
+| Rules/docs | `read`+`grep` version headers/links/paths; evidence-grade claims | Weak ⚠️ |
+| Claims | `claim-grader`: tag `[fact]`/`[inference]`/`[unverified-guess]` | Weak ⚠️ |
+| DB schema | `DESCRIBE`/`\d` vs spec; idempotent migrations; FK indexes | Strong ⚓ |
+| API contracts | OpenAPI validate; response vs schema; status/error/pagination | Strong ⚓ |
+| IaC | `terraform plan`/`cdk diff`; validate; drift check; `tfsec`/`checkov` | Strong ⚓ |
+| ML artifacts | Model card (purpose/data/metrics/limits); weight hash; holdout test; bias | Strong ⚓ |
+
+---
+
+## Fresh-Context Verification (L/XL)
+Give verifier: file paths, AC, minimal context (<2KB). No history/reasoning. Cold read.
+
+---
+
+## Report Contract
 ```
-## Verdict [PASS | FAIL | PARTIAL | NEEDS_ESCALATION]
+## Verdict [PASS|FAIL|PARTIAL|NEEDS_ESCALATION]
 ## Evidence-graded
-- [fact] <claim> — <file:line|command>
+- [fact] <claim> — <file:line|cmd>
 - [inference: <basis>] <claim> — <basis>
 - [unverified-guess] <claim> — action: <what to verify>
 ## Checked
@@ -33,580 +45,488 @@ Give verifier: file paths, acceptance criteria, minimal background (<2KB). Not c
 - severity | file:line | issue | fix
 ## Uncertain
 - [item]: [why]
-## Partial details (U33, only if verdict = PARTIAL)
-- AC met: <count>/<total> (<percentage>%)
-- AC remaining: <list of unmet criteria>
-- Blocked by: <dependency description>
-- Next steps: <what's needed to complete>
-- Value delivered: <what's usable now>
+## Partial details (U33, only if PARTIAL)
+- AC met: <count>/<total> (<pct>%)
+- AC remaining: <list>
+- Blocked by: <dep>
+- Next steps: <what>
+- Value delivered: <what usable>
 ```
 
-## PARTIAL verdict (U33)
+---
 
-A **PARTIAL** verdict is used when some acceptance criteria are met but others
-remain blocked by external dependencies. This enables incremental value delivery.
+## PARTIAL Verdict (U33)
+**Criteria**: ≥50% AC met, remaining blocked by external dep, value delivered.
 
-### Criteria for PARTIAL
-1. **N% of AC met** (at least 50%)
-2. **Remaining M AC blocked** by a dependency that cannot be resolved in this session
-3. **Value delivered** — the completed portion is usable and shippable
+| Use PARTIAL | Use FAIL |
+|-------------|----------|
+| Most AC met, blocked by external (API/upstream/env) | Core AC not met, not usable, fixable in-session |
+| Completed work shippable standalone | — |
 
-### When to use PARTIAL vs FAIL
-- **PARTIAL**: Most AC met, remaining blocked by external dependency (API unavailable,
-  upstream task not done, env not ready). Completed work has standalone value.
-- **FAIL**: Core AC not met, completed work is not usable, or issues are fixable
-  within this session.
+**Requirements**: List met AC (evidence), unmet AC (blocker), dep blocking, value delivered, next steps.
 
-### PARTIAL report requirements
-- List which AC are met (with evidence)
-- List which AC are not met (with blocker reason)
-- State the dependency blocking completion
-- Describe what value was delivered
-- State next steps to complete
+---
 
-### Example
-```
-## Verdict [PARTIAL]
-## Partial details
-- AC met: 3/5 (60%)
-- AC remaining: AC4 (API endpoint not deployed), AC5 (integration test needs API)
-- Blocked by: API deployment pending DevOps team (ticket #123)
-- Next steps: Deploy API, then run integration tests
-- Value delivered: Schema migration + unit tests are complete and shippable
-```
-## Circuit breakers (stop and ask human)
+## Circuit Breakers (stop & ask human)
+- Verification fails same way 2 rounds
+- Destructive side effect imminent (delete/force-push/bulk)
+- AC ambiguous (2+ interpretations)
+- Cost spike: >20 files, >10 min, >10 file mods
+- Taste/aesthetic decision required
 
-> These are verification-specific circuit breakers. For hard stops that apply to all
-> operations (not just verification), see `REDLINES.md`.
+---
 
-- Verification fails same way 2 rounds in a row.
-- Destructive side effect imminent (delete, force-push, bulk operation).
-- Acceptance criteria ambiguous (2+ valid interpretations).
-- Cost spike: >20 files, >10 min, or >10 file modifications in one task.
-- Taste/aesthetic decision required (the honest clause limit).
-## Self-verification is allowed ONLY for
-S-tier single commands (<5 lines, 1 file, no verification chain): e.g., updating a date in `loop_state.md` via read+edit. Everything else → external verify.
-## SHA discipline (stale evidence trap)
-A subtle trap: an agent writes code, a reviewer says "clean," the agent pushes a fix commit, and you merge using the *old* "clean" verdict on the *new* code. You trusted stale evidence.
-**Rule: review/verification status is only valid for the exact version it was run on.** After any new write, re-verify. Never carry a verdict across versions.
-## Verification anchor tiers (strong vs weak evidence)
-> Source: Carlos E. Perez, "From Loop Engineering to Graph Engineering?" (2026-07-18); arXiv 2306.05685 (LLM-as-judge self-preference); arXiv 2404.13076 (familiarity bias in LLM judges). Distilled 2026-07-20.
+## Self-Verification ONLY for
+S-tier: <5 lines, 1 file, no verification chain (e.g., update date in `loop_state.md`). Else → external verify.
 
-Not all verification is equal. A verification method that cannot be gamed by the system it checks is a **strong anchor** ⚓; one that can be gamed, biased, or captured is a **weak anchor** ⚠️. A deploy that only has weak anchors still passes per REDLINES #9, but carries higher residual risk — the verification is probabilistic, not deterministic.
+---
 
-### The tier table
+## SHA Discipline (Stale Evidence Trap)
+**Rule**: Review/verification status only valid for exact version run. After any write → re-verify. Never carry verdict across versions.
 
-| Tier | What it is | Examples | Can the verified system game it? |
-|------|-----------|----------|----------------------------------|
-| **Strong anchor** ⚓ | Deterministic execution against evidence the verified system cannot see or alter | `verify.py` read-back, real test suite pass/fail, holdout exam set, real money in bank, real customer churn count, human spot-check of real output | No — pass is pass, fail is fail |
-| **Weak anchor** ⚠️ | Probabilistic judgment by an agent (even a fresh-context one), or cross-reference between reports | Fresh-context agent read-back, LLM-as-judge, multi-agent debate, report-to-report consistency check, public benchmark (may be in training data) | Yes — bias, familiarity preference, shared blind spots, data contamination |
+---
 
-### Why LLM-as-judge is weak (not useless, but weak)
-- arXiv 2306.05685: LLM judges score their own writing higher; humans cannot detect the difference. Self-preference grows with model capability.
-- arXiv 2404.13076: The bias mechanism is *familiarity* — models prefer text that "reads like something they would write." Swapping to a different model of similar family/style does not fully remove the bias.
-- Implication: a network of AI agents checking each other (even cross-family) is *better than self-check*, but it is still a weak anchor. **A network of weak anchors is a louder echo chamber, not a strong anchor.** Grounding requires at least one link to reality that no agent in the network can alter.
+## Verification Anchor Tiers (Strong vs Weak)
 
-### Frozen nodes (anchors the optimization loop must never touch)
-Some evidence must be physically unreachable by the agent being verified — the holdout principle:
-- **Test data the agent never sees** (holdout exam set, frozen acceptance criteria written *before* the agent started).
-- **Real-world outcomes** (did the deploy actually sync? did the customer actually pay? did the test actually pass in CI?).
-- **Human judgment** ("is this the right thing to build?" — only a human answers this; see "The honest limit" below).
+| Tier | What | Examples | Gameable? |
+|------|------|----------|-----------|
+| **Strong ⚓** | Deterministic execution vs evidence system can't see/alter | `verify.py` read-back, real test pass/fail, holdout exam, real money/churn, human spot-check | No |
+| **Weak ⚠️** | Probabilistic agent judgment / cross-report | Fresh-context read-back, LLM-as-judge, multi-agent debate, report consistency, public benchmark | Yes — bias, familiarity, blind spots |
 
-A frozen node that the agent *can* read is no longer frozen — it will be optimized for. Holdout only works if the agent physically cannot access it.
+### Why LLM-as-judge is Weak
+- arXiv 2306.05685: Models score own writing higher; humans can't detect
+- arXiv 2404.13076: Bias = familiarity (prefers "reads like me"); cross-family same tier doesn't fix
+- **Network of weak anchors = louder echo chamber, not strong anchor.** Need ≥1 link to reality no agent can alter.
 
-### Rule
-- **Classify each verification method as strong or weak before relying on it.** "Fresh-context agent verified it" is weak. "verify.py passed" is strong. Know which one you're trusting. The classification is awareness, not a gate — REDLINES #9 remains the authority on what passes a deploy.
-- **Prefer ≥1 strong anchor when available.** `verify.py` or equivalent deterministic check is strictly stronger than fresh-context read-back alone. If both are feasible, use both. If only fresh-context read-back is available (e.g., no `verify.py` for this tool), the deploy still passes per REDLINES #9 — add a note in the verification report's "Uncertain" section that only weak-anchor verification was available, so the human knows the residual risk. Do not change the Verdict field (it stays PASS); the note is informational.
-- **Weak anchors are additive, not substitutive.** Two weak anchors ≠ one strong anchor. They reduce different blind spots but share the same fundamental limitation (probabilistic, gameable).
-- **LLM-as-judge bias is systematic, not random.** Use a different model family than the producer (cross-family debate), but know this only *reduces* the bias — it does not eliminate it. Familiarity bias persists across same-tier models.
-- **Frozen nodes must be physically inaccessible to the verified agent.** A holdout the agent can read = a holdout the agent will overfit to. Enforce at the OS/permission layer, not the prompt layer (see REDLINES §"Mechanical Enforcement").
-- **The "echo chamber" failure mode:** a verification network where every node is an AI agent, checking other AI agents, with no link to deterministic reality. Every node agrees, every node is confident, none of them are grounded. This is the most dangerous verification failure because it *looks* thorough.
-- **At least one anchor should come from outside the agent system when stakes are high.** A human spot-check, a real CI run, a real test execution. "Outside" means the verified system cannot influence it. This is the grounding that no amount of internal cross-checking can substitute.
+### Frozen Nodes (Holdout Principle)
+- Test data agent never sees (holdout exam, frozen AC written before start)
+- Real-world outcomes (deploy synced? customer paid? CI passed?)
+- Human judgment ("right thing to build?")
+- **Frozen node agent can read = no longer frozen** (will overfit). Enforce at OS/permission, not prompt.
 
-## Multi-agent debate (for high-risk)
-For genuinely high-risk judgments (security, architecture, irreversible changes):
-1. Dispatch 2 independent verifiers (different context, ideally different model family).
-2. Collect both verdicts.
-3. If they agree → high confidence. Integrate and proceed (or escalate if both say FAIL).
-4. If they disagree → the disagreement itself is the finding. Escalate to human with both verdicts and the diff.
-Cross-family debate catches family-blind spots (a Claude-only panel misses Claude biases; mixing Claude + GPT + Gemini triangulates).
+### Rules
+- Classify each method as strong/weak before relying. "Fresh-context verified" = weak. "verify.py passed" = strong.
+- Prefer ≥1 strong anchor when available. If both feasible → use both. If only fresh-context → deploy passes per REDLINES #9, add "Uncertain" note.
+- Weak anchors additive, not substitutive. Two weak ≠ one strong.
+- LLM-as-judge bias systematic. Cross-family reduces but doesn't eliminate.
+- Frozen nodes must be physically inaccessible (OS/permission, not prompt).
 
-## U10: Cross-family verification enforcement (L/XL tasks)
+---
 
-> Source: arXiv 2306.05685 (LLM-as-judge self-preference); arXiv 2404.13076 (familiarity bias).
-> Same-family "fresh context" verification is NOT sufficient for L/XL tasks.
+## Multi-Agent Debate (High-Risk)
+For security/architecture/irreversible:
+1. Dispatch 2 independent verifiers (diff context, ideally diff model family)
+2. Collect both verdicts
+3. Agree → high confidence. Disagree → finding = disagreement; escalate to human with both + diff
+4. Cross-family catches family-blind spots (Claude-only misses Claude biases; mix Claude+GPT+Gemini triangulates)
 
-### Rule (mandatory for L/XL, recommended for M)
+---
 
-For **L and XL tasks**, verification MUST include at least one of:
-1. **Cross-family verifier** — a verifier from a different model family than the producer
-   (e.g., if producer is GLM-5.2, verifier should be SWE-1.7 Lightning or Claude).
-2. **Strong anchor** — deterministic verification (verify.py, test suite, CLI gate) that
-   the producer cannot game.
+## U10: Cross-Family Verification Enforcement (L/XL)
 
-If neither is available, the task CANNOT be marked complete. Mark as `NEEDS_ESCALATION`
-and ask human for verification.
+**Mandatory for L/XL, recommended for M**
 
-### Implementation
+Verification MUST include ≥1:
+1. **Cross-family verifier** — diff model family than producer (e.g., producer=GLM-5.2 → verifier=SWE-1.7 or Claude)
+2. **Strong anchor** — deterministic (verify.py, test suite, CLI gate) producer can't game
 
-- Producer model family is recorded in session_state (`producer_model` field).
-- Verifier checks `producer_model` and selects a different model family for verification.
-- If only one model family is available, strong anchor (deterministic check) is REQUIRED.
-- Cross-family verification is recorded in verification report:
+If neither available → CANNOT mark complete. Mark `NEEDS_ESCALATION`, ask human.
+
+**Implementation**:
+- Producer model family in session_state (`producer_model`)
+- Verifier checks `producer_model`, selects diff family
+- If only one family → strong anchor REQUIRED
+- Record in report:
   ```
   ## Cross-family verification
   - Producer: <model family>
-  - Verifier: <model family> (different from producer)
+  - Verifier: <model family> (different)
   - Method: <fresh-context read-back | CLI gate | test suite>
   ```
 
-### Why this matters
+---
 
-Same-family "fresh context" verification reduces context bias but NOT family bias.
-A GLM-5.2 verifier checking GLM-5.2 output shares the same training biases, blind spots,
-and familiarity preferences. Cross-family verification (e.g., SWE-1.7 checking GLM-5.2)
-triangulates against different bias profiles, catching family-specific blind spots.
-## No gold-plating
-> Source: kpab/claude-fable-5-skills. Scope fence = task boundary; no-gold-plating = change boundary (diff minimal).
-### Rules
-- Diff maps 1:1 to request (bug fix touches bug only).
-- No helpers/layers for single call site (inline).
-- Don't design for non-existent requirements (simplest wins).
-- Validate only at boundaries (user input, APIs, files); inside trust invariants.
-- Prefer code changes over shims/flags (unless public interface).
-- Adjacent work: note only, don't do.
-### Pre-diff self-check (run before finalizing any code change)
-1. **Could a reviewer trace every hunk back to the request?** No → cut.
-2. **Did I add any function/parameter/branch "just in case"?** Yes → cut. Add when the case arrives.
-3. **Is any new error-handling path reachable?** State cannot occur → cut. Dead defensive code = noise.
-4. **Did I refactor something I wasn't asked to touch?** Yes → revert. Note as suggestion.
-If any answer is wrong, cut it.
-### Relationship to scope fence
-| Principle | Question it answers |
-|-----------|-------------------|
-| Scope fence | "Am I working on the right thing?" (task boundary) |
-| No gold-plating | "Is my diff bigger than the ask?" (change boundary) |
-Both apply: scope fence = task creep; no-gold-plating = diff creep.
-## Bottleneck shift principle
-> Source: Wisely Chen's AI Coding reflection articles. Bottleneck shifted from "writing code" to "QA verification" and "requirements collection."
+## No Gold-Plating
+Scope fence = task boundary; no-gold-plating = change boundary (diff minimal).
+
+| Rule | Check |
+|------|-------|
+| Diff 1:1 to request | Bug fix touches bug only |
+| No helpers for single call site | Inline |
+| No design for non-existent reqs | Simplest wins |
+| Validate only at boundaries | Inside trust invariants |
+| Prefer code over shims/flags | Unless public interface |
+| Adjacent work | Note only, don't do |
+
+### Pre-Diff Self-Check
+1. Could reviewer trace every hunk to request? No → cut
+2. Added function/param/branch "just in case"? Yes → cut
+3. New error path reachable? State cannot occur → cut
+4. Refactored untouched thing? Yes → revert, note as suggestion
+
+| Principle | Question |
+|-----------|----------|
+| Scope fence | "Am I working on right thing?" (task boundary) |
+| No gold-plating | "Is diff bigger than ask?" (change boundary) |
+
+---
+
+## Bottleneck Shift
+Before AI: bottleneck = writing code. After AI: bottleneck = defining + verifying correct.
+
+| Before | After |
+|--------|-------|
+| Write code | Define + verify |
+
+Coding speed without verification speed = unlimited risk amplification (1000 gen/min, 100 verified = 900 unverified/min).
+
+**Rules**:
+- Verification budget ≥ production budget (≥X verify per X generate)
+- Requirements never "done" first pass — design for spec iteration
+- Optimize verification speed, not generation speed
+
+---
+
+## Three QA Strategies (All Required)
+
+| # | Strategy | Meaning |
+|---|----------|---------|
+| 1 | Understand what AI wrote | Human "略懂" — discuss without coding. Else: rubber-stamp |
+| 2 | Use AI for QA | AI generates tests/edge cases/verification from PRD. Bad PRD = bad QA |
+| 3 | Design for worst case | Assume AI mistakes. Guardrails: credit limits, kill switches, blast radius |
+
+**Rules**:
+- All three required. One/two = gap.
+- Strategy 1 non-negotiable for L3/L4 unattended loops.
+- Strategy 2 requires correct PRD — iterate PRD first.
+- Strategy 3 = defense in depth. No single guardrail enough.
+
+---
+
+## Two Code Types → Different Verification
+
+| Type | Examples | Depth |
+|------|----------|-------|
+| One-time / daily | Data scripts, batch jobs, internal tools | Light: run + spot-check |
+| Production | Customer-facing, API, DB schema | Full: test+lint+typecheck+fresh-context+security |
+
+**Rules**:
+- Classify before verifying. One-time+full=waste. Production+light=unbounded risk.
+- One-time: verify runs + correct output. Enough.
+- Production: full protocol. No exceptions.
+- Code surviving expected lifetime → promote to production.
+
+**Promotion Trap**:
 ```
-Before AI:  bottleneck = writing code
-After AI:   bottleneck = defining + verifying correct
+Day 1: "One-time script" → Light
+Day 30: "Still use daily" → Verification never upgraded
+Day 90: Breaks production → "Thought it was temporary"
 ```
-Coding speed without verification speed = **unlimited risk amplification.** 1000 generated/min, 100 verified = 900 unverified/min.
-- **Verification is the new bottleneck.** Invest here, not faster generation.
-- **Requirements clarity is upstream.** AI can't write correct code for unclear specs.
-- **"AI can't 通靈 (read minds)."** First-pass accuracy 60-80% even with senior PMs.
-- **POC feels fast = no QA.** POC-to-production = verification cost.
-### Rule
-- **Verification budget ≥ production budget.** ≥X verifying for every X generating.
-- **Requirements never "done" on first pass.** Design for spec iteration (LOOP_PROTOCOL.md).
-- **Optimize verification speed, not generation speed.** Faster generation without faster verification = faster unverified debt.
-## Three QA strategies (human acceptance)
-> Source: Wisely Chen's ATPM QA articles. AI cannot bear responsibility. Human must always be the acceptance party. All three required.
-### The 3 strategies
-| # | Strategy | What it means |
-|---|----------|---------------|
-| 1 | **Understand what AI wrote** | Human must have "略懂" (rough understanding) of AI output — able to discuss it without writing code. Without it: rubber-stamping. |
-| 2 | **Use AI for QA** | AI generates test cases, edge cases, verification scripts from PRD. Validates every field. Without it: human QA is slow, inconsistent. |
-| 3 | **Design for worst case** | Assume AI will make mistakes. Build guardrails: credit limits, kill switches, blast radius containment. Without it: one mistake = unlimited damage. |
-### Strategy 1: Understand what AI wrote
-Read output, explain it, identify failure modes, discuss with experts. Delegate coding to AI, not understanding. Can't describe "correct" = cognitive surrender (LOOP_PROTOCOL.md).
-### Strategy 2: Use AI for QA
-AI QA: completeness (every field), edge cases (faster than humans), consistency (same PRD → same tests), reusability (PRD changes → regenerates). Quality depends on PRD — bad PRD = bad QA.
-### Strategy 3: Design for worst case
-| Failure mode | Guardrail |
-|--------------|-----------|
-| API key abuse | Pre-buy credit (hard limit), not post-bill |
-| Destructive operation | L4 deny + human approval (REDLINES.md L0-L4) |
-| Hallucinated API call | Independent verifier (maker≠checker) |
-| Cost runaway | Budget cap + convergence check (LOOP_PROTOCOL.md) |
-| Data leak | Least-privilege + DMZ for untrusted input (REDLINES.md) |
-**Rule: "I will make mistakes" is the design assumption, not "I might."**
-### Rule
-- **All three strategies required.** Picking one or two leaves a gap.
-- **Strategy 1 non-negotiable for L3/L4 unattended loops.** Can't understand output → loop must be L1/L2.
-- **Strategy 2 requires correct PRD.** Wrong spec → AI QA verifies wrong thing. Iterate PRD first.
-- **Strategy 3 = defense in depth.** No single guardrail enough. See REDLINES.md.
-## Two code types → different verification depth
-> Source: Wisely Chen's AI Coding reflection articles. Full verification on throwaway code wastes budget; light on production code invites incidents.
-### The two types
-| Type | Examples | Verification depth |
-|------|----------|-------------------|
-| **One-time / daily routine** | Data analysis scripts, batch jobs, internal tools | Light: run + spot-check output. No test suite needed. |
-| **Production code** | Customer-facing features, API endpoints, DB schema | Full: test suite + lint + typecheck + fresh-context verify + security benchmark. |
-### Rule
-- **Classify code before verifying.** One-time + full = wasted. Production + light = unbounded risk.
-- **One-time: verify it runs + correct output.** Enough.
-- **Production: full protocol.** No exceptions.
-- **One-time code in use after N runs → promote to production.** "Temporary" code that became permanent without upgrading verification = most dangerous code.
-### The promotion trap
-```
-Day 1: "One-time script." → Light verification.
-Day 30: "Still use it daily." → Verification never upgraded.
-Day 90: Breaks production. → "We thought it was temporary."
-```
-**Rule: code that survives its expected lifetime must be reclassified.**
-## Start small > null
-> Source: Wisely Chen's AI Coding reflection articles. Incomplete test case > no test case.
+Code surviving expected lifetime → reclassify.
+
+---
+
+## Start Small > Null
 ```
 No test → 0% coverage → unlimited risk
-Partial → N% coverage → risk bounded to untested paths
-Complete → 100% coverage → ideal, often not achievable first pass
+Partial → N% coverage → risk bounded
+Complete → 100% → ideal, often not first pass
 ```
-The jump from 0% to N% > N% to 100%. **Start with what you can define, even if incomplete.**
-### How to start small
-1. **Acceptance criteria as questions.** "Does X return Y when Z?" = one test case.
-2. **Don't wait for complete spec.** Test what you know now; add as spec clarifies.
-3. **One test > zero tests.** "Does it run without crashing" > no test.
-4. **AI expands edge cases from seed.** One test case → AI generates 10.
-### Rule
-- **Never block on "test case isn't complete."** Ship partial. Add more later.
-- **Every GoalSpec needs ≥1 acceptance criterion.** `acceptance_criteria: []` = no way to verify.
-- **Prefer 3 rough tests over 0 polished ones.** Polish comes after code works.
-- **First test case is hardest.** After that, AI expands. Just start.
-## Guides × Sensors (2×2 verification taxonomy)
-> Source: deusyu/harness-engineering (Fowler). Two axes: feed-forward/feedback (guides/sensors) × computational/reasoning. Missing quadrant = blind spot.
-### The 2×2 matrix
-|  | **Computational** (deterministic, CPU) | **Reasoning** (probabilistic, LLM) |
-|--|----------------------------------------|-------------------------------------|
-| **Guides / Feed-forward** (before agent acts) | bootstrap scripts, OpenRewrite, LSP | AGENTS.md, Skills, architecture.md |
-| **Sensors / Feedback** (after agent acts) | linter, ArchUnit, type check, coverage | AI code review, LLM-as-judge |
-### The four quadrants
-| Quadrant | Examples | Properties + Purpose |
-|----------|----------|---------------------|
-| **Q1: Computational Guides** | Bootstrap scripts, LSP auto-imports | fast, cheap, deterministic — pre-configure for first-try success |
-| **Q2: Reasoning Guides** | AGENTS.md, Skills, architecture docs | slow, expensive, probabilistic — steer reasoning before acting |
-| **Q3: Computational Sensors** | Linter, type checker, ArchUnit, coverage | fast, cheap, deterministic — catch violations, zero ambiguity |
-| **Q4: Reasoning Sensors** | AI code review, LLM-as-judge, auditor | slow, expensive, probabilistic — catch semantic errors |
-### Why all four are needed
-- Sensors without guides → repeats mistakes (catches but never prevents).
-- Guides without sensors → can't know if guides worked.
-- Computational without reasoning → catches syntax, misses semantic.
-- Reasoning without computational → slow, expensive, can't scale.
-### How Agent Harness Deploy maps to this matrix
-| Agent Harness Deploy component | Q |
-|-------------------|---|
-| AGENTS.md / CLAUDE.md / REDLINES.md / BOOT_PROTOCOL.md | Q2 |
-| pre_tool_use.py hooks / L0-L4 permission taxonomy | Q1 |
-| post_tool_use.py / verify.py / memory_audit.py / warning keywords / security benchmark | Q3 |
-| Nuwa cognitive angles / Auditor skill / Fresh-context verifier | Q4 |
-### Rule
-- **Harness must cover all four quadrants.** Missing = blind spot.
-- **Computational sensors run every commit.** Cheap, deterministic — Q3 is backbone.
-- **Reasoning sensors run selectively.** Expensive — L/XL tasks, high-risk, or when Q3 passes but feels wrong.
-- **Guides = prevention; sensors = detection.** Need both.
-- **Classify new components in the matrix.** Don't add another Q3 when you need Q2.
-## Behavior harness gap (the elephant in the room)
-> Source: deusyu/harness-engineering (Fowler). Among maintainability, architecture fitness, and behavior — behavior harness is weakest. Functional correctness verification remains unsolved.
-### The three harness dimensions
+Jump 0%→N% > N%→100%. **Start with what you can define.**
+
+**How**:
+1. AC as questions: "Does X return Y when Z?" = one test
+2. Don't wait for complete spec. Test known; add as spec clarifies
+3. One test > zero tests. "Runs without crash" > no test
+4. AI expands edge cases from seed. One test → AI generates 10
+
+**Rules**:
+- Never block on "test not complete." Ship partial. Add later.
+- Every GoalSpec needs ≥1 AC. Empty = no verification.
+- 3 rough tests > 0 polished. Polish after code works.
+- First test hardest. After that, AI expands. Just start.
+
+---
+
+## Guides × Sensors (2×2 Taxonomy)
+
+| | Computational (deterministic) | Reasoning (probabilistic) |
+|---|-------------------------------|---------------------------|
+| **Guides** (before) | Bootstrap, LSP | AGENTS.md, Skills, arch docs |
+| **Sensors** (after) | Linter, ArchUnit, typecheck, coverage | AI review, LLM-as-judge |
+
+| Quadrant | Examples | Purpose |
+|----------|----------|---------|
+| Q1: Comp Guides | Bootstrap, LSP auto-import | Fast, cheap, deterministic — pre-config for 1st-try |
+| Q2: Reason Guides | AGENTS.md, Skills, arch | Slow, expensive, probabilistic — steer before acting |
+| Q3: Comp Sensors | Linter, typecheck, ArchUnit, coverage | Fast, cheap, deterministic — catch violations, zero ambiguity |
+| Q4: Reason Sensors | AI review, LLM-as-judge, auditor | Slow, expensive, probabilistic — catch semantic errors |
+
+**Why all 4 needed**:
+- Sensors w/o guides → repeat mistakes
+- Guides w/o sensors → can't know if guides worked
+- Comp w/o reasoning → catches syntax, misses semantic
+- Reasoning w/o comp → slow, expensive, can't scale
+
+**AHD Mapping**:
+| Component | Q |
+|-----------|---|
+| AGENTS.md/CLAUDE.md/REDLINES.md/BOOT_PROTOCOL.md | Q2 |
+| pre_tool_use hooks / L0-L4 permission | Q1 |
+| post_tool_use/verify.py/memory_audit/warning keywords/security benchmark | Q3 |
+| Nuwa cognitive / Auditor / Fresh-context verifier | Q4 |
+
+**Rule**: Harness must cover all 4 quadrants. Missing = blind spot. Comp sensors every commit. Reasoning sensors selectively (L/XL, high-risk, or Q3 passes but feels wrong). Guides=prevention; sensors=detection. Classify new components.
+
+---
+
+## Behavior Harness Gap (Elephant in Room)
+
 | Dimension | Maturity | Tools |
 |-----------|----------|-------|
-| **Maintainability** | Most mature | Linter, formatter, complexity metrics, duplication checker |
-| **Architecture fitness** | Medium | ArchUnit, dependency rules, layer constraints, fitness functions |
+| Maintainability | Most mature | Linter, formatter, complexity, duplication |
+| Architecture fitness | Medium | ArchUnit, deps rules, layer constraints |
 | **Behavior** | **Weakest** | ??? — no reliable automated answer |
-### Why behavior harness is the elephant
-Maintainability and architecture are computational (Q3). Behavior requires **reasoning** (Q4), and Q4 is unreliable: tests verify code≠spec≠intent, LLM-as-judge shares author's blind spots, human review doesn't scale. Agent Harness Deploy uses **defense in depth**: PRD iteration + start small > null + three QA strategies + bottleneck shift + fresh-context verification.
-### Rule
-- **Name the gap.** "Does the code do what the user wants?" Tests verify code matches spec — not spec matches intent.
-- **Maintainability and architecture are necessary but insufficient.** Clean, well-typed code can still do the wrong thing.
-- **Behavior harness requires multiple layers:** PRD iteration + test cases + AI QA + human review.
-- **Behavior gap = where most AI coding incidents live.** Code that "looks right" and "passes tests" but doesn't match intent.
-- **Track behavior harness maturity.** "Human reads output and says yes/no" = weakest. Every improvement moves up a level.
-## Sensor output = fix instructions (positive prompt injection)
-> Source: Riven's HE article + comprehensive HE guide. A Q3 sensor that only reports "ERROR: violation" wastes the feedback loop. Error message should contain the fix instruction.
-```
-Bad:  "ERROR: naming convention violation in line 42"
-Good: "ERROR: line 42 uses camelCase. This project uses snake_case.
-       Rename 'fooBar' to 'foo_bar'. See AGENTS.md §Naming."
-```
-The good output is a **positive prompt injection** — error message guides agent's next action, closing the feedback loop and turning Q3 sensors into Q1 guides.
-### Implementation
+
+**Why weak**: Maintainability/arch = computational (Q3). Behavior = reasoning (Q4), Q4 unreliable: tests verify code≠spec≠intent, LLM-as-judge shares blind spots, human review doesn't scale.
+
+**AHD defense in depth**: PRD iteration + start small > null + 3 QA strategies + bottleneck shift + fresh-context verification.
+
+**Rule**: Name gap. "Does code do what user wants?" Tests verify code=spec — not spec=intent. Clean/well-typed code can still do wrong thing. Behavior requires multiple layers: PRD iteration + test cases + AI QA + human review. Behavior gap = where most AI incidents live. Track maturity: "Human reads output says yes/no" = weakest.
+
+---
+
+## Sensor Output = Fix Instructions (Positive Prompt Injection)
+
+**Bad**: `ERROR: naming convention violation line 42`  
+**Good**: `ERROR: line 42 uses camelCase. Project uses snake_case. Rename 'fooBar' to 'foo_bar'. See AGENTS.md §Naming.`
+
+Error message guides next action → closes feedback loop → Q3 sensor becomes Q1 guide.
+
 ```yaml
 rule: no-restricted-imports
 message: >
   Don't import @prisma/client directly in route handlers.
   Use src/services/ instead. See AGENTS.md §Architecture.
 ```
-```text
+
+```
 FAIL: test_user_service
   Expected: user.email lowercase | Actual: "User@Example.COM"
   Fix: Apply .toLowerCase() in UserService.create() before saving. See AGENTS.md §Data normalization.
 ```
-```text
-Type error: 'string' not assignable to 'UserId'.
-  Fix: Wrap with UserId.create() — see src/types/user.ts.
-  Do NOT cast with `as UserId` — bypasses type safety.
-```
-### Rule
-- **Every sensor error must include a fix instruction.** "ERROR" alone = dead end. "ERROR + how to fix" = feedback loop.
-- **Fix must be specific.** "Fix the naming" = useless. "Rename fooBar to foo_bar" = actionable.
-- **Reference canonical rule.** "See AGENTS.md §X" connects error to guide.
-- **Include example when possible.** One-line example > paragraph.
-- **Anti-pattern: "as" casts, "any" types, bypasses.** Fix must solve problem, not suppress sensor.
-- **Update fix instructions when rules change.** Stale fix > no fix — sends agent wrong way.
-## Triple verification (knowledge extraction quality gate)
-> Source: kangarooking/cangjie-skill. Every candidate concept must pass three independent checks before canon admission. Without it, canon fills with one-off remarks that sound wise but don't generalize.
-### The three checks (all three must pass)
-#### V1 — Cross-domain (≥2 independent supporting contexts)
-**Q:** Does this concept appear in ≥2 independent contexts (different chapters/case studies, not rephrased)?
-- **Pass:** "Mechanical enforcement" in OpenAI's PR process, Anthropic's test architecture, Fowler's linter → 3 contexts
-- **Fail:** A memorable quote that only appears once → demote to example
-#### V2 — Predictive power (extrapolates to novel situations)
-**Q:** Can this concept derive a meaningful answer to a question the source didn't discuss?
-- **Pass:** Novel scenario → non-trivial, non-obvious conclusion
-- **Fail:** Only platitudes ("plan ahead," "be careful")
-#### V3 — Exclusivity (not common knowledge)
-**Q:** Would any competent practitioner know this without reading the source?
-- **Pass:** "Ashby's Law applied to harness design" — most engineers don't connect cybernetics to agent constraints
-- **Fail:** "Test your code" — everyone knows this
-### Application to Agent Harness Deploy canon extraction
-Applies **retroactively and prospectively**:
+
+**Rule**: Every sensor error must include fix instruction. "ERROR" alone = dead end. "ERROR + how to fix" = feedback loop. Fix specific. Reference canonical rule. Include example. Anti-pattern: "as" casts, "any" types, bypasses. Update fix when rules change.
+
+---
+
+## Triple Verification (Knowledge Extraction Quality Gate)
+
+Every candidate concept must pass 3 independent checks before canon admission.
+
+| Check | Q | Pass | Fail |
+|-------|---|------|------|
+| **V1 Cross-domain** | ≥2 independent contexts? | "Mechanical enforcement" in OpenAI PR, Anthropic test arch, Fowler linter (3) | Quote only appears once → demote to example |
+| **V2 Predictive** | Extrapolates to novel situation? | Novel scenario → non-trivial conclusion | Only platitudes ("plan ahead") |
+| **V3 Exclusivity** | Non-obvious to competent practitioner? | "Ashby's Law applied to harness" — most don't connect | "Test your code" — everyone knows |
+
+**Application**:
 | Phase | Checks |
 |-------|--------|
 | Source analysis | ≥2 times in source? (V1) |
 | Concept drafting | Explains scenario source didn't cover? (V2) |
 | Canon admission | Non-obvious to competent AI engineer? (V3) |
-### Failure modes to watch
+
+**Failure modes**:
 | Failure | Defense |
 |---------|---------|
-| **V1 cheating** (same example rephrased) | Require: different chapters + objects + conclusions |
-| **V2 cheating** (source discusses question, reworded) | Novel question should make someone unsure what source would say |
-| **V3 too loose** (well-phrased common knowledge) | Judge content, not wording |
-### Expected pass rates
-- Methodology-dense: 30-50%. Opinion piece: 5-15%. <5% = extractor problem. >80% = standards too loose.
-### Rule
-- **Every concept must pass V1 + V2 + V3.** No exceptions. Prevents canon rot.
-- **Rejected concepts logged with reasons.** Keep `rejected/` audit trail.
-- **User light confirmation after verification.** Show "N passed + M rejected" before canon writing.
-- **Pass rate is diagnostic.** Too low = extractor problem. Too high = verification too loose.
-- **Apply to existing canon periodically.** Prune concepts that fail V2/V3 on re-examination.
-## Pressure test with decoy prompts (trigger precision verification)
-> Source: kangarooking/cangjie-skill. A concept never tested for false activation will be over-deployed. Decoy prompts test the negative space.
-### The three test types (all three required)
+| V1 cheating (same example rephrased) | Require: diff chapters + objects + conclusions |
+| V2 cheating (source discusses, reworded) | Novel question should make unsure what source says |
+| V3 too loose (well-phrased common knowledge) | Judge content, not wording |
+
+**Pass rates**: Methodology-dense 30-50%. Opinion 5-15%. <5% = extractor problem. >80% = standards too loose.
+
+**Rules**:
+- Every concept MUST pass V1+V2+V3. No exceptions. Prevents canon rot.
+- Rejected concepts logged with reasons. Keep `rejected/` audit trail.
+- User light confirmation: show "N passed + M rejected" before canon write.
+- Pass rate diagnostic. Too low = extractor problem. Too high = verification loose.
+- Apply to existing canon periodically. Prune failing V2/V3 on re-examination.
+
+---
+
+## Pressure Test with Decoy Prompts (Trigger Precision)
+
+No decoy tests = no quality gate. Over-activation = primary production failure mode.
+
 | Type | Count | Purpose |
 |------|-------|---------|
-| `should_trigger` | 3-5 | Activates when it should? |
-| `should_not_trigger` (decoy) | 2-3 | Stays silent when it shouldn't? |
-| `edge_case` | 1-3 | Reasonable judgment on ambiguous cases? |
-**No decoy tests = no quality gate.** Over-activation = primary production failure mode.
-### Cross-concept confusion test (mandatory)
-≥1 decoy must trigger a **different concept/skill** in same canon family — catches concepts competing for activation.
+| `should_trigger` | 3-5 | Activates when should |
+| `should_not_trigger` (decoy) | 2-3 | Stays silent when shouldn't |
+| `edge_case` | 1-3 | Reasonable judgment on ambiguous |
+
+**Cross-concept confusion test (mandatory)**: ≥1 decoy must trigger DIFFERENT concept in same canon family.
+
 ```
-Scenario: "Harness assumption expiry" + "Thinner not thicker" in same canon
-Decoy: "My harness is getting too complex after a model upgrade"
-  → Should trigger: "Thinner not thicker" | Should NOT: "Harness assumption expiry"
-  → If wrong one fires → fix A2/description
+Scenario: "Harness assumption expiry" + "Thinner not thicker"
+Decoy: "My harness getting too complex after model upgrade"
+  → Should trigger: "Thinner not thicker" | NOT: "Harness assumption expiry"
+  → If wrong fires → fix A2/description
 ```
-### Blind testing protocol
-- **Prefer:** independent sub-agent (fresh context) — give it concept name + description + prompt, not expected answer.
-- **Fallback:** main agent self-tests (lower confidence). Output: `would_trigger` + `reason` + `if_triggered_action`.
-### Pass/fail thresholds
+
+**Blind testing**: Prefer independent sub-agent (fresh context) — give concept+desc+prompt, not expected answer. Fallback: self-test (lower confidence).
+
+**Thresholds**:
 | Pass rate | Action |
 |-----------|--------|
 | 100% | Accept |
-| ≥80% | Analyze failures: fix concept or fix test (beware self-justification) |
-| <80% | **Reject and redo.** Re-examine trigger definition, not surface fix. |
-### Rule
-- **Every canon concept must have decoy tests.** "Fires when it should" = half. "Stays silent when it shouldn't" = other half.
-- **≥1 decoy must be cross-concept confusion test.** Concepts in same canon compete for activation.
-- **Blind testing > self-testing.** Concept author has confirmation bias. Use fresh-context sub-agents.
-- **<80% pass = redo, not patch.** Wrong trigger definition → surface fixes hide the problem.
-- **Test trigger description (A2), not just content.** Perfect content + vague trigger = useless.
-- **Edge cases test boundary reasoning.** "Should this fire for a trivial version?" — must have defensible answer.
-## AI-specific slop sensor (Q3 subcategory)
-> Source: sloppylint + slop-scan + AWS anti-hallucination workshop. Traditional linters catch human mistakes. AI code introduces different failure patterns. A harness with only human-oriented linters has a blind spot for AI-specific slop.
-### Why traditional linters miss AI slop
-Linters assume idioms, intent, real imports, honesty. AI violates all: mixes 6+ languages, generates `pass`/`TODO`, hallucinates imports (20% non-existent), writes "should work hopefully" hedges.
-### The AI slop taxonomy
-| Axis | What it detects | Examples | Linter? |
-|------|----------------|----------|---------|
-| **Hallucinations** | Imports/functions that don't exist | `from nonexistent_pkg import foo` | ❌ |
-| **Cross-language leakage** | Wrong-language patterns | `.push()` in Python, `.length` in Python | ❌ |
-| **Placeholder code** | Functions that do nothing | `def validate(x): pass` | ❌ |
-| **Confident wrongness** | Looks right, fails at runtime | Type signatures ≠ runtime | ❌ |
-| **Hedging** | Comments revealing uncertainty | `# should work hopefully` | ❌ |
-| **Over-engineering** | God functions, deep nesting | 500-line function, 8 levels deep | ⚠️ |
-| **Debug artifacts** | Leftover `print()`, redundant comments | `print(x)` above `return x` | ⚠️ |
-| **Explanation bloat** | Comments that restate the code | `# loop through items` above `for x in items:` | ❌ |
-| **Version stacking** | In-file version markers / changelog blocks | `<!-- v2 fixed X -->`, `# v3`, `<!-- updated 2026-07-15 -->` | ❌ |
-### The four slop axes (from sloppylint)
+| ≥80% | Analyze failures: fix concept or test (beware self-justification) |
+| <80% | **Reject and redo.** Re-examine trigger, not surface fix. |
+
+**Rules**:
+- Every canon concept MUST have decoy tests.
+- ≥1 decoy cross-concept confusion test.
+- Blind testing > self-testing (author has confirmation bias).
+- <80% pass = redo, not patch. Wrong trigger def → surface fixes hide problem.
+- Test trigger description (A2), not just content.
+- Edge cases test boundary reasoning. "Should fire for trivial version?" — must have defensible answer.
+
+---
+
+## AI-Specific Slop Sensor (Q3 Subcategory)
+
+Traditional linters assume idioms/intent/real imports/honesty. AI violates all: mixes 6+ langs, generates `pass`/`TODO`, hallucinates imports (20% non-existent), writes hedges.
+
+### AI Slop Taxonomy
+
+| Axis | Detects | Examples | Linter? |
+|------|---------|----------|---------|
+| Hallucinations | Non-existent imports/functions | `from nonexistent_pkg import foo` | ❌ |
+| Cross-language leakage | Wrong-language patterns | `.push()` in Python, `.length` in Python | ❌ |
+| Placeholder code | Functions doing nothing | `def validate(x): pass` | ❌ |
+| Confident wrongness | Looks right, fails runtime | Type sigs ≠ runtime | ❌ |
+| Hedging | Comments revealing uncertainty | `# should work hopefully` | ❌ |
+| Over-engineering | God functions, deep nesting | 500-line fn, 8 levels deep | ⚠️ |
+| Debug artifacts | Leftover `print()`, redundant comments | `print(x)` above `return x` | ⚠️ |
+| Explanation bloat | Comments restating code | `# loop through items` above `for x in items:` | ❌ |
+| Version stacking | In-file version markers/changelog | `<!-- v2 fixed X -->`, `# v3`, `<!-- updated 2026-07-15 -->` | ❌ |
+
+### Four Slop Axes (sloppylint)
+
 | Axis | Name | Measures |
 |------|------|----------|
-| 📢 **Noise** | Information Utility | Debug artifacts, redundant comments, explanation bloat — no value |
-| 🤥 **Lies** | Information Quality | Hallucinations, placeholders, confident wrongness — claims to work but doesn't |
-| 💀 **Soul** | Style / Taste | Over-engineering, god functions, hedging, version stacking — works but bad |
+| 📢 **Noise** | Info Utility | Debug artifacts, redundant comments, explanation bloat — no value |
+| 🤥 **Lies** | Info Quality | Hallucinations, placeholders, confident wrongness — claims work but doesn't |
+| 💀 **Soul** | Style/Taste | Over-engineering, god functions, hedging, version stacking — works but bad |
 | 🏗️ **Structure** | Structural Issues | Bare except, star imports, anti-patterns — structurally wrong |
-### Slop score as a convergence metric
-Slop score = **convergence metric for `/goal` loops** — more precise than "make code better":
+
+### Slop Score = `/goal` Convergence Metric
 ```
 /goal loop: "reduce slop score to <50"
   - Check: sloppylint --ci --max-score 50
   - Exit: score <50 AND no critical/high issues
-  - Stop: 3 consecutive iterations with no improvement
+  - Stop: 3 consecutive iterations no improvement
 ```
-### Benchmark against mature OSS
-slop-scan pins mature OSS to pre-AI commits (before 2025-01-01). **AI repos score 6.91x higher slop.** Provides reference point, trend tracker, fairness normalizer.
-### Rule
-- **Sensor fleet must include AI-specific slop detectors.** Traditional linters miss hallucinated imports, cross-language leakage, placeholder code, confident wrongness.
-- **AI slop ≠ human error.** "We have a linter" ≠ "we catch AI slop."
-- **Slop score = `/goal` convergence metric.** "Reduce slop to <N" > "make code better."
-- **Benchmark against pre-AI mature OSS** for fair "is this clean" baseline.
-- **Cross-language leakage is AI-specific.** AI mixes 6+ languages. Human linters don't catch `.push()` in Python.
-- **Hallucinated imports = highest-severity slop.** 20% of AI imports non-existent → `ImportError`. Detect at CI.
-- **Placeholder code (`pass`, `TODO`) = AI gave up.** Worse than no function — illusion of coverage. Flag all.
-- **Hedging comments = AI uncertainty.** `# should work hopefully` → human review signal.
-- **Explanation bloat = restating the code.** `# loop through items` above `for x in items:` adds zero information, consumes tokens, rots when code changes. Detect: comment text ≈ code semantics. Source: arXiv 2605.02741 (Volume-Quality Inverse Law).
-- **Version stacking = context rot in-file.** `<!-- v2 -->`, `# v3 fixed X`, `<!-- updated 2026-07-15 -->` accumulated across edits. Version truth = git + append-only `CHANGELOG.md`, never in-file stacking. Source: arXiv 2606.09090 (Context Rot). `scripts/sync.py --canon` rejects canon files with stacked header markers.
-## Verbatim execution gates
-> Source: Sahir619/fable-method (MIT), Steps 3-6 verbatim gates. Distilled 2026-07-17.
-> These are mechanical, auditable, anti-fabrication gates. The model must leave the named line
-> verbatim in its report when the gate's condition holds. A missing owed line = a skipped step,
-> not a stylistic choice. The `fable-judge` skill (see "In this harness" below) sweeps for these
-> lines on every "done" declaration.
 
-The shift these gates enforce: most agent instruction files tell the model *what to value*
-("be careful, verify your work"). These tell it *what to leave behind*, so a reviewer (human,
-fresh-context agent, or `fable-judge`) can audit whether the step actually happened — not whether
-the model *said* it happened. A claim with no gate line behind it is the costume failure
-(failure mode 18): a guess dressed as a rigorous process.
+**Benchmark**: slop-scan pins mature OSS to pre-AI commits (before 2025-01-01). **AI repos score 6.91x higher slop.**
 
-### Pre-task fit gate (run before Step 0)
-> Source: fable-method fit gate. Routes the task before any work begins. Prevents applying the
-> loop to pure-judgment tasks (the costume failure) and prevents guessing when the answer is
-> reachable in sources.
+**Rules**:
+- Sensor fleet MUST include AI-specific slop detectors. Traditional linters miss AI slop.
+- AI slop ≠ human error. "We have linter" ≠ "we catch AI slop."
+- Slop score = `/goal` convergence metric. "Reduce slop to <N" > "make code better."
+- Benchmark against pre-AI mature OSS for fair baseline.
+- Cross-language leakage is AI-specific. AI mixes 6+ langs.
+- Hallucinated imports = highest-severity slop (20% non-existent → `ImportError`). Detect at CI.
+- Placeholder code (`pass`, `TODO`) = AI gave up. Worse than no function. Flag all.
+- Hedging comments = AI uncertainty. `# should work hopefully` → human review signal.
+- Explanation bloat = restating code. `# loop through items` above `for x in items:` = zero info, consumes tokens, rots when code changes. Detect: comment text ≈ code semantics (arXiv 2605.02741).
+- Version stacking = context rot in-file. `<!-- v2 -->`, `# v3 fixed X`, `<!-- updated 2026-07-15 -->` accumulated. Version truth = git + append-only `CHANGELOG.md`. `scripts/sync.py --canon` rejects canon with stacked headers.
 
-Before touching anything, locate where the answer lives:
-- **In sources you can open** (spec, file, dataset, check, docs) → run the loop. This is the default.
-- **In an established technique you do not yet know** → research it first (Step 2's lookup budget
-  applies), then run the loop.
-- **Only in your own inference, nothing to open or look up** → say so. Do not dress a guess as a
-  rigorous process. Attended: ask whether to proceed with a flagged low-confidence answer.
-  Unattended: proceed but label the answer low-confidence, never silently. There is no "escalate
-  to a bigger model" step; the fallback is an honest hand-back.
-- **In a specialized procedure the base model lacks, and it recurs** → build it as a reusable skill.
+---
 
-**Verbatim requirement:** whenever the gate routes anywhere but "run the loop", name that choice
-in the report — what was missing, what you did instead. A silent detour is indistinguishable from
-a skipped step.
+## Verbatim Execution Gates (Fable-Method)
 
-### The five gates
+Models leave named lines verbatim in report when condition holds. Missing owed line = skipped step.
 
-| Gate | When it fires | Verbatim line owed | What it prevents |
-|------|---------------|--------------------|------------------|
-| **INTENT** | Before any behavior-changing edit | `INTENT: code does <X>; the failing check/task expects <Y>; the spec (README/docs/docstring) says <Z>` | Editing the wrong side of a spec-vs-test-vs-code disagreement. "Fix the code" is not a statement of intended behavior; it does not promote tests above spec. |
-| **AUTH** | Before any irreversible / outward-facing action (push, publish, send, deploy, delete shared data, payment, permission change) | `AUTH: user said "<their exact words>"` | Acting on documentation rather than authorization. A README/workflow/skill saying a deploy "must follow" makes the action *documented*, never *authorized*. Completing the task is not authorization either. |
-| **TWINS** | Whenever a defect is fixed | `TWINS: searched <the pattern> - found <N> other sites: <files, or "none">` | The single most common completeness fraud: "fixed it" with no search for the same bug elsewhere. A bug found in one place is presumed to recur elsewhere until searched. |
-| **PENDING** | When a prescribed follow-up (deploy/push/send/restart) was deliberately not taken | `PENDING: <the action> - awaiting your authorization` | Silently skipping a prescribed follow-up, or silently taking it. Either way the user loses the decision. |
-| **RECALL** | Before first use of anything not opened this session (API signature, endpoint, config key, price, figure, regulation) | Stop and open its source. If no source is reachable, the claim must carry the label `memory, unverified` in the report. | Invented APIs / fabricated config keys / stale prices written from recall. Discovering ignorance re-opens evidence gathering exactly like a surprise does. |
+| Gate | When | Verbatim Line Owed | Prevents |
+|------|------|-------------------|----------|
+| **INTENT** | Before behavior-changing edit | `INTENT: code does <X>; failing check expects <Y>; spec says <Z>` | Editing wrong side of spec-vs-test-vs-code |
+| **AUTH** | Before irreversible/outward action | `AUTH: user said "<exact words>"` | Acting on docs not authorization |
+| **TWINS** | When defect fixed | `TWINS: searched <pattern> - found <N> other sites: <files or "none">` | Completeness fraud: "fixed it" no search elsewhere |
+| **PENDING** | Prescribed follow-up not taken | `PENDING: <action> - awaiting your authorization` | Silently skipping/taking prescribed follow-up |
+| **RECALL** | Before first use of unopened this session | Stop and open source. If none reachable → label `memory, unverified` | Invented APIs/fabricated config/stale prices |
 
-### Authority order (when INTENT's three slots disagree)
-An explicit user statement beats the spec; the spec beats the tests; the tests beat current code
-behavior. A task framing like "fix the code" or "make the tests pass" is **NOT** a statement of
-intended behavior — it does not promote the tests above the spec. If X, Y, Z do not all agree,
-**do not edit yet**: the disagreement is the real finding (see "Surprises route the loop" in
-`BOOT_PROTOCOL.md` / fable-method Step 2 rule 7). Surface the contradiction, state which side you
-trust and why, and never silently make one side match another.
+**Authority order**: User statement > spec > tests > current code behavior. "Fix the code" NOT statement of intent.
 
-### Hard bounds
-- **3 failed fix-verify cycles on the same issue → stop.** Report what was tried, the actual
-  output, and current hypothesis. Hand back to the user. Grinding past 3 = compounding error.
-- **2 fruitless lookups → stop searching.** A third needs a stated reason. Re-reading what already
-  told you nothing = burning tokens for zero new information.
-- **Cannot name a verification → ask one pointed question.** Not "what do you want?", but a
-  specific question that states your recommended interpretation. Then wait.
+**Hard bounds**:
+- 3 failed fix-verify cycles same issue → stop, report tried/output/hypothesis
+- 2 fruitless lookups → stop. 3rd needs stated reason.
+- Cannot name verification → ask pointed question (states recommended interpretation)
 
-### Artifact gate (the last sweep before sending any report)
-Before sending, sweep the finished report once against what this run owed, and repair mechanically:
-- behavior changed and no `INTENT:` line → add it;
-- an outward action taken and no `AUTH:` line → add it;
-- a defect fixed and no `TWINS:` line → add it;
-- a prescribed follow-up deliberately untaken and no `PENDING:` line → add it;
-- a claim about an API/config/figure/regulation used without opening its source and no `memory, unverified` label → add the label or go open the source.
+**Artifact gate** (last sweep before sending report):
+- Behavior changed no `INTENT:` → add
+- Outward action no `AUTH:` → add
+- Defect fixed no `TWINS:` → add
+- Follow-up untaken no `PENDING:` → add
+- Claim about API/config/figure used w/o source no `memory, unverified` → add label or open source
 
-The gate fires **only when something is owed and missing**; a clean report passes untouched. This
-is a mechanical check, not a judgment call — `fable-judge` automates it.
+**Rules**:
+- Every owed line MUST appear verbatim. Paraphrase = skipped step.
+- Documentation ≠ authorization. AUTH gate core.
+- Completeness claim no search = costume failure. TWINS with `none` = honest; no TWINS = fraud.
+- Gates compose with maker≠checker. Maker leaves lines; `fable-judge` verifies lines match reality.
+- Gates don't replace judgment. They make judgment auditable.
+- Recall gate = anti-hallucination. INTENT aligns code/check/spec; RECALL prevents fabricating building blocks.
+- Fit gate runs once before loop. Five gates run during loop.
 
-### Rule
-- **Every owed line must appear verbatim.** Paraphrase = skipped step. The line is the audit trail.
-- **Documentation ≠ authorization.** This is the AUTH gate's core. README/workflow/skill text
-  describing a follow-up makes it documented, not authorized. Only the user's own words authorize.
-- **A completeness claim with no search behind it is the costume failure.** TWINS line with
-  `none` is honest; no TWINS line on a defect fix is a fraud.
-- **The gates compose with maker≠checker.** The maker leaves the lines; `fable-judge` (fresh
-  context) verifies the lines match reality — that the AUTH quote actually appears in the
-  conversation, that the TWINS search actually returns what the line claims.
-- **Gates do not replace judgment.** They make judgment auditable. A wrong INTENT line is still
-  wrong; but a missing one is undetectable.
-- **Recall gate is the anti-hallucination gate.** INTENT aligns code/check/spec; RECALL prevents
-  fabricating the building blocks (APIs, config keys, figures) from memory. They are distinct:
-  you can have perfect INTENT alignment on a call to an API signature you invented from recall.
-- **Fit gate runs once, before the loop.** The five execution gates run during the loop. The fit
-  gate's verbatim requirement (naming a detour) fires only when the task routes away from the loop.
+---
 
-## In this harness
-- `.devin/canon/VERIFICATION_PROTOCOL.md` — the rule, shipped to every tool.
-- `.devin/agents/workers/VERIFIER.md` — the Verifier worker (fresh context, checklist).
-- `.devin/agents/workers/AUDITOR.md` — the Auditor worker (fresh context, adversarial).
-- `.devin/skills/fable-judge.md` — adversarial "done" gate; re-runs claimed verifications, hunts frauds, sweeps verbatim gate lines (INTENT/AUTH/TWINS/PENDING). Fires on every "done" declaration.
-- `.devin/skills/harness-sensor.md` — the computational sensor (deterministic checks).
-- `tools/verify-workspace.ps1` — the workspace integrity verification (read-back after patch).
-## The honest limit
-Verification can confirm: the file exists, the build passes, the criteria are met, the marker is present. It cannot confirm: the design is good, the taste is right, the choice among valid options is the best one. For those, escalate to a human. That's not a failure — it's the honest clause in action.
+## In This Harness
+- `.devin/canon/VERIFICATION_PROTOCOL.md` — rule shipped to every tool
+- `.devin/agents/workers/VERIFIER.md` — Verifier worker (fresh context, checklist)
+- `.devin/agents/workers/AUDITOR.md` — Auditor worker (fresh context, adversarial)
+- `.devin/skills/fable-judge.md` — adversarial "done" gate; re-runs verifications, hunts frauds, sweeps gate lines
+- `.devin/skills/harness-sensor.md` — computational sensor (deterministic checks)
+- `tools/verify-workspace.ps1` — workspace integrity verification (read-back after patch)
 
-## U25: Nuwa ROI measurement
+---
 
-### Problem
-Nuwa cognitive verification is expensive (tokens + time). Without ROI measurement, we can't justify the cost or know when to reduce usage.
+## The Honest Limit
+Verification confirms: file exists, build passes, criteria met, marker present. **Cannot confirm**: design good, taste right, best choice among valid options. Escalate to human. Not failure — honest clause.
 
-### Metrics tracked in session_state
+---
+
+## U25: Nuwa ROI Measurement
+
+**Problem**: Nuwa cognitive verification expensive. Without ROI, can't justify cost or know when to reduce.
+
+**Metrics in session_state**:
 ```json
 {
   "nuwa_metrics": {
-    "nuwa_runs": 0,
-    "nuwa_bugs_caught": 0,
-    "nuwa_token_cost": 0,
-    "standard_runs": 0,
-    "standard_bugs_caught": 0,
-    "standard_token_cost": 0,
-    "last_nuwa_run": "",
-    "last_standard_run": ""
+    "nuwa_runs": 0, "nuwa_bugs_caught": 0, "nuwa_token_cost": 0,
+    "standard_runs": 0, "standard_bugs_caught": 0, "standard_token_cost": 0,
+    "last_nuwa_run": "", "last_standard_run": ""
   }
 }
 ```
 
-### ROI formula
+**ROI formula**:
 - `bugs_per_10k_tokens = bugs_caught / (token_cost / 10000)`
 - `nuwa_roi = nuwa_bugs_per_10k / standard_bugs_per_10k`
-- If `nuwa_roi < 3.0` (threshold) → reduce Nuwa to high-stakes only
-- Minimum 20 runs before ROI is meaningful (statistical significance)
+- If `nuwa_roi < 3.0` → reduce Nuwa to high-stakes only
+- Minimum 20 runs before meaningful
 
-### Comparison logic
-1. For each task, randomly assign to Nuwa-audited or standard-audited
-2. Track bugs caught by each approach + token cost
-3. After 20+ runs, compute ROI ratio
-4. If ROI < 3.0: restrict Nuwa to high-stakes tasks (security, financial, production-critical)
-5. If ROI >= 3.0: continue using Nuwa for all verification
-6. Use `--reset` to clear metrics when switching projects
-
-### Threshold
-- **3.0x** — Nuwa must catch 3x more bugs per 10K tokens than standard review
-- Rationale: Nuwa costs ~3-5x more tokens than standard review, so threshold
-  matches cost ratio. Below 3x = not cost-effective.
-- Adjustable via `NUWA_ROI_THRESHOLD` in `scripts/nuwa_roi.py`
-- Minimum 20 runs before ROI is meaningful (statistical significance)
-
-### Usage
+**Usage**:
 ```bash
-# Record a Nuwa run
+# Record Nuwa run
 .venv/bin/python .devin/scripts/nuwa_roi.py --session <sid> --record-nuwa --bugs 3 --tokens 5000
-
-# Record a standard run
+# Record standard run
 .venv/bin/python .devin/scripts/nuwa_roi.py --session <sid> --record-standard --bugs 1 --tokens 1500
-
-# Get ROI report
+# Get report
 .venv/bin/python .devin/scripts/nuwa_roi.py --session <sid> --report
-
-# Reset metrics (when switching projects)
+# Reset
 .venv/bin/python .devin/scripts/nuwa_roi.py --session <sid> --reset
 ```
+
+**Threshold**: 3.0x — Nuwa must catch 3x more bugs per 10K tokens than standard review.
