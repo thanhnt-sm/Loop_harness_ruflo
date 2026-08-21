@@ -388,7 +388,7 @@ def _enforce_call_depth(session_id: str, root: Path, tool_name: str) -> None:
     max_depth = tool_meta.get("max_call_depth", 1)
     current_depth = _get_current_call_depth(session_id, root)
     
-    if current_depth >= max_depth:
+    if current_depth > max_depth:
         print(
             f"[RC-3 Call-Graph] BLOCKED: max_depth={max_depth} exceeded "
             f"(current depth={current_depth}). Tool: {tool_name}",
@@ -400,10 +400,11 @@ def _enforce_call_depth(session_id: str, root: Path, tool_name: str) -> None:
 def _enforce_allowed_chains(session_id: str, root: Path, tool_name: str) -> None:
     """Enforce allowed call chains between tool tiers."""
     call_stack = _get_session_call_stack(session_id, root)
-    if not call_stack:
+    # Stack vừa được push current tool → parent là phần tử kế cuối (nếu có).
+    if len(call_stack) < 2:
         return  # first tool in chain
     
-    parent_tool = call_stack[-1]
+    parent_tool = call_stack[-2]
     parent_tier = _get_tool_tier(parent_tool)
     current_tier = _get_tool_tier(tool_name)
     

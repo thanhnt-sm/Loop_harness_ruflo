@@ -308,12 +308,16 @@ def test_safe_command_allowed(capsys, monkeypatch, tmp_path):
 def test_non_bash_tool_allowed(capsys, monkeypatch, tmp_path):
     import pre_tool_use
     importlib_reload(pre_tool_use)
-    monkeypatch.setattr(pre_tool_use.ahd_session, "get_repo_root", lambda: tmp_path)
+    monkeypatch.setattr(pre_tool_use.ahd_session, "get_repo_root", lambda _start_from=None: tmp_path)
     monkeypatch.setattr(pre_tool_use.ahd_session, "get_session_id", lambda _d: "test-sid")
     monkeypatch.setattr(pre_tool_use.ahd_session, "read_context_flags", lambda _sid, _root: {})
     monkeypatch.setattr(pre_tool_use.ahd_session, "read_session_state", lambda _sid, _root: {})
     monkeypatch.setattr(pre_tool_use, "check_cost_cap", None)
     monkeypatch.setattr(pre_tool_use, "_check_reflection", None)
+    # Mock call-graph gate để không can thiệp test non-bash tool.
+    monkeypatch.setattr(pre_tool_use, "_check_call_graph_gate", lambda _data: None)
+    monkeypatch.setattr(pre_tool_use, "_check_sandbox_gate", lambda _data: None)
+    monkeypatch.setattr(pre_tool_use, "_check_context_oversized_gate", lambda _data: None)
     old_stdin = sys.stdin
     try:
         sys.stdin = io.StringIO(json.dumps({

@@ -10,7 +10,7 @@
     ".devin/hooks/otel_instrument.py": "e1f4ddca2b8796b2f5eb0fec9d480630199401ad923e2667c29ac3956c20eefa",
     ".devin/hooks/plan_enforce.py": "82479e093b24ed4674a7352571c1db1d128cb4f265d3b8d095dfaef42d49059b",
     ".devin/hooks/post_tool_use.py": "95da21c4452d8f0d421ce0ebd1e7dda55c1c4ab150dfb48fcf796c91d356bbc5",
-    ".devin/hooks/pre_tool_use.py": "c4d5014fb61ed8940c3e7bcc024607f1cfb3ffbed43902620ed373c33e8b7bca",
+    ".devin/hooks/pre_tool_use.py": "04c477e696b52c96a9d42370835a3638f39e2669e6658f06a5a93078f992c22f",
     ".devin/hooks/prompt_cache_metrics.py": "46e8236e45d6f79d3c10ef6579edca23fa215c143db7eb105d0ad3ee8f3367ca",
     ".devin/hooks/sandboxed_hook.py": "85436a2a041f9eb87a8378c267acb7ef6a4293f045baf28da0e242556f29329b",
     ".devin/hooks/schema_gate.py": "ece102dce6cfdc7e98717377e911a32d50c10c5f0649ef1c59151943df7d3188",

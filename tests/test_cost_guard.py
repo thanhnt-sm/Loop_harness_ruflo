@@ -62,13 +62,19 @@ def _seed_ledger(root: Path, session_id: str, cumulative: float) -> None:
     cost_ledger.append_entry(root, session_id, "Write", cumulative, cumulative)
 
 
-def _run_pre_tool_use(data: dict, capsys):
+def _run_pre_tool_use(data: dict, capsys, monkeypatch=None):
     """Chạy pre_tool_use.main trong process, bắt SystemExit, trả (code, stderr)."""
     import pre_tool_use
     import cost_tracker
     # Buộc reload để pick up monkeypatch trên ahd_session và cost_tracker.
     importlib.reload(pre_tool_use)
     importlib.reload(cost_tracker)
+    # Mock call-graph gate để không can thiệp test cost cap.
+    if monkeypatch is not None:
+        monkeypatch.setattr(pre_tool_use, "_check_call_graph_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_use, "_check_workspace_layout_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_use, "_check_sandbox_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_use, "_check_context_oversized_gate", lambda _data: None)
     old_stdin = sys.stdin
     try:
         sys.stdin = io.StringIO(json.dumps(data))
@@ -98,11 +104,11 @@ def test_check_cost_cap_states():
 # ---------------------------------------------------------------------------
 # 2. Dưới 80% cap → exit 0
 # ---------------------------------------------------------------------------
-def test_below_cap_allows(patched_root, capsys):
+def test_below_cap_allows(patched_root, capsys, monkeypatch):
     session_id = "s-cost-below"
     _make_session_file(patched_root, session_id, 3.0, 10.0)
     _seed_ledger(patched_root, session_id, 3.0)
-    code, stderr = _run_pre_tool_use({"tool_name": "write", "tool_input": {"file_path": "x"}, "session_id": session_id}, capsys)
+    code, stderr = _run_pre_tool_use({"tool_name": "write", "tool_input": {"file_path": "x"}, "session_id": session_id}, capsys, monkeypatch)
     assert code == 0
     assert "COST CAP" not in stderr
 
@@ -110,11 +116,11 @@ def test_below_cap_allows(patched_root, capsys):
 # ---------------------------------------------------------------------------
 # 3. 80% cap → exit 0 + cảnh báo
 # ---------------------------------------------------------------------------
-def test_eighty_percent_warns(patched_root, capsys):
+def test_eighty_percent_warns(patched_root, capsys, monkeypatch):
     session_id = "s-cost-warn"
     _make_session_file(patched_root, session_id, 8.1, 10.0)
     _seed_ledger(patched_root, session_id, 8.1)
-    code, stderr = _run_pre_tool_use({"tool_name": "write", "tool_input": {"file_path": "x"}, "session_id": session_id}, capsys)
+    code, stderr = _run_pre_tool_use({"tool_name": "write", "tool_input": {"file_path": "x"}, "session_id": session_id}, capsys, monkeypatch)
     assert code == 0
     assert "WARNING" in stderr
 
@@ -122,11 +128,11 @@ def test_eighty_percent_warns(patched_root, capsys):
 # ---------------------------------------------------------------------------
 # 4. 100% cap → exit 2 + block
 # ---------------------------------------------------------------------------
-def test_at_cap_blocks(patched_root, capsys):
+def test_at_cap_blocks(patched_root, capsys, monkeypatch):
     session_id = "s-cost-block"
     _make_session_file(patched_root, session_id, 10.0, 10.0)
     _seed_ledger(patched_root, session_id, 10.0)
-    code, stderr = _run_pre_tool_use({"tool_name": "write", "tool_input": {"file_path": "x"}, "session_id": session_id}, capsys)
+    code, stderr = _run_pre_tool_use({"tool_name": "write", "tool_input": {"file_path": "x"}, "session_id": session_id}, capsys, monkeypatch)
     assert code == 2
     assert "BLOCKED" in stderr
 
@@ -134,10 +140,10 @@ def test_at_cap_blocks(patched_root, capsys):
 # ---------------------------------------------------------------------------
 # 5. cost_cap từ state được tôn trọng
 # ---------------------------------------------------------------------------
-def test_custom_cap(patched_root, capsys):
+def test_custom_cap(patched_root, capsys, monkeypatch):
     session_id = "s-cost-custom"
     _make_session_file(patched_root, session_id, 4.5, 5.0)
     _seed_ledger(patched_root, session_id, 4.5)
-    code, stderr = _run_pre_tool_use({"tool_name": "write", "tool_input": {"file_path": "x"}, "session_id": session_id}, capsys)
+    code, stderr = _run_pre_tool_use({"tool_name": "write", "tool_input": {"file_path": "x"}, "session_id": session_id}, capsys, monkeypatch)
     assert code == 0  # 4.5/5 = 90% → warn nhưng vẫn cho phép
     assert "WARNING" in stderr
