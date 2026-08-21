@@ -28,11 +28,16 @@ from path_zones import (  # noqa: E402
     normalize_path,
     validate_path,
     validate_absolute_path,
+    validate_workspace_path,
+    is_junk_path,
+    is_allowed_root_file,
     get_blocked_zones,
     get_safe_zones,
     BLOCKED_ZONES,
     SAFE_ZONES,
     DANGEROUS_ROOTS,
+    ALLOWED_ROOT_FILES,
+    ALLOWED_ROOT_PATTERNS,
 )
 
 
@@ -55,7 +60,8 @@ def test_is_safe_detects_safe_zones():
     """is_safe nhận diện safe zone."""
     for path in ("src/app.py", "tests/test_x.py", ".devin/skills/skill.md",
                  "scripts/run.sh", "docs/plans/plan.md", "docs/templates/tpl.md",
-                 "docs/research/r.md"):
+                 "docs/research/r.md", "docs/reports/r.md", ".devin/reports/a.md",
+                 "tmp/scratch.md"):
         assert is_safe(path) is True, f"phải safe {path}"
 
 
@@ -121,6 +127,66 @@ def test_get_safe_zones():
     assert "src/" in zones
     assert "tests/" in zones
     assert ".devin/skills/" in zones
+    assert "docs/reports/" in zones
+    assert "tmp/" in zones
+
+
+def test_is_junk_path_detects_junk():
+    """is_junk_path nhận diện file rác."""
+    assert is_junk_path("file.bak") is True
+    assert is_junk_path("file.tmp") is True
+    assert is_junk_path("file.txt.orig") is True
+    assert is_junk_path("notes.md~") is True
+    assert is_junk_path(".DS_Store") is True
+    assert is_junk_path("scratch123") is True
+    assert is_junk_path("report.md") is False
+    assert is_junk_path("docs/reports/report.md") is False
+
+
+def test_is_allowed_root_file():
+    """is_allowed_root_file chỉ cho phép các file được liệt kê ở root."""
+    assert is_allowed_root_file("AGENTS.md") is True
+    assert is_allowed_root_file("CLAUDE.md") is True
+    assert is_allowed_root_file("SECURITY.md") is True
+    assert is_allowed_root_file("REPOS.md") is True
+    assert is_allowed_root_file("activate.ps1") is True
+    assert is_allowed_root_file("devin-run.cmd") is True
+    assert is_allowed_root_file("REPORT.md") is False
+    assert is_allowed_root_file("docs/reports/report.md") is False
+    assert is_allowed_root_file("harness-upgrade-log.md") is False
+
+
+def test_validate_workspace_path_allows_safe_and_allowed_root():
+    """validate_workspace_path cho phép safe zone và root allowlist."""
+    ok, reason = validate_workspace_path("docs/reports/COST_2026-01-01.md")
+    assert ok is True and reason == ""
+    ok, reason = validate_workspace_path("docs/plans/foo/IMPLEMENTATION_PLAN.md")
+    assert ok is True and reason == ""
+    ok, reason = validate_workspace_path("AGENTS.md")
+    assert ok is True and reason == ""
+    ok, reason = validate_workspace_path("devin-run.ps1")
+    assert ok is True and reason == ""
+
+
+def test_validate_workspace_path_blocks_root_markdown():
+    """validate_workspace_path block markdown/work report ở root."""
+    ok, reason = validate_workspace_path("HARNESS_UPGRADE_REPORT.md")
+    assert ok is False
+    assert "not allowed" in reason
+    ok, reason = validate_workspace_path("MIGRATION_COMPONENT_MAP.md")
+    assert ok is False
+    ok, reason = validate_workspace_path("harness-upgrade-log.md")
+    assert ok is False
+
+
+def test_validate_workspace_path_blocks_junk_and_traversal():
+    """validate_workspace_path block junk file và path traversal."""
+    ok, reason = validate_workspace_path("scratch.tmp")
+    assert ok is False
+    assert "Junk" in reason
+    ok, reason = validate_workspace_path("docs/plans/../secrets/file.py")
+    assert ok is False
+    assert "traversal" in reason.lower()
 
 
 def test_schema_gate_uses_path_zones():

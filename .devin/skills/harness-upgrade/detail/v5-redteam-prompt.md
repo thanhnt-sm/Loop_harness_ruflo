@@ -3,7 +3,7 @@
   File này chỉ được nạp nguyên văn vào context khi bước V5 RED-TEAM (detail/redteam-v5.md) CHẠY.
   Trước khi nạp: THAY thế mọi {{PLACEHOLDER}} bằng giá trị Runtime Manifest từ preflight/scope-manifest.
   Nếu placeholder chưa có giá trị thật → giữ nguyên placeholder + tuân mệnh đề BLOCKED_PREREQUISITES trong prompt.
-  Khi xong bước → KHÔNG để prompt này trong context; ghi kết quả vào ARTIFACT_ROOT + harness-upgrade-log.md.
+  Khi xong bước → KHÔNG để prompt này trong context; ghi kết quả vào ARTIFACT_ROOT + docs/reports/harness-upgrade-log.md.
 -->
 # HARNESS CONTINUOUS RED-TEAM, ROOT-CAUSE REMEDIATION
 # & TECHNOLOGY REFRESH PROTOCOL v5.0
@@ -38,7 +38,7 @@ Không tối ưu số patch. Thành công chỉ được ghi nhận khi root cau
 - `APPROVER`: {{APPROVER_OR_NONE}}
 - `MODEL_RUNTIME_ALLOWLIST`: {{MODEL_PROVIDER_VERSION_RUNTIME}}
 - `MAX_SOURCE_AGE_DAYS`: {{SOURCE_FRESHNESS_SLA}}
-- `LOG_PATH`: `harness-upgrade-log.md`
+- `LOG_PATH`: `docs/reports/harness-upgrade-log.md`
 - `ARTIFACT_ROOT`: {{ARTIFACT_DIRECTORY}}
 
 Nếu placeholder bắt buộc còn thiếu, fail closed: xuất `BLOCKED_PREREQUISITES`, không patch, không cài dependency, không gọi target ngoài local và chỉ thực hiện static analysis/safe planning nếu được phép.
@@ -253,7 +253,7 @@ Kiểm thử telemetry outage, partial trace, log injection, redaction failure, 
 
 Tạo/cập nhật:
 
-`preflight.md`, `scope-manifest.json`, `baseline.json`, `registry.json`, `component-map.md`, `trust-boundaries.md`, `identity-delegation-map.md`, `permission-matrix.md`, `memory-lifecycle.md`, `invariants-and-controls.md`, `threat-model.md`, `attack-plan.md`, `attack-report.md`, `evaluation-manifest.json`, `dataset-hash.txt`, `solver-hash.txt`, `scorer-hash.txt`, `evidence-ledger.jsonl`, `root-cause-register.md`, `technology-candidates.md`, `solution-matrix.md`, `change-manifest.md`, `verification-report.md`, `release-gate.md`, `resilience-report.md`, `harness-upgrade-log.md`, `executive-summary.md`.
+`preflight.md`, `scope-manifest.json`, `baseline.json`, `registry.json`, `component-map.md`, `trust-boundaries.md`, `identity-delegation-map.md`, `permission-matrix.md`, `memory-lifecycle.md`, `invariants-and-controls.md`, `threat-model.md`, `attack-plan.md`, `attack-report.md`, `evaluation-manifest.json`, `dataset-hash.txt`, `solver-hash.txt`, `scorer-hash.txt`, `evidence-ledger.jsonl`, `root-cause-register.md`, `technology-candidates.md`, `solution-matrix.md`, `change-manifest.md`, `verification-report.md`, `release-gate.md`, `resilience-report.md`, `docs/reports/harness-upgrade-log.md`, `executive-summary.md`.
 
 Finding schema:
 `Finding ID | Severity | Finding status | Evidence status | Control status | Release status | Component | Asset | Taxonomy | Preconditions | Safe PoC | Expected invariant | Observed result | Root cause | Remedy | Transfer result | Re-attack | Regression | Residual risk | Owner | Due date | Evidence IDs`.

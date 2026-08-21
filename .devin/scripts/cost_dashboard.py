@@ -78,7 +78,7 @@ def _load_cache_metrics(root: Path) -> list[dict]:
 
 def _load_upgrade_log(root: Path) -> list[dict]:
     """Parse harness-upgrade-log.md for iteration data."""
-    log_path = root / "harness-upgrade-log.md"
+    log_path = root / "docs" / "reports" / "harness-upgrade-log.md"
     if not log_path.exists():
         return []
 
@@ -290,7 +290,9 @@ def main():
     dashboard = _generate_dashboard(root)
 
     # Output to file
-    output_path = root / "COST_DASHBOARD.md"
+    reports_dir = root / "docs" / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    output_path = reports_dir / "COST_DASHBOARD.md"
     output_path.write_text(dashboard, encoding="utf-8")
 
     print(f"Dashboard written to: {output_path}")

@@ -28,6 +28,22 @@
 - `opencode.json` permission: `git push --force`/`-f`, `rm -rf`, `drop table`, install-script
   (`curl|sh`, `wget|sh`), `mkfs`, `chmod -R 777` bị deny; còn lại ask (thứ tự rule: `*` đầu, rule đặc thù sau).
 
+## Workspace Governance (áp dụng cho mọi provider)
+
+Mọi agent (opencode, Cline, Devin CLI, Claude Code, Aide, Khuym) phải tuân theo:
+
+- **Không tạo file `.md`/report/plan/map/analysis ở root** trừ các file trong allowlist (`AGENTS.md`, `CLAUDE.md`, `SECURITY.md`, `REPOS.md`, `LICENSE`, config, launcher).
+- **Định hướng đúng chỗ:**
+  - Plan/SDD/Execution report → `docs/plans/<slug>/`
+  - Báo cáo chung → `docs/reports/<SUBJECT>_<YYYY-MM-DD>.md`
+  - Nghiên cứu → `docs/research/<topic>.md`
+  - Template → `docs/templates/`
+  - Script → `.devin/scripts/` + test `tests/`
+  - Hook → `.devin/hooks/` + test `tests/`
+  - Utility → `tools/`
+- **Runtime enforcement:** Nếu bật hook bridge (`OPENCODE_HARNESS_HOOKS=1`), `pre_tool_use.py` sẽ chặn tool call tạo file sai chỗ. Khi bridge tắt, agent phải tự tuân thủ rule trên.
+- Nếu user yêu cầu viết báo cáo/plan, **không ghi trực tiếp ở root** — hãy tạo `docs/plans/<slug>/IMPLEMENTATION_PLAN.md` hoặc `docs/reports/<SUBJECT>_<YYYY-MM-DD>.md`.
+
 ## Kích hoạt
 
 1. Khởi động lại opencode (config nạp một lần, không hot-reload).

@@ -5,7 +5,7 @@ description: >-
   AI model kém thông minh + context nhỏ: tối đa token-efficiency, tối thiểu
   always-on context, chất lượng output cao nhất (mục tiêu: đạt tầm Opus/GPT-5/Fable).
   Launcher nhỏ gọn cho model yếu — chi tiết load-on-demand theo file detail.
-  Output: HARNESS_UPGRADE_REPORT.md + applied upgrades.
+  Output: docs/reports/HARNESS_UPGRADE_REPORT.md + applied upgrades.
 triggers:
   - "nâng cấp harness"
   - "upgrade harness"
@@ -83,7 +83,7 @@ PREFLIGHT (scripts song song)
   → RED-TEAM + ROOT-CAUSE REMEDIATION (Protocol v2.0, GĐ0-6)
   → V5 CONTINUOUS RED-TEAM (Protocol v5.0 — identity/delegation, MCP pack, eval transfer, human oversight, resilience)
   → COMPENSATION (frontier-quality, C1-C7)
-  → REPORT → HARNESS_UPGRADE_REPORT.md
+  → REPORT → docs/reports/HARNESS_UPGRADE_REPORT.md
   → APPLY (M+ qua /full-power; S-tier sửa trực tiếp)
 ```
 - **Mặc định = MAX POWER + FULL COVERAGE**: KHÔNG cắt phase nào, KHÔNG skip red-team, KHÔNG skip compensation.

@@ -17,6 +17,7 @@ File < 500 dòng, typed interface.
 """
 from __future__ import annotations
 
+import fnmatch
 import os
 import sys
 from pathlib import Path
@@ -77,13 +78,166 @@ SAFE_ZONES: tuple[str, ...] = (
     "tests/",
     ".devin/skills/",
     ".devin/agents/personas/",
+    ".devin/reports/",
     "scripts/",
     "docs/plans/",
     "docs/templates/",
     "docs/research/",
+    "docs/reports/",
+    "tmp/",
     # Worktrees: worker cần ghi trong worktree của mình (schema_gate nên scope theo worker).
     ".worktrees/",
 )
+
+# --- Root allowlist: file được phép nằm trực tiếp ở root ---
+# Cập nhật kèm WORKSPACE_GOVERNANCE.md nếu thêm entry file/config/launcher mới.
+ALLOWED_ROOT_FILES: tuple[str, ...] = (
+    "AGENTS.md",
+    "CLAUDE.md",
+    "SECURITY.md",
+    "REPOS.md",
+    "LICENSE",
+    ".gitignore",
+    ".gitattributes",
+    ".ignore",
+    "opencode.json",
+    "pyproject.toml",
+    "pytest.ini",
+    "package.json",
+    "package-lock.json",
+    "requirements-lock.txt",
+    "renovate.json",
+    "loop",
+    "session",
+)
+
+# Pattern cho root file (không dùng cho safe zone).
+ALLOWED_ROOT_PATTERNS: tuple[str, ...] = (
+    "activate.*",
+    "devin-run.*",
+    "devin-swe.*",
+)
+
+# --- Junk file patterns: cấm sinh ra trong workspace ---
+JUNK_EXTENSIONS: tuple[str, ...] = (
+    ".bak", ".tmp", ".orig", ".swp", ".swo", ".temp", "~"
+)
+
+JUNK_FILENAMES: tuple[str, ...] = (
+    ".DS_Store",
+    "Thumbs.db",
+    ".fuse_hidden*",
+)
+
+
+def is_junk_path(file_path: str) -> bool:
+    """Kiểm tra đường dẫn có phải file rác (bak/tmp/...) không."""
+    if not file_path:
+        return False
+    norm = normalize_path(file_path).lower()
+    name = Path(norm).name
+    if any(name.endswith(ext) for ext in JUNK_EXTENSIONS):
+        return True
+    if any(fnmatch.fnmatch(name, pat.lower()) for pat in JUNK_FILENAMES):
+        return True
+    # `untitled*` / `scratch*` vô danh
+    if name.startswith("untitled") or name.startswith("scratch"):
+        return True
+    return False
+
+
+def is_allowed_root_file(file_path: str) -> bool:
+    """Kiểm tra file nằm trực tiếp ở root có được phép không.
+
+    Chỉ áp dụng cho file ở depth=1 (không có thư mục con).
+    """
+    if not file_path:
+        return False
+    norm = normalize_path(file_path)
+    # Bỏ prefix ./
+    if norm.startswith("./"):
+        norm = norm[2:]
+    # Chỉ xét path tương đối 1 cấp hoặc absolute nằm dưới repo root.
+    parts = norm.split("/")
+    # Nếu có nhiều hơn 1 phần → không phải root file.
+    if len(parts) != 1:
+        return False
+    name = parts[0]
+    if name in ALLOWED_ROOT_FILES:
+        return True
+    if any(fnmatch.fnmatch(name, pat) for pat in ALLOWED_ROOT_PATTERNS):
+        return True
+    return False
+
+
+def _repo_root() -> Path:
+    """Repo root: parent của .devin/scripts/path_zones.py."""
+    return Path(__file__).resolve().parent.parent.parent
+
+
+def _relative_to_repo(file_path: str) -> str:
+    """Chuyển absolute path nằm trong repo thành relative; ngoài repo giữ nguyên."""
+    p = Path(file_path)
+    if p.is_absolute():
+        try:
+            rel = p.resolve().relative_to(_repo_root().resolve())
+            return normalize_path(str(rel))
+        except ValueError:
+            return normalize_path(file_path)
+    return normalize_path(file_path)
+
+
+def validate_workspace_path(file_path: str) -> tuple[bool, str]:
+    """Kiểm tra đường dẫn ghi file mới có tuân workspace governance không.
+
+    Quy tắc:
+      - Không cho path traversal.
+      - Không cho junk file.
+      - Blocked zone → block.
+      - Safe zone / tmp/ → allow.
+      - Root file phải nằm trong ALLOWED_ROOT_FILES/PATTERNS.
+      - Các path còn lại (vd. markdown ngẫu nhiên ở root) → block + gợi ý đúng chỗ.
+    """
+    if not file_path:
+        return (False, "đường dẫn rỗng")
+
+    rel = _relative_to_repo(file_path)
+    norm = normalize_path(rel)
+    if ".." in norm.split("/"):
+        return (False, f"Path traversal blocked: '..' detected in '{file_path}'")
+
+    # Junk file
+    if is_junk_path(norm):
+        return (False, f"Junk file blocked: '{file_path}' — use tmp/ for scratch")
+
+    # Root file allowlist (phải kiểm tra trước blocked zone vì AGENTS.md/CLAUDE.md
+    # nằm trong allowlist nhưng cũng bị đánh dấu blocked để hạn chế sửa đổi tùy tiện).
+    if is_allowed_root_file(norm):
+        return (True, "")
+
+    # Blocked zone
+    if is_blocked(norm):
+        return (False, f"Blocked zone: writing to '{file_path}' is not allowed")
+
+    # Safe zone
+    if is_safe(norm):
+        return (True, "")
+
+    # Nếu là file ở root, gợi ý đúng chỗ
+    if "/" not in norm:
+        return (
+            False,
+            f"Root file '{file_path}' is not allowed. "
+            "Place plans in docs/plans/<slug>/, reports in docs/reports/<SUBJECT>_<YYYY-MM-DD>.md, "
+            "research in docs/research/<topic>.md, templates in docs/templates/."
+        )
+
+    # Các đường dẫn khác ngoài safe/blocked
+    return (
+        False,
+        f"Path '{file_path}' is outside allowed workspace zones. "
+        f"Safe zones: {', '.join(SAFE_ZONES)}; root allowlist: {', '.join(ALLOWED_ROOT_FILES + ALLOWED_ROOT_PATTERNS)}"
+    )
 
 
 def normalize_path(file_path: str) -> str:

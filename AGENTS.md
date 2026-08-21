@@ -22,6 +22,7 @@
 
 - **Không sinh file rác**: không tạo scratch/`*.bak`/`*.tmp`/file vô danh ở root/docs; file tạm → `tmp/` (gitignored), xóa khi xong.
 - **File vào đúng nơi**: script → `.devin/scripts/` (+ test `tests/test_*.py`); hook → `.devin/hooks/`; plan → `docs/plans/<slug>/IMPLEMENTATION_PLAN.md`; report → `docs/plans/<slug>/EXECUTION_REPORT.md` hoặc `docs/reports/<SUBJECT>_<YYYY-MM-DD>.md`; utility → `tools/`. Markdown mới ở root = vi phạm.
+- **Runtime enforcement**: `pre_tool_use.py` + `plan_enforce.py` chặn ngay `write`/`edit`/`notebook_edit` và lệnh Bash tạo `.md`/junk ở root không nằm trong allowlist. Nếu bị chặn, dùng đúng thư mục theo bảng trên.
 - **Khớp plan ↔ act**: Act chỉ sửa file có trong `File Path` của plan (đã duyệt) + test file của task; sau act viết execution report; self-check bằng `tools/check_governance.py --plan-act`.
 - **Đa provider**: không ghi state của provider này vào thư mục provider khác (`.devin/` ↔ Devin, `.khuym/` ↔ Khuym, `.opencode/` ↔ opencode, `.aide/` ↔ Aide); runtime state gitignored không commit; `.devin/canon/` + `HLK/` cấm sửa trực tiếp.
 

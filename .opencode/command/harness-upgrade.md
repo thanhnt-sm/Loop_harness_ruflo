@@ -22,7 +22,7 @@ Bạn đang chạy skill `harness-upgrade`. Thực thi theo đúng launcher:
    orchestrator (Plan → Approve → Execute). S-tier (1 file, <5 dòng) sửa trực tiếp. Lưu ý: `/full-power`,
    `/plan` là lệnh Devin CLI, KHÔNG tồn tại trong opencode — dùng orchestrator script trực tiếp.
 6. Không đụng `HLK/`, `.env`, security policies. Không destructive op.
-7. Ghi kết quả vào `HARNESS_UPGRADE_REPORT.md` + `harness-upgrade-log.md`, báo cáo ngắn: baseline→after,
+7. Ghi kết quả vào `docs/reports/HARNESS_UPGRADE_REPORT.md` + `docs/reports/harness-upgrade-log.md`, báo cáo ngắn: baseline→after,
    upgrades applied, verification, quality verdict, next candidates.
 
 $ARGUMENTS

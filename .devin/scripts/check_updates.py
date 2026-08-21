@@ -36,7 +36,7 @@ from update_common import (
 )
 
 DEFAULT_TRACKER = REPO_ROOT / ".devin" / "metadata" / "REPOS_TRACKER.json"
-DEFAULT_OUTPUT = REPO_ROOT / "UPDATES_REPORT.md"
+DEFAULT_OUTPUT = REPO_ROOT / "docs" / "reports" / "UPDATES_REPORT.md"
 
 
 def get_github_token() -> str:

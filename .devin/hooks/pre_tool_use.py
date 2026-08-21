@@ -45,6 +45,21 @@ try:
 except (ImportError, ModuleNotFoundError, SyntaxError, ValueError):
     check_cost_cap = None  # type: ignore[assignment]
 
+try:
+    from path_zones import (
+        validate_workspace_path,
+        is_allowed_root_file,
+        is_junk_path,
+        ALLOWED_ROOT_FILES,
+        ALLOWED_ROOT_PATTERNS,
+    )
+except (ImportError, ModuleNotFoundError, SyntaxError, ValueError):
+    validate_workspace_path = None  # type: ignore[assignment]
+    is_allowed_root_file = None  # type: ignore[assignment]
+    is_junk_path = None  # type: ignore[assignment]
+    ALLOWED_ROOT_FILES = ()  # type: ignore[assignment]
+    ALLOWED_ROOT_PATTERNS = ()  # type: ignore[assignment]
+
 # T4.9: Import reflection_gate từ .devin/scripts.
 try:
     from reflection_gate import check_reflection as _check_reflection
@@ -1239,6 +1254,60 @@ def _check_risk_contract(tool_name: str, tool_input: dict) -> None:
         # Non-blocking warning-only gate — never denies the tool call.
 
 
+# --- Workspace layout gate (root markdown/junk prevention) ---
+# Các tool write/edit phải tuân theo WORKSPACE_GOVERNANCE.md.
+# File mới ở root chỉ được phép nếu nằm trong ALLOWED_ROOT_FILES/PATTERNS.
+# Markdown/work report/plan/map phải đặt trong docs/plans/<slug>/ hoặc docs/reports/.
+_WRITE_TOOLS = {"write", "edit", "notebook_edit"}
+
+
+def _check_workspace_layout_gate(data: dict) -> None:
+    """Gate: chặn write/edit/notebook_edit tạo file ở root không được phép hoặc junk."""
+    if validate_workspace_path is None:
+        return
+    tool_name = (data.get("tool_name") or "").lower()
+    if tool_name not in _WRITE_TOOLS:
+        return
+    tool_input = data.get("tool_input", {}) or {}
+    file_path = ""
+    for key in ("file_path", "path", "notebook_path", "file"):
+        if key in tool_input:
+            file_path = tool_input[key] or ""
+            break
+    if not file_path:
+        return
+    ok, reason = validate_workspace_path(file_path)
+    if not ok:
+        print(f"[Agent Harness Deploy guard] BLOCKED: {reason}", file=sys.stderr)
+        print(f"Target path: {file_path}", file=sys.stderr)
+        sys.exit(2)
+
+
+def _check_bash_workspace_layout_gate(command: str) -> None:
+    """Gate: chặn bash tạo file .md/junk trực tiếp ở root (vd. `echo > REPORT.md`)."""
+    if validate_workspace_path is None or is_allowed_root_file is None:
+        return
+    # Chỉ xét bare filename (không chứa /) sau redirection, touch, cp, mv.
+    patterns = [
+        r"(?:^|[\s;|&])[>]{1,2}\s*[\"']?([A-Za-z0-9_\-\.]+\.[A-Za-z0-9]+)[\"']?(?=[\s;|&]|$)",
+        r"(?:^|[\s;|&])touch\s+[\"']?([A-Za-z0-9_\-\.]+\.[A-Za-z0-9]+)[\"']?(?=[\s;|&]|$)",
+        r"(?:^|[\s;|&])(?:cp|mv)\s+\S+\s+[\"']?([A-Za-z0-9_\-\.]+\.[A-Za-z0-9]+)[\"']?(?=[\s;|&]|$)",
+    ]
+    candidates = []
+    for pat in patterns:
+        for m in re.finditer(pat, command, re.IGNORECASE):
+            filename = m.group(1)
+            if "/" not in filename and ".\\" not in filename:
+                candidates.append(filename)
+    for filename in candidates:
+        ok, reason = validate_workspace_path(filename)
+        if not ok:
+            print(f"[Agent Harness Deploy guard] BLOCKED: {reason}", file=sys.stderr)
+            print(f"Shell command would create disallowed file: {filename}", file=sys.stderr)
+            print(f"Command: {command[:200]}", file=sys.stderr)
+            sys.exit(2)
+
+
 def main():
     try:
         data = json.load(sys.stdin)
@@ -1276,6 +1345,9 @@ def main():
     # Gate 1.7: T2.10 — Encoding bypass guard
     _check_encoding_bypass_gate(data)
 
+    # Gate 1.8: Workspace layout enforcement — prevent root markdown/junk files.
+    _check_workspace_layout_gate(data)
+
     # Gate 2: dangerous-command check (Bash/shell only)
     # tool_name + tool_input already extracted above (Gate 1.5)
 
@@ -1288,6 +1360,9 @@ def main():
 
     # Normalize before pattern matching (U02: fix regex bypass via shell encoding)
     normalized = normalize_command(command)
+
+    # Gate 2.0a: Workspace layout enforcement in shell commands (e.g. `echo > REPORT.md`)
+    _check_bash_workspace_layout_gate(normalized)
 
     # Check dangerous patterns against BOTH raw and normalized command
     for pattern, reason in DANGEROUS_PATTERNS:

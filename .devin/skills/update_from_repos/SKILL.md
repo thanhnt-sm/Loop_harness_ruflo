@@ -100,7 +100,7 @@ Trước khi làm bất kỳ update nào, đọc:
 ### Phase 1 — Discover & inventory
 
 1. Chạy `.venv/bin/python .devin/scripts/check_updates.py --tracker .devin/metadata/REPOS_TRACKER.json`.
-2. Đọc `UPDATES_REPORT.md` hoặc output để biết repo nào behind.
+2. Đọc `docs/reports/UPDATES_REPORT.md` hoặc output để biết repo nào behind.
 3. Phân loại từng repo theo **Decision matrix**:
 
 | Repo type | Source examples | Strategy | Default path map | Skip pattern | User approval |
@@ -311,7 +311,7 @@ Nếu user yêu cầu update 1 file trong danh sách trên, phải:
 
 | Script | Mục đích |
 |--------|----------|
-| `.devin/scripts/check_updates.py` | Kiểm tra upstream mới, cập nhật `REPOS_TRACKER.json` và `UPDATES_REPORT.md` |
+| `.devin/scripts/check_updates.py` | Kiểm tra upstream mới, cập nhật `REPOS_TRACKER.json` và `docs/reports/UPDATES_REPORT.md` |
 | `.devin/scripts/show_diff.py` | Diff local vs upstream cho 1 source |
 | `.devin/scripts/merge_updates.py` | Merge direct-copy cho vendored-skill, có backup + rollback |
 | `.devin/scripts/apply_ahd_patch.py` | Surgical cherry-pick AHD, map path, 3-way merge, skip protected |
@@ -330,7 +330,7 @@ Tham số quan trọng của `apply_ahd_patch.py`:
 
 Sau mỗi lần chạy skill, output gồm:
 
-1. `UPDATES_REPORT.md` — tóm tắt repo nào behind.
+1. `docs/reports/UPDATES_REPORT.md` — tóm tắt repo nào behind.
 2. `AHD_PATCH_REPORT.md` — từng commit AHD, file apply/skip.
 3. `MICROSCOPIC_REVIEW_REPORT.md` — rà soát vi phẫu toàn bộ.
 4. Commit log rõ ràng trên branch update.

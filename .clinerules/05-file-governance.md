@@ -28,6 +28,8 @@
 **Root chỉ chứa:** entry/rules (`AGENTS.md`, `CLAUDE.md`, `.clinerules/`, `opencode.json`...), config (`pyproject.toml`, `pytest.ini`, `package.json`...), launcher (`devin-run.*`, `activate.*`, `loop`, `session`), và các file đã commit.
 **Markdown mới ở root = vi phạm.**
 
+> **Runtime enforcement:** Hook `pre_tool_use.py` sẽ chặn ngay mọi `write`/`edit`/`notebook_edit` và lệnh Bash tạo file `.md`/junk ở root không nằm trong allowlist. Đừng cố ghi report/plan/map/analysis trực tiếp ở root — tool call sẽ bị từ chối.
+
 ## 3. Khớp plan ↔ act (bắt buộc M-tier+)
 
 1. **Plan trước** — M/L/XL: viết `docs/plans/<slug>/IMPLEMENTATION_PLAN.md` (template `docs/templates/PLAN_TEMPLATE.md`), mỗi task khai `File Path` + `Acceptance Criteria` + `REQ ID`. Chờ approve trước khi sửa code.

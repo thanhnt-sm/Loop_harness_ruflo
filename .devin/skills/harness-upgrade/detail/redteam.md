@@ -19,7 +19,7 @@
 - Đưa finding Critical/High vào "deferred".
 
 ## 7.0 Ưu tiên số 1: log lần chạy trước
-Nếu tồn tại `harness-upgrade-log.md`: đọc kỹ **"Câu hỏi mở"** và **"Deferred list"** — ĐÂY LÀ ƯU
+Nếu tồn tại `docs/reports/harness-upgrade-log.md`: đọc kỹ **"Câu hỏi mở"** và **"Deferred list"** — ĐÂY LÀ ƯU
 TIÊN SỐ 1 của lần chạy này, **không phải tìm lỗi mới**.
 
 ## GĐ0 — KIỂM KÊ TOÀN DIỆN (Component Map)
@@ -111,7 +111,7 @@ Thực thi TOÀN BỘ Tier 1. Với mỗi hạng mục:
 - ❌ Gắn nhãn Critical thành Medium để dễ đưa vào deferred.
 
 ## GĐ6 — GHI LOG + KIỂM TOÁN TIẾN ĐỘ THẬT
-Cập nhật `harness-upgrade-log.md`:
+Cập nhật `docs/reports/harness-upgrade-log.md`:
 - Root Cause Register: cái nào bịt TẬN GỐC (có bằng chứng re-attack), cái nào chỉ giảm nhẹ (ghi rõ, không giả vờ đã xong).
 - Xu hướng qua các lần chạy: tổng root cause tồn đọng **TĂNG hay GIẢM** — chỉ số thành công thật, không phải "số patch".
 - Danh sách repo/công nghệ mới đã tích hợp thực sự vào kiến trúc.

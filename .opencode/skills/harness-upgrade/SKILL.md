@@ -1,7 +1,7 @@
 ---
 name: harness-upgrade
 description: >-
-  >- Skill rà soát + nâng cấp + tự-tăng-cường workspace này thành best harness cho AI model kém thông minh + context nhỏ: tối đa token-efficiency, tối thiểu always-on context, chất lượng output cao nhất (mục tiêu: đạt tầm Opus/GPT-5/Fable). Launcher nhỏ gọn cho model yếu — chi tiết load-on-demand theo file detail. Output: HARNESS_UPGRADE_REPORT.md + applied upgrades.
+  >- Skill rà soát + nâng cấp + tự-tăng-cường workspace này thành best harness cho AI model kém thông minh + context nhỏ: tối đa token-efficiency, tối thiểu always-on context, chất lượng output cao nhất (mục tiêu: đạt tầm Opus/GPT-5/Fable). Launcher nhỏ gọn cho model yếu — chi tiết load-on-demand theo file detail. Output: docs/reports/HARNESS_UPGRADE_REPORT.md + applied upgrades.
 metadata:
   provider: devin
   source: .devin/skills/harness-upgrade/SKILL.md

@@ -26,7 +26,7 @@
 - Chạy `websearch` từ khóa hiện đại (VD: "harness engineering 2026", "context compression agents 2026",
   "small context agent workflow", "token efficient tool use", "weak model match frontier model").
 - Chỉ adopt khi có **evidence** (eval công khai / paper / case study) + phù hợp tiêu chí tối ưu.
-- **Ghi lại nguồn** vào `HARNESS_UPGRADE_REPORT.md` (chống link-rot, cập nhật REPOS.md nếu đáng dùng).
+- **Ghi lại nguồn** vào `docs/reports/HARNESS_UPGRADE_REPORT.md` (chống link-rot, cập nhật REPOS.md nếu đáng dùng).
 - So sánh ≥2-3 phương án, trả lời: **"Loại bỏ vấn đề tận gốc hay chỉ giảm triệu chứng?"** — loại cái chỉ giảm nhẹ.
 
 ## Kiểm tra upstream trước khi cherry-pick

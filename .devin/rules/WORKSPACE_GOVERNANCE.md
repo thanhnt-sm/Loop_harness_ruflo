@@ -32,10 +32,21 @@
 - Entry/rules: `AGENTS.md`, `CLAUDE.md`, `.clinerules/`, `opencode.json`, `SECURITY.md`, `REPOS.md`, `LICENSE`
 - Config/deps: `pyproject.toml`, `pytest.ini`, `package.json`, `package-lock.json`, `requirements-lock.txt`, `renovate.json`, `.gitignore`, `.gitattributes`, `.ignore`
 - Launcher: `activate.*`, `devin-run.*`, `devin-swe.*`, `loop`, `session`
-- Component maps đã có: `STRUCTURAL_COMPONENT_MAP.md`, `ITERATION_4_COMPONENT_MAP.md`, `MIGRATION_COMPONENT_MAP.md`, `COST_DASHBOARD.md`, `UPDATES_REPORT.md`
-- Báo cáo lịch sử đã commit (không thêm mới): `*_REPORT.md`, `*_ANALYSIS.md`, `*_PLAN.md`, `harness-upgrade-log.md`
 
 > **File markdown mới ở root = vi phạm.** Đưa vào `docs/` (theo bản đồ mục 2) hoặc `docs/plans/<slug>/`.
+
+## 3b. Bộ lọc runtime — mọi write/edit đều bị kiểm soát
+
+Các hook chạy trước mỗi tool call sẽ chặn ngay nếu agent cố ghi file sai chỗ:
+
+- `pre_tool_use.py` → Gate 1.8: workspace layout enforcement.
+- `plan_enforce.py` → workspace layout enforcement cho write tools.
+- Source of truth: `tools/source_map_data.py` (root allowlist), `.devin/scripts/path_zones.py` (safe zones, blocked zones, junk patterns).
+
+Danh sách **file được phép ở root** (cập nhật ở `path_zones.ALLOWED_ROOT_FILES`):
+`AGENTS.md`, `CLAUDE.md`, `SECURITY.md`, `REPOS.md`, `LICENSE`, `.gitignore`, `.gitattributes`, `.ignore`, `opencode.json`, `pyproject.toml`, `pytest.ini`, `package.json`, `package-lock.json`, `requirements-lock.txt`, `renovate.json`, `loop`, `session`, `activate.*`, `devin-run.*`, `devin-swe.*`.
+
+**Hậu quả nếu vi phạm:** tool call bị từ chối với lý do `Root file '<name>' is not allowed` hoặc `Junk file blocked`.
 
 ## 4. Quy tắc "không rác" (bắt buộc)
 

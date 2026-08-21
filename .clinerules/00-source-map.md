@@ -7,58 +7,41 @@
 
 ## 1. Tổng quan
 
-Tổng cộng **643** tracked files. Layer chính:
+Tổng cộng **728** tracked files. Layer chính:
 
 | Thư mục | Files | Vai trò |
 |---|---|---|
-| `.devin/` | 262 | AHD engine — canon, skills, agents, hooks, scripts (động cơ chính của workspace) |
-| `tests/` | 97 | 95 pytest files + conftest — coverage gate 80% (.devin/scripts + hooks) |
-| `.opencode/` | 71 | opencode wrapper layer — tái sử dụng skills/agents/hooks của harness (không đụng .devin) |
-| `HLK/` | 69 | Harness & Logic Knowledge — security layer (Node) — KHÔNG đụng |
-| `.github/` | 38 | CI/CD + supply-chain |
-| `docs/` | 24 | guides, plans, reports, research, templates |
+| `.devin/` | 257 | AHD engine — canon, skills, agents, hooks, scripts (động cơ chính của workspace) |
+| `tests/` | 99 | 95 pytest files + conftest — coverage gate 80% (.devin/scripts + hooks) |
+| `.opencode/` | 175 | opencode wrapper layer — tái sử dụng skills/agents/hooks của harness (không đụng .devin) |
+| `HLK/` | 75 | Harness & Logic Knowledge — security layer (Node) — KHÔNG đụng |
+| `.github/` | 12 | CI/CD + supply-chain |
+| `docs/` | 31 | guides, plans, reports, research, templates |
 | `tools/` | 24 | PowerShell + Python utilities (verify, health-check, backup, deploy, ...) |
 | `specs/` | 2 | TLA+ formal specs (plan_orchestrator.tla, state_router.tla) |
 | `sbom/` | 2 | Software Bill of Materials (npm + python) |
-| `<root>/` | 42 | File gốc — xem mục 2 |
+| `<root>/` | 25 | File gốc — xem mục 2 |
 
 ## 2. File root
 
 | File | Vai trò |
 |---|---|
+| `.coveragerc` |  |
 | `.gitattributes` | Git attributes (line ending, diff) |
 | `.gitignore` | Ignore rules — runtime dirs đều bị loại (phân biệt source vs runtime) |
 | `.ignore` | Ignore cho tool (học từ .gitignore) |
 | `AGENTS.md` | ENTRY chính cho agent — Devin CLI config + skills + 3-Phase + guardrails + MCP + Khuym workflow |
-| `ARCHITECTURAL_ATTACK_REPORT.md` | Báo cáo/plan (lịch sử — đọc khi cần) |
 | `CLAUDE.md` | Universal rules — security, code quality, file org, workflow, language policy |
-| `COST_DASHBOARD.md` | Bảng theo dõi chi phí chạy harness |
-| `EXECUTION_RED_TEAM_REPORT.md` | Báo cáo/plan (lịch sử — đọc khi cần) |
-| `EXECUTION_ROOT_CAUSE_ANALYSIS.md` | Báo cáo/plan (lịch sử — đọc khi cần) |
-| `HARNESS_UPGRADE_REPORT.md` | Báo cáo nâng cấp harness (lịch sử — đọc khi cần) |
-| `ITERATION_4_COMPONENT_MAP.md` | Component map iteration 4 |
 | `LICENSE` | MIT license |
-| `MIGRATION_COMPONENT_MAP.md` | Component map migration |
-| `MIGRATION_IMPLEMENTATION_PLAN.md` | Báo cáo/plan (lịch sử — đọc khi cần) |
-| `MIGRATION_RED_TEAM_REPORT.md` | Báo cáo/plan (lịch sử — đọc khi cần) |
-| `MIGRATION_ROOT_CAUSE_ANALYSIS.md` | Báo cáo/plan (lịch sử — đọc khi cần) |
-| `MIGRATION_SOLUTION_MATRIX.md` | Báo cáo/plan (lịch sử — đọc khi cần) |
 | `REPOS.md` | Master reference list — repo tham khảo/deployed/vendored |
 | `SECURITY.md` | Security policy |
-| `SECURITY_AUDIT_REPORT.md` | Báo cáo/plan (lịch sử — đọc khi cần) |
-| `SECURITY_REMEDIATION_PLAN.md` | Báo cáo/plan (lịch sử — đọc khi cần) |
-| `STRUCTURAL_COMPONENT_MAP.md` | Component map kiến trúc (đọc khi cần chi tiết sâu) |
-| `STRUCTURAL_IMPLEMENTATION_PLAN.md` | Báo cáo/plan (lịch sử — đọc khi cần) |
-| `STRUCTURAL_RED_TEAM_REPORT.md` | Báo cáo/plan (lịch sử — đọc khi cần) |
-| `STRUCTURAL_SOLUTION_MATRIX.md` | Báo cáo/plan (lịch sử — đọc khi cần) |
-| `UPDATES_REPORT.md` | Báo cáo cập nhật gần nhất |
 | `activate.cmd` | Activate environment (Windows) |
 | `activate.ps1` | Activate environment |
+| `coverage.json` |  |
 | `devin-run.cmd` | Launcher Devin CLI (Windows) |
 | `devin-run.ps1` | Launcher Devin CLI (wrapper) |
 | `devin-swe.cmd` | Launcher Devin SWE (Windows) |
 | `devin-swe.ps1` | Launcher Devin SWE |
-| `harness-upgrade-log.md` | Log chi tiết upgrade (lịch sử — đọc khi cần) |
 | `loop` | Loop launcher (text) |
 | `opencode.json` | opencode config — skills paths + permissions (deny force-push/rm -rf/... ) |
 | `package-lock.json` |  |
@@ -82,6 +65,7 @@ Tổng cộng **643** tracked files. Layer chính:
 | `config.local.json` | Config local (gitignored) |
 | `config.minimal.json` | Config tối thiểu |
 | `hook_hashes.json` | Hash baseline hooks (integrity) |
+| `hook_order.json` |  |
 | `loop_state` | Loop state directory entry (runtime) |
 | `loop_state.md` | Registry loop state — đọc ở boot |
 | `loop_state_archive.md` | Archive loop state |
@@ -185,6 +169,7 @@ Tổng cộng **643** tracked files. Layer chính:
 | `post_tool_use.py` | Log tool usage + detect context overload + micro-memory |
 | `pre_tool_use.py` | Guard thao tác nguy hiểm + enforce context compaction |
 | `prompt_cache_metrics.py` | Track cache hit/miss cho stable prefixes |
+| `sandboxed_hook.py` |  |
 | `schema_gate.py` | Gate deterministic — kiểm tra mọi output agent |
 | `self_heal.py` | Tự chữa tri PostToolUse |
 | `session_end.py` | Cleanup + save memory khi session end (U70) |
@@ -271,6 +256,10 @@ Tổng cộng **643** tracked files. Layer chính:
 - `show_diff.py` — Show diff chuẩn hóa
 - `update_common.py` — Update helpers dùng chung
 - `worktree.py` — Git worktree isolation cho task song song
+
+**Khác (chưa phân nhóm):**
+- `cosign_verify.py` — 
+- `harness_upgrade_loop.py` — 
 
 **Subpackages (`.devin/scripts/<pkg>/`):**
 - `adapters/__init__.py` — Adapters package — dual-write migration adapters
@@ -382,6 +371,7 @@ Tổng cộng **643** tracked files. Layer chính:
 - `test_idempotency.py` — → .devin/scripts/idempotency.py
 - `test_llm_as_judge.py` — → .devin/scripts/llm_as_judge.py
 - `test_loop_memory_sync_cov.py` — → .devin/scripts/loop_memory_sync.py
+- `test_merge_updates.py` — → .devin/scripts/merge_updates.py
 - `test_migrate_config.py` — → .devin/scripts/migrate_config.py
 - `test_cli_direct.py`, `test_cli_entrypoints.py` — → .devin/scripts/plan_fsm/cli.py
 - `test_plan_orchestrator.py` — → .devin/scripts/plan_orchestrator.py
@@ -389,6 +379,7 @@ Tổng cộng **643** tracked files. Layer chính:
 - `test_reflection_gate.py` — → .devin/scripts/reflection_gate.py
 - `test_reward_shaping.py` — → .devin/scripts/reward_shaping.py
 - `test_session_manager.py` — → .devin/scripts/session_manager.py
+- `test_show_diff.py` — → .devin/scripts/show_diff.py
 - `test_swarm_director.py` — → .devin/scripts/swarm_director.py
 - `test_swarm_judge.py` — → .devin/scripts/swarm_judge.py
 - `test_three_role.py` — → .devin/scripts/three_role.py
@@ -444,17 +435,8 @@ Tổng cộng **643** tracked files. Layer chính:
 | `CODEOWNERS` | Owners per path |
 | `dependabot.yml` | Dependabot config |
 | `workflows/ci.yml` | CI chính |
-| `workflows/clone-tracker.yml` | Clone tracker |
 | `workflows/codeql.yml` | CodeQL security scan |
-| `workflows/cost-tracker-smoke.yml` | Smoke test cost tracker |
-| `workflows/integration-tests.yml` | Integration tests |
-| `workflows/metaharness-ci.yml` | Meta-harness CI |
-| `workflows/rollback-manager.yml` | Rollback manager |
-| `workflows/ruflo-agent-smoke.yml` | Smoke test ruflo agent |
-| `workflows/status-badges.yml` | Status badges |
 | `workflows/supply-chain.yml` | Supply-chain audit |
-| `workflows/v3-ci.yml` | CI v3 |
-| `workflows/verification-pipeline.yml` | Verification pipeline |
 | `workflows/*.yml` (khác) | 37 workflows: ci, v3-ci, integration, verification, codeql, supply-chain, smoke tests, ... |
 
 ## 10. specs/ + sbom/

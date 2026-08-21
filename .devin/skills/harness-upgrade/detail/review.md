@@ -1,6 +1,6 @@
 # harness-upgrade — Detail: REVIEW (Phase 1 — đo lường, không đụng code)
 
-Mở phiên ghi chú. Chạy full review, ghi vào `HARNESS_UPGRADE_REPORT.md`.
+Mở phiên ghi chú. Chạy full review, ghi vào `docs/reports/HARNESS_UPGRADE_REPORT.md`.
 
 ## 1. Inventory
 ```bash

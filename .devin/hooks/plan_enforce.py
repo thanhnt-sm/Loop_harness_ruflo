@@ -31,6 +31,13 @@ from datetime import datetime
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ahd_session  # noqa: E402
 
+# Workspace layout enforcement shared with pre_tool_use/schema_gate.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+try:
+    from path_zones import validate_workspace_path  # noqa: E402
+except (ImportError, ModuleNotFoundError, SyntaxError, ValueError):
+    validate_workspace_path = None  # type: ignore[assignment]
+
 
 def _repo_root() -> Path:
     """Tìm repo root — đi lên cho đến khi thấy .devin/"""
@@ -277,6 +284,21 @@ def main():
         sys.exit(0)
 
     root = _repo_root()
+
+    # Workspace layout enforcement: chặn root markdown/junk ngay cả S-tier.
+    file_path = _extract_file_path(tool_input)
+    if file_path:
+        if validate_workspace_path is not None:
+            ok, reason = validate_workspace_path(file_path)
+            if not ok:
+                block_reason = f"WORKSPACE GOVERNANCE: {reason}"
+                print(json.dumps({"allow": False, "reason": block_reason, "enforcement": "workspace_layout"}))
+                sys.exit(1)
+        # Cho phép viết plan/template file ngay (không cần plan cho chính nó).
+        if _is_plan_file(file_path, root) or _is_template_file(file_path, root):
+            print(json.dumps({"allow": True, "reason": "writing plan/template file"}))
+            sys.exit(0)
+
     # CVE-2026-AHD-001: session_id BẮT BUỘC cho write tools (fail closed).
     # Thiếu session_id → không thể xác định ownership → không allow write.
     if not session_id:

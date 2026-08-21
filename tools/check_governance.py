@@ -183,6 +183,7 @@ def check_plan_act() -> tuple[list[str], list[str]]:
 
 def main() -> int:
     plan_act_only = "--plan-act" in sys.argv
+    layout_only = "--layout-only" in sys.argv
     errors: list[str] = []
     warnings: list[str] = []
 
@@ -190,9 +191,10 @@ def main() -> int:
         e, w = check_junk_and_layout()
         errors += e
         warnings += w
-    e, w = check_plan_act()
-    errors += e
-    warnings += w
+    if not layout_only:
+        e, w = check_plan_act()
+        errors += e
+        warnings += w
 
     print(f"=== Governance Check — {ROOT.name} ===")
     if errors:

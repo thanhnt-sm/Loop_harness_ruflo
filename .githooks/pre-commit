@@ -21,5 +21,17 @@ if [ $exit_code -ne 0 ]; then
   exit 1
 fi
 
-echo "✅ Redaction check passed - safe to commit"
+echo "🔒 Running workspace governance check..."
+python3 tools/check_governance.py --layout-only
+exit_code=$?
+
+if [ $exit_code -ne 0 ]; then
+  echo ""
+  echo "❌ COMMIT BLOCKED - Workspace governance check failed!"
+  echo "⚠️  Please place files in the correct directories (no root markdown/junk)."
+  echo ""
+  exit 1
+fi
+
+echo "✅ Redaction + governance checks passed - safe to commit"
 exit 0

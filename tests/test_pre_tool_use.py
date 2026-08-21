@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import sys
+import uuid
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -16,9 +17,11 @@ def _run(command):
     env["PYTHONUTF8"] = "1"
     # CVE-2026-AHD-013: gate cost cap fail-closed khi thiếu HMAC key → cấu hình key test.
     env["AHD_COST_LEDGER_KEY"] = "test-key"
+    # Cô lập session call-stack để tránh ảnh hưởng từ session thật/Devin khác.
+    session_id = f"test-pre-tool-use-{uuid.uuid4().hex}"
     result = subprocess.run(
         cmd,
-        input=json.dumps({"tool_name": "exec", "tool_input": {"command": command}}),
+        input=json.dumps({"tool_name": "bash", "tool_input": {"command": command}, "session_id": session_id}),
         capture_output=True,
         text=True,
         cwd=REPO_ROOT,
@@ -153,6 +156,60 @@ def test_context_oversized_gate_fails_closed_on_internal_error(monkeypatch):
     monkeypatch.setattr(hook.ahd_session, "get_session_id", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
     with pytest.raises(SystemExit) as ei:
         hook._check_context_oversized_gate(data)
+    assert ei.value.code == 2
+
+
+# ---- Workspace layout gate (test trực tiếp hàm gate để tránh tác động từ các gate khác) ----
+
+def test_workspace_layout_gate_allows_allowed_root():
+    hook = _import_hook()
+    data = {"tool_name": "Write", "tool_input": {"file_path": "AGENTS.md", "content": "# ok"}}
+    hook._check_workspace_layout_gate(data)  # không raise
+
+
+def test_workspace_layout_gate_allows_docs_reports():
+    hook = _import_hook()
+    data = {"tool_name": "Write", "tool_input": {"file_path": "docs/reports/TEST_2026-01-01.md", "content": "# ok"}}
+    hook._check_workspace_layout_gate(data)  # không raise
+
+
+def test_workspace_layout_gate_blocks_root_markdown():
+    hook = _import_hook()
+    import pytest  # noqa: PLC0415
+    data = {"tool_name": "Write", "tool_input": {"file_path": "HARNESS_UPGRADE_REPORT.md", "content": "# bad"}}
+    with pytest.raises(SystemExit) as ei:
+        hook._check_workspace_layout_gate(data)
+    assert ei.value.code == 2
+
+
+def test_workspace_layout_gate_blocks_root_junk():
+    hook = _import_hook()
+    import pytest  # noqa: PLC0415
+    data = {"tool_name": "Write", "tool_input": {"file_path": "scratch.tmp", "content": ""}}
+    with pytest.raises(SystemExit) as ei:
+        hook._check_workspace_layout_gate(data)
+    assert ei.value.code == 2
+
+
+def test_bash_workspace_layout_gate_blocks_root_markdown():
+    hook = _import_hook()
+    import pytest  # noqa: PLC0415
+    with pytest.raises(SystemExit) as ei:
+        hook._check_bash_workspace_layout_gate("echo '# bad' > REPORT.md")
+    assert ei.value.code == 2
+
+
+def test_bash_workspace_layout_gate_allows_allowed_root():
+    hook = _import_hook()
+    # Sửa AGENTS.md qua bash redirection vẫn được phép (nằm trong allowlist).
+    hook._check_bash_workspace_layout_gate("echo '# ok' > AGENTS.md")
+
+
+def test_bash_workspace_layout_gate_blocks_junk():
+    hook = _import_hook()
+    import pytest  # noqa: PLC0415
+    with pytest.raises(SystemExit) as ei:
+        hook._check_bash_workspace_layout_gate("touch file.tmp")
     assert ei.value.code == 2
 
 

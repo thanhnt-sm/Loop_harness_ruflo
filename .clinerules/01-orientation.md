@@ -16,17 +16,16 @@ Kèm theo: `tests/` (pytest, coverage gate 80%), `docs/`, `tools/` (PowerShell/P
 
 ## Hệ thống phân cấp nguồn chân lý
 
-| Chủ đề | Nguồn |
-|--------|-------|
-| Universal rules | `.devin/canon/CORE_CANON.md` (tool-agnostic — sửa canon, không sửa entry files) |
-| AHD entry | `.devin/AGENTS.md` (summary). `AGENTS_full.md` = 186KB — **KHÔNG đọc** trừ khi cần |
-| Devin CLI config | `.devin/config.json` (permissions L0-L4, hooks, model routing) |
-| Skill index | `.devin/skills/skill_index.json` (2KB, nạp boot) |
-| Cline entry (file này) | `AGENTS.md`, `CLAUDE.md`, `.clinerules/` — tự nạp đầu session |
-| opencode | `.opencode/README.md` + `opencode.json` |
-| HLK | `HLK/README.md` |
-| Repos tham khảo | `REPOS.md` |
-| Component map sâu | `STRUCTURAL_COMPONENT_MAP.md`, `ITERATION_4_COMPONENT_MAP.md` |
+|| Chủ đề | Nguồn |
+||--------|-------|
+|| Universal rules | `.devin/canon/CORE_CANON.md` (tool-agnostic — sửa canon, không sửa entry files) |
+|| AHD entry | `.devin/AGENTS.md` (summary). `AGENTS_full.md` = 186KB — **KHÔNG đọc** trừ khi cần |
+|| Devin CLI config | `.devin/config.json` (permissions L0-L4, hooks, model routing) |
+|| Skill index | `.devin/skills/skill_index.json` (2KB, nạp boot) |
+|| Cline entry (file này) | `AGENTS.md`, `CLAUDE.md`, `.clinerules/` — tự nạp đầu session |
+|| opencode | `.opencode/README.md` + `opencode.json` |
+|| HLK | `HLK/README.md` |
+|| Repos tham khảo | `REPOS.md` |
 
 ## Nguyên lý cốt lõi của harness
 

@@ -29,7 +29,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 LOOP_STATE_DIR = REPO_ROOT / ".devin" / "state"
 LOOP_STATE_FILE = LOOP_STATE_DIR / "harness_upgrade_loop.json"
 LOOP_LOG_FILE = LOOP_STATE_DIR / "harness_upgrade_loop.md"
-LOG_FILE = REPO_ROOT / "harness-upgrade-log.md"
+LOG_FILE = REPO_ROOT / "docs" / "reports" / "harness-upgrade-log.md"
 
 # Priority thấp = quan trọng hơn.
 PRIORITY_RULES = [

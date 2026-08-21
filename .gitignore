@@ -269,12 +269,18 @@ plugins/
 ruflo/
 .claude-plugin/
 
-# Allow source-audit-fix plan documents only, ignore other docs/ content
+# Allow selected docs/ content; block transient docs dirs by default.
 !docs/plans/
+docs/plans/*/
 !docs/plans/source-audit-fix/
 !docs/plans/source-audit-fix/**
-docs/plans/*/
+!docs/plans/workspace-governance-enforcement/
+!docs/plans/workspace-governance-enforcement/**
+!docs/plans/root-cleanup/
+!docs/plans/root-cleanup/**
+docs/plans/*.md
 docs/*
+!docs/plans/
 !docs/reports/
 !docs/reports/**
 

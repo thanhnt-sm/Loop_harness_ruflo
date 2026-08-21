@@ -44,8 +44,8 @@ ONLINE_RESEARCH | MAX_WALL_TIME | MAX_TEST_COST | APPROVER`.
 1. Đọc `detail/v5-redteam-prompt.md`.
 2. THAY mọi `{{PLACEHOLDER}}` bằng giá trị Runtime Manifest đã xác nhận (KHÔNG tự suy đoán).
    - Không có giá trị → GIỮ placeholder + đánh dấu `BLOCKED_PREREQUISITES`.
-   - `ITERATION_ID` = lần kế tiếp trong `harness-upgrade-log.md`; `PREVIOUS_ITERATION_ID` = lần trước (hoặc NONE).
-   - `CURRENT_DATE_TIMEZONE` = giờ hiện tại; `ARTIFACT_ROOT` = thư mục artifact phiên; `LOG_PATH` = `harness-upgrade-log.md`.
+   - `ITERATION_ID` = lần kế tiếp trong `docs/reports/harness-upgrade-log.md`; `PREVIOUS_ITERATION_ID` = lần trước (hoặc NONE).
+   - `CURRENT_DATE_TIMEZONE` = giờ hiện tại; `ARTIFACT_ROOT` = thư mục artifact phiên; `LOG_PATH` = `docs/reports/harness-upgrade-log.md`.
 3. Sau khi fill, chạy nguyên văn prompt đã fill. `--check`/`--no-apply` → `CHANGE_MODE=AUDIT_ONLY`, chỉ thực thi PHASE 1-16 rồi kết luận.
 
 ## 4. Runtime Manifest map (placeholder → nguồn trong harness này)

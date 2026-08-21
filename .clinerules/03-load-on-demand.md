@@ -18,17 +18,14 @@
 | Task opencode | `.opencode/README.md` + agent/skill/tool cụ thể |
 | Task HLK (chỉ đọc) | `HLK/README.md` + module cụ thể |
 | CI/CD | `.github/workflows/<file>.yml` |
-| Component map sâu | `STRUCTURAL_COMPONENT_MAP.md`, `ITERATION_4_COMPONENT_MAP.md` |
-| Chi phí/telemetry | `.devin/scripts/cost_*.py`, `COST_DASHBOARD.md` |
+| Chi phí/telemetry | `.devin/scripts/cost_*.py`, `docs/reports/COST_DASHBOARD.md` |
 | Memory cross-session | `.devin/loop_state.md`, `.devin/canon/MEMORY_PROTOCOL.md` |
 | Lịch sử quyết định | `docs/reports/`, `docs/plans/` (chỉ khi cần) |
 
 ## NEVER READ (đừng mở trừ khi thật sự cần)
 
 - `.devin/AGENTS_full.md` — 186KB full body.
-- `HARNESS_UPGRADE_REPORT.md`, `harness-upgrade-log.md`, `EXECUTION_*.md`,
-  `MIGRATION_*.md`, `STRUCTURAL_*.md`, `SECURITY_*.md`, `ARCHITECTURAL_ATTACK_REPORT.md`
-  — báo cáo lịch sử (chỉ khi cần context quá khứ).
+- Báo cáo lịch sử trong `docs/reports/` và `docs/plans/` — chỉ khi cần context quá khứ.
 - Runtime dirs: `.devin/loop_state/`, `session_state/`, `plan_state/`, `telemetry/`,
   `blackboard/`, `.omo/`, `.codegraph/`, `node_modules/`, `.venv/`.
 - `.gitignore` đã loại runtime — file tracked mới là source thật.

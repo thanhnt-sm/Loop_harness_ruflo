@@ -25,8 +25,8 @@ wc -c .devin/skills/*/SKILL.md 2>/dev/null       # skill bodies (giảm nếu U-
 - Cả hai không đổi + không tăng quality = **hoàn tác** upgrade.
 
 ### Cập nhật tracker + báo cáo
-- Ghi vào `.devin/upgrade/UPGRADE_TRACKER.json` / `_V2.json` hoặc tạo `HARNESS_UPGRADE_REPORT.md`.
-- `HARNESS_UPGRADE_REPORT.md`: baseline metrics, upgrades applied (trước→sau, **token delta riêng input/output**),
+- Ghi vào `.devin/upgrade/UPGRADE_TRACKER.json` / `_V2.json` hoặc tạo `docs/reports/HARNESS_UPGRADE_REPORT.md`.
+- `docs/reports/HARNESS_UPGRADE_REPORT.md`: baseline metrics, upgrades applied (trước→sau, **token delta riêng input/output**),
   verification results, next candidates, nguồn tham khảo. Ghi rõ **loại token savings**: input / output / cost / round-trip.
 
 ## REPORT (Phase 5)
@@ -39,7 +39,7 @@ Báo cáo ngắn gọn cho user:
 - Verification: PASS/FAIL (what ran)
 - Quality verdict: "model yếu + harness này đạt tầm Opus/Fable?" (có/không + lý do)
 - Next candidates (chưa làm, có score)
-- Path: HARNESS_UPGRADE_REPORT.md
+- Path: docs/reports/HARNESS_UPGRADE_REPORT.md
 ```
 
 ## Guardrails đầy đủ

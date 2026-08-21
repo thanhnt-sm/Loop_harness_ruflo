@@ -71,6 +71,9 @@ jobs:
           done
           echo "Workspace verify passed"
 
+      - name: Workspace governance check
+        run: python tools/check_governance.py
+
       - name: Run pytest with coverage
         run: pytest --cov=.devin --cov-report=term-missing -ra
         continue-on-error: true
