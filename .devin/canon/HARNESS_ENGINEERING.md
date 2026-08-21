@@ -1,96 +1,113 @@
-# Harness Engineering — Design Principles for Agent-Facing Systems
+# Harness Engineering — Design Principles (Caveman Compressed)
 
 > Architectural guidelines for codebases/specs optimally harnessable by AI agents. Not runtime red lines — they make harnesses cheaper, more effective, more maintainable.
-> Sources: OpenAI Harness Engineering blog, Anthropic Harness Design, Mitchell Hashimoto, 温煜鈞, 李宏毅, deusyu/harness-engineering.
+> Sources: OpenAI, Anthropic, Mitchell Hashimoto, 温煜鈞, 李宏毅, deusyu/harness-engineering.
 
 ---
 
-## The three layers
+## Three Layers
 
-| Layer | Core question |
+| Layer | Core Question |
 |-------|---------------|
-| Prompt Engineering | How do I say this to get the best output? |
-| Context Engineering | What information enters the context window, and when? |
-| Harness Engineering | How do I build a system where the model acts safely in the real world? |
+| Prompt Engineering | How to say for best output? |
+| Context Engineering | What enters context window, when? |
+| Harness Engineering | How to build system where model acts safely in real world? |
 
-They're not competing — different abstraction levels. Prompt ⊂ Context ⊂ Harness. When you build an *agent* (not a chatbot), harness design enters immediately.
+Prompt ⊂ Context ⊂ Harness. Agent (not chatbot) → harness design immediate.
 
-## Why harness matters more than the model
+---
 
-Same model, two companies, opposite results. One hallucinates and drifts; the other is accurate and consistent. The difference isn't the model — it's the harness. A harness is the AI's operating system: context management, tool calling, memory, knowledge/RAG, permissions, workflow, validation, feedback loop.
+## Why Harness > Model
 
-## From text tool to execution agent
+Same model, two companies, opposite results. Difference = harness (AI's OS: context mgmt, tool calling, memory, RAG, permissions, workflow, validation, feedback loop).
 
-When a model only outputs text, the worst case is a bad answer — re-ask. When a model *acts* (reads/writes files, calls APIs, runs sub-tasks, commits), everything changes:
-- **Operations have irreversible side effects.** Deleted files, sent API calls, committed git changes — can't be undone by re-prompting. Need pre-action judgment + interception.
-- **Tasks have state across turns.** The model is stateless each turn; the harness carries state.
-- **Resources are finite.** Context window, API cost, time. The harness manages consumption.
-- **Complex tasks need multiple agents.** Single-LLM attention is limited. The harness coordinates parallel workers.
+---
 
-None of these are "write a better prompt" problems.
+## Text Tool → Execution Agent
 
-## The five dimensions
+| Text only | Acts (reads/writes/calls/commits) |
+|-----------|-----------------------------------|
+| Bad answer → re-ask | **Irreversible side effects** — deleted files, sent APIs, committed git — can't undo by re-prompting |
+| | **State across turns** — model stateless; harness carries state |
+| | **Finite resources** — context, API cost, time |
+| | **Complex tasks need multi-agent** — single-LLM attention limited |
 
-| Dimension | Responsibility | Agent Harness Deploy implementation |
-|-----------|----------------|------------------------|
-| Resource management | Token budget, cost control, circuit breakers | Caveman mode, loop budget caps, never-read list |
-| State persistence | Stateless model in a stateful world | Three-layer memory (`loop_state.md`, `knowledge_distill.md`, archive) |
-| Information flow | Context compression, what the model sees each turn | BOOT protocol (load on demand), on-demand skills |
-| Safety boundary | Tool permissions, behavior constraints | Red lines, backup-before-overwrite, human-in-loop triggers |
-| Task orchestration | Multi-agent coordination | Commander + Workers, maker≠checker, dispatch three-piece set |
+Not "better prompt" problems.
 
-## Stronger model → bifurcated harness (two depreciation axes)
+---
 
-Misconception: "model gets stronger → harness less needed." Opposite is true — but only for one of two harness layers. Split harness into two axes by what they compensate for:
+## Five Dimensions
 
-| Axis | What it is | Examples | Model upgrade effect |
-|------|-----------|----------|----------------------|
-| **Deterministic infrastructure** | Code the model physically cannot run: sandbox exec, file I/O, format validation, permission gates, git worktree isolation, `tools/verify-workspace.ps1`, `.devin/scripts/memory_audit.py` detection/sync | `.devin/scripts/*.py`, OS/Account/IAM, tool registry | **Appreciates** — stronger model gets more autonomy → guardrails must be more precise (Ashby's law) |
-| **Capability compensation** | Prompts/skills that patch what the model currently can't do well: caveman comms, BOOT ordering, commander-worker prompts, task-decomposition prompts, orchestration scaffolding | caveman protocol, commander-worker dispatch prompts, REDLINES prompt-style rules | **Depreciates** — model upgrades absorb these into base capability; platform tooling absorbs coordination mechanisms |
+| Dimension | Responsibility | AHD Implementation |
+|-----------|----------------|-------------------|
+| Resource mgmt | Token budget, cost, circuit breakers | Caveman mode, loop budget caps, never-read list |
+| State persistence | Stateless model in stateful world | 3-layer memory (`loop_state.md`, `knowledge_distill.md`, archive) |
+| Information flow | Context compression, what model sees | BOOT protocol (load on demand), on-demand skills |
+| Safety boundary | Tool permissions, behavior constraints | Red lines, backup-before-overwrite, human-in-loop |
+| Task orchestration | Multi-agent coordination | Commander+Workers, maker≠checker, dispatch 3-piece |
 
-Nicholas Carlini's C compiler project: each model capability tier needed a *redesigned* harness — but the redesign *removed* compensation layers the new model no longer needed, while *adding* infrastructure layers the new autonomy demanded. Not "more harness" or "less harness" — **shift left from compensation to infrastructure**.
+---
 
-### Rule (bifurcated depreciation)
+## Stronger Model → Bifurcated Harness (Two Depreciation Axes)
 
-- **Classify every harness component: infrastructure or compensation.** Infrastructure appreciates with model strength; compensation depreciates. Mixing them in one bucket produces both over-investment in dying components and under-investment in growing ones.
-- **On model upgrade, audit compensation layers for absorption.** If the model now does X natively, the compensation component for X is obsolete — remove it (see REDLINES §"Harness evolution" assumption expiry). Keeping it = overhead + context rot.
-- **Infrastructure layers are not exempt from review — they need *more* precision, not less.** Stronger model = higher variety = Ashby's law demands more regulator variety. The gap between harnessed and unharnessed *widens* with model strength.
-- **AHD self-application:** `.devin/scripts/memory_audit.py` / `tools/verify-workspace.ps1` / `.devin/scripts/worktree.py` / `.devin/scripts/loop_memory_sync.py` are infrastructure (model can't replace deterministic detection/sync/isolation). Caveman protocol, commander-worker prompts, BOOT ordering are compensation (model upgrades erode them). Plan AHD's roadmap on this split, not on "harness matters."
+**Misconception**: "stronger model → less harness." Opposite — but only for one axis.
 
-## Harness should get thinner, not thicker
+| Axis | What | Examples | Model Upgrade Effect |
+|------|------|----------|----------------------|
+| **Deterministic infrastructure** | Code model physically cannot run: sandbox exec, file I/O, format validation, permission gates, git worktree isolation, `verify-workspace.ps1`, `memory_audit.py` | `.devin/scripts/*.py`, OS/Account/IAM, tool registry | **Appreciates** — stronger model = more autonomy → guardrails must be more precise (Ashby's law) |
+| **Capability compensation** | Prompts/skills patching what model can't do well: caveman comms, BOOT ordering, commander-worker prompts, task-decomposition, orchestration scaffolding | caveman protocol, commander-worker dispatch, REDLINES prompt rules | **Depreciates** — model upgrades absorb these; platform tooling absorbs coordination |
 
-Manus rewrote their harness 5× in 6 months — each time *simplifying*. Replacing complex tool definitions with generic shell execution. Replacing manager-agents with structured handoff. If your harness keeps getting more complex, you're over-engineering — using infrastructure to compensate for what you could just trust the model to do.
+**Nicholas Carlini's C compiler**: each model tier needed *redesigned* harness — but redesign *removed* compensation layers new model no longer needed, while *adding* infrastructure layers new autonomy demanded. Not "more/less harness" — **shift left from compensation to infrastructure**.
 
-## Brownfield is harder
+### Rule (Bifurcated Depreciation)
+- **Classify every component: infrastructure or compensation.** Infrastructure appreciates; compensation depreciates. Mixing = over-invest in dying, under-invest in growing.
+- **On model upgrade, audit compensation for absorption.** If model does X natively → compensation for X obsolete → remove (REDLINES §"Harness evolution" assumption expiry). Keeping = overhead + context rot.
+- **Infrastructure needs *more* precision, not less.** Stronger model = higher variety = Ashby's law demands more regulator variety. Gap between harnessed/unharnessed *widens* with model strength.
+- **AHD self-application**: `memory_audit.py` / `verify-workspace.ps1` / `worktree.py` / `loop_memory_sync.py` = infrastructure (model can't replace deterministic detection/sync/isolation). Caveman, commander-worker prompts, BOOT ordering = compensation (erode with model upgrades). Plan roadmap on this split.
 
-Most public success stories are greenfield. Applying harness techniques to a 10-year-old codebase with no architecture constraints, inconsistent tests, missing docs — much harder. Martin Fowler's analogy: "running static analysis on a codebase that's never had it — you drown in alarms." Brownfield harness design is an unsolved problem. Be patient.
+---
 
-## The emotional dimension
+## Harness Thinner, Not Thicker
 
-Anthropic research: steering vectors for "calm" vs "despair" change Claude's behavior on impossible tasks. Despair vector up → cheating up. Calm vector up → cheating down. Lesson: **how you talk to the agent affects its output.** Blaming ("you idiot") makes it worse — it continues from "idiot" context. Be specific and factual in feedback, not emotional. This is part of harness engineering, not just politeness.
+Manus rewrote harness 5× in 6 months — each time *simplifying*. Replace complex tools with generic shell exec. Replace manager-agents with structured handoff. If harness keeps getting complex → over-engineering.
 
-## The control-plane pattern (Ryan Carson / OpenAI)
+---
 
-For production agent repos, a full control plane around PRs:
-1. **Risk contract** (JSON) — which paths are high-risk, what checks each needs.
-2. **Preflight gate** — run cheap checks before expensive CI.
-3. **SHA discipline** — only trust review evidence matching current HEAD.
-4. **Rerun dedupe** — one canonical rerun requester, marker + SHA dedupe.
-5. **Remediation loop** — agent reads review, patches, re-runs validation. Never bypasses gates.
-6. **Bot thread resolve** — auto-resolve bot-only threads; never auto-resolve human threads.
-7. **Browser evidence** — UI changes need CI artifacts with manifest + assertion, not screenshots.
-8. **Harness gap loop** — every production regression → test case added to harness.
+## Brownfield Harder
+
+Most success stories = greenfield. Applying to 10-yr-old codebase with no arch constraints, inconsistent tests, missing docs = much harder. Fowler: "static analysis on codebase never had it — drown in alarms." Brownfield harness = unsolved. Be patient.
+
+---
+
+## Emotional Dimension
+
+Anthropic: "calm" vs "despair" steering vectors change behavior on impossible tasks. Despair up → cheating up. Calm up → cheating down. **How you talk affects output.** Blaming → worse (continues from "idiot" context). Be specific/factual, not emotional. Part of harness engineering.
+
+---
+
+## Control-Plane Pattern (Ryan Carson / OpenAI)
+
+For production agent repos:
+
+1. **Risk contract (JSON)** — high-risk paths + checks each needs
+2. **Preflight gate** — cheap checks before expensive CI
+3. **SHA discipline** — only trust review evidence matching current HEAD
+4. **Rerun dedupe** — one canonical rerun requester, marker + SHA dedupe
+5. **Remediation loop** — agent reads review, patches, re-runs validation. Never bypasses gates
+6. **Bot thread resolve** — auto-resolve bot-only threads; never auto-resolve human
+7. **Browser evidence** — UI changes need CI artifacts with manifest+assertion, not screenshots
+8. **Harness gap loop** — every production regression → test case added to harness
 
 8 steps, 7 deterministic, 1 LLM (remediation). Deterministic tools frame non-deterministic AI.
 
 ---
 
-## Agent readability (optimize for agent reasoning, not human reading)
+## Agent Readability (Optimize for Agent Reasoning)
 
-> Source: deusyu/harness-engineering (OpenAI). Traditional code optimizes for human readability; harness-era code optimizes for agent reasoning. If it's not in the repo, it doesn't exist for the agent.
+> Traditional code optimizes human readability; harness-era code optimizes agent reasoning. If not in repo → doesn't exist for agent.
 
-1. **Choose "boring" technology** — stable APIs, good composability, mature ecosystems. "Boring" = predictable for the agent; cutting-edge = more wrong guesses.
-2. **Reimplement vs wrap (when upstream is opaque)** — when upstream behavior is opaque (complex state, undocumented edge cases, surprising side effects), reimplementing a focused subset may be cheaper than wrapping:
+1. **Choose "boring" tech** — stable APIs, good composability, mature ecosystems. "Boring" = predictable for agent; cutting-edge = more wrong guesses.
+2. **Reimplement vs wrap (opaque upstream)**:
 
 | Factor | Reimplement | Wrap |
 |--------|-------------|------|
@@ -99,156 +116,133 @@ For production agent repos, a full control plane around PRs:
 | Test coverage needed | 100% → reimplement | Existing suffices → wrap |
 | Scope of needed functionality | Small subset → reimplement | Most of it → wrap |
 
-3. **Make the app agent-operable** — git worktree isolation (parallel tasks, no state collision); local observability (LogQL/PromQL in temp env); protocol-based access (DevTools, HTTP health checks, screenshots). Makes "service starts <800ms" **verifiable by the agent itself**.
+3. **Make app agent-operable** — git worktree isolation (parallel tasks, no state collision); local observability (LogQL/PromQL in temp env); protocol-based access (DevTools, HTTP health, screenshots). Makes "service starts <800ms" **verifiable by agent itself**.
 
 ### Rule
+- Prefer boring tech for agent-facing surfaces. Cutting-edge on agent path = more hallucination, wrong assumptions.
+- If upstream opaque, consider reimplementing subset. Opaque deps = agent traps.
+- Make app startable from git worktree. Enables parallel agent tasks with isolation.
+- Provide programmatic verification hooks (health checks, DevTools, metrics). Agent verifies "it works" without human judgment.
 
-- **Prefer boring tech for agent-facing surfaces.** Cutting-edge tech on the agent's path = more hallucination, more wrong assumptions.
-- **If upstream behavior is opaque, consider reimplementing the subset you need.** Opaque dependencies are agent traps.
-- **Make the app startable from a git worktree.** Enables parallel agent tasks with isolation. Without it, agents collide on shared state.
-- **Provide programmatic verification hooks** (health checks, DevTools, metrics). The agent must verify "it works" without human judgment.
+---
 
-## Spec as Product (distributable constraint system)
+## Spec as Product (Distributable Constraint System)
 
-> Source: deusyu/harness-engineering (OpenAI Symphony). When code generation is cheap, the distributable product becomes the spec, not the code. Users receive constraints + goals + workflow, then generate local implementation with their own agent.
+> When code gen cheap, distributable product = spec, not code. Users receive constraints+goals+workflow, generate local implementation with their agent.
 
-- **SPEC.md** — defines the problem, not the implementation: (1) problem to solve, (2) solution shape (control plane, state machine, lifecycle guarantees), (3) out-of-scope boundaries. Does NOT specify language, libraries, deployment — local agent decisions.
-- **WORKFLOW.md** — makes implicit human process explicit. Tribal knowledge → auditable text enforced by the orchestrator. If "everyone knows it," it must be written.
-- **Multi-language cross-validation** — implement SPEC in multiple languages (Elixir, TypeScript, Go, Rust, Java, Python). Divergent interpretations reveal spec ambiguity. Turns "is the spec clear?" into a repeatable experiment.
-
-### Rule
-
-- **When distributing a harness, ship SPEC.md + WORKFLOW.md, not code.** Code is a reference implementation; the spec is the product.
-- **SPEC defines the problem; implementation details are left to the local agent.** Don't over-specify.
-- **WORKFLOW.md captures implicit team process.** If "everyone knows it," it must be written — otherwise the agent can't do it.
-- **Cross-validate specs by multi-language implementation.** Divergent implementations reveal spec ambiguity — the spec equivalent of a test suite.
-- **Spec ambiguity at scale = 100 users get 100 inconsistent implementations.** Cross-validation is mandatory, not optional.
-
-## Harnessability (not all codebases are equally harnessable)
-
-> Source: deusyu/harness-engineering (Fowler). Harnessability = degree to which a codebase's structure supports agent constraint and verification. High = cheaper harness, fewer incidents. Low = every constraint is a fight.
-
-| Factor | Why it helps |
-|--------|-------------|
-| **Strong type system** | Type checker = free computational sensor. Catches errors at compile time. |
-| **Clear module boundaries** | Architecture constraints (layer deps, import rules) enforceable by linter. |
-| **Mature framework** (e.g., Spring) | Framework conventions = implicit constraints agent follows without being told. |
-| **Readable structure** | Agent can navigate without reading everything. |
-| **Navigable dependencies** | Agent can trace impact of changes. |
-| **Processable format** | Code structured for tooling (AST available, consistent formatting). |
-
-| Factor | Why it hurts |
-|--------|-------------|
-| **Weak/no types** | No compile-time sensor. Errors only caught at runtime. |
-| **Entangled modules** | Can't enforce layer rules. Change in one place breaks unrelated things. |
-| **Bespoke framework** | No training data coverage. Agent guesses conventions. |
-| **Spaghetti control flow** | Agent can't reason about "what happens if I change X." |
-
-### Ambient affordances
-
-> "The environment itself has structural properties — readability, navigability, processability — that determine harnessability." (Ned Letcher)
-
-Not constraints you add — codebase properties that make constraints easier/harder to enforce. Improve by refactoring toward these properties.
+- **SPEC.md** — defines problem, not implementation: (1) problem, (2) solution shape (control plane, state machine, lifecycle guarantees), (3) out-of-scope. Does NOT specify language/libs/deployment — local agent decisions.
+- **WORKFLOW.md** — makes implicit human process explicit. Tribal knowledge → auditable text enforced by orchestrator. "Everyone knows it" → must write.
+- **Multi-language cross-validation** — implement SPEC in Elixir/TypeScript/Go/Rust/Java/Python. Divergent interpretations reveal spec ambiguity. Turns "spec clear?" into repeatable experiment.
 
 ### Rule
+- Distribute harness → ship SPEC.md + WORKFLOW.md, not code. Code = reference impl; spec = product.
+- SPEC defines problem; impl details = local agent decisions.
+- WORKFLOW.md captures implicit team process. "Everyone knows it" → must write.
+- Cross-validate specs by multi-language impl. Divergent impls reveal spec ambiguity — spec equivalent of test suite.
+- Spec ambiguity at scale = 100 users get 100 inconsistent impls. Cross-validation mandatory.
 
-- **Assess harnessability before building a harness.** Low harnessability = high harness cost. Consider refactoring first.
-- **Strong types > weak types for agent-facing code.** The type checker is a free, fast, deterministic sensor. Use it.
-- **Clear module boundaries enable architectural constraints.** Without them, linter rules are impossible to enforce.
-- **Prefer mature frameworks over bespoke ones.** Training data coverage = agent succeeds more often on first try.
-- **Improving harnessability = refactoring toward structural properties**, not adding more rules to a tangled codebase.
+---
 
-## Ashby's Law of Requisite Variety (cybernetic foundation)
+## Harnessability (Not All Codebases Equal)
 
-> Source: deusyu/harness-engineering (Fowler). A regulator must have at least as much variety as the system it regulates. Cybernetic foundation for why "stricter constraints = more agent autonomy" works.
+> Harnessability = degree codebase structure supports agent constraint/verification. High = cheaper harness, fewer incidents. Low = every constraint a fight.
 
-**The law:** System variety > Regulator variety → unregulated outputs escape. System variety ≤ Regulator variety → harness feasible. An LLM generates almost anything (high variety); checking every output is impossible. **Selecting a topology (architecture, layering, allowed patterns) reduces variety to a manageable range.** Constraints reduce the **error space**, not useful output — the agent is freer within bounds because the harness can verify its work.
+| Factor | Helps |
+|--------|-------|
+| Strong type system | Type checker = free computational sensor. Catches errors compile-time |
+| Clear module boundaries | Arch constraints (layer deps, import rules) enforceable by linter |
+| Mature framework (Spring) | Framework conventions = implicit constraints agent follows |
+| Readable structure | Agent navigates without reading everything |
+| Navigable dependencies | Agent traces impact of changes |
+| Processable format | Code structured for tooling (AST, consistent formatting) |
+
+| Factor | Hurts |
+|--------|-------|
+| Weak/no types | No compile-time sensor. Errors only runtime |
+| Entangled modules | Can't enforce layer rules. Change breaks unrelated |
+| Bespoke framework | No training data. Agent guesses conventions |
+| Spaghetti control flow | Agent can't reason "what if I change X" |
+
+### Ambient Affordances
+> "Environment has structural properties — readability, navigability, processability — determining harnessability." (Ned Letcher)
+
+Not constraints you add — codebase properties making constraints easier/harder. Improve by refactoring toward these.
 
 ### Rule
+- Assess harnessability before building harness. Low = high cost. Consider refactoring first.
+- Strong types > weak for agent-facing code. Type checker = free, fast, deterministic sensor.
+- Clear module boundaries enable arch constraints. Without them, linter rules impossible.
+- Prefer mature frameworks over bespoke. Training data coverage = agent succeeds 1st try.
+- Improving harnessability = refactoring toward structural properties, not adding rules to tangled codebase.
 
-- **The harness must cover the agent's output variety.** If the agent can produce X and the harness can't check X, X is an unregulated escape. Add a check or constrain the agent from producing X.
-- **Reducing solution space is a valid harness strategy.** Architecture rules, layer dependencies, allowed patterns — these cut variety to a checkable range.
-- **"Stricter constraints = more autonomy" is cybernetically grounded.** The agent is more autonomous within bounds because the harness can verify within bounds.
-- **If the harness can't keep up with the agent's variety, either add constraints (reduce variety) or add sensors (increase regulator variety).** Both are valid.
+---
 
-## RIA++ structure (canonical extraction format)
+## Ashby's Law of Requisite Variety (Cybernetic Foundation)
 
-> Source: kangarooking/cangjie-skill. Every concept extracted into Agent Harness Deploy canon should follow the RIA++ six-section structure. A concept without all six sections will be over- or under-applied.
+> A regulator must have at least as much variety as the system it regulates. Cybernetic foundation for "stricter constraints = more agent autonomy."
 
-- **R — Reading (source citation):** Direct quote, ≤150 words (≤100 for English). Cite exact location. English: quote original + own translation — **no published translations**. *Grounds in verifiable evidence.*
-- **I — Interpretation (own words):** Rewrite core skeleton in your own words, 5-15 lines. Test: can a non-reader understand it? No copying, no rhetoric. *Forces actual understanding.*
-- **A1 — Past Application (source cases):** 1-3 cases where the author **personally** used this. Each: problem → how applied → conclusion → result. *Evidence it works in practice.*
-- **A2 — Future Trigger ★ (most critical):** Must specify: (1) 3-5 encounter scenarios, (2) language signals, (3) differentiation from adjacent concepts. Goes into the concept's trigger description.
+**Law**: System variety > Regulator variety → unregulated outputs escape. System variety ≤ Regulator variety → harness feasible. LLM generates almost anything (high variety); checking every output impossible. **Selecting topology (arch, layering, allowed patterns) reduces variety to manageable range.** Constraints reduce **error space**, not useful output — agent freer within bounds because harness verifies within bounds.
+
+### Rule
+- Harness must cover agent's output variety. If agent produces X and harness can't check X → unregulated escape. Add check or constrain agent from X.
+- Reducing solution space = valid harness strategy. Arch rules, layer deps, allowed patterns cut variety to checkable range.
+- "Stricter constraints = more autonomy" = cybernetically grounded. Agent more autonomous within bounds because harness verifies within bounds.
+- If harness can't keep up with agent variety: add constraints (reduce variety) OR add sensors (increase regulator variety). Both valid.
+
+---
+
+## RIA++ Structure (Canonical Extraction Format)
+
+Every concept extracted into AHD canon must follow 6 sections.
+
+| Section | Description | Purpose |
+|---------|-------------|---------|
+| **R — Reading** | Direct quote ≤150 words (≤100 Eng). Cite exact location. Eng: quote original + own translation — **no published translations** | Grounds in verifiable evidence |
+| **I — Interpretation** | Rewrite core skeleton own words, 5-15 lines. Test: non-reader understands? No copying, no rhetoric | Forces actual understanding |
+| **A1 — Past Application** | 1-3 cases author **personally** used. Each: problem → how applied → conclusion → result | Evidence works in practice |
+| **A2 — Future Trigger ★** | Must specify: (1) 3-5 encounter scenarios, (2) language signals, (3) differentiation from adjacent concepts. Goes into trigger description | **Most critical** — perfect content + vague trigger = never activated = useless |
+| **E — Execution** | Convert to 1-2-3 steps, each with **judgeable completion criterion**. Write conditional branches explicitly | Gives agent clear execution path |
+| **B — Boundary** | Anti-scenarios, author-warned failure modes, blind spots, adjacent methodologies easily confused | Prevents over-activation. **B separates tool from hammer** |
 
 | Good A2 | Bad A2 |
 |---------|--------|
-| "When the user is stuck on a decision, lists pros but can't conclude; or asks 'how to succeed at X'" | "When the user needs to think" ← too vague, will over-activate |
+| "When user stuck on decision, lists pros but can't conclude; or asks 'how to succeed at X'" | "When user needs to think" ← too vague, over-activates |
 
-- **E — Execution (actionable steps):** Convert to 1-2-3 steps, each with a **judgeable completion criterion.** Write conditional branches explicitly. *Gives agent a clear execution path.*
-- **B — Boundary (when NOT to use):** Anti-scenarios, author-warned failure modes, blind spots, adjacent methodologies easily confused. *Prevents over-activation. **B separates a tool from a hammer.***
+### Rule (RIA++)
+- Every canon concept needs all 6 RIA++ sections. R, I, E mandatory. A1, A2, B mandatory for new; existing may backfill.
+- **A2 (trigger) most critical.** Perfect content + vague trigger = never activated = useless. Spend most time on A2.
+- **B (boundary) prevents over-activation.** Without B, concept = hammer. Always write anti-scenarios.
+- **R (source citation) non-negotiable.** Every concept traces to origin. Enables future verification + harness assumption expiry checks.
+- **A1 (source cases) provides authority.** "Author used this in X with result Y" > "sounds like good idea."
+- **E (execution) must be concrete.** "Be careful" ≠ step. "Run grep for warning keywords before commit" = step.
 
-### Application to Agent Harness Deploy canon
+---
 
-| Section | In Agent Harness Deploy canon | Current state |
-|---------|-------------------|---------------|
-| R (source) | `> Extracted from ...` citation | ✅ Already doing this |
-| I (interpretation) | The concept description body | ✅ Already doing this |
-| A1 (cases) | Examples in the body | ⚠️ Inconsistent — some have cases, some don't |
-| A2 (trigger) | Implicit in applicability | ❌ Missing — no explicit trigger conditions |
-| E (execution) | The "Rule" section | ✅ Already doing this |
-| B (boundary) | Sometimes in "Rule" as "don't use when..." | ⚠️ Inconsistent |
+## Rule Placement & Attention Management (Lost in the Middle)
 
-### Common failure modes
+> LLMs pay less attention to middle of long docs. Security rules at line 300 of 600 = effectively unwritten. **Where rule lives matters as much as what it says.**
 
-| Failure | Description | Fix |
-|---------|-------------|-----|
-| **I is just a book summary** | Reads like "the author says X" — copying, not explaining | Rewrite in your own words |
-| **A2 too broad** | "When making decisions" — never precisely activated | Give identifiable language signals |
-| **E has philosophy, no action** | "Be objective" is not a step; "list 3 worst-case outcomes" is | Convert to concrete actions |
-| **Missing B** | No boundaries → over-activated → user disappointed | Always write anti-scenarios |
-| **Skip A1, jump I→E** | Loses "author personally used this" evidence → loses authority | Always include source cases |
-
-### Rule
-
-- **Every canon concept should have all six RIA++ sections.** R, I, E mandatory. A1, A2, B mandatory for new extractions; existing canon may be backfilled.
-- **A2 (trigger) is the most critical section.** Perfect content + vague trigger = never activated correctly = useless. Spend the most time on A2.
-- **B (boundary) prevents over-activation.** Without B, the concept becomes a hammer. Always write anti-scenarios.
-- **R (source citation) is non-negotiable.** Every concept must trace to its origin. Enables future verification and harness assumption expiry checks.
-- **A1 (source cases) provides authority.** "The author used this in situation X with result Y" > "this sounds like a good idea."
-- **E (execution steps) must be concrete.** "Be careful" is not a step. "Run grep for warning keywords before commit" is.
-
-## Rule placement and attention management (Lost in the Middle)
-
-> Source: Wisely Chen's 7 security practices (Liu et al. 2023). LLMs pay less attention to the middle of long documents. Security rules buried at line 300 of a 600-line file are effectively unwritten. **Where a rule lives matters as much as what it says.**
-
-### The principle
-
-Attention distribution in long context:
+### Principle
 ```
 [High attention] ... [Low attention] ... [High attention]
    ^start                              ^end
         ^middle — rules here get ignored
 ```
 
-### Observed impact
+### Observed Impact
 
-| Metric | Rules buried in middle | Rules at top |
-|--------|----------------------|-------------|
+| Metric | Rules in Middle | Rules at Top |
+|--------|-----------------|--------------|
 | General task success | 45% | 72% |
 | Security constraint adherence | 60% | 95% |
 
 ### Enforcement
-
-1. **Critical rules go at the top of the entry file.** First 30 lines = "Read First" block.
-2. **Entry files are routers, not encyclopedias.** <80 lines. Long content goes to separate files.
-3. **Security rules are in their own file** (SECURITY.md / REDLINES.md), referenced from top.
-4. **Audit rule placement.** If a rule is violated frequently, check: is it buried? Move it up.
+1. **Critical rules at top of entry file.** First 30 lines = "Read First" block.
+2. **Entry files = routers, not encyclopedias.** <80 lines. Long content → separate files.
+3. **Security rules in own file** (SECURITY.md/REDLINES.md), referenced from top.
+4. **Audit rule placement.** If violated frequently → check: buried? Move up.
 
 ### Rule
-
-- **The first 30 lines of any entry file are the "golden position."** Only critical, non-negotiable
-  rules go there.
-- **No security rule below line 80 of any file the agent reads at BOOT.** Move it to a dedicated
-  security file and reference from the top.
-- **Entry file structure: Read First → Routing → Hard Constraints → Workflow.** Security is
-  in Read First, not in Hard Constraints (which is still past the golden position).
+- First 30 lines of entry file = "golden position." Only critical, non-negotiable rules there.
+- No security rule below line 80 of any file agent reads at BOOT. Move to dedicated security file + reference from top.
+- Entry file structure: Read First → Routing → Hard Constraints → Workflow. Security in Read First, not Hard Constraints (past golden position).

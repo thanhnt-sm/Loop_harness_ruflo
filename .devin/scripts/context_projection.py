@@ -242,15 +242,43 @@ def project(
 
 
 def _cli() -> int:
-    """CLI stub: project substrate từ tham số dòng lệnh, in JSON viewport."""
+    """CLI: project substrate hoặc report baseline metrics."""
     import argparse
 
     ap = argparse.ArgumentParser(description="Context Projection Engine (T3.1)")
-    ap.add_argument("substrate", help="Đường dẫn substrate (file hoặc thư mục)")
+    ap.add_argument("substrate", nargs="?", help="Đường dẫn substrate (file hoặc thư mục)")
     ap.add_argument("--query", default="", help="Query để tính relevance")
     ap.add_argument("--k", type=int, default=DEFAULT_K, help="Số chunk tối đa")
     ap.add_argument("--budget", type=int, default=8192, help="Giới hạn token viewport")
+    ap.add_argument("--report", action="store_true", help="In baseline metrics (token counts) cho verification")
     args = ap.parse_args()
+
+    if args.report:
+        root = Path(".").resolve()
+        targets = [
+            root / "AGENTS.md",
+            root / ".devin" / "canon" / "CORE_CANON.md",
+            root / ".devin" / "canon" / "REDLINES.md",
+            root / ".devin" / "canon" / "VERIFICATION_PROTOCOL.md",
+            root / ".devin" / "canon" / "HARNESS_ENGINEERING.md",
+            root / ".devin" / "canon" / "MEMORY_PROTOCOL.md",
+            root / ".devin" / "canon" / "LOOP_PROTOCOL.md",
+            root / ".devin" / "canon" / "BOOT_PROTOCOL.md",
+            root / ".devin" / "canon" / "CAVEMAN_PROTOCOL.md",
+        ]
+        import os
+        total_chars = 0
+        for t in targets:
+            if t.exists():
+                chars = t.stat().st_size
+                total_chars += chars
+                print(f"  {t.relative_to(root)}: {chars} chars (~{chars//4} tokens)")
+        print(f"  TOTAL: {total_chars} chars (~{total_chars//4} tokens)")
+        return 0
+
+    if not args.substrate:
+        ap.error("substrate required unless --report")
+
     vp = project(args.substrate, args.query, k=args.k, budget_tokens=args.budget)
     sys.stdout.write(vp.model_dump_json(by_alias=True, indent=2))
     return 0

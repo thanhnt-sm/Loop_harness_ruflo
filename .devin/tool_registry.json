@@ -1,7 +1,8 @@
 {
-  "_description": "U27: L0-L4 permission taxonomy for tool classification",
-  "_version": "1.0.0",
+  "_description": "U27: L0-L4 permission taxonomy for tool classification + call-graph enforcement (RC-3)",
+  "_version": "1.1.0",
   "_created": "2026-07-07",
+  "_updated": "2026-08-21",
 
   "tiers": {
     "L0": {
@@ -13,7 +14,9 @@
         "LS", "ls", "Get-Content", "cat", "head", "tail", "wc",
         "git status", "git diff", "git log", "git show", "git branch",
         "python --version", "node --version", "npm list"
-      ]
+      ],
+      "max_call_depth": 1,
+      "allowed_children": []
     },
     "L1": {
       "name": "Safe write (workspace-local)",
@@ -23,7 +26,9 @@
         "Write", "write", "Edit", "edit", "notebook_edit", "NotebookEdit",
         "mkdir", "New-Item", "touch",
         "git add", "git checkout", "git stash"
-      ]
+      ],
+      "max_call_depth": 2,
+      "allowed_children": ["L0"]
     },
     "L2": {
       "name": "Write with logging",
@@ -35,7 +40,9 @@
         "make", "cmake", "dotnet build", "dotnet test",
         "pwsh", "powershell", "bash",
         "docker build", "docker run"
-      ]
+      ],
+      "max_call_depth": 3,
+      "allowed_children": ["L0", "L1"]
     },
     "L3": {
       "name": "Sensitive — ask before execution",
@@ -47,7 +54,9 @@
         "npm publish", "pip upload", "docker push",
         "gh pr create", "gh pr merge", "gh issue close",
         "scp", "rsync", "curl", "wget"
-      ]
+      ],
+      "max_call_depth": 3,
+      "allowed_children": ["L0", "L1", "L2"]
     },
     "L4": {
       "name": "Dangerous — deny",
@@ -62,8 +71,24 @@
         "chmod 777", "format", "fdisk",
         "dd if=", "shred",
         "git branch -D", "git push --delete"
-      ]
+      ],
+      "max_call_depth": 0,
+      "allowed_children": []
     }
+  },
+
+  "call_graph": {
+    "max_depth": 3,
+    "allowed_chains": {
+      "L3": ["L2", "L1", "L0"],
+      "L2": ["L1", "L0"],
+      "L1": ["L0"],
+      "L0": []
+    },
+    "blocked_patterns": [
+      "L3->L0 direct",
+      "shell_exec in L2+"
+    ]
   },
 
   "config_mapping": {
