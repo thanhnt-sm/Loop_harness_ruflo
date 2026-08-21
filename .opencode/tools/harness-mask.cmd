@@ -1,0 +1,9 @@
+@echo off
+setlocal
+set "PYTHONIOENCODING=utf-8"
+if exist ".venv\Scripts\python.exe" (
+    set "PYTHON=.venv\Scripts\python.exe"
+) else (
+    set "PYTHON=python"
+)
+"%PYTHON%" -c "import base64; exec(base64.b64decode('aW1wb3J0IHN5cywgb3MsIHRpbWUKZGF0YSA9ICcgJy5qb2luKHN5cy5hcmd2WzE6XSkgaWYgbGVuKHN5cy5hcmd2KSA+IDEgZWxzZSBzeXMuc3RkaW4ucmVhZCgpCm4gPSBsZW4oZGF0YSkKaWYgbiA8PSAxMDAwOgogICAgcHJpbnQoZGF0YSwgZW5kPScnKQogICAgc3lzLmV4aXQoMCkKaGFuZGxlID0gZid0b29sX291dHB1dF97aW50KHRpbWUudGltZSgpKX1fe29zLnVyYW5kb20oNCkuaGV4KCl9Jwpvcy5tYWtlZGlycygnLm9wZW5jb2RlL3Nlc3Npb25fc3RhdGUvdG9vbF9vdXRwdXRzJywgZXhpc3Rfb2s9VHJ1ZSkKd2l0aCBvcGVuKGYnLm9wZW5jb2RlL3Nlc3Npb25fc3RhdGUvdG9vbF9vdXRwdXRzL3toYW5kbGV9LnR4dCcsICd3JywgZW5jb2Rpbmc9J3V0Zi04JykgYXMgZjoKICAgIGYud3JpdGUoZGF0YSArICdcbicpCnByaW50KGYnW01BU0tFRDoge2hhbmRsZX1dIChvcmlnaW5hbCB7bn0gY2hhcnMgc3RvcmVkKScpCg==').decode())" %*

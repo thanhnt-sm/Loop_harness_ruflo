@@ -39,32 +39,36 @@ def _verify_code_quality(code: str, root: Path, session_id: str = "") -> float:
     """
     score = 100.0
     
-    # Write to temp file for checking
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
-        f.write(code)
-        temp_path = f.name
-    
+    # Write to temp dir với tên module hợp lệ để py_compile + import ổn định
+    tmp_dir = tempfile.mkdtemp(prefix="best_of_n_")
+    temp_path = os.path.join(tmp_dir, "candidate.py")
+    Path(temp_path).write_text(code, encoding="utf-8")
+
     try:
         # 1. Syntax check (30 pts)
         result = subprocess.run(
-            [".venv/bin/python", "-m", "py_compile", temp_path],
+            [sys.executable, "-m", "py_compile", temp_path],
             capture_output=True, text=True, timeout=10
         )
         if result.returncode != 0:
             score -= 30
-        
-        # 2. Import check (20 pts) - check if it can be imported without errors
+
+        # 2. Import check (20 pts) - thử import module trong process con
         try:
+            script = (
+                "import sys; "
+                f"sys.path.insert(0, {tmp_dir!r}); "
+                "import candidate"
+            )
             result = subprocess.run(
-                [".venv/bin/python", "-c", f"import sys; sys.path.insert(0, '{os.path.dirname(temp_path)}'); import {os.path.basename(temp_path)[:-3]}"],
-                capture_output=True, text=True, timeout=10,
-                cwd=str(root)
+                [sys.executable, "-c", script],
+                capture_output=True, text=True, timeout=10
             )
             if result.returncode != 0:
                 score -= 20
         except Exception:
             score -= 20
-        
+
         # 3. Slop detection (25 pts) - check for AI filler patterns
         slop_patterns = [
             r"\b(leveraging|utilizing|facilitating|comprehensive|seamless)\b",
@@ -78,7 +82,7 @@ def _verify_code_quality(code: str, root: Path, session_id: str = "") -> float:
             if re.search(pattern, code, re.IGNORECASE):
                 score -= 5
                 break
-        
+
         # 4. Has proper structure (25 pts) - functions, classes, docstrings
         has_func = bool(re.search(r"^\s*def\s+\w+", code, re.MULTILINE))
         has_class = bool(re.search(r"^\s*class\s+\w+", code, re.MULTILINE))
@@ -87,15 +91,16 @@ def _verify_code_quality(code: str, root: Path, session_id: str = "") -> float:
             score -= 15
         if not has_docstring:
             score -= 10
-            
-    except Exception as e:
+
+    except Exception:
         score -= 10
     finally:
         try:
-            os.unlink(temp_path)
+            import shutil
+            shutil.rmtree(tmp_dir, ignore_errors=True)
         except Exception:
             pass
-    
+
     return max(0, min(100, score))
 
 

@@ -227,7 +227,9 @@ def clone_repo(url: str, dest: Path, branch: str = "main", depth: int = 50) -> b
     """Clone repo upstream tạm với URL validation."""
     ok, msg = update_common.validate_git_url(url)
     if not ok:
-        print(f"[ERROR] {msg}", file=sys.stderr)
+        # Không in msg (có thể chứa dữ liệu phái sinh từ url) ra stderr
+        # để tránh clear-text logging sensitive data (CodeQL).
+        print("[ERROR] Git URL validation failed", file=sys.stderr)
         return False
 
     if dest.exists():
@@ -277,7 +279,8 @@ def verify_after_update(touched: list[Path]) -> bool:
         ok = False
 
     # import smoke test nếu chạm scripts/hooks
-    if any(str(f).startswith((".devin/scripts/", ".devin/hooks/")) for f in touched):
+    # Dùng as_posix() để normalize backslash (Windows) -> forward slash
+    if any(f.as_posix().startswith((".devin/scripts/", ".devin/hooks/")) for f in touched):
         code, out, err = run_cmd([sys.executable, "tools/import_smoke_test.py"], cwd=REPO_ROOT, timeout=120)
         if code != 0:
             print(f"[FAIL] import_smoke_test.py exit {code}")

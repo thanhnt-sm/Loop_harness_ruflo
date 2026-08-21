@@ -52,29 +52,21 @@ def get_config_root(root: Path) -> Path:
     except Exception:
         real_repo_root = None
 
-    # If caller passed the real repo root, do deployed config root detection
-    if real_repo_root and root == real_repo_root:
-        here = Path(__file__).resolve()
-        parent_name = here.parent.name
-        if parent_name in ("scripts", "hooks"):
-            candidate = here.parent.parent
-            # Distinguish a deployed config root from the source-repo
-            # core/assets/runtime/ directory. A deployed config root has
-            # session_state/ or loop_state/ siblings (created by _sync_runtime).
-            # The source-repo core/assets/runtime/ does not.
-            if (candidate / "session_state").is_dir() or (candidate / "loop_state").is_dir():
-                return candidate
-        # Real repo root but not deployed -> use .agents
-        return root / ".agents"
-
-    # Test isolation: caller passed a different root (tmp_path), use it directly
-    # Priority: .devin (deployed) > .agents (test) > session_state/loop_state (explicit) > fallback .agents
-    if (root / ".devin").is_dir():
-        return root
-    if (root / ".agents").is_dir():
+    # Xác định config root dựa trên marker thư mục trong `root`,
+    # không dùng Path(__file__) để tránh lỗi khi get_repo_root bị monkeypatch trong test.
+    # Ưu tiên: root/.devin > root/.agents > root/session_state > fallback root/.agents.
+    if (root / ".devin" / "session_state").is_dir() or (root / ".devin" / "loop_state").is_dir():
+        return root / ".devin"
+    if (root / ".agents" / "session_state").is_dir() or (root / ".agents" / "loop_state").is_dir():
         return root / ".agents"
     if (root / "session_state").is_dir() or (root / "loop_state").is_dir():
         return root
+    # Nếu thư mục .devin/.agents tồn tại nhưng chưa có session_state/loop_state
+    # (bootstrap) thì vẫn ưu tiên theo thứ tự trên.
+    if (root / ".devin").is_dir():
+        return root / ".devin"
+    if (root / ".agents").is_dir():
+        return root / ".agents"
 
     # Fallback
     return root / ".agents"
@@ -163,8 +155,10 @@ def get_repo_root(start_from: Optional[Path] = None) -> Path:
             return result
     except (OSError, ValueError, subprocess.SubprocessError):
         pass
+    # Không dùng .agents làm marker vì thư mục home của user cũng có thể có .agents,
+    # gây nhầm repo root khi chạy test trong tmp_path không phải git repo.
     for parent in [cwd, *cwd.parents]:
-        for marker in (".git", ".agents", "AGENTS.md", "pyproject.toml", "README.md"):
+        for marker in (".git", "AGENTS.md", "pyproject.toml", "README.md"):
             if (parent / marker).exists():
                 if start_from is None:
                     with _REPO_ROOT_CACHE_LOCK:

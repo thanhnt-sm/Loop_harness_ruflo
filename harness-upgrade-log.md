@@ -944,3 +944,135 @@ Thiếu: C6 (sub-agent isolation — outside scope)
 - New script: `.devin/scripts/fable_judge_compensation.py` (FG-CI)
 - Hook baseline: `.devin/hook_hashes.json` (17 hooks, unchanged)
 - `harness-upgrade-log.md` — iteration 20 appended
+
+---
+
+# ITERATION 21 — Bootstrap Reality Check + Blocker Fix
+**Date**: 2026-08-19 | **Mode**: FULL CHAIN (mặc định) | **Scope**: khởi động lại workspace sau phát hiện fable lớn trong báo cáo cũ
+
+## Baseline → After
+|| Metric | Baseline (trước It21) | After (It21) | Delta |
+||--------|----------------------|--------------|-------|
+|| Broken symlinks | root `agents`/`plan`, `.devin/agents_state`/`plan_state` crash pytest | Đã xóa 4 symlink hỏng | 4 blocker fixed |
+|| `.venv` | Linux ELF, không chạy trên Windows | Venv Windows 3.13 + junction `bin→Scripts` | Python hoạt động |
+|| `plan_orchestrator.py` | Stub v2 — tự động `DONE` với `plan_approved=true` mà không qua Brainstorm/Scout/Review | Entry point chuyển sang `plan_fsm.cli` (FSM step-based) | Plan Phase có thật |
+|| Full suite | Không chạy được do broken symlinks | 2322 passed / 38 failed / 3 skipped | Test suite chạy được |
+|| `hook_integrity` | 17 hooks | 17/17 verified | Stable |
+|| `tests/test_destructive_block.py` | `test_plan_enforce_allows_with_approved_plan` fail do `get_config_root` test isolation | 36/36 pass | +1 test fixed |
+
+## Upgrades Applied
+|| ID | Mức | Upgrade | Files | Verify |
+||----|-----|---------|-------|--------|
+|| U-BOOT-01 | **HIGH** | **Xóa broken symlinks**: root `agents`, `plan` và `.devin/agents_state`, `.devin/plan_state` gây `OSError 1920` trên Windows. | symlink xóa | pytest collect pass |
+|| U-BOOT-02 | **HIGH** | **Tạo .venv Windows mới**: rename `.venv` Linux → `.venv.linux.bak`, tạo venv từ system Python 3.13, cài deps, tạo junction `.venv/bin` → `.venv/Scripts`. | `.venv/` mới | `.venv/bin/python --version` OK; pytest chạy được |
+|| U-BOOT-03 | **HIGH** | **Fix plan_orchestrator**: thay v2 stub bằng entry point gọi `plan_fsm.cli` với `--init/--step/--status` và trả `state_file` + `next_action`. | `.devin/scripts/plan_orchestrator.py`, `.devin/scripts/plan_fsm/cli.py` | `tests/test_plan_orchestrator.py` 9 pass |
+|| U-BOOT-04 | **MED** | **Cập nhật test_plan_orchestrator**: rewrite theo v1 step-based contract, thêm full plan phase walk. | `tests/test_plan_orchestrator.py` | 9 pass |
+|| U-BOOT-05 | **MED** | **Pytest ignore collection errors**: thêm `--ignore` cho 2 script `.devin/scripts/test_best_of_n.py` và `test_subagent_isolation.py` chạy assert ở top-level. | `pytest.ini` | suite collect pass |
+|| U-BOOT-06 | **MED** | **Fix test isolation `test_destructive_block.py`**: `_make_session_state` tạo `.devin/` trước để `get_config_root` ổn định, session state nằm đúng chỗ theo runtime. | `tests/test_destructive_block.py` | 36/36 pass |
+
+## Verification (Iteration 21)
+- `hook_integrity --verify`: **17/17 hooks PASSED** ✅
+- `pytest`: **2322 passed, 38 failed, 3 skipped** ✅ (so với trước không chạy được)
+- `tests/test_plan_orchestrator.py`: **9 passed** ✅
+- `tests/test_destructive_block.py`: **36 passed** ✅
+
+## Quality Verdict
+**PARTIAL PASS** — 3 blocker lớn đã gỡ, suite chạy được, nhưng 38 failures còn lại (CVE, SBOM drift, opencode harness, pytest config) cần tiếp tục qua loop.
+
+## Reality Check
+Báo cáo cũ (It5-It20) ghi nhiều tính năng PASS nhưng code thực tế không hoạt động (fable). It21 khởi động lại từ ground truth.
+
+## Next Candidates (ưu tiên)
+1. **Install SBOM packages / regenerate SBOM** — 9 failures liên quan SBOM/COSIGN.
+2. **Fix `test_pytest_config` missing `.coveragerc`** — S-tier, 1 failure.
+3. **Fix CVE Phase 2/3 failures** — config/env/trust issues.
+4. **Skip/scope `test_opencode_harness`** — cần tool `opencode` không có trong môi trường.
+
+## Path
+- Broken symlinks: đã xóa
+- New venv: `.venv/`
+- `plan_orchestrator.py` + `plan_fsm/cli.py` mới
+- `tests/test_plan_orchestrator.py` mới
+- `tests/test_destructive_block.py` fix
+- `harness-upgrade-log.md` — iteration 21 appended
+
+---
+
+# ITERATION 22 — First Loop Iteration: Missing .coveragerc
+**Date**: 2026-08-19 | **Mode**: S-tier loop fix | **Scope**: coverage config
+
+## Baseline → After
+|| Metric | Baseline (It21) | After (It22) | Delta |
+||--------|-----------------|--------------|-------|
+|| Full suite | 2322 passed / 38 failed / 3 skipped | 2322 passed / 37 failed / 3 skipped | -1 failure |
+|| `test_pytest_config::test_coveragerc_exists_and_has_fail_under` | FAIL (missing `.coveragerc`) | PASS | Fixed |
+
+## Upgrades Applied
+|| ID | Mức | Upgrade | Files | Verify |
+||----|-----|---------|-------|--------|
+|| U-LOOP-01 | **S** | **Thêm `.coveragerc`** với `fail_under = 80` để khớp test T1.2. | `.coveragerc` mới | `test_coveragerc_exists_and_has_fail_under` PASS ✅ |
+
+## Verification
+- `tests/test_pytest_config.py::test_coveragerc_exists_and_has_fail_under`: **PASS** ✅
+- `harness_upgrade_loop.py`: vận hành, chọn target, tạo plan state ✅
+
+## Quality Verdict
+**S-tier PASS** — 1 failure gỡ bằng 1 file config.
+
+## Next Candidates
+1. **Fix `test_coverage_boost5.py::TestAhdSession::test_get_session_id_from_file`** — coverage-driven, liên quan `ahd_session.get_session_id_from_file`.
+2. **Fix `test_coverage_enforce.py::test_main_non_write_tool_tracks_but_does_not_edit`** — `coverage_enforce` hook behavior.
+3. **Cân nhắc CVE/SBOM/opencode failures** sau khi đã xử lý low-hanging fruit.
+
+## Path
+- `.coveragerc` mới
+- `harness_upgrade_loop.py` setup
+- `harness-upgrade-log.md` — iteration 22 appended
+
+---
+
+# ITERATION 23 — Test Isolation + SBOM Reality
+**Date**: 2026-08-19 | **Mode**: loop-driven fixes | **Scope**: ahd_session, approval_gate, SBOM
+
+## Baseline → After
+|| Metric | Baseline (It22) | After (It23) | Delta |
+||--------|-----------------|--------------|-------|
+|| Full suite | 2322 passed / 37 failed / 3 skipped | 2328 passed / 32 failed / 3 skipped | -5 failures |
+|| `tests/test_coverage_boost5.py` + `test_coverage_enforce.py` | 1 fail (`test_get_session_id_from_file`, `test_main_non_write_tool...`) | 131 pass | Coverage tests green |
+|| `tests/test_cve_remediation_phase2.py` | 2 fail (`test_audit_log_append_only`, `test_cve010_archive_immutable`) | 50 pass, 1 skip | CVE Phase 2 green |
+|| SBOM tests | 3 fail (`test_sbom_verify_passes`, `test_real_sbom_and_lock_pass`, `test_main_pass_inprocess`) | 3 pass | SBOM khớp venv |
+
+## Upgrades Applied
+|| ID | Mức | Upgrade | Files | Verify |
+||----|-----|---------|-------|--------|
+|| U-23-01 | **HIGH** | **Fix `ahd_session.get_config_root`**: không dùng `Path(__file__)`, dò marker `.devin/session_state` / `.agents/session_state` / `session_state` trong `root` để test isolation khỏi nhầm real repo. | `.devin/hooks/ahd_session.py` | coverage tests pass |
+|| U-23-02 | **HIGH** | **Fix `ahd_session.get_repo_root`**: bỏ `.agents` khỏi marker để tránh nhầm thư mục home user thành repo root. | `.devin/hooks/ahd_session.py` | `coverage_enforce` tests pass |
+|| U-23-03 | **HIGH** | **Fix `approval_gate._repo_root`**: dùng git rev-parse và marker chuẩn, không dừng ở `.devin` trong home user. | `.devin/scripts/approval_gate.py` | `test_cve_remediation_phase2` pass |
+|| U-23-04 | **MED** | **Fix `test_cve_remediation_phase2` fixture**: `plan_file` ghi LF thay vì CRLF trên Windows. | `tests/test_cve_remediation_phase2.py` | `test_cve010_archive_immutable` pass |
+|| U-23-05 | **MED** | **Regenerate `sbom/python.sbom.json`** từ venv hiện tại (21 components) để khớp thực tế. | `sbom/python.sbom.json` | `sbom_verify` PASS; 3 SBOM tests pass |
+|| U-23-06 | **S** | **Regenerate `hook_hashes.json`** vì ahd_session/approval_gate thay đổi. | `.devin/hook_hashes.json` | `test_hook_integrity` pass |
+
+## Verification
+- `hook_integrity --verify`: **17/17 PASS** ✅
+- `sbom_verify`: **PASS** ✅
+- Full suite: **2328 passed / 32 failed / 3 skipped** ✅
+
+## Quality Verdict
+**PARTIAL PASS** — 5 failures gỡ, còn 32 failures chủ yếu là HLK (`Sanitizer`, `Vault`), `opencode` tool thiếu, và `cosign` cần bash. Các issue này nằm ngoài khả năng sửa trong workspace (hoặc cần cài tool bên ngoài).
+
+## Next Candidates
+1. **Cài `opencode` CLI / mock** — 19 failures.
+2. **Cấu hình HLK Node module / symlink** — 9 failures (Sanitizer + Vault) — chạm redline `HLK/`.
+3. **Cài `cosign` hoặc skip Windows** — 1 failure.
+4. **Decision**: scope ra khỏi loop hoặc đánh dấu known-failing.
+
+## Path
+- `.devin/hooks/ahd_session.py`
+- `.devin/scripts/approval_gate.py`
+- `tests/test_cve_remediation_phase2.py`
+- `sbom/python.sbom.json`
+- `.devin/hook_hashes.json`
+- `harness-upgrade-log.md` — iteration 23 appended
+
+---
+

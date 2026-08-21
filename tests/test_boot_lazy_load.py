@@ -53,7 +53,7 @@ def test_canon_reference_blocks_are_valid_paths():
     canon_dir = REPO_ROOT / ".devin" / "canon"
     for m in re.findall(r"([A-Z_]+\.md)", entry):
         # Chỉ bỏ qua entry/docs refs (không nằm trong thư mục canon)
-        if m in ("AGENTS.md", "AGENTS_full.md", "CLAUDE.md", "USAGE_GUIDE.md", "CONTINUOUS_LOOP_GUIDE.md"):
+        if m in ("AGENTS.md", "AGENTS_full.md", "CLAUDE.md", "USAGE_GUIDE.md", "CONTINUOUS_LOOP_GUIDE.md", "WORKSPACE_GOVERNANCE.md"):
             continue
         assert (canon_dir / m).exists(), f"canon thiếu: {m}"
 

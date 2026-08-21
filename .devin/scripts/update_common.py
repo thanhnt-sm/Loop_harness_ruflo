@@ -166,15 +166,19 @@ def file_hash(path: Path) -> str:
 
 
 def validate_git_url(url: str) -> tuple[bool, str]:
-    """Validate URL git clone: chỉ cho https, chặn local/file protocols."""
+    """Validate URL git clone: chỉ cho https, chặn local/file protocols.
+
+    Lưu ý: error message KHÔNG chứa URL gốc để tránh leak credentials ra log
+    (CodeQL py/clear-text-logging-sensitive-data). Chỉ trả thông tin generic.
+    """
     url = url.strip()
     if not any(url.startswith(s) for s in ALLOWED_GIT_SCHEMES):
-        return False, f"Invalid URL scheme (only HTTPS allowed): {url}"
+        return False, "Invalid URL scheme: only HTTPS allowed"
     # Block URLs with embedded credentials, fragments or query strings
     from urllib.parse import urlparse
     parsed = urlparse(url)
     if "@" in parsed.netloc:
-        return False, f"URL must not contain credentials: {url}"
+        return False, "URL must not contain embedded credentials"
     if parsed.hostname and parsed.hostname not in TRUSTED_GIT_HOSTS:
         return False, (
             f"Untrusted git host '{parsed.hostname}'. Allowed: "

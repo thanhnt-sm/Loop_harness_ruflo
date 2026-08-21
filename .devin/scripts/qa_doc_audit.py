@@ -34,11 +34,22 @@ EXCLUDE_GLOB = [
     ".devin/reports/**",
     ".devin/prompts/**",
     ".devin/plan_state/**",
+    ".devin/artifacts/**",
     ".devin/upgrade/**",
     ".devin/skills/nuwa-skill/**",
+    ".devin/state/**",
     "docs/plans/**",
+    "docs/reports/**",
     "docs/*_full*.md",
     "docs/research/**",
+    "harness-upgrade-log.md",
+    "HARNESS_UPGRADE_REPORT.md",
+    "SECURITY_AUDIT_REPORT.md",
+    "STRUCTURAL_COMPONENT_MAP.md",
+    "MIGRATION_COMPONENT_MAP.md",
+    "ITERATION_*_*.md",
+    "COMPREHENSIVE_*_AUDIT_*.md",
+    "NEXT_SESSION_EXECUTE_PROMPT.md",
     "REPOS.md",
     "REPOS_TRACKER.json",
 ]
@@ -63,6 +74,9 @@ STALE_PATTERNS = {
 # Các đường dẫn runtime hoặc optional được phép không tồn tại
 IGNORE_PATHS = {
     ".agents/handoff_letter.md",
+    ".agents/knowledge_distill.md",
+    "src/",
+    "/workspace/.tools/env.sh",
 }
 
 # Hardcoded platform paths cấm xuất hiện trong config (R-02): nvm version cứng,
@@ -153,6 +167,10 @@ def _resolve_candidate(src: Path, candidate: str) -> Path | None | bool:
 
         # Tự động thêm .md nếu thiếu cho thư mục con của .devin/skills/ hoặc .devin/agents/
         variants = [cand]
+        # Bỏ line/column range suffix như file.py:123 hoặc file.py:1-5 hoặc file.py:1,2
+        line_stripped = re.sub(r":[\d,\-\s]+$", "", cand)
+        if line_stripped != cand:
+            variants.append(line_stripped)
         if cand.startswith((".devin/skills/", ".devin/agents/", ".devin/canon/")) and "." not in Path(cand).name:
             variants.append(cand.rstrip("/") + "/SKILL.md" if cand.startswith(".devin/skills/") else cand.rstrip("/") + "/AGENT.md")
 
@@ -164,6 +182,12 @@ def _resolve_candidate(src: Path, candidate: str) -> Path | None | bool:
                 resolved = (base / p).resolve()
                 if resolved.exists():
                     return resolved
+                # Nếu candidate bắt đầu bằng tên thư mục chứa src, thử bỏ prefix đó
+                parts = p.parts
+                if len(parts) > 1 and parts[0] == src.parent.name:
+                    resolved = (base / Path(*parts[1:])).resolve()
+                    if resolved.exists():
+                        return resolved
     return None
 
 

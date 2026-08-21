@@ -26,12 +26,13 @@
       "(?i)api[_-]?key\\s*=\\s*['\"]?[^'\"\\s]+",
       "(?i)secret\\s*[:=]\\s*['\"]?[^'\"\\s]+",
       "(?i)token\\s*[:=]\\s*['\"]?[^'\"\\s]+",
-      "(?i)(mongodb\\+srv|postgresql|mysql)://[^\\s]+",
       "(?i)-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----[\\s\\S]*?-----END (RSA |EC |OPENSSH )?PRIVATE KEY-----",
       "AKIA[0-9A-Z]{16}",
       "(?i)aws[_-]?secret[_-]?access[_-]?key\\s*=\\s*['\"]?[A-Za-z0-9/+=]{40}",
+      "(?i)aws[_-]?session[_-]?token\\s*=\\s*['\"]?[A-Za-z0-9/+=]{40,}",
       "(?i)Bearer\\s+[A-Za-z0-9._-]+",
       "(?i)(mongodb\\+srv|postgresql|postgres|mysql|redis|amqp)://[^:\\s]+:[^@\\s]+@[^/\\s]+",
+      "(?i)(mongodb\\+srv|postgresql|postgres|mysql|redis|amqp)://:[^@\\s]+@[^/\\s]+",
       "AIza[0-9A-Za-z_-]{22,}",
       "xox[baprs]-[0-9A-Za-z-]+",
       "(sk|pk|rk)_(live|test)_[0-9a-zA-Z]{24,}",
@@ -44,7 +45,8 @@
       "AIzaSy[A-Za-z0-9_-]{33,}",
       "AC[a-z0-9]{32}",
       "SK[a-z0-9]{32}",
-      "pub[a-f0-9]{32}"
+      "pub[a-f0-9]{32}",
+      "(?i)datadog[_-]?(api|app)[_-]?key\\s*=\\s*['\"]?[a-f0-9]{32}"
     ],
     "redact_replacement": "[REDACTED]",
     "scan_paths": [
@@ -59,15 +61,15 @@
     ],
     "reviewer_keys": [],
     "approval_signature_required": false,
-    "failClosedOnConfigError": false,
+    "failClosedOnConfigError": true,
     "secretPrecedence": "file>env"
   },
   "telemetry_overrides": {
     "CLAUDE_CODE_ENABLE_TELEMETRY": "0",
     "DISABLE_TELEMETRY": "1",
     "OTEL_TRACES_EXPORTER": "none",
-    "OTEL_METRICS_EXPORTER": "file",
-    "OTEL_LOGS_EXPORTER": "file",
+    "OTEL_METRICS_EXPORTER": "none",
+    "OTEL_LOGS_EXPORTER": "none",
     "LANGSMITH_TRACING": "false",
     "LANGFUSE_TRACING": "false"
   }

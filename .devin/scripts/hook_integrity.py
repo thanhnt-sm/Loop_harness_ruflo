@@ -57,11 +57,12 @@ _HOOK_CMD_RE = re.compile(r"\.devin/hooks/([a-zA-Z0-9_]+)\.py")
 
 
 def compute_sha256(path: Path) -> str:
-    """Compute SHA256 of a file."""
+    """Compute SHA256 of a file (normalize CRLF→LF for cross-platform consistency)."""
     h = hashlib.sha256()
     with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(8192), b""):
-            h.update(chunk)
+        data = f.read()
+    # Normalize CRLF→LF để hash nhất quán giữa Windows (CRLF) và Linux CI (LF)
+    h.update(data.replace(b"\r\n", b"\n"))
     return h.hexdigest()
 
 
