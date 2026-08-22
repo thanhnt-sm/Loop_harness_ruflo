@@ -2,6 +2,7 @@
 # Harness Route Tool - Model Routing (U-H12)
 
 set -euo pipefail
+source "$(dirname "$0")/../hooks/find_python.sh"
 
 TASK="${1:-}"
 
@@ -10,8 +11,8 @@ if [[ -z "$TASK" ]]; then
   exit 1
 fi
 
-if [[ -f ".venv/bin/python" && -f ".devin/scripts/auto_model_router.py" ]]; then
-  .venv/bin/python .devin/scripts/auto_model_router.py "$TASK" --estimate-cost
+if [[ -n "$PYTHON" && -f ".devin/scripts/auto_model_router.py" ]]; then
+  $PYTHON .devin/scripts/auto_model_router.py "$TASK" --estimate-cost
 else
   echo "Harness router not installed"
   exit 1

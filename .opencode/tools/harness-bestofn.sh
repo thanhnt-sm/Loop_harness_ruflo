@@ -2,6 +2,7 @@
 # Harness Best-of-N Tool - C4 Best-of-N + Reward Model
 
 set -euo pipefail
+source "$(dirname "$0")/../hooks/find_python.sh"
 
 TASK="${1:-}"
 N="${2:-5}"
@@ -11,8 +12,8 @@ if [[ -z "$TASK" ]]; then
   exit 1
 fi
 
-if [[ -f ".venv/bin/python" && -f ".devin/scripts/best_of_n.py" ]]; then
-  .venv/bin/python -c "
+if [[ -n "$PYTHON" && -f ".devin/scripts/best_of_n.py" ]]; then
+  $PYTHON -c "
 import sys
 sys.path.insert(0, '.devin/scripts')
 from best_of_n import best_of_n

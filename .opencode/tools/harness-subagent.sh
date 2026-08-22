@@ -2,6 +2,7 @@
 # Harness Sub-Agent Tool - C6 Sub-Agent Isolation
 
 set -euo pipefail
+source "$(dirname "$0")/../hooks/find_python.sh"
 
 TASK="${1:-}"
 BUDGET="${2:-3000}"
@@ -12,8 +13,8 @@ if [[ -z "$TASK" ]]; then
   exit 1
 fi
 
-if [[ -f ".venv/bin/python" && -f ".devin/scripts/subagent_isolation.py" ]]; then
-  .venv/bin/python .devin/scripts/subagent_isolation.py "$TASK" "$BUDGET" "$EXECUTOR"
+if [[ -n "$PYTHON" && -f ".devin/scripts/subagent_isolation.py" ]]; then
+  $PYTHON .devin/scripts/subagent_isolation.py "$TASK" "$BUDGET" "$EXECUTOR"
 else
   echo "Harness subagent not installed"
   exit 1

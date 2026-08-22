@@ -2,6 +2,7 @@
 # Harness Compress Tool - Terminal Output Compression (U-H17)
 
 set -euo pipefail
+source "$(dirname "$0")/../hooks/find_python.sh"
 
 COMMAND="${1:-}"
 INPUT="${2:-}"
@@ -10,8 +11,8 @@ if [[ -z "$INPUT" ]]; then
   INPUT=$(cat)
 fi
 
-if [[ -f ".venv/bin/python" && -f ".devin/hooks/compress_terminal_output.py" ]]; then
-  echo "$INPUT" | .venv/bin/python -c "
+if [[ -n "$PYTHON" && -f ".devin/hooks/compress_terminal_output.py" ]]; then
+  echo "$INPUT" | $PYTHON -c "
 import sys, json, re
 data = sys.stdin.read()
 cmd = '$COMMAND'

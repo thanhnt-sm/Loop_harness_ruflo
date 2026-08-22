@@ -49,7 +49,12 @@ def test_agents_have_required_fields():
     # Mỗi AGENT.md phải có name, description, model
     agents_dir = REPO_ROOT / ".devin" / "agents"
     agent_files = list(agents_dir.glob("*/AGENT.md"))
-    assert agent_files, "Không tìm thấy AGENT.md nào"
+    assert agent_files, (
+        f"Không tìm thấy AGENT.md nào. "
+        f"agents_dir={agents_dir}, exists={agents_dir.exists()}, "
+        f"is_dir={agents_dir.is_dir()}, "
+        f"listdir={list(agents_dir.iterdir()) if agents_dir.is_dir() else 'N/A'}"
+    )
     for f in agent_files:
         meta, _ = _parse_frontmatter(f)
         assert meta is not None, f"{f} thiếu YAML frontmatter"

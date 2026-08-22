@@ -27,6 +27,20 @@ class LockAcquireError(Exception):
     """Ném khi không thể lấy được file lock trong thời gian chờ."""
 
 
+def _safe_mkdir(path: Path, parents: bool = True) -> None:
+    """Tạo thư mục an toàn — handle FileExistsError trên Linux Python 3.13.
+
+    Python 3.13 trên Linux có thể ném FileExistsError khi mkdir(exist_ok=True)
+    nếu path là symlink hoặc có race condition giữa các process.
+    """
+    try:
+        path.mkdir(parents=parents, exist_ok=True)
+    except FileExistsError:
+        # Dir đã tồn tại (có thể là symlink) — OK
+        if not path.is_dir():
+            raise
+
+
 def get_config_root(root: Path) -> Path:
     """Determine the config root directory for runtime state files.
 
@@ -257,7 +271,7 @@ def _acquire_lock(lock_path: Path, timeout: float = 10.0) -> Any:
 
     Nếu hết thời gian chờ hoặc gặp lỗi nghiêm trọng, ném ``LockAcquireError``.
     """
-    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    _safe_mkdir(lock_path.parent)
     deadline = time.time() + timeout
 
     # Bước 1: Thử dùng filelock nếu có.
@@ -423,7 +437,7 @@ def _locked_json_write(path: Path, data: Any, session_id: str = "") -> None:
     lock_path = _get_session_lock_path(root, session_id) if session_id else _get_lock_path(root)
     lock = _acquire_lock(lock_path)
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
+        _safe_mkdir(path.parent)
         tmp = path.with_suffix(path.suffix + ".tmp")
         tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
         tmp.replace(path)
@@ -447,7 +461,7 @@ def _locked_json_update(path: Path, update_fn, default: Any = None, session_id: 
             except (json.JSONDecodeError, OSError):
                 pass
         data = update_fn(data)
-        path.parent.mkdir(parents=True, exist_ok=True)
+        _safe_mkdir(path.parent)
         tmp = path.with_suffix(path.suffix + ".tmp")
         tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
         tmp.replace(path)
@@ -461,7 +475,7 @@ def _locked_text_write(path: Path, text: str) -> None:
     root = get_repo_root(path.parent if path.is_absolute() else None)
     lock = _acquire_lock(_get_lock_path(root))
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
+        _safe_mkdir(path.parent)
         tmp = path.with_suffix(path.suffix + ".tmp")
         tmp.write_text(text, encoding="utf-8")
         tmp.replace(path)
@@ -560,7 +574,7 @@ def append_jsonl(path: Path, record: Dict[str, Any]) -> None:
     root = get_repo_root(path.parent if path.is_absolute() else None)
     lock = _acquire_lock(_get_lock_path(root))
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
+        _safe_mkdir(path.parent)
         with open(path, "a", encoding="utf-8") as f:
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
     finally:

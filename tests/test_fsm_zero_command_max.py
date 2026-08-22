@@ -359,6 +359,7 @@ def test_devin_agents_md_updated():
 def test_commander_md_has_3_states():
     """Test COMMANDER.md có 3 state mới."""
     content = _read_file(".devin/agents/COMMANDER.md")
+    assert content, f"COMMANDER.md is empty or missing. Path: {Path(__file__).parent.parent / '.devin/agents/COMMANDER.md'}"
     assert "BRAINSTORM" in content, "Missing BRAINSTORM in COMMANDER.md"
     assert "GAP_SCAN" in content or "GAP-SCAN" in content, "Missing GAP_SCAN in COMMANDER.md"
     assert "PLAN_ENHANCE" in content, "Missing PLAN_ENHANCE in COMMANDER.md"
@@ -367,6 +368,7 @@ def test_commander_md_has_3_states():
 def test_dispatch_templates_has_3_new():
     """Test DISPATCH_TEMPLATES.md có 3 template mới."""
     content = _read_file(".devin/agents/DISPATCH_TEMPLATES.md")
+    assert content, f"DISPATCH_TEMPLATES.md is empty or missing. Path: {Path(__file__).parent.parent / '.devin/agents/DISPATCH_TEMPLATES.md'}"
     assert "Brainstormer" in content or "brainstormer" in content, "Missing Brainstormer template"
     assert "Dynamic Scenario" in content or "dynamic scenario" in content, "Missing Dynamic Scenario template"
     assert "Plan Enhancer" in content or "plan enhancer" in content, "Missing Plan Enhancer template"
