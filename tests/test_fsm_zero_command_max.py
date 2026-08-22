@@ -306,8 +306,12 @@ def test_qc_pass_to_plan_enhance():
 # ---------------------------------------------------------------------------
 
 def _read_file(path):
-    p = Path(__file__).parent.parent / path
+    p = Path(__file__).resolve().parent.parent / path
     if not p.exists():
+        print(f"DEBUG: _read_file('{path}') -> {p} does not exist", file=sys.stderr)
+        print(f"DEBUG: __file__={__file__}", file=sys.stderr)
+        print(f"DEBUG: parent.parent={Path(__file__).resolve().parent.parent}", file=sys.stderr)
+        print(f"DEBUG: cwd={Path.cwd()}", file=sys.stderr)
         return ""
     return p.read_text(encoding="utf-8")
 
