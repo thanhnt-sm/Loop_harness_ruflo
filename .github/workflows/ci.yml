@@ -30,7 +30,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest pytest-cov hypothesis pydantic bandit
+          pip install pytest pytest-cov hypothesis pydantic bandit filelock cryptography pyyaml
 
       - name: Bandit SAST (fail on High, report Medium/Low)
         run: |
@@ -75,19 +75,7 @@ jobs:
         run: python tools/check_governance.py
 
       - name: Run pytest (no coverage gate in CI — coverage tracked locally)
-        run: |
-          set +e
-          echo "=== Python version ==="
-          python --version
-          echo "=== Pytest version ==="
-          pytest --version
-          echo "=== Installed packages ==="
-          pip list 2>/dev/null | grep -iE "pytest|hypothesis|pydantic|cov"
-          echo "=== Running pytest ==="
-          python -m pytest tests/ -v --tb=long --override-ini="addopts=" -x 2>&1 | tail -80
-          pytest_exit=${PIPESTATUS[0]}
-          echo "pytest exit code: $pytest_exit"
-          exit $pytest_exit
+        run: pytest tests/ -q --tb=short --override-ini="addopts=-ra"
 
       - name: Upload coverage report
         if: always()
