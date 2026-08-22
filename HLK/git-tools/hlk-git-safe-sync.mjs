@@ -14,6 +14,8 @@
  *   --no-push             Chỉ doctor + pull + commit, không push.
  *   --no-pull             Bỏ qua bước pull.
  *   --no-add              Không tự động git add (chỉ commit file đã staged).
+ *   --no-merge-main       Bỏ qua bước merge vào main (mặc định: tự merge).
+ *   --main <name>         Tên branch main (mặc định: main).
  *   --remote <name>       Remote name (mặc định: origin).
  *   --branch <name>       Branch name (mặc định: branch hiện tại).
  */
@@ -25,6 +27,9 @@ import {
   log,
   getRepoRoot,
   getBranch,
+  runGit,
+  gitStatus,
+  prompt,
 } from './lib/hlk-git-lib.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -38,8 +43,10 @@ let YES = args.includes('--yes');
 let NO_PUSH = args.includes('--no-push');
 let NO_PULL = args.includes('--no-pull');
 let NO_ADD = args.includes('--no-add');
+let NO_MERGE_MAIN = args.includes('--no-merge-main');
 let REMOTE = 'origin';
 let BRANCH = null;
+let MAIN_BRANCH = 'main';
 
 for (let i = 0; i < args.length; i++) {
   if ((args[i] === '-m' || args[i] === '--message') && args[i + 1]) {
@@ -50,6 +57,9 @@ for (let i = 0; i < args.length; i++) {
     i++;
   } else if ((args[i] === '-b' || args[i] === '--branch') && args[i + 1]) {
     BRANCH = args[i + 1];
+    i++;
+  } else if (args[i] === '--main' && args[i + 1]) {
+    MAIN_BRANCH = args[i + 1];
     i++;
   }
 }
@@ -66,6 +76,68 @@ function runScript(name, extraArgs = []) {
   log('info', `Chạy ${name}...`);
   const r = spawnSync(process.execPath, allArgs, { cwd: CWD, stdio: 'inherit' });
   return r.status ?? 1;
+}
+
+async function ask(question) {
+  if (YES) return true;
+  return prompt(question);
+}
+
+// ---------------------------------------------------------------------------
+// Merge branch hiện tại vào main + push main
+// ---------------------------------------------------------------------------
+
+async function mergeToMain(featureBranch) {
+  if (featureBranch === MAIN_BRANCH) {
+    log('info', `Đang ở branch ${MAIN_BRANCH} — không cần merge.`);
+    return 0;
+  }
+
+  log('info', `Merge ${featureBranch} vào ${MAIN_BRANCH}...`);
+
+  // Kiểm tra working tree sạch trước khi checkout
+  const status = gitStatus(CWD);
+  if (status.length > 0) {
+    log('error', 'Working tree không sạch — không thể checkout main.');
+    return 1;
+  }
+
+  // Checkout main
+  const co = runGit(['checkout', MAIN_BRANCH], { cwd: CWD, stdio: 'inherit' });
+  if (co.status !== 0) {
+    log('error', `Checkout ${MAIN_BRANCH} thất bại.`);
+    return co.status ?? 1;
+  }
+
+  // Pull main mới nhất
+  const pull = runGit(['pull', '--rebase', REMOTE, MAIN_BRANCH], { cwd: CWD, stdio: 'inherit' });
+  if (pull.status !== 0) {
+    log('warn', `Pull ${MAIN_BRANCH} thất bại — tiếp tục merge với local.`);
+  }
+
+  // Merge feature branch vào main (--no-ff giữ history branch)
+  const merge = runGit(['merge', '--no-ff', featureBranch, '-m', `Merge ${featureBranch} into ${MAIN_BRANCH}`], { cwd: CWD, stdio: 'inherit' });
+  if (merge.status !== 0) {
+    log('error', `Merge ${featureBranch} vào ${MAIN_BRANCH} thất bại.`);
+    log('warn', 'Xử lý conflict thủ công, rồi quay lại branch cũ.');
+    return merge.status ?? 1;
+  }
+
+  // Push main lên remote
+  const push = runGit(['push', REMOTE, MAIN_BRANCH], { cwd: CWD, stdio: 'inherit' });
+  if (push.status !== 0) {
+    log('error', `Push ${MAIN_BRANCH} thất bại.`);
+    return push.status ?? 1;
+  }
+
+  // Quay lại branch cũ
+  const coBack = runGit(['checkout', featureBranch], { cwd: CWD, stdio: 'inherit' });
+  if (coBack.status !== 0) {
+    log('warn', `Quay lại ${featureBranch} thất bại — đang ở ${MAIN_BRANCH}.`);
+  }
+
+  log('success', `Merge ${featureBranch} → ${MAIN_BRANCH} + push thành công.`);
+  return 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -129,8 +201,26 @@ async function main() {
   }
   log('success', 'Push OK.');
 
+  // Bước 5: Merge vào main + push main (mặc định ON)
+  if (NO_MERGE_MAIN) {
+    log('info', 'Bỏ qua merge vào main (--no-merge-main).');
+  } else {
+    const currentBranch = getBranch(CWD);
+    if (currentBranch === MAIN_BRANCH) {
+      log('info', `Đang ở ${MAIN_BRANCH} — không cần merge.`);
+    } else if (!(await ask(`Merge ${currentBranch} vào ${MAIN_BRANCH} + push ${MAIN_BRANCH}?`))) {
+      log('info', 'Bỏ qua merge vào main.');
+    } else {
+      const mergeStatus = await mergeToMain(currentBranch);
+      if (mergeStatus !== 0) {
+        log('error', 'Merge vào main thất bại. Dừng lại.');
+        process.exit(1);
+      }
+    }
+  }
+
   log('info', '');
-  log('success', 'Safe sync hoàn thành: doctor → pull → commit → push.');
+  log('success', 'Safe sync hoàn thành: doctor → pull → commit → push → merge-main.');
 }
 
 main();
