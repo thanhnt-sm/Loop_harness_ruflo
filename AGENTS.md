@@ -52,6 +52,7 @@ devin -p -- "mô tả công việc"          # Non-interactive
 /nuwa-skill <task>    # Research-heavy content tasks
 /hlk-git-tools      # Git commit/push/doctor tools
 /hlk-integrity-check  # Verify HLK layer integrity
+/hlk-loop            # HLK pipeline tự học (status/dry-run/reset/iterate)
 /assets               # Slop patterns and vault assets
 /auditor              # Audit code
 /tdd                 # Test-driven development
@@ -139,7 +140,7 @@ S-tier (<5 lines, 1 file, no destructive op) → orchestrator auto-skip, sửa t
 ## AHD components (on-demand)
 
 - **Canon**: `.devin/canon/` — 15 protocol files
-- **Skills**: `.devin/skills/` — 11 skills (plan, full-power, lightning, glm, kimi, adversarial-consensus, aide-memory, nuwa-skill, hlk-git-tools, hlk-integrity-check, assets)
+- **Skills**: `.devin/skills/` — 12 skills (plan, full-power, lightning, glm, kimi, adversarial-consensus, aide-memory, nuwa-skill, hlk-git-tools, hlk-integrity-check, hlk-loop, assets)
 - **Agents**: `.devin/agents/` — 3 executors + COMMANDER + 6 personas + 5 workers
 - **Hooks**: `.devin/hooks/` — 13 Python hooks
 - **Scripts**: `.devin/scripts/` — 21 runtime scripts

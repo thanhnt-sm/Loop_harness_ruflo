@@ -139,6 +139,14 @@
       "size_kb": 2.3,
       "priority": "medium"
     },
+    "hlk-loop": {
+      "path": ".devin/skills/hlk-loop/SKILL.md",
+      "triggers": ["hlk-loop", "hlk loop", "chạy loop hlk", "hlk pipeline", "self-learn loop", "hlk-loop status", "hlk-loop reset"],
+      "executor": "active-model",
+      "description": "HLK Loop Runner — pipeline tự học, wave song song, thu hoạch learnings. status/dry-run/reset.",
+      "size_kb": 2.0,
+      "priority": "medium"
+    },
     "init_deep": {
       "path": ".devin/skills/init_deep.md",
       "triggers": ["init", "deep", "scan", "index", "convention", "registry"],
