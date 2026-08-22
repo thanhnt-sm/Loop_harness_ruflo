@@ -1,14 +1,30 @@
 #!/bin/bash
-# Post-tool-use hook for opencode
+# Post-tool-use hook for opencode — cross-platform (Windows git-bash + macOS/Linux)
 # Applies compression, masking, and runs compensation layers
 
-set -euo pipefail
+set -uo pipefail
 
-TOOL="$1"
-ARGS="$2"
-OUTPUT="$3"
+TOOL="${1:-}"
+ARGS="${2:-}"
+OUTPUT="${3:-}"
 CONTEXT_FILE="/tmp/opencode_context_$$.json"
-PYTHON=".venv/bin/python"
+
+# --- Cross-platform python detection ---
+find_python() {
+    if [ -f ".venv/Scripts/python.exe" ]; then
+        echo ".venv/Scripts/python.exe"
+    elif [ -f ".venv/bin/python" ]; then
+        echo ".venv/bin/python"
+    elif command -v python3 >/dev/null 2>&1; then
+        echo "python3"
+    elif command -v python >/dev/null 2>&1; then
+        echo "python"
+    else
+        echo ""
+    fi
+}
+
+PYTHON=$(find_python)
 
 # Load context
 if [[ ! -f "$CONTEXT_FILE" ]]; then
@@ -16,9 +32,9 @@ if [[ ! -f "$CONTEXT_FILE" ]]; then
   exit 0
 fi
 
-COMPRESS=$($PYTHON -c "import json; print(json.load(open('$CONTEXT_FILE')).get('compress', False))")
-MASK=$($PYTHON -c "import json; print(json.load(open('$CONTEXT_FILE')).get('mask', False))")
-CMD=$($PYTHON -c "import json; print(json.load(open('$CONTEXT_FILE')).get('args', ''))")
+COMPRESS=$($PYTHON -c "import json; print(json.load(open('$CONTEXT_FILE')).get('compress', False))" 2>/dev/null || echo "False")
+MASK=$($PYTHON -c "import json; print(json.load(open('$CONTEXT_FILE')).get('mask', False))" 2>/dev/null || echo "False")
+CMD=$($PYTHON -c "import json; print(json.load(open('$CONTEXT_FILE')).get('args', ''))" 2>/dev/null || echo "")
 
 # Apply terminal compression (U-H17)
 if [[ "$COMPRESS" == "True" && -n "$OUTPUT" ]]; then
@@ -86,7 +102,7 @@ elif cmd.startswith('git status'):
     if unstaged: parts.append(f'{unstaged} unstaged')
     if untracked: parts.append(f'{untracked} untracked')
     if parts:
-        print(f'[git status: {\", \".join(parts)}]')
+        print(f'[git status: {", ".join(parts)}]')
     else:
         print('[git status: clean]')
 else:
@@ -94,19 +110,35 @@ else:
 " 2>/dev/null || echo "$OUTPUT")
 fi
 
-# Apply observation masking (U-H18)
+# Apply observation masking (U-H18) — cross-platform cleanup
 if [[ "$MASK" == "True" && ${#OUTPUT} -gt 1000 ]]; then
-  HANDLE="tool_output:$(date +%s):$(openssl rand -hex 4)"
-  echo "[MASKED: $HANDLE] (original ${#OUTPUT} chars stored)"
+  HANDLE="tool_output:$(date +%s):$(openssl rand -hex 4 2>/dev/null || echo "$(date +%s%N)")"
   # Store full output
   mkdir -p ".opencode/session_state/tool_outputs"
   echo "$OUTPUT" > ".opencode/session_state/tool_outputs/${HANDLE}.txt"
   OUTPUT="[MASKED: $HANDLE] (original ${#OUTPUT} chars stored)"
+
+  # Auto-cleanup: giữ tối đa 50 file (cross-platform, không dùng ls|xargs)
+  if [ -n "$PYTHON" ]; then
+    $PYTHON -c "
+import os, time
+d = '.opencode/session_state/tool_outputs'
+if os.path.isdir(d):
+    files = [(os.path.join(d, f), os.path.getmtime(os.path.join(d, f)))
+             for f in os.listdir(d) if f.endswith('.txt')]
+    files.sort(key=lambda x: x[1], reverse=True)
+    for f, _ in files[50:]:
+        try: os.remove(f)
+        except OSError: pass
+" 2>/dev/null || true
+  fi
 fi
 
 # Fable-judge on done declarations
 if echo "$OUTPUT" | grep -qiE '\b(done|complete|completed|finished|all (tests|checks) pass)\b'; then
-  .venv/bin/python .devin/scripts/fable_judge_compensation.py "test-session" >/dev/null 2>&1 || true
+  if [ -n "$PYTHON" ] && [ -f ".devin/scripts/fable_judge_compensation.py" ]; then
+    $PYTHON .devin/scripts/fable_judge_compensation.py "test-session" >/dev/null 2>&1 || true
+  fi
 fi
 
 echo "$OUTPUT"
