@@ -139,6 +139,14 @@
       "size_kb": 2.3,
       "priority": "medium"
     },
+    "hlk-loop": {
+      "path": ".devin/skills/hlk-loop/SKILL.md",
+      "triggers": ["hlk-loop", "hlk loop", "chạy loop hlk", "hlk pipeline", "self-learn loop", "hlk-loop status", "hlk-loop reset"],
+      "executor": "active-model",
+      "description": "HLK Loop Runner — pipeline tự học, wave song song, thu hoạch learnings. status/dry-run/reset.",
+      "size_kb": 2.0,
+      "priority": "medium"
+    },
     "init_deep": {
       "path": ".devin/skills/init_deep.md",
       "triggers": ["init", "deep", "scan", "index", "convention", "registry"],
@@ -236,7 +244,7 @@
       "priority": "low"
     },
     "using-skills": {
-      "path": ".devin/skills/using-skills/SKILL.md",
+      "path": ".devin/skills/using-skills.md",
       "triggers": ["skill", "use skill", "invoke skill", "skill first"],
       "executor": "active-model",
       "description": "Enforces skill-first methodology - check if skill matches request, invoke before acting",

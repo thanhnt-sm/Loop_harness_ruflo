@@ -1,37 +1,108 @@
 #!/bin/bash
-# Pre-commit hook to prevent API key leaks
+# Pre-commit hook — cross-platform (Windows git-bash + macOS/Linux bash)
+# Chặn: API key leaks, junk files, provider runtime state, governance violations
 
-echo "🔒 Running API key redaction check..."
+set -e
 
-# Run the redaction validator using compiled JavaScript
+# --- Helper: tìm python executable (cross-platform Windows + macOS) ---
+find_python() {
+    # 1. .venv (cross-platform: Scripts/ trên Windows, bin/ trên macOS/Linux)
+    if [ -f ".venv/Scripts/python.exe" ]; then
+        echo ".venv/Scripts/python.exe"
+    elif [ -f ".venv/bin/python" ]; then
+        echo ".venv/bin/python"
+    # 2. System python3 (macOS/Linux)
+    elif command -v python3 >/dev/null 2>&1; then
+        echo "python3"
+    # 3. System python (Windows)
+    elif command -v python >/dev/null 2>&1; then
+        echo "python"
+    else
+        echo ""
+    fi
+}
+
+PYTHON=$(find_python)
+
+# --- Gate 1: API key redaction check ---
+echo "=== Pre-commit Gate 1: API key redaction ==="
+
 if [ -f "dist-cjs/src/hooks/redaction-hook.js" ]; then
-  node dist-cjs/src/hooks/redaction-hook.js
-  exit_code=$?
+    node dist-cjs/src/hooks/redaction-hook.js
+    exit_code=$?
+    if [ $exit_code -ne 0 ]; then
+        echo ""
+        echo "BLOCKED - Sensitive data detected in staged files!"
+        echo "Remove API keys and secrets before committing."
+        echo ""
+        exit 1
+    fi
+    echo "  [PASS] No API keys detected"
 else
-  echo "⚠️  Redaction hook not found - skipping check"
-  echo "💡 Run 'npm run build' to enable API key protection"
-  exit 0
+    echo "  [SKIP] Redaction hook not found (run 'npm run build' to enable)"
 fi
 
-if [ $exit_code -ne 0 ]; then
-  echo ""
-  echo "❌ COMMIT BLOCKED - Sensitive data detected!"
-  echo "⚠️  Please remove API keys and secrets before committing."
-  echo ""
-  exit 1
+# --- Gate 2: Junk file scanner (staged area) ---
+echo ""
+echo "=== Pre-commit Gate 2: Junk file scanner ==="
+
+if [ -z "$PYTHON" ]; then
+    echo "  [SKIP] Python not found - junk scanner skipped"
+else
+    $PYTHON tools/junk_file_scanner.py --staged
+    exit_code=$?
+    if [ $exit_code -ne 0 ]; then
+        echo ""
+        echo "BLOCKED - Junk files detected in staged area!"
+        echo "Remove junk files or add to .gitignore before committing."
+        echo "Run: python3 tools/junk_file_scanner.py --fix"
+        echo ""
+        exit 1
+    fi
+    echo "  [PASS] No junk files in staged area"
 fi
 
-echo "🔒 Running workspace governance check..."
-python3 tools/check_governance.py --layout-only
-exit_code=$?
+# --- Gate 3: .gitignore audit ---
+echo ""
+echo "=== Pre-commit Gate 3: .gitignore audit ==="
 
-if [ $exit_code -ne 0 ]; then
-  echo ""
-  echo "❌ COMMIT BLOCKED - Workspace governance check failed!"
-  echo "⚠️  Please place files in the correct directories (no root markdown/junk)."
-  echo ""
-  exit 1
+if [ -z "$PYTHON" ]; then
+    echo "  [SKIP] Python not found - gitignore audit skipped"
+else
+    $PYTHON tools/gitignore_audit.py --strict
+    exit_code=$?
+    if [ $exit_code -ne 0 ]; then
+        echo ""
+        echo "BLOCKED - .gitignore missing required rules!"
+        echo "Add missing rules to .gitignore before committing."
+        echo "Run: python3 tools/gitignore_audit.py"
+        echo ""
+        exit 1
+    fi
+    echo "  [PASS] .gitignore coverage OK"
 fi
 
-echo "✅ Redaction + governance checks passed - safe to commit"
+# --- Gate 4: Workspace governance (layout) ---
+echo ""
+echo "=== Pre-commit Gate 4: Workspace governance ==="
+
+if [ -z "$PYTHON" ]; then
+    echo "  [SKIP] Python not found - governance check skipped"
+else
+    $PYTHON tools/check_governance.py --layout-only
+    exit_code=$?
+    if [ $exit_code -ne 0 ]; then
+        echo ""
+        echo "BLOCKED - Workspace governance check failed!"
+        echo "Place files in correct directories (no root markdown/junk)."
+        echo "Run: python3 tools/check_governance.py"
+        echo ""
+        exit 1
+    fi
+    echo "  [PASS] Governance layout OK"
+fi
+
+# --- All gates passed ---
+echo ""
+echo "=== All pre-commit gates PASSED ==="
 exit 0

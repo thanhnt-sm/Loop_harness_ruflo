@@ -95,6 +95,8 @@ Danh sách **file được phép ở root** (cập nhật ở `path_zones.ALLOWE
 
 ## 7. Enforcement
 
+### 7.1 Governance lint
+
 ```bash
 python3 tools/check_governance.py            # lint đầy đủ (junk + layout + plan-act)
 python3 tools/check_governance.py --plan-act # chỉ kiểm tra khớp plan ↔ act
@@ -103,6 +105,58 @@ python3 tools/check_governance.py --plan-act # chỉ kiểm tra khớp plan ↔ 
 - Exit code `0` = sạch; `1` = có lỗi cần sửa; `2` = có warning nên xử lý.
 - Chạy **trước khi kết thúc task M-tier+** và khi nghi ngờ workspace bẩn.
 - Sau khi thay đổi cấu trúc: chạy `python3 tools/gen_source_map.py` để refresh `.clinerules/00-source-map.md`.
+
+### 7.2 Junk file scanner (cross-platform Windows + macOS)
+
+```bash
+python3 tools/junk_file_scanner.py            # scan tất cả (tracked + untracked)
+python3 tools/junk_file_scanner.py --staged   # chỉ scan staged area (cho pre-commit)
+python3 tools/junk_file_scanner.py --tracked  # chỉ scan tracked files
+python3 tools/junk_file_scanner.py --json     # output JSON cho CI
+python3 tools/junk_file_scanner.py --fix      # git rm --cached junk đã tracked
+```
+
+Phát hiện:
+- OS junk: `.DS_Store`, `Thumbs.db`, `desktop.ini`, `*.swp`, `*.swo`, `*~`, `*.orig`, `*.rej`, `*.bak`, `*.tmp`, `*.temp`
+- Provider runtime state đã commit: `.khuym/`, `.aide/`, `.codegraph/`, `.opencode/session_state/`, `.omo/`, `.serena/`, `.claude/`, `.cursor/`
+- Filler content: file chỉ chứa 1 ký tự lặp lại (vd `xxxx...` hàng nghìn lần)
+- Scratch/untitled files
+
+### 7.3 .gitignore audit (cross-platform)
+
+```bash
+python3 tools/gitignore_audit.py              # audit + báo cáo
+python3 tools/gitignore_audit.py --json       # output JSON cho CI
+python3 tools/gitignore_audit.py --strict     # exit 1 nếu thiếu rule
+```
+
+Kiểm tra `.gitignore` có rule cho tất cả provider runtime dirs + OS junk.
+Required rules: `.khuym/`, `.aide/`, `.codegraph/`, `.opencode/session_state/`, `.omo/`, `.serena/`, `.claude/`, `.cursor/`, `.agents/`, `.DS_Store`, `Thumbs.db`, `desktop.ini`, `*.swp`, `*.swo`, `*~`, `*.orig`, `*.rej`, `*.bak`, `*.tmp`, `*.temp`, `backups/`.
+
+### 7.4 Pre-commit hook (4 gates — git bash, cross-platform)
+
+Hook `.githooks/pre-commit` chạy 4 gates trước mỗi commit:
+
+| Gate | Tool | Chặn nếu |
+|------|------|----------|
+| 1 — Redaction | `dist-cjs/src/hooks/redaction-hook.js` | API key/secret trong staged files |
+| 2 — Junk scanner | `tools/junk_file_scanner.py --staged` | Junk file/provider runtime trong staged area |
+| 3 — .gitignore audit | `tools/gitignore_audit.py --strict` | .gitignore thiếu required rule |
+| 4 — Governance | `tools/check_governance.py --layout-only` | File sai vị trí (root markdown, junk) |
+
+**Bất kỳ gate FAIL → commit bị chặn.** Agent phải fix issue trước khi commit lại.
+
+### 7.5 CI integration
+
+Thêm vào CI workflow:
+```yaml
+- name: Junk file scanner
+  run: python3 tools/junk_file_scanner.py --json
+- name: .gitignore audit
+  run: python3 tools/gitignore_audit.py --strict
+- name: Governance check
+  run: python3 tools/check_governance.py
+```
 
 ## 8. Cheat sheet — file mới đặt ở đâu
 

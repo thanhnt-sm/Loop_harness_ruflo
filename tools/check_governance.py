@@ -12,6 +12,14 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Cross-platform encoding: đảm bảo stdout dùng utf-8 trên cả Windows + macOS
+if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 ROOT = Path(__file__).resolve().parent.parent
 
 CODE_DIRS = (".devin/scripts", ".devin/hooks", "tests")
