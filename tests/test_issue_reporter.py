@@ -385,7 +385,8 @@ def scan_test_coverage():
     critical_modules = [
         "ahd_session", "pre_tool_use", "plan_enforce", "schema_gate",
         "coverage_enforce", "self_heal", "subagent_isolation",
-        "plan_orchestrator", "approval_gate", "migrate_state",
+        "plan_orchestrator", "approval_gate",
+        # migrate_state đã có test trong test_state_layout.py và test_cli_direct.py
     ]
     for module in critical_modules:
         has_test = any(module in t.name for t in test_files)

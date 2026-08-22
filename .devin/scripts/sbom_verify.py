@@ -25,8 +25,11 @@ LOCK = REPO / "requirements-lock.txt"
 
 
 def load_sbom(path: Path) -> dict:
-    with open(path, encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError, OSError) as e:
+        raise ValueError(f"Không thể load SBOM từ {path}: {e}")
 
 
 def installed_distributions() -> dict[str, str]:
@@ -40,7 +43,11 @@ def installed_distributions() -> dict[str, str]:
 
 def verify_sbom_vs_installed(sbom_path: Path) -> list[str]:
     fails: list[str] = []
-    sbom = load_sbom(sbom_path)
+    try:
+        sbom = load_sbom(sbom_path)
+    except ValueError as e:
+        fails.append(str(e))
+        return fails
     components = sbom.get("components", [])
     if not components:
         fails.append(f"SBOM {sbom_path.name}: không có components (rỗng)")
@@ -67,7 +74,11 @@ def verify_lock_hashes(lock_path: Path) -> list[str]:
     if not lock_path.exists():
         fails.append(f"requirements-lock.txt thiếu: {lock_path}")
         return fails
-    text = lock_path.read_text(encoding="utf-8")
+    try:
+        text = lock_path.read_text(encoding="utf-8")
+    except OSError as e:
+        fails.append(f"Không thể đọc requirements-lock.txt: {e}")
+        return fails
     pins = re.findall(r"^([a-zA-Z0-9_.-]+)==([^\s\\]+)", text, re.MULTILINE)
     if not pins:
         fails.append("requirements-lock.txt không chứa pin hợp lệ (name==version)")
