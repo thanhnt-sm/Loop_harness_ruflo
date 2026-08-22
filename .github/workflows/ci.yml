@@ -74,8 +74,8 @@ jobs:
       - name: Workspace governance check
         run: python tools/check_governance.py
 
-      - name: Run pytest with coverage
-        run: pytest tests/ --cov=.devin --cov-report=term-missing -ra --override-ini="cov-fail-under=0" --override-ini="testpaths=tests"
+      - name: Run pytest (no coverage gate in CI — coverage tracked locally)
+        run: pytest tests/ -q --tb=short --override-ini="addopts=-ra"
 
       - name: Upload coverage report
         if: always()
