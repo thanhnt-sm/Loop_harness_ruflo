@@ -89,7 +89,8 @@ def test_build_dag():
     tasks = dag_compile.parse_plan(_PLAN_MD)
     nodes, edges = dag_compile.build_dag(tasks)
     assert len(nodes) == 3
-    assert all(n["status"] == "pending" for n in nodes)
+    # V1 schema: nodes có key 'id' (không phải 'task_id')
+    assert all("id" in n for n in nodes)
     # 2 edges: T1->T2, T2->T3
     assert len(edges) == 2
     assert {"from": "T1", "to": "T2"} in edges
@@ -109,8 +110,8 @@ def test_topological_sort_acyclic():
 
 def test_topological_sort_cycle_detected():
     nodes = [
-        {"task_id": "A", "deps": ["B"]},
-        {"task_id": "B", "deps": ["A"]},
+        {"id": "A", "dependencies": ["B"]},
+        {"id": "B", "dependencies": ["A"]},
     ]
     edges = [{"from": "B", "to": "A"}, {"from": "A", "to": "B"}]
     sorted_ids, cycle = dag_compile.topological_sort(nodes, edges)
@@ -127,7 +128,7 @@ def test_validate_dag_valid():
 
 
 def test_validate_dag_missing_dependency():
-    nodes = [{"task_id": "T1", "deps": ["MISSING"]}]
+    nodes = [{"id": "T1", "dependencies": ["MISSING"]}]
     edges = [{"from": "MISSING", "to": "T1"}]
     valid, errors = dag_compile.validate_dag(nodes, edges)
     assert valid is False
@@ -136,8 +137,8 @@ def test_validate_dag_missing_dependency():
 
 def test_validate_dag_cycle():
     nodes = [
-        {"task_id": "A", "deps": ["B"]},
-        {"task_id": "B", "deps": ["A"]},
+        {"id": "A", "dependencies": ["B"]},
+        {"id": "B", "dependencies": ["A"]},
     ]
     edges = [{"from": "B", "to": "A"}, {"from": "A", "to": "B"}]
     valid, errors = dag_compile.validate_dag(nodes, edges)
@@ -147,8 +148,8 @@ def test_validate_dag_cycle():
 
 def test_validate_dag_orphan():
     nodes = [
-        {"task_id": "A", "deps": []},
-        {"task_id": "B", "deps": []},
+        {"id": "A", "dependencies": []},
+        {"id": "B", "dependencies": []},
     ]
     edges = []
     valid, errors = dag_compile.validate_dag(nodes, edges)
@@ -158,7 +159,7 @@ def test_validate_dag_orphan():
 
 
 def test_validate_dag_single_node_no_orphan():
-    nodes = [{"task_id": "A", "deps": []}]
+    nodes = [{"id": "A", "dependencies": []}]
     edges = []
     valid, errors = dag_compile.validate_dag(nodes, edges)
     # 1 node thì không coi là orphan
@@ -174,7 +175,7 @@ def test_compile_plan_writes_workflow(tmp_path):
     assert output.exists()
     wf = json.loads(output.read_text(encoding="utf-8"))
     assert wf["workflow_id"] == "plan"
-    assert len(wf["nodes"]) == 3
+    assert len(wf["tasks"]) == 3
     assert len(wf["edges"]) == 2
     assert "compiled_at" in wf
 

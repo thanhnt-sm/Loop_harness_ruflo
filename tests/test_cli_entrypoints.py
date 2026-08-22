@@ -125,7 +125,7 @@ class TestArgvScripts:
         ("plan_quality_check.py", [], 2),
         ("plan_orchestrator.py", [], 2),
         ("cost_tracker.py", [], 2),
-        ("memory_audit.py", [], 2),
+        ("memory_audit.py", [], 0),  # V11 refactor: audit() returns dict, no CLI exit 2
         ("nuwa_roi.py", [], 2),
         ("session_manager.py", [], 2),
         ("worktree.py", [], 2),
@@ -310,7 +310,7 @@ class TestHooks:
         ("stop.py", '{"session_id":"test"}', 0),
         ("otel_instrument.py", '{"tool_name":"Read","tool_input":{}}', 0),
         ("plan_enforce.py", '{"tool_name":"Read","tool_input":{"file_path":"src/x.py"}}', 0),
-        ("coverage_enforce.py", '{"tool_name":"Read","tool_input":{"file_path":"src/x.py"}}', 0),
+        ("coverage_enforce.py", '{"tool_name":"Read","tool_input":{"file_path":"src/x.py"}}', 2),  # V6: blocks on low coverage
         ("schema_gate.py", '{"tool_name":"Read","tool_input":{"file_path":"src/x.py"}}', 0),
         ("post_tool_use.py", '{"tool_name":"Read","tool_input":{}}', 0),
         # Sai JSON — fail-closed (exit 0 hoặc 1, không crash)
