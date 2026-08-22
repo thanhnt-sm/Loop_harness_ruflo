@@ -77,16 +77,17 @@ jobs:
       - name: Run pytest (no coverage gate in CI — coverage tracked locally)
         run: |
           set +e
-          pytest tests/ -q --tb=long --override-ini="addopts=-ra" 2>&1 | tee /tmp/pytest_output.txt
+          echo "=== Python version ==="
+          python --version
+          echo "=== Pytest version ==="
+          pytest --version
+          echo "=== Installed packages ==="
+          pip list 2>/dev/null | grep -iE "pytest|hypothesis|pydantic|cov"
+          echo "=== Running pytest ==="
+          python -m pytest tests/ -v --tb=long --override-ini="addopts=" -x 2>&1 | tail -80
           pytest_exit=${PIPESTATUS[0]}
           echo "pytest exit code: $pytest_exit"
-          if [ "$pytest_exit" != "0" ]; then
-            echo "=== LAST 50 LINES OF PYTEST OUTPUT ==="
-            tail -50 /tmp/pytest_output.txt
-            echo "=== COLLECTION CHECK ==="
-            pytest tests/ --co -q --override-ini="addopts=" 2>&1 | tail -20
-            exit $pytest_exit
-          fi
+          exit $pytest_exit
 
       - name: Upload coverage report
         if: always()
