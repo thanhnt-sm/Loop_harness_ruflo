@@ -1,33 +1,22 @@
 #!/usr/bin/env python3
-"""blackboard.py — Phase D: Bảng đen bộ nhớ dùng chung (shared blackboard).
+"""blackboard.py — Shared blackboard for multi-agent coordination.
 
-Mô hình kiến trúc bảng đen (blackboard architecture): nhiều agent đọc/ghi
-vào một kho dữ liệu dùng chung, được chia thành các vùng (region) có quy
-tắc giải quyết xung đột (conflict resolution) khác nhau:
-
-    hypotheses  — append-only (chỉ thêm mới, không ghi đè)
-    evidence    — single-writer (mỗi agent ghi key riêng, không đè key người khác)
-    decisions   — CRDT union (gộp tập hợp, last-write-wins cho vô hướng)
-    state       — versioned writes (mỗi lần ghi tăng version, giữ lịch sử)
-    findings    — append-only
-    metrics     — last-write-wins (ghi đè, giữ giá trị mới nhất)
-
-Mọi thao tác ghi được ghi vào nhật ký (write log) với timestamp, agent,
-region, key, giá trị cũ, giá trị mới.
+Regions (conflict resolution):
+  hypotheses   — append-only
+  evidence     — single-writer
+  decisions    — CRDT union
+  state        — versioned writes
+  findings     — append-only
+  metrics      — last-write-wins
 
 CLI:
-    python blackboard.py --read <region> <key>
-    python blackboard.py --write <region> <key> <value.json>
-    python blackboard.py --list <region>
-    python blackboard.py --regions
+  python blackboard.py --read <region> <key>
+  python blackboard.py --write <region> <key> <value.json>
+  python blackboard.py --list <region>
+  python blackboard.py --regions
 
-Lưu trữ:
-    .devin/blackboard/<region>.json
-    .devin/blackboard/_write_log.jsonl
-
-Mã thoát:
-    0 — thành công
-    1 — xung đột/lỗi
+Storage: .devin/blackboard/<region>.json, .devin/blackboard/_write_log.jsonl
+Exit: 0=success, 1=conflict/error
 """
 from __future__ import annotations
 
@@ -41,7 +30,7 @@ from typing import Any
 from uuid import uuid4
 
 
-# Đưa thư mục hooks vào sys.path để tái sử dụng file-lock từ ahd_session.py.
+# Add hooks to sys.path for file-lock from ahd_session.py
 _Here = Path(__file__).resolve().parent
 sys.path.insert(0, str(_Here.parent / "hooks"))
 from ahd_session import _acquire_lock, _release_lock, LockAcquireError  # noqa: E402
