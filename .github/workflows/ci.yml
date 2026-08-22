@@ -75,7 +75,14 @@ jobs:
         run: python tools/check_governance.py
 
       - name: Run pytest (no coverage gate in CI — coverage tracked locally)
-        run: pytest tests/ -q --tb=short --override-ini="addopts=-ra"
+        run: |
+          pytest tests/ -q --tb=short --override-ini="addopts=-ra" 2>&1 || pytest_exit=$?
+          echo "pytest exit code: ${pytest_exit:-0}"
+          if [ -n "$pytest_exit" ] && [ "$pytest_exit" != "0" ]; then
+            echo "--- Collection check ---"
+            pytest tests/ --co -q --override-ini="addopts=" 2>&1 | tail -30
+            exit $pytest_exit
+          fi
 
       - name: Upload coverage report
         if: always()
