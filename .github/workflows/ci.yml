@@ -88,7 +88,13 @@ jobs:
         run: python tools/check_governance.py
 
       - name: Run pytest (no coverage gate in CI — coverage tracked locally)
-        run: pytest tests/ -q --tb=short --override-ini="addopts=-ra"
+        run: |
+          echo "=== Pre-pytest: .devin/agents exists? ==="
+          ls -la .devin/agents/ 2>&1 | head -5
+          echo "=== Is .devin/agents a symlink? ==="
+          file .devin/agents 2>&1
+          echo "=== Running pytest ==="
+          pytest tests/ -q --tb=short --override-ini="addopts=-ra"
 
       - name: Upload coverage report
         if: always()
