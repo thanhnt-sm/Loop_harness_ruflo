@@ -94,7 +94,13 @@ jobs:
           echo "=== Is .devin/agents a symlink? ==="
           file .devin/agents 2>&1
           echo "=== Running pytest ==="
-          pytest tests/ -q --tb=short --override-ini="addopts=-ra"
+          pytest tests/ -q --tb=short --override-ini="addopts=-ra" || pytest_failed=$?
+          echo "=== Post-pytest: .devin/agents exists? ==="
+          ls -la .devin/agents/ 2>&1 | head -5
+          file .devin/agents 2>&1
+          echo "=== Post-pytest: .devin/ contents ==="
+          ls -la .devin/ 2>&1 | head -20
+          exit ${pytest_failed:-0}
 
       - name: Upload coverage report
         if: always()
