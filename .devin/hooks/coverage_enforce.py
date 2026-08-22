@@ -326,6 +326,34 @@ def _compute_coverage(state: dict) -> tuple[float, int, int]:
     return pct, executed, total
 
 
+def _check_coverage_threshold(pct: float, threshold: float = 80.0) -> dict:
+    """T6 fix: Kiểm tra coverage có đạt ngưỡng không.
+
+    Returns:
+        {"meets_threshold": bool, "action": "allow"|"block"|"override", "reason": str}
+
+    Block mode: nếu coverage < threshold → block session end.
+    Override: AHD_COVERAGE_OVERRIDE=1 env → cho phép vượt qua (có audit log).
+    """
+    override = os.environ.get("AHD_COVERAGE_OVERRIDE", "0") == "1"
+
+    if pct >= threshold:
+        return {"meets_threshold": True, "action": "allow", "reason": f"coverage {pct}% >= {threshold}%"}
+
+    if override:
+        return {
+            "meets_threshold": False,
+            "action": "override",
+            "reason": f"coverage {pct}% < {threshold}% nhưng override=1 (audit required)",
+        }
+
+    return {
+        "meets_threshold": False,
+        "action": "block",
+        "reason": f"coverage {pct}% < {threshold}% — block session end. Set AHD_COVERAGE_OVERRIDE=1 để override (audit required).",
+    }
+
+
 def main():
     """Điểm vào chính: đọc stdin, cập nhật coverage, xuất kết quả."""
     try:
@@ -378,21 +406,30 @@ def main():
     pct, executed, total = _compute_coverage(state)
     gaps = _compute_gaps(state)
 
+    # T6 fix: Check threshold — block session end nếu coverage < 80%
+    threshold_check = _check_coverage_threshold(pct)
+
     # Xuất kết quả JSON ra stdout
     result = {
         "coverage_pct": pct,
         "executed": executed,
         "total": total,
         "gaps": gaps,
+        "threshold_action": threshold_check["action"],
     }
     print(json.dumps(result, ensure_ascii=False))
 
-    # Log gaps ra stderr (advisory, không block)
+    # Log gaps ra stderr
     if gaps:
         print(
             f"[coverage_enforce] WARNING: {len(gaps)} task(s) not executed: {', '.join(gaps)}",
             file=sys.stderr,
         )
+
+    # T6 fix: Block session end nếu coverage < threshold (không override)
+    if threshold_check["action"] == "block":
+        print(f"[coverage_enforce] BLOCK: {threshold_check['reason']}", file=sys.stderr)
+        sys.exit(2)
 
     sys.exit(0)
 

@@ -114,9 +114,11 @@ DEFAULT_BATCH_SIZE = 5
 # ---------------------------------------------------------------------------
 
 def _load_workflow(path: str) -> dict | None:
-    """Đọc file workflow đã biên dịch.
+    """Đọc file workflow đã biên dịch — hỗ trợ schema mới (tasks) và cũ (nodes).
 
-    Bước 1: Đọc file JSON. Bước 2: Kiểm tra có workflow_id + tasks.
+    Bước 1: Đọc file JSON.
+    Bước 2: Validate + migrate schema (dag_schema.normalize_workflow).
+    Bước 3: Strict validation — reject nếu có cả tasks và nodes.
     """
     try:
         text = Path(path).read_text(encoding="utf-8")
@@ -125,11 +127,48 @@ def _load_workflow(path: str) -> dict | None:
         print(f"[dag_executor] Không đọc được workflow {path}: {exc}",
               file=sys.stderr)
         return None
-    if not isinstance(data, dict) or "workflow_id" not in data or "tasks" not in data:
-        print(f"[dag_executor] Workflow sai định dạng: thiếu workflow_id hoặc tasks",
+    if not isinstance(data, dict) or "workflow_id" not in data:
+        print(f"[dag_executor] Workflow sai định dạng: thiếu workflow_id",
               file=sys.stderr)
         return None
-    return data
+    # T1 fix: dùng dag_schema để validate + migrate
+    try:
+        from dag_schema import normalize_workflow
+        normalized, error = normalize_workflow(data)
+        if normalized is None:
+            print(f"[dag_executor] Workflow không hợp lệ: {error}",
+                  file=sys.stderr)
+            return None
+        return normalized
+    except (ImportError, ModuleNotFoundError):
+        # Fallback: chấp nhận schema cũ (tasks hoặc nodes)
+        has_tasks = "tasks" in data and data["tasks"] is not None
+        has_nodes = "nodes" in data and data["nodes"] is not None
+        if has_tasks and has_nodes:
+            print(f"[dag_executor] Schema confusion: có cả tasks và nodes",
+                  file=sys.stderr)
+            return None
+        if not has_tasks and not has_nodes:
+            print(f"[dag_executor] Workflow sai định dạng: thiếu tasks hoặc nodes",
+                  file=sys.stderr)
+            return None
+        # Migrate old schema (nodes → tasks) inline
+        if has_nodes:
+            tasks = []
+            for node in data["nodes"]:
+                tasks.append({
+                    "id": node.get("task_id", ""),
+                    "goal": node.get("description", ""),
+                    "dependencies": node.get("deps", []),
+                    "agent": node.get("agent", ""),
+                })
+            data = {
+                "workflow_id": data.get("workflow_id", ""),
+                "schema_version": 1,
+                "tasks": tasks,
+                "edges": data.get("edges", []),
+            }
+        return data
 
 
 def _load_state(workflow_id: str) -> dict | None:
@@ -607,6 +646,74 @@ class IdempotencyBlockedError(RuntimeError):
     def __init__(self, task_id: str, detail: str):
         super().__init__(f"idempotency lock failure blocked task '{task_id}': {detail}")
         self.task_id = task_id
+
+
+# T12 fix: State machine retry/branch cho execute phase
+MAX_RETRIES = 2
+
+
+def _handle_failure(state: dict, task_id: str, error: str) -> str:
+    """T12 fix: Xử lý task failure — chuyển sang retry_pending hoặc human_review.
+
+    State transitions:
+      failed → retry_pending (nếu retry_count < MAX_RETRIES)
+      failed → human_review (nếu retry_count >= MAX_RETRIES)
+
+    Returns next state name.
+    """
+    task = state.get("tasks", {}).get(task_id, {})
+    retry_count = task.get("retry_count", 0)
+
+    if retry_count < MAX_RETRIES:
+        task["status"] = "retry_pending"
+        task["retry_count"] = retry_count + 1
+        task["last_error"] = error
+        state["tasks"][task_id] = task
+        _save_state(state)
+        return "retry_pending"
+    else:
+        task["status"] = "human_review"
+        task["last_error"] = error
+        task["retry_count"] = retry_count
+        state["tasks"][task_id] = task
+        _save_state(state)
+        return "human_review"
+
+
+def _retry_task(state: dict, task_id: str) -> dict:
+    """T12 fix: Retry task — chuyển từ retry_pending sang retrying.
+
+    Returns {"retried": bool, "next_status": str}
+    """
+    task = state.get("tasks", {}).get(task_id, {})
+    if task.get("status") != "retry_pending":
+        return {"retried": False, "next_status": task.get("status", "unknown")}
+
+    task["status"] = "retrying"
+    state["tasks"][task_id] = task
+    _save_state(state)
+    return {"retried": True, "next_status": "retrying"}
+
+
+def _branch_task(state: dict, task_id: str, branch_condition: str) -> dict:
+    """T12 fix: Branch task — tạo branch task dựa trên condition.
+
+    Returns {"branched": bool, "branch_task_id": str}
+    """
+    task = state.get("tasks", {}).get(task_id, {})
+    branch_id = f"{task_id}_branch_{branch_condition[:8]}"
+    if branch_id in state.get("tasks", {}):
+        return {"branched": False, "branch_task_id": branch_id, "reason": "already exists"}
+
+    state["tasks"][branch_id] = {
+        "status": "pending",
+        "result": None,
+        "completed_at": None,
+        "branch_of": task_id,
+        "branch_condition": branch_condition,
+    }
+    _save_state(state)
+    return {"branched": True, "branch_task_id": branch_id}
 
 
 def on_node_complete(node_id: str, result: Any, run_id: str | None = None) -> None:

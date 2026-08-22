@@ -73,6 +73,54 @@ def save_state(state_path: Path, state: dict) -> None:
     )
 
 
+def locked_save_state(state_path: Path, state: dict) -> None:
+    """T7 fix: Atomic save state — dùng write-to-temp + rename để chống race.
+
+    Hai process ghi cùng lúc → không corrupt (rename là atomic trên cùng filesystem).
+    """
+    import os
+    import tempfile
+    # Ghi vào temp file cùng thư mục (đảm bảo cùng filesystem cho atomic rename)
+    tmp_fd, tmp_path = tempfile.mkstemp(
+        dir=str(state_path.parent), suffix=".tmp", prefix=state_path.stem + "_"
+    )
+    try:
+        with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
+            json.dump(state, f, ensure_ascii=False, indent=2)
+        # Atomic rename (Windows: os.replace, Unix: os.rename)
+        os.replace(tmp_path, state_path)
+    except Exception:
+        # Cleanup temp file nếu lỗi
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
+
+
+def collision_safe_state_path(root: Path, task_slug: str, task_description: str) -> Path:
+    """T8 fix: Trả state path với fingerprint suffix nếu có collision.
+
+    Nếu state file cho slug đã tồn tại nhưng fingerprint khác → thêm _fp8 suffix.
+    Format: {slug}_fp8_orchestrator.json (fp8 = 8 chars đầu của fingerprint)
+    """
+    base_path = state_path(root, task_slug)
+    if not base_path.exists():
+        return base_path  # Chưa có → dùng base
+
+    # Đọc existing state để check fingerprint
+    existing = load_state(base_path)
+    existing_fp = existing.get("task_fingerprint", "")
+    new_fp = fingerprint(task_description)
+
+    if not existing_fp or existing_fp == new_fp:
+        return base_path  # Cùng fingerprint → dùng base
+
+    # Collision! Thêm fp8 suffix
+    fp8 = new_fp[:8] if new_fp else "00000000"
+    return state_dir(root) / f"{task_slug}_{fp8}_orchestrator.json"
+
+
 def create_initial_state(task_description: str, root: Path) -> dict:
     """Tạo state ban đầu cho orchestrator."""
     task_slug = slugify(task_description)

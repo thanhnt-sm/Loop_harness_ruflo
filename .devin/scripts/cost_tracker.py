@@ -119,6 +119,35 @@ def check_cost_cap(state: dict) -> int:
     return 0
 
 
+def _adaptive_reduce(state: dict) -> dict:
+    """T13 fix: Adaptive token cost reduction dựa trên cost ratio.
+
+    50% → giảm subagents từ 5 xuống 3
+    80% → degraded mode (main agent tự làm)
+    100% → stop + escalate
+
+    Returns:
+        {"action": "normal"|"reduce"|"degraded"|"stop",
+         "max_subagents": int, "reason": str}
+    """
+    cumulative = float(state.get("cumulative_cost", 0.0))
+    cost_cap = float(state.get("cost_cap", DEFAULT_COST_CAP))
+
+    if not math.isfinite(cost_cap) or cost_cap <= 0:
+        return {"action": "stop", "max_subagents": 0, "reason": "invalid cost_cap"}
+
+    ratio = cumulative / cost_cap
+
+    if ratio >= 1.0:
+        return {"action": "stop", "max_subagents": 0, "reason": f"cost {ratio:.0%} >= 100% — stop + escalate"}
+    if ratio >= 0.8:
+        return {"action": "degraded", "max_subagents": 0, "reason": f"cost {ratio:.0%} >= 80% — degraded mode"}
+    if ratio >= 0.5:
+        return {"action": "reduce", "max_subagents": 3, "reason": f"cost {ratio:.0%} >= 50% — reduce subagents 5→3"}
+
+    return {"action": "normal", "max_subagents": 5, "reason": f"cost {ratio:.0%} < 50% — normal"}
+
+
 def check_cost_cap_session(root: Path, session_id: str) -> tuple[bool, str]:
     """U17: Kiểm tra cumulative cost theo root + session_id.
 

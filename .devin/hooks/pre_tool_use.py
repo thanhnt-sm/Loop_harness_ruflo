@@ -65,16 +65,14 @@ try:
     from reflection_gate import check_reflection as _check_reflection
 except (ImportError, ModuleNotFoundError, SyntaxError, ValueError):
     _check_reflection = None  # type: ignore[assignment]
-
-# U15: Internal timeout — if hook runs longer than this, force-allow (fail open).
-# Config timeout is 3s; this is a safety net at 2s (1s margin) to exit before config kills us.
 except Exception as e:
     print(f"[pre_tool_use] unexpected exception: {e}", file=sys.stderr)
     _check_reflection = None  # type: ignore[assignment]
 
-# U15: Internal timeout — if hook runs longer than this, force-allow (fail open).
-# Config timeout is 3s; this is a safety net at 2s (1s margin) to exit before config kills us.
-HOOK_TIMEOUT_SECONDS = 2.0
+# T4 fix: Internal timeout — fail-closed thay vì fail-open.
+# Config timeout 3s; internal timeout 2.5s (0.5s margin) để exit trước config.
+# Nếu timeout → BLOCK + escalate (không force-allow).
+HOOK_TIMEOUT_SECONDS = 2.5
 
 # --- Context-oversized gate config ---
 OVERSIZED_NOTE_THRESHOLD = 0   # counter >= this -> note
@@ -551,7 +549,9 @@ def _check_sandbox_gate(data: dict) -> None:
 
 
 # Patterns that are always blocked
-DANGEROUS_PATTERNS = [
+# T4 fix: Pre-compile regex patterns at module load (cached at startup)
+# để tránh re-compile mỗi lần check — giảm latency, tránh timeout.
+_DANGEROUS_PATTERNS_RAW = [
     # rm -rf with broad targets
     # Pentest fix: thêm EXPANDED_VAR (sau khi $HOME được normalize) và
     # chấp nhận cả -fr (f trước r) vì normalize_command đã gộp split flags.
@@ -586,6 +586,12 @@ DANGEROUS_PATTERNS = [
     (r"\b(curl|wget)\b.*\b(malicious|evil|attacker|hack|exploit)\.(com|net|org|io)\b", "network egress to suspicious domain"),
     # U43: Exfiltration patterns — curl/wget with data upload
     (r"\b(curl|wget)\b.*\b(--upload-file|-T\s|--data|-d\s|--post-data)\b.*\b(http|ftp)\b", "potential data exfiltration"),
+]
+
+# T4 fix: Pre-compile tại module load — patterns cached at startup
+DANGEROUS_PATTERNS = [
+    (re.compile(pat, re.IGNORECASE), reason)
+    for pat, reason in _DANGEROUS_PATTERNS_RAW
 ]
 
 # T2.9: SSRF URL extraction regex
@@ -1366,12 +1372,12 @@ def main():
     _check_bash_workspace_layout_gate(normalized)
 
     # Check dangerous patterns against BOTH raw and normalized command
+    # T4 fix: patterns đã pre-compile tại module load — dùng .search() thay re.search()
     for pattern, reason in DANGEROUS_PATTERNS:
-        if re.search(pattern, command, re.IGNORECASE) or \
-           re.search(pattern, normalized, re.IGNORECASE):
+        if pattern.search(command) or pattern.search(normalized):
             print(f"[Agent Harness Deploy guard] BLOCKED: {reason}", file=sys.stderr)
             print(f"Command: {command[:200]}", file=sys.stderr)
-            print(f"Pattern: {pattern}", file=sys.stderr)
+            print(f"Pattern: {pattern.pattern}", file=sys.stderr)
             sys.exit(2)
 
     # Gate 2.1: T4.9 — Reflection gate (pre-action reflection, multi-level)

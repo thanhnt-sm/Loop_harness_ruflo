@@ -2,12 +2,59 @@
 """State machine: next_action + process_step cho Plan Phase."""
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 from . import constants as C
 from .classifier import classify_tier
 from .missions import brainstorm_missions, dynamic_scenarios, reviewer_personas, scout_missions, technical_writer_mission
 from .storage import append_history, plans_dir
+
+# T2 fix: quota check trước dispatch
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+try:
+    from quota_check import check_quota, should_switch_to_degraded, is_degraded_mode
+except (ImportError, ModuleNotFoundError):
+    check_quota = None
+    should_switch_to_degraded = None
+    is_degraded_mode = None
+
+
+def _check_quota_before_dispatch(state: dict) -> bool:
+    """T2 fix: Kiểm tra quota trước dispatch. Switch sang degraded mode nếu hết.
+
+    Returns True nếu có thể dispatch (quota available), False nếu degraded mode.
+    """
+    if check_quota is None:
+        return True  # quota_check không khả dụng → proceed
+    quota_result = check_quota()
+    if should_switch_to_degraded(quota_result):
+        state["degraded_mode"] = True
+        append_history(state, "quota_check", f"Quota exhausted, switching to degraded mode: {quota_result['reason']}")
+        return False
+    return True
+
+
+def _degraded_mode_action(state: dict, original_action: str, original_instructions: str, original_params: dict) -> dict:
+    """T2 fix: Trả action cho degraded mode — main agent tự làm thay subagent.
+
+    Degraded mode vẫn require adversarial self-review (min 3 perspectives).
+    """
+    return {
+        "action": original_action,
+        "instructions": (
+            f"DEGRADED MODE (quota exhausted). Main agent tự thực hiện thay subagent. "
+            f"Original task: {original_instructions} "
+            f"REQUIREMENT: adversarial self-review với 3+ perspectives (Saboteur, Security Auditor, Architect). "
+            f"Không skip review."
+        ),
+        "params": {
+            **original_params,
+            "degraded_mode": True,
+            "self_review_required": True,
+            "review_personas": ["Saboteur", "Security Auditor", "Architect"],
+        },
+    }
 
 
 def _next_action_for_state(state: dict, root: Path) -> dict:

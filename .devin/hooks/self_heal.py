@@ -45,6 +45,9 @@ REPAIR_MEMORY_FILE = f"{TELEMETRY_DIR}/repair_memory.json"
 # Ngan sach phuc hoi mac dinh (so lan thu)
 DEFAULT_RECOVERY_BUDGET = 3
 
+# T14 fix: Max recursion depth cho self-heal (chống infinite loop)
+MAX_SELF_HEAL_DEPTH = 2
+
 # Anh xa tin hieu loi -> lop loi (failure class)
 FAILURE_SIGNALS = {
     "timeout": ["timeout", "timed out", "deadline exceeded", "hang"],
@@ -250,6 +253,30 @@ def self_heal(root: Path, data: dict) -> dict:
     }
 
 
+def _check_recursion_depth(data: dict) -> dict:
+    """T14 fix: Kiểm tra recursion depth — chặn self-heal infinite loop.
+
+    Đếm self_heal_depth trong session_state. Nếu >= MAX_SELF_HEAL_DEPTH → escalate.
+
+    Returns:
+        {"blocked": bool, "result": dict}
+    """
+    session_state = data.get("session_state", {})
+    depth = session_state.get("self_heal_depth", 0)
+
+    if depth >= MAX_SELF_HEAL_DEPTH:
+        return {
+            "blocked": True,
+            "result": {
+                "action": "escalate",
+                "reason": f"self_heal_recursion_limit: depth={depth} >= max={MAX_SELF_HEAL_DEPTH}",
+                "attempt": depth,
+                "budget_remaining": 0,
+            },
+        }
+    return {"blocked": False, "result": {}}
+
+
 def main() -> int:
     """Doc JSON stdin, chay self-heal, in ket qua JSON stdout."""
     try:
@@ -271,6 +298,12 @@ def main() -> int:
             "attempt": 0,
             "budget_remaining": 0,
         }))
+        return 0
+
+    # T14 fix: Check recursion depth trước khi self-heal
+    depth_check = _check_recursion_depth(data)
+    if depth_check["blocked"]:
+        print(json.dumps(depth_check["result"]))
         return 0
 
     root = _repo_root()

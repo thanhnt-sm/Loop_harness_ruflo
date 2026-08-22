@@ -14,8 +14,9 @@ Validation:
 Output JSON workflow:
   {
     "workflow_id": str,
-    "nodes": [{"task_id", "description", "file", "function", "deps",
-               "status", "acceptance_criteria"}],
+    "schema_version": 1,
+    "tasks": [{"id", "goal", "dependencies", "agent", "file",
+               "function", "acceptance_criteria"}],
     "edges": [{"from", "to"}]
   }
 
@@ -106,18 +107,18 @@ def parse_plan(plan_text: str) -> list:
 def build_dag(tasks: list) -> tuple:
     """Xay dung DAG tu danh sach task.
 
-    Tra ve (nodes, edges).
+    Tra ve (tasks_normalized, edges).
     """
     nodes = []
     edges = []
     for t in tasks:
         nodes.append({
-            "task_id": t["task_id"],
-            "description": t["description"],
+            "id": t["task_id"],
+            "goal": t["description"],
+            "dependencies": t["deps"],
+            "agent": "",
             "file": t["file"],
             "function": t["function"],
-            "deps": t["deps"],
-            "status": "pending",
             "acceptance_criteria": t["acceptance_criteria"],
         })
         for dep in t["deps"]:
@@ -132,7 +133,7 @@ def topological_sort(nodes: list, edges: list) -> tuple:
     Tra ve (sorted_ids, cycle) — cycle la list id tao chu trinh (rong neu acyclic).
     """
     # Bước 1: xay dung adjacency list + in-degree
-    ids = [n["task_id"] for n in nodes]
+    ids = [n["id"] for n in nodes]
     adj = {tid: [] for tid in ids}
     in_degree = {tid: 0 for tid in ids}
     for e in edges:
@@ -167,7 +168,7 @@ def validate_dag(nodes: list, edges: list) -> tuple:
     Tra ve (valid, errors) — errors la list thong bao loi.
     """
     errors = []
-    ids = {n["task_id"] for n in nodes}
+    ids = {n["id"] for n in nodes}
 
     # Bước 1: kiem tra dependency target ton tai
     for e in edges:
@@ -182,9 +183,7 @@ def validate_dag(nodes: list, edges: list) -> tuple:
         errors.append(f"phat hien chu trinh: {' -> '.join(cycle)}")
 
     # Bước 3: kiem tra orphan task (khong co deps va khong bi ai phu thuoc)
-    # has_deps: task co phu thuoc vao task khac
-    # is_depended_on: task bi task khac phu thuoc (xuat hien nhu 'from' trong canh)
-    has_deps = {n["task_id"] for n in nodes if n["deps"]}
+    has_deps = {n["id"] for n in nodes if n.get("dependencies")}
     is_depended_on = {e["from"] for e in edges if e["from"] in ids}
     orphans = ids - has_deps - is_depended_on
     if orphans and len(nodes) > 1:
@@ -231,12 +230,13 @@ def compile_plan(root: Path, plan_file: Path, output: Path | None = None) -> int
             print(f"  - {err}")
         return 1
 
-    # Bước 5: bien dich thanh workflow JSON
+    # Bước 5: bien dich thanh workflow JSON (schema v1)
     workflow_id = plan_file.stem
     workflow = {
         "workflow_id": workflow_id,
+        "schema_version": 1,
         "source": str(plan_file.relative_to(root)) if plan_file.is_relative_to(root) else str(plan_file),
-        "nodes": nodes,
+        "tasks": nodes,
         "edges": edges,
         "compiled_at": __import__("datetime").datetime.now().isoformat(),
     }
