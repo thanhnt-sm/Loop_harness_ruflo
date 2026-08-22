@@ -589,6 +589,14 @@ _DANGEROUS_PATTERNS_RAW = [
     (r"\b(curl|wget)\b.*\b(malicious|evil|attacker|hack|exploit)\.(com|net|org|io)\b", "network egress to suspicious domain"),
     # U43: Exfiltration patterns — curl/wget with data upload
     (r"\b(curl|wget)\b.*\b(--upload-file|-T\s|--data|-d\s|--post-data)\b.*\b(http|ftp)\b", "potential data exfiltration"),
+    # SQL destructive ops
+    (r"\bDELETE\s+FROM\b", "SQL DELETE FROM — data loss"),
+    (r"\bDROP\s+(TABLE|DATABASE|SCHEMA|INDEX|VIEW)\b", "SQL DROP — schema destruction"),
+    (r"\bTRUNCATE\s+TABLE\b", "SQL TRUNCATE — data loss"),
+    # File shredding / secure delete
+    (r"\bshred\b", "shred — secure file deletion"),
+    # Windows format command
+    (r"\bformat\s+[a-z]:\b", "Windows format drive"),
 ]
 
 # T4 fix: Pre-compile tại module load — patterns cached at startup
@@ -1175,6 +1183,12 @@ def _check_reflection_gate(data: dict) -> None:
             destructive = True
         elif "drop table" in cmd_lower or "drop database" in cmd_lower or "drop schema" in cmd_lower:
             category = "drop"
+            destructive = True
+        elif "delete from" in cmd_lower or "truncate table" in cmd_lower:
+            category = "delete"
+            destructive = True
+        elif "shred" in cmd_lower or "format " in cmd_lower:
+            category = "delete"
             destructive = True
         elif "git reset --hard" in cmd_lower:
             category = "reset_hard"
