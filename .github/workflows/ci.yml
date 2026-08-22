@@ -32,6 +32,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install pytest pytest-cov hypothesis pydantic bandit filelock cryptography pyyaml
 
+      - name: Make shell scripts executable (Linux)
+        run: |
+          chmod +x .opencode/hooks/*.sh .opencode/tools/*.sh 2>/dev/null || true
+
       - name: Bandit SAST (fail on High, report Medium/Low)
         run: |
           set -e

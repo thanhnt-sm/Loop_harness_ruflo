@@ -42,6 +42,8 @@ def test_skills_have_required_fields():
         assert isinstance(meta["triggers"], list), f"{f} triggers phải là list"
 
 
+@pytest.mark.skipif(not (REPO_ROOT / ".devin" / "agents").exists(),
+                    reason=".devin/agents not available (gitignored or not cloned)")
 def test_agents_have_required_fields():
     # Mỗi AGENT.md phải có name, description, model
     agents_dir = REPO_ROOT / ".devin" / "agents"
@@ -65,6 +67,8 @@ def test_skill_names_match_directories():
             assert meta["name"] == subdir.name, f"Skill name {meta['name']} không khớp thư mục {subdir.name}"
 
 
+@pytest.mark.skipif(not (REPO_ROOT / ".devin" / "agents").exists(),
+                    reason=".devin/agents not available (gitignored or not cloned)")
 def test_agent_names_match_directories():
     # Tên agent phải khớp với tên thư mục
     agents_dir = REPO_ROOT / ".devin" / "agents"

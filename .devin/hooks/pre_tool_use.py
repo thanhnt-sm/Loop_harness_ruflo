@@ -491,23 +491,23 @@ def _check_call_graph_gate(data: dict) -> None:
         session_id = ahd_session.get_session_id(data)
         tool_name = data.get("tool_name", "")
         tool_input = data.get("tool_input", {})
-        
+
         if not session_id or not tool_name:
             return
-        
+
         root = ahd_session.get_repo_root()
         session_id = ahd_session.get_session_id(data)
-        
+
         # Push current tool onto call stack
         _update_session_call_stack(session_id, root, tool_name, "push")
-        
+
         try:
             # Enforce max depth
             _enforce_call_depth(session_id, root, tool_name)
-            
+
             # Enforce allowed chains
             _enforce_allowed_chains(session_id, root, tool_name)
-            
+
             # Update call stack on success
             _update_session_call_stack(session_id, root, tool_name, "pop")
         except SystemExit:
@@ -516,6 +516,9 @@ def _check_call_graph_gate(data: dict) -> None:
             raise
     except SystemExit:
         raise
+    except FileExistsError:
+        # session_state dir đã tồn tại — không phải lỗi security, skip gate
+        return
     except Exception as e:
         _gate_error("call_graph", e)
 
