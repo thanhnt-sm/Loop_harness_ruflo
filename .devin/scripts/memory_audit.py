@@ -34,9 +34,20 @@ INJECTION_PATTERNS = [
 
 
 def _is_untrusted(entry: dict) -> bool:
-    """Kiểm tra memory entry có từ untrusted source không."""
+    """Kiểm tra memory entry có từ untrusted source không.
+
+    Pentest V11 fix: fail-safe — source không trong TRUSTED_SOURCES → untrusted.
+    Missing/empty/unknown source → untrusted (không trust mặc định).
+    """
+    if not isinstance(entry, dict):
+        return True  # Non-dict → untrusted
     source = entry.get("source", "").lower().strip()
-    return source in UNTRUSTED_SOURCES
+    if not source:
+        return True  # Missing/empty → untrusted (fail-safe)
+    if source in TRUSTED_SOURCES:
+        return False  # Explicitly trusted
+    # Unknown source → untrusted (fail-safe, không trust mặc định)
+    return True
 
 
 def _detect_injection(text: str) -> list[str]:

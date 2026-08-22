@@ -698,12 +698,19 @@ def _retry_task(state: dict, task_id: str) -> dict:
 def _branch_task(state: dict, task_id: str, branch_condition: str) -> dict:
     """T12 fix: Branch task — tạo branch task dựa trên condition.
 
+    Pentest V12 fix: thêm counter suffix để đảm bảo branch_id unique
+    ngay cả khi cùng condition (tránh collision).
+
     Returns {"branched": bool, "branch_task_id": str}
     """
     task = state.get("tasks", {}).get(task_id, {})
-    branch_id = f"{task_id}_branch_{branch_condition[:8]}"
-    if branch_id in state.get("tasks", {}):
-        return {"branched": False, "branch_task_id": branch_id, "reason": "already exists"}
+    # Pentest V12 fix: base branch_id + counter để đảm bảo unique
+    base_id = f"{task_id}_branch_{branch_condition[:8]}"
+    branch_id = base_id
+    counter = 1
+    while branch_id in state.get("tasks", {}):
+        branch_id = f"{base_id}_{counter}"
+        counter += 1
 
     state["tasks"][branch_id] = {
         "status": "pending",

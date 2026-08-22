@@ -21,7 +21,9 @@ from typing import Any
 SHELL_PATTERNS = [
     (r"\$\{[A-Z_]+\}", "env_var_expansion"),
     (r"\$\([^\)]+\)", "command_substitution"),
-    (r"`[^`]+`", "backtick_execution"),
+    # Pentest V10 fix: backtick execution — không match markdown code fences (```...```)
+    # Chỉ match single backtick `command`, không match triple backtick ```code```
+    (r"(?<!`)`([^`\n]+)`(?!`)", "backtick_execution"),
     (r"\brm\s+-rf\b", "rm_rf"),
     (r"\bcurl\s+[^\|]*\|\s*sh", "curl_pipe_sh"),
     (r"\bwget\s+[^\|]*\|\s*sh", "wget_pipe_sh"),
@@ -121,6 +123,7 @@ def sanitize(text: str, aggressive: bool = False) -> dict:
     for pattern, name in SHELL_PATTERNS:
         matches = list(re.finditer(pattern, sanitized, re.IGNORECASE))
         for m in reversed(matches):  # reverse để không shift positions
+            # Pentest V10 fix: backtick pattern có group — strip toàn bộ match (group 0)
             quarantined.append({
                 "type": name,
                 "content": m.group(),

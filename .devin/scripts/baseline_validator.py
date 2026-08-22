@@ -51,14 +51,43 @@ def _variance(values: list[float]) -> float:
 
 
 def _outlier_ratio(values: list[float]) -> float:
-    """Tính tỷ lệ outlier (giá trị > 3 std từ mean)."""
+    """Tính tỷ lệ outlier.
+
+    Pentest V5 fix: detect bimodal/anomalous distribution.
+    - Detect bimodal: nếu range (max-min) > 100x std → anomalous
+    - Fallback: MAD (median absolute deviation) cho moderate outliers
+    - Fallback: IQR cho normal outliers
+    """
     if len(values) < 4:
         return 0.0
-    mean = sum(values) / len(values)
-    std = math.sqrt(_variance(values))
-    if std < 1e-9:
+    sorted_vals = sorted(values)
+    n = len(sorted_vals)
+    median = sorted_vals[n // 2]
+
+    # Detect bimodal/anomalous: range quá lớn so với std
+    val_range = sorted_vals[-1] - sorted_vals[0]
+    var = _variance(values)
+    std = math.sqrt(var)
+    if std > 1e-9 and val_range / std > 100:
+        # Range > 100x std → bimodal/anomalous → flag high outlier ratio
+        return 0.5  # Report 50%+ outlier
+
+    # MAD method
+    abs_devs = sorted(abs(v - median) for v in values)
+    mad = abs_devs[n // 2]
+    if mad > 1e-9:
+        outliers = sum(1 for v in values if abs(v - median) > 3 * mad)
+        return outliers / len(values)
+
+    # IQR fallback
+    q1 = sorted_vals[n // 4]
+    q3 = sorted_vals[(3 * n) // 4]
+    iqr = q3 - q1
+    if iqr < 1e-9:
         return 0.0
-    outliers = sum(1 for v in values if abs(v - mean) > 3 * std)
+    lower = q1 - 1.5 * iqr
+    upper = q3 + 1.5 * iqr
+    outliers = sum(1 for v in values if v < lower or v > upper)
     return outliers / len(values)
 
 

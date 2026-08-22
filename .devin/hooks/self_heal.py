@@ -258,10 +258,12 @@ def _check_recursion_depth(data: dict) -> dict:
 
     Đếm self_heal_depth trong session_state. Nếu >= MAX_SELF_HEAL_DEPTH → escalate.
 
+    Pentest V14 fix: handle session_state=None (explicit null) không crash.
+
     Returns:
         {"blocked": bool, "result": dict}
     """
-    session_state = data.get("session_state", {})
+    session_state = data.get("session_state") or {}
     depth = session_state.get("self_heal_depth", 0)
 
     if depth >= MAX_SELF_HEAL_DEPTH:

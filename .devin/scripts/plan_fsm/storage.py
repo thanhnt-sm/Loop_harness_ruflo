@@ -77,9 +77,13 @@ def locked_save_state(state_path: Path, state: dict) -> None:
     """T7 fix: Atomic save state — dùng write-to-temp + rename để chống race.
 
     Hai process ghi cùng lúc → không corrupt (rename là atomic trên cùng filesystem).
+
+    Pentest V7 fix: Windows os.replace có thể fail với WinError 5 (access denied)
+    khi nhiều threads cùng rename — thêm retry với backoff.
     """
     import os
     import tempfile
+    import time
     # Ghi vào temp file cùng thư mục (đảm bảo cùng filesystem cho atomic rename)
     tmp_fd, tmp_path = tempfile.mkstemp(
         dir=str(state_path.parent), suffix=".tmp", prefix=state_path.stem + "_"
@@ -88,7 +92,17 @@ def locked_save_state(state_path: Path, state: dict) -> None:
         with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
             json.dump(state, f, ensure_ascii=False, indent=2)
         # Atomic rename (Windows: os.replace, Unix: os.rename)
-        os.replace(tmp_path, state_path)
+        # Pentest V7 fix: retry 3 lần với backoff cho Windows race
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                os.replace(tmp_path, state_path)
+                return  # Thành công
+            except PermissionError:
+                if attempt < max_retries - 1:
+                    time.sleep(0.01 * (attempt + 1))  # 10ms, 20ms backoff
+                else:
+                    raise  # Hết retry → raise
     except Exception:
         # Cleanup temp file nếu lỗi
         try:
