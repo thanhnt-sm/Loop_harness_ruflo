@@ -250,7 +250,9 @@ class TestMigrateStateCli:
         assert code == 0
         assert "old-root" in out or "old-root" in err
 
-    def test_no_args(self):
+    def test_no_args(self, tmp_path, monkeypatch):
+        # Chạy migrate_state trong tmp_path để tránh xóa .devin/agents thật
+        monkeypatch.chdir(tmp_path)
         code, out, err = _run_cli("migrate_state", "", use_main=True)
         assert code in (0, 1)
 

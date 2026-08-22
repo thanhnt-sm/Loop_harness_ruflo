@@ -13,6 +13,8 @@ from pathlib import Path
 
 
 # Legacy source names -> state/ target names
+# Lưu ý: KHÔNG bao gồm "agents" — .devin/agents là agent definitions (tracked),
+# không phải runtime state. Chỉ "agents_state" mới là legacy state.
 LEGACY_MAP = {
     "session_state": "session",
     "loop_state": "loop",
@@ -21,7 +23,6 @@ LEGACY_MAP = {
     "session": "session",
     "loop": "loop",
     "plan": "plan",
-    "agents": "agents",
 }
 
 

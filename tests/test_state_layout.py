@@ -48,10 +48,10 @@ def test_migrate_state_creates_symlinks(tmp_path: Path):
     import os
     old = tmp_path / "old"
     new = tmp_path / "new"
-    (old / "agents").mkdir(parents=True)
+    (old / "session_state").mkdir(parents=True)
 
     migrate_state.migrate(old, new)
-    link = old / "agents"
+    link = old / "session_state"
     if link.exists() or link.is_symlink():
         assert link.is_symlink()
-        assert os.readlink(str(link)) == str(new / "state" / "agents")
+        assert os.readlink(str(link)) == str(new / "state" / "session")
