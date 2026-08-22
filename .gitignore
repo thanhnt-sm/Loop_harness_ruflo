@@ -350,6 +350,28 @@ plugin/
 # opencode runtime state (session_state, tool_outputs) — không commit
 .opencode/session_state/
 
+# Khuym provider runtime state — không commit
+.khuym/
+
+# Aide provider runtime state — không commit
+.aide/
+
+# Codegraph daemon runtime — không commit
+.codegraph/
+
+# OS junk files — KHÔNG BAO GIỜ commit
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+*~
+*.orig
+*.rej
+*.bak
+*.tmp
+*.temp
+
 
 # Editor configs recreated by aide-memory hooks (Devin-only workspace)
 .claude/
