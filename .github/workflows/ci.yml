@@ -36,6 +36,15 @@ jobs:
         run: |
           chmod +x .opencode/hooks/*.sh .opencode/tools/*.sh 2>/dev/null || true
 
+      - name: Debug — verify .devin/agents exists
+        run: |
+          echo "=== .devin/agents exists? ==="
+          ls -la .devin/agents/ 2>&1 || echo "DIR NOT FOUND"
+          echo "=== .devin/agents/COMMANDER.md exists? ==="
+          ls -la .devin/agents/COMMANDER.md 2>&1 || echo "FILE NOT FOUND"
+          echo "=== git ls-files .devin/agents ==="
+          git ls-files .devin/agents/ 2>&1 | head -5
+
       - name: Bandit SAST (fail on High, report Medium/Low)
         run: |
           set -e

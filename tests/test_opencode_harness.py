@@ -172,14 +172,15 @@ class TestOpencodeHarnessIntegration:
 
     def test_compensation_gate_on_done(self):
         """Test compensation gate triggers on done declaration."""
+        import os
         session_file = Path(".devin/session_state/test-gate.json")
-        session_file.parent.mkdir(parents=True, exist_ok=True)
+        os.makedirs(str(session_file.parent), exist_ok=True)
         try:
             session_file.write_text(json.dumps({
                 "done_output": "All tests pass. Build green. Lint clean.",
                 "done_declared": True
             }))
-        except FileExistsError:
+        except (FileExistsError, OSError):
             # File đã tồn tại — ghi đè
             session_file.unlink(missing_ok=True)
             session_file.write_text(json.dumps({

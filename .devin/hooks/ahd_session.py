@@ -32,11 +32,12 @@ def _safe_mkdir(path: Path, parents: bool = True) -> None:
 
     Python 3.13 trên Linux có thể ném FileExistsError khi mkdir(exist_ok=True)
     nếu path là symlink hoặc có race condition giữa các process.
+    Dùng os.makedirs thay vì pathlib.mkdir để tránh bug.
     """
     try:
-        path.mkdir(parents=parents, exist_ok=True)
+        os.makedirs(str(path), exist_ok=True)
     except FileExistsError:
-        # Dir đã tồn tại (có thể là symlink) — OK
+        # Dir đã tồn tại (có thể là symlink) — OK nếu là dir
         if not path.is_dir():
             raise
 
