@@ -244,7 +244,7 @@
       "priority": "low"
     },
     "using-skills": {
-      "path": ".devin/skills/using-skills/SKILL.md",
+      "path": ".devin/skills/using-skills.md",
       "triggers": ["skill", "use skill", "invoke skill", "skill first"],
       "executor": "active-model",
       "description": "Enforces skill-first methodology - check if skill matches request, invoke before acting",
