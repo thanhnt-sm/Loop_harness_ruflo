@@ -76,11 +76,15 @@ jobs:
 
       - name: Run pytest (no coverage gate in CI — coverage tracked locally)
         run: |
-          pytest tests/ -q --tb=short --override-ini="addopts=-ra" 2>&1 || pytest_exit=$?
-          echo "pytest exit code: ${pytest_exit:-0}"
-          if [ -n "$pytest_exit" ] && [ "$pytest_exit" != "0" ]; then
-            echo "--- Collection check ---"
-            pytest tests/ --co -q --override-ini="addopts=" 2>&1 | tail -30
+          set +e
+          pytest tests/ -q --tb=long --override-ini="addopts=-ra" 2>&1 | tee /tmp/pytest_output.txt
+          pytest_exit=${PIPESTATUS[0]}
+          echo "pytest exit code: $pytest_exit"
+          if [ "$pytest_exit" != "0" ]; then
+            echo "=== LAST 50 LINES OF PYTEST OUTPUT ==="
+            tail -50 /tmp/pytest_output.txt
+            echo "=== COLLECTION CHECK ==="
+            pytest tests/ --co -q --override-ini="addopts=" 2>&1 | tail -20
             exit $pytest_exit
           fi
 
