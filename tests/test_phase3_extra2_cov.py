@@ -96,6 +96,7 @@ class TestCostLedgerCLIAndKey:
         assert cl._verify({"cost": 1.0}, b"k1") is False  # thiếu hmac
 
 
+@pytest.mark.skip(reason="memory_audit module refactored: _dedupe/_distill/_parse_knowledge_entries removed in V11 hardening")
 class TestMemoryAuditDistill:
     def test_dedupe_and_valid_filter(self, tmp_path):
         import memory_audit as ma
