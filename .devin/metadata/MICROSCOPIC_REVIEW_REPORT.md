@@ -208,3 +208,70 @@ Không phát hiện regression. Dry-run không modify working tree.
 ---
 
 *Filled by skill `update_from_repos` for AHD dry-run 2026-08-09.*
+
+---
+
+# Session 2026-08-22 — Update from repos
+
+## Metadata
+
+| Trường | Giá trị |
+|--------|---------|
+| Session | 2026-08-22 / update-repos-20260821 / Devin |
+| Scope | Tất cả 7 repos trong REPOS_TRACKER.json |
+| Branch | update-repos-20260821 |
+| Baseline | verify-workspace.ps1 FAIL → fix (.agents/knowledge_distill.md missing) → PASS 62/62 |
+| Reviewer personas | Saboteur, New Hire, Security Auditor, Architect, Code Reviewer, Git Workflow Master, Regression Hunter |
+
+## 1. Conflict Review
+
+Không có conflict. Không apply commit upstream nào.
+
+## 2. Architecture Review
+
+Không thay đổi kiến trúc. 2 repos có commit mới (caveman, loop-engineering) chỉ là README/logo/automated chores — không ảnh hưởng `.devin/canon/`.
+
+## 3. Security Review
+
+### 3.1 .opencode/session_state/ leak (P1 — đã fix)
+
+- **Vấn đề**: 89 file rác trong `.opencode/session_state/tool_outputs/` đã được commit vào git (commit `ea14945` và trước đó). File chứa `xxxx...` filler — runtime state của opencode provider.
+- **Root cause**: `.gitignore` chỉ ignore `.devin/session_state/` mà không ignore `.opencode/session_state/`. Vi phạm Workspace Governance đa provider.
+- **Fix**: Thêm `.opencode/session_state/` vào `.gitignore` + `git rm --cached -r .opencode/session_state/`.
+- **Verify**: `git ls-files .opencode/session_state/` trả empty sau fix.
+
+### 3.2 .agents/knowledge_distill.md missing (P2 — đã fix)
+
+- **Vấn đề**: `verify-workspace.ps1` line 127 check `.agents/knowledge_distill.md` (required per MEMORY_PROTOCOL.md BOOT step 4) nhưng file chưa từng tồn tại.
+- **Fix**: Tạo file với 3 distilled lessons từ project history. File local-only (`.agents/` gitignored).
+
+## 4. Inside-out / Outside-in / Vertical / Horizontal
+
+| Góc | Findings |
+|-----|----------|
+| Inside-out | REPOS_TRACKER.json cập nhật đúng — current_commit = upstream_commit cho caveman và loop-engineering |
+| Outside-in | Không có upstream commit nào apply vào workspace → không có regression risk |
+| Vertical | `.gitignore` fix chặn future leaks từ opencode runtime state |
+| Horizontal | Không đụng protected files (hooks, canon, HLK, config) |
+
+## 5. Recommendations (prioritized)
+
+1. **[P1 DONE]** Fix `.gitignore` + untrack 89 file rác `.opencode/session_state/`
+2. **[P2 DONE]** Tạo `.agents/knowledge_distill.md` để baseline verify PASS
+3. **[P3]** Review `.gitignore` cho các provider khác (`.khuym/`, `.aide/`) — có runtime state cần ignore không?
+4. **[P3]** Commit `ea14945` ("update") nên revert hoặc amend vì chứa file rác — đã untrack trong session này
+
+## 6. Regression findings
+
+Không phát hiện regression. Không sửa code cũ, không xóa file, không rename.
+
+## 7. Sign-off
+
+- [x] Tất cả findings đã ghi nhận
+- [x] Security review hoàn tất
+- [x] Verification log PASS
+- [x] User đã duyệt plan trước khi execute
+
+---
+
+*Filled by skill `update_from_repos` for session 2026-08-22.*

@@ -347,6 +347,9 @@ plugin/
 !.opencode/plugin/
 !.opencode/plugin/*.ts
 
+# opencode runtime state (session_state, tool_outputs) — không commit
+.opencode/session_state/
+
 
 # Editor configs recreated by aide-memory hooks (Devin-only workspace)
 .claude/
