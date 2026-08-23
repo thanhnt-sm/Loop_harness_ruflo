@@ -380,3 +380,11 @@
 <!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-22T21:54:35+00:00 session_id=test status=crashed cleanup_failed=False
 
 <!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-22T21:54:37+00:00 session_id=s-20260819-bien-harness-upgrade-loop status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-23T12:49:50+00:00 session_id=test status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-23T12:49:52+00:00 session_id=s-20260823-refactor-pre-tool status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-23T13:00:29+00:00 session_id=test status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-23T13:00:31+00:00 session_id=s-20260823-refactor-pre-tool status=crashed cleanup_failed=False
