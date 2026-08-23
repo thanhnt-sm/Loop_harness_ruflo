@@ -1,5 +1,5 @@
 # Cost Tracking Dashboard — Harness Optimization Savings
-**Generated**: 2026-08-22T21:55:43.447154+00:00
+**Generated**: 2026-08-23T14:34:33.437664+00:00
 **Repo**: Loop_harness_ruflo
 
 ## Executive Summary
@@ -70,10 +70,10 @@
 
 ### Cost Ledger Summary
 
-- **Total Entries**: 109
-- **Unique Sessions**: 34
-- **Total Tracked Cost**: $2.129000
-- **Cumulative Cost**: $8.876000
+- **Total Entries**: 129
+- **Unique Sessions**: 38
+- **Total Tracked Cost**: $2.154935
+- **Cumulative Cost**: $9.005708
 
 ## Recommendations
 

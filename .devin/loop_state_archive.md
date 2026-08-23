@@ -388,3 +388,15 @@
 <!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-23T13:00:29+00:00 session_id=test status=crashed cleanup_failed=False
 
 <!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-23T13:00:31+00:00 session_id=s-20260823-refactor-pre-tool status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-23T14:20:42+00:00 session_id=test status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-23T14:20:44+00:00 session_id=s-20260823-refactor-pre-tool status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-23T14:22:54+00:00 session_id=test status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-23T14:22:57+00:00 session_id=s-20260823-refactor-pre-tool status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-23T14:30:28+00:00 session_id=test status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-23T14:30:31+00:00 session_id=s-20260823-refactor-pre-tool status=crashed cleanup_failed=False

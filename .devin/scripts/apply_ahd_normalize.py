@@ -6,6 +6,7 @@ Chứa: _text_replacements, normalize_text_after_merge, _normalize_json, _normal
 """
 
 from __future__ import annotations
+import update_common
 
 import ast
 import json
@@ -14,8 +15,6 @@ from pathlib import Path
 from typing import Any
 
 from apply_ahd_map import PATH_MAP
-import update_common
-REPO_ROOT = update_common.REPO_ROOT
 
 
 def _text_replacements() -> list[tuple[str, str]]:
@@ -66,7 +65,7 @@ def normalize_text_after_merge(paths: list[str]) -> None:
     """Chuẩn hóa text references trong các file vừa patch."""
     repl = _text_replacements()
     for p in paths:
-        f = REPO_ROOT / p
+        f = update_common.REPO_ROOT / p
         if not f.exists():
             continue
         text = f.read_text(encoding="utf-8", errors="replace")

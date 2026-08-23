@@ -1,7 +1,7 @@
 ---
 context_fill_pct: 0
 caveman_level: full
-active_sessions: ["s-20260823-refactor-pre-tool", "t1", "s-20260819-bien-harness-upgrade-loop"]
+active_sessions: ["s-20260823-refactor-pre-tool", "x", "s-20260819-bien-harness-upgrade-loop"]
 active_session: s-20260823-refactor-pre-tool
 ---
 
@@ -10,8 +10,8 @@ active_session: s-20260823-refactor-pre-tool
 ## Active sessions
 | session_id | goal | status | tags | owned_files | last_heartbeat |
 |---|---|---|---|---|---|
-| s-20260823-refactor-pre-tool |  | suspected_crashed |  |  | 2026-08-23T13:50:04+00:00 |
-| t1 |  | suspected_crashed |  |  | 2026-08-23T13:13:05+00:00 |
+| s-20260823-refactor-pre-tool |  | suspected_crashed |  |  | 2026-08-23T14:30:30+00:00 |
+| x |  | in_progress |  |  | 2026-08-23T14:24:54+00:00 |
 | s-20260819-bien-harness-upgrade-loop |  | suspected_crashed |  |  | 2026-08-22T21:54:36+00:00 |
 
 ## Recent sessions (last 3)

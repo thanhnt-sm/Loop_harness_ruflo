@@ -6,23 +6,21 @@ Chứa: commit_changes, rollback_patched_files, snapshot_rollback, record_ahd_ap
 """
 
 from __future__ import annotations
+import update_common
 
 import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import update_common
 
 from apply_ahd_map import TRACKER_PATH, get_protected_files
-import update_common
-REPO_ROOT = update_common.REPO_ROOT
 from apply_ahd_verify import run_cmd
 
 
 def _audit_log(event: str, **kwargs: Any) -> None:
     """Ghi security event vào .devin/logs/security_audit.log."""
-    log_dir = REPO_ROOT / ".devin" / "logs"
+    log_dir = update_common.REPO_ROOT / ".devin" / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     log_path = log_dir / "security_audit.log"
     entry = {"event": event, **kwargs}
@@ -31,8 +29,8 @@ def _audit_log(event: str, **kwargs: Any) -> None:
 
 
 def commit_changes(sha: str, msg: str, auto_commit: bool) -> bool:
-    run_cmd(["git", "add", "-A"], cwd=REPO_ROOT)
-    code, out, _ = run_cmd(["git", "diff", "--cached", "--stat"], cwd=REPO_ROOT)
+    run_cmd(["git", "add", "-A"], cwd=update_common.REPO_ROOT)
+    code, out, _ = run_cmd(["git", "diff", "--cached", "--stat"], cwd=update_common.REPO_ROOT)
     if not out.strip():
         return True
     if not auto_commit:
@@ -45,7 +43,7 @@ def commit_changes(sha: str, msg: str, auto_commit: bool) -> bool:
         "-m", "Verified: verify-workspace.ps1 + hlk-verify-integrity.js PASS.",
         "-m", "Generated with [Devin](https://devin.ai)",
         "-m", "Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>",
-    ], cwd=REPO_ROOT)
+    ], cwd=update_common.REPO_ROOT)
     if code != 0:
         print(f"[FAIL] commit: {err}")
         return False
@@ -58,10 +56,10 @@ def rollback_patched_files(patched_files: list[str]) -> None:
         return
     cmd = ["git", "checkout", "--"]
     for pf in patched_files:
-        target = REPO_ROOT / pf
+        target = update_common.REPO_ROOT / pf
         if target.exists():
             cmd.append(pf)
-    run_cmd(cmd, cwd=REPO_ROOT)
+    run_cmd(cmd, cwd=update_common.REPO_ROOT)
     _audit_log("rollback-executed", files=patched_files)
 
 
@@ -69,8 +67,8 @@ def snapshot_rollback(head_before: str) -> None:
     """Rollback toàn bộ working tree về snapshot trước khi apply commit."""
     if not head_before:
         return
-    run_cmd(["git", "reset", "--hard", head_before], cwd=REPO_ROOT)
-    run_cmd(["git", "clean", "-fd"], cwd=REPO_ROOT)
+    run_cmd(["git", "reset", "--hard", head_before], cwd=update_common.REPO_ROOT)
+    run_cmd(["git", "clean", "-fd"], cwd=update_common.REPO_ROOT)
     _audit_log("snapshot-rollback-executed", head_before=head_before)
 
 

@@ -21,8 +21,6 @@ from typing import Any
 import update_common
 
 from apply_ahd_map import get_protected_files
-import update_common
-REPO_ROOT = update_common.REPO_ROOT
 from apply_ahd_apply import apply_commit, get_commits
 from apply_ahd_commit import record_ahd_apply
 from apply_ahd_verify import run_cmd
@@ -30,7 +28,7 @@ from apply_ahd_verify import run_cmd
 
 def _audit_log(event: str, **kwargs: Any) -> None:
     """Ghi security event vào .devin/logs/security_audit.log."""
-    log_dir = REPO_ROOT / ".devin" / "logs"
+    log_dir = update_common.REPO_ROOT / ".devin" / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     log_path = log_dir / "security_audit.log"
     entry = {"event": event, **kwargs}
@@ -59,7 +57,7 @@ def validate_worktree_path(path: str, repo_root: Path) -> Path | None:
 
 def guard_main_branch(force: bool) -> tuple[bool, str]:
     """Không cho chạy trực tiếp trên main/master trừ khi --force."""
-    code, branch, _ = run_cmd(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=REPO_ROOT)
+    code, branch, _ = run_cmd(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=update_common.REPO_ROOT)
     branch = branch.strip()
     if branch in ("main", "master") and not force:
         return False, branch
@@ -70,10 +68,10 @@ def setup_feature_branch() -> str | None:
     """Tạo feature branch từ main. Trả về None nếu không tạo được."""
     branch = f"feat/ahd-update-{int(time.time())}"
     # Kiểm tra branch đã tồn tại chưa để tránh lỗi trùng tên
-    code, out, _ = run_cmd(["git", "branch", "--list", branch], cwd=REPO_ROOT)
+    code, out, _ = run_cmd(["git", "branch", "--list", branch], cwd=update_common.REPO_ROOT)
     if out.strip():
         branch = f"{branch}-{int(time.time() * 1000) % 1000}"
-    code, _, err = run_cmd(["git", "checkout", "-b", branch], cwd=REPO_ROOT)
+    code, _, err = run_cmd(["git", "checkout", "-b", branch], cwd=update_common.REPO_ROOT)
     if code != 0:
         print(f"[ERROR] Cannot create feature branch: {err}")
         return None
@@ -87,7 +85,7 @@ def setup_worktree(worktree_path: Path, branch: str = "main") -> Path | None:
     new_branch = f"ahd-wt-{int(time.time())}"
     code, _, err = run_cmd(
         ["git", "worktree", "add", "-b", new_branch, str(worktree_path), branch],
-        cwd=REPO_ROOT,
+        cwd=update_common.REPO_ROOT,
     )
     if code != 0:
         print(f"[ERROR] Cannot create worktree: {err}")
@@ -97,10 +95,10 @@ def setup_worktree(worktree_path: Path, branch: str = "main") -> Path | None:
 
 def stash_local_changes() -> bool:
     """Stash local changes chưa commit; trả về True nếu thực sự stash."""
-    code, out, _ = run_cmd(["git", "status", "--short"], cwd=REPO_ROOT)
+    code, out, _ = run_cmd(["git", "status", "--short"], cwd=update_common.REPO_ROOT)
     if not out.strip():
         return False
-    code, _, err = run_cmd(["git", "stash", "push", "-m", "pre-ahd-patch"], cwd=REPO_ROOT)
+    code, _, err = run_cmd(["git", "stash", "push", "-m", "pre-ahd-patch"], cwd=update_common.REPO_ROOT)
     if code != 0:
         print(f"[WARN] Stash failed: {err}")
         return False
@@ -109,7 +107,7 @@ def stash_local_changes() -> bool:
 
 def pop_stash() -> None:
     """Pop stash nếu có; thất bại thì cảnh báo chứ không crash."""
-    code, _, err = run_cmd(["git", "stash", "pop"], cwd=REPO_ROOT)
+    code, _, err = run_cmd(["git", "stash", "pop"], cwd=update_common.REPO_ROOT)
     if code != 0:
         print(f"[WARN] Stash pop failed: {err}")
 
@@ -148,13 +146,13 @@ def main() -> int:
 
     worktree: Path | None = None
     if args.worktree:
-        wp = validate_worktree_path(args.worktree, REPO_ROOT)
+        wp = validate_worktree_path(args.worktree, update_common.REPO_ROOT)
         if not wp:
             print(f"[ERROR] Invalid worktree path: {args.worktree}")
             return 1
         worktree = wp
 
-    original_cwd = REPO_ROOT
+    original_cwd = update_common.REPO_ROOT
     stashed = False
     try:
         if worktree:
@@ -201,7 +199,7 @@ def main() -> int:
 
         # Ghi report (R03: dry-run không ghi file tracked để tránh dirty workspace)
         if not args.dry_run:
-            report_path = REPO_ROOT / ".devin" / "metadata" / "AHD_PATCH_REPORT.md"
+            report_path = update_common.REPO_ROOT / ".devin" / "metadata" / "AHD_PATCH_REPORT.md"
             lines = ["# AHD Cherry-Pick Report", "", f"Upstream: {upstream}", f"Range: {args.since} .. {args.until}", ""]
             for r in results:
                 lines.append(f"## {r['sha']} — {r['msg']}")
