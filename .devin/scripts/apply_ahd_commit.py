@@ -14,7 +14,9 @@ from typing import Any
 
 import update_common
 
-from apply_ahd_map import REPO_ROOT, TRACKER_PATH, get_protected_files
+from apply_ahd_map import TRACKER_PATH, get_protected_files
+import update_common
+REPO_ROOT = update_common.REPO_ROOT
 from apply_ahd_verify import run_cmd
 
 

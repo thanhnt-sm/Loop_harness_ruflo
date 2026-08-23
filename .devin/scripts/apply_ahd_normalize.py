@@ -13,7 +13,9 @@ import re
 from pathlib import Path
 from typing import Any
 
-from apply_ahd_map import PATH_MAP, REPO_ROOT
+from apply_ahd_map import PATH_MAP
+import update_common
+REPO_ROOT = update_common.REPO_ROOT
 
 
 def _text_replacements() -> list[tuple[str, str]]:

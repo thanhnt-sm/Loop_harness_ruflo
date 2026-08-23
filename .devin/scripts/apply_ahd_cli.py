@@ -20,7 +20,9 @@ from typing import Any
 
 import update_common
 
-from apply_ahd_map import REPO_ROOT, get_protected_files
+from apply_ahd_map import get_protected_files
+import update_common
+REPO_ROOT = update_common.REPO_ROOT
 from apply_ahd_apply import apply_commit, get_commits
 from apply_ahd_commit import record_ahd_apply
 from apply_ahd_verify import run_cmd

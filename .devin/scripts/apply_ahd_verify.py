@@ -13,7 +13,9 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from apply_ahd_map import REPO_ROOT
+from apply_ahd_map import get_protected_files
+import update_common
+REPO_ROOT = update_common.REPO_ROOT
 
 
 def run_cmd(cmd: list[str], cwd: Path | None = None, timeout: int = 120, input_text: str = "") -> tuple[int, str, str]:
