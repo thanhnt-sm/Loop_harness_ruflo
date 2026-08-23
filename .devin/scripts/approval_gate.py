@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""approval_gate.py — human approval gate cho Solution Design và Implementation Plan.
+"""approval_gate.py — Human approval gate cho Solution Design và Implementation Plan.
 
 Hỗ trợ 2 artifact:
   --artifact sd      : Duyệt SOLUTION_DESIGN.md -> state <task_slug>_sd_approved.json
@@ -30,630 +30,53 @@ Exit codes:
 """
 from __future__ import annotations
 
-import base64
-import hashlib
 import json
-import os
-import re
-import subprocess
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 
-# CVE-2026-AHD-006: Ed25519 — bắt buộc khi reviewer_keys được cấu hình.
-try:
-    from cryptography.exceptions import InvalidSignature
-    from cryptography.hazmat.primitives.asymmetric.ed25519 import (
-        Ed25519PrivateKey,
-        Ed25519PublicKey,
-    )
-    _CRYPTO_AVAILABLE = True
-except ImportError:  # pragma: no cover - phụ thuộc môi trường
-    Ed25519PrivateKey = None  # type: ignore
-    Ed25519PublicKey = None  # type: ignore
-    InvalidSignature = Exception  # type: ignore
-    _CRYPTO_AVAILABLE = False
-
-
-# Bước 0: Ép stdout/stderr dùng UTF-8 khi chạy CLI (tránh lỗi cp1258 trên Windows console)
-def _ensure_utf8() -> None:
-    for _stream in (sys.stdout, sys.stderr):
-        try:
-            _stream.reconfigure(encoding="utf-8")
-        except (AttributeError, OSError):
-            pass
-
-
-# Các trạng thái hợp lệ
-STATUS_PENDING = "pending"
-STATUS_APPROVED = "approved"
-STATUS_REJECTED = "rejected"
-STATUS_CHANGES_REQUESTED = "changes_requested"
-
-VALID_STATUSES = (STATUS_PENDING, STATUS_APPROVED, STATUS_REJECTED, STATUS_CHANGES_REQUESTED)
-
-
-def _repo_root(plan_path: Path) -> Path:
-    """Xác định repo root cho plan_path.
-
-    Ưu tiên git rev-parse; nếu không có git, dò các marker chuẩn (.git,
-    pyproject.toml, README.md, AGENTS.md) từ thư mục chứa plan. Không dùng
-    .devin/.agents làm marker vì chúng có thể tồn tại ở thư mục home của user,
-    gây nhầm lẫn khi chạy test trong tmp_path.
-    """
-    start = plan_path.parent
-    try:
-        r = subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"],
-            capture_output=True, text=True, cwd=str(start)
-        )
-        if r.returncode == 0 and r.stdout.strip():
-            return Path(r.stdout.strip())
-    except (OSError, ValueError, subprocess.SubprocessError):
-        pass
-    for parent in [start, *start.parents]:
-        if parent.parent == parent:
-            break
-        for marker in (".git", "pyproject.toml", "README.md", "AGENTS.md"):
-            if (parent / marker).exists():
-                return parent
-    return start
-
-
-# ---------------------------------------------------------------------------
-# CVE-2026-AHD-006: Ed25519 signatures + audit log
-# ---------------------------------------------------------------------------
-def plan_hash(plan_path: Path) -> str:
-    """SHA-256 của nội dung plan/SDD file — được ký bởi reviewer."""
-    content = plan_path.read_bytes()
-    return hashlib.sha256(content).hexdigest()
-
-
-def load_reviewer_keys(root: Path) -> list[str]:
-    """Load reviewer public keys (base64 Ed25519) từ HLK config.
-
-    Source of truth: HLK/config/hlk.config.json -> security_rules.reviewer_keys.
-    Override cho test/ops: env AHD_REVIEWER_KEYS (comma-separated base64).
-    """
-    env_keys = os.environ.get("AHD_REVIEWER_KEYS", "")
-    if env_keys.strip():
-        return [k.strip() for k in env_keys.split(",") if k.strip()]
-    try:
-        cfg_path = root / "HLK" / "config" / "hlk.config.json"
-        if cfg_path.exists():
-            cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
-            keys = cfg.get("security_rules", {}).get("reviewer_keys", []) or []
-            return [str(k) for k in keys if k]
-    except (OSError, json.JSONDecodeError):
-        pass
-    return []
-
-
-def signature_required(root: Path) -> bool:
-    """Signature bắt buộc khi có reviewer_keys được cấu hình.
-
-    Nếu HLK config bật approval_signature_required, bắt buộc kể cả khi
-    chưa có key (fail closed — không approve thiếu chữ ký).
-    """
-    if load_reviewer_keys(root):
-        return True
-    try:
-        cfg_path = root / "HLK" / "config" / "hlk.config.json"
-        if cfg_path.exists():
-            cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
-            return bool(cfg.get("security_rules", {}).get("approval_signature_required", False))
-    except (OSError, json.JSONDecodeError):
-        pass
-    return False
-
-
-def _sig_message(plan_hash_hex: str, reviewer: str, ts: str) -> bytes:
-    """Message được ký: plan_hash|reviewer|timestamp (deterministic)."""
-    return f"{plan_hash_hex}|{reviewer}|{ts}".encode("utf-8")
-
-
-def verify_signature(message: bytes, signature_b64: str, reviewer_keys: list[str]) -> bool:
-    """Verify Ed25519 signature với bất kỳ key nào trong allowlist.
-
-    Fail closed: không có cryptography / key rỗng / sig rỗng → False.
-    """
-    if not _CRYPTO_AVAILABLE or not signature_b64 or not reviewer_keys:
-        return False
-    try:
-        raw_sig = base64.b64decode(signature_b64)
-    except (ValueError, TypeError):
-        return False
-    for key_b64 in reviewer_keys:
-        try:
-            raw_key = base64.b64decode(key_b64)
-            pub = Ed25519PublicKey.from_public_bytes(raw_key)
-            pub.verify(raw_sig, message)
-            return True
-        except (InvalidSignature, ValueError, TypeError):
-            continue
-    return False
-
-
-def _sha256_chunked(path: Path, chunk_size: int = 65536) -> str:
-    """SHA-256 theo chunk (CVE-2026-AHD-010): không load toàn bộ file lớn."""
-    h = hashlib.sha256()
-    with open(path, "rb") as fh:
-        while True:
-            block = fh.read(chunk_size)
-            if not block:
-                break
-            h.update(block)
-    return h.hexdigest()
-
-
-def _plan_file_hashes(plan_path: Path, root: Path) -> dict:
-    """CVE-2026-AHD-010: SHA-256 của từng file được plan tham chiếu.
-
-    Key = đường dẫn tương đối (forward slash) như trong plan. File chưa tồn
-    tại lúc approval → ghi null (verify sẽ bỏ qua hash, dùng tồn tại-check).
-    """
-    try:
-        text = plan_path.read_text(encoding="utf-8")
-    except OSError:
-        return {}
-    file_paths = set(re.findall(r"`([^`]*[/\\][^`]*)`", text))
-    hashes: dict[str, str | None] = {}
-    for fp in sorted(file_paths):
-        rel = fp.replace("\\", "/").lstrip("/")
-        if not rel:
-            continue
-        candidate = root / rel
-        if candidate.exists() and candidate.is_file():
-            try:
-                hashes[rel] = _sha256_chunked(candidate)
-            except OSError:
-                hashes[rel] = None
-        else:
-            hashes[rel] = None
-    return hashes
-
-
-def _archive_approved_plan(root: Path, plan_path: Path, phash: str) -> str | None:
-    """CVE-2026-AHD-010: lưu bản copy bất biến vào .devin/artifacts/<plan_hash>/.
-
-    Trả đường dẫn tương đối artifact (hoặc None nếu lỗi — không chặn approval).
-    """
-    try:
-        artifact_dir = root / ".devin" / "artifacts" / phash
-        artifact_dir.mkdir(parents=True, exist_ok=True)
-        dest = artifact_dir / plan_path.name
-        if not dest.exists():
-            dest.write_bytes(plan_path.read_bytes())
-        return str(dest.relative_to(root))
-    except OSError:
-        return None
-
-
-def _append_approval_audit(root: Path, record: dict) -> None:
-    """Ghi approval vào telemetry append-only (JSONL).
-
-    Append-only: luôn mở mode 'a' (không bao giờ ghi đè/truncate). Mỗi
-    approval/reject ghi 1 dòng mới — không thể sửa lịch sử.
-    """
-    try:
-        telemetry_dir = root / ".devin" / "telemetry"
-        telemetry_dir.mkdir(parents=True, exist_ok=True)
-        audit_path = telemetry_dir / "approvals.jsonl"
-        record.setdefault("ts", datetime.now(timezone.utc).isoformat())
-        with open(audit_path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(record, ensure_ascii=False) + "\n")
-    except OSError:
-        # Audit lỗi KHÔNG chặn approval — nhưng cảnh báo rõ ràng.
-        print(f"[approval_gate] WARN: không thể ghi audit log: {audit_path}", file=sys.stderr)
-
-
-def _state_dir(repo_root: Path) -> Path:
-    """Trả về thư mục state. Tạo nếu chưa tồn tại."""
-    sd = repo_root / ".devin" / "plan_state"
-    sd.mkdir(parents=True, exist_ok=True)
-    return sd
-
-
-def _plan_state_name(plan_path: Path, artifact: str = "plan") -> str:
-    """
-    Tạo tên state file duy nhất cho artifact.
-
-    Nếu plan/SDD nằm trong docs/plans/<task_slug>/ → dùng <task_slug>[_<artifact>]_approved.json.
-    - artifact='plan' → <task_slug>_approved.json (backward compatible)
-    - artifact='sd'   → <task_slug>_sd_approved.json
-    Fallback: dùng plan_path.stem.
-    """
-    suffix = f"_{artifact}" if artifact and artifact != "plan" else ""
-    parts = plan_path.parts
-    if "docs" in parts and "plans" in parts:
-        try:
-            idx = parts.index("plans")
-            if idx + 1 < len(parts):
-                task_slug = parts[idx + 1]
-                return f"{task_slug}{suffix}_approved"
-        except ValueError:
-            pass
-    return f"{plan_path.stem}{suffix}"
-
-
-def _state_path(repo_root: Path, plan_path: Path, artifact: str = "plan") -> Path:
-    """Trả về đường dẫn state file cho artifact."""
-    return _state_dir(repo_root) / f"{_plan_state_name(plan_path, artifact)}.json"
-
-
-def _load_state(state_path: Path) -> dict:
-    """Đọc state file. Trả state pending mặc định nếu chưa có hoặc JSON lỗi.
-
-    Edge case: file không tồn tại -> pending; JSON hỏng -> pending + cảnh báo.
-    """
-    if not state_path.exists():
-        return {
-            "plan_file": "",
-            "status": STATUS_PENDING,
-            "reviewer": "",
-            "date": "",
-            "comments": "",
-        }
-    try:
-        data = json.loads(state_path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError) as e:
-        # Edge case: state file hỏng -> trả pending + ghi chú lỗi
-        return {
-            "plan_file": "",
-            "status": STATUS_PENDING,
-            "reviewer": "",
-            "date": "",
-            "comments": f"State file hỏng: {e}",
-        }
-    # Validate status hợp lệ
-    if data.get("status") not in VALID_STATUSES:
-        data["status"] = STATUS_PENDING
-    return data
-
-
-def _save_state(state_path: Path, state: dict) -> None:
-    """Ghi state file JSON."""
-    state_path.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
-
-
-def _init_state_if_needed(repo_root: Path, plan_path: Path, artifact: str) -> dict:
-    """Khởi tạo state pending nếu chưa có, gắn plan_file/artifact. Trả state hiện tại."""
-    sp = _state_path(repo_root, plan_path, artifact)
-    state = _load_state(sp)
-    if not state.get("plan_file"):
-        state["plan_file"] = str(plan_path.relative_to(repo_root)) if plan_path.exists() else str(plan_path)
-        state["artifact"] = artifact
-        _save_state(sp, state)
-    return state
-
-
-def cmd_status(plan_path: Path, artifact: str = "plan") -> dict:
-    """--status: Trả trạng thái phê duyệt hiện tại."""
-    if not plan_path.exists():
-        return {"error": f"Không tìm thấy plan file: {plan_path}", "status": STATUS_PENDING}
-    root = _repo_root(plan_path)
-    state = _init_state_if_needed(root, plan_path, artifact)
-    state["artifact"] = artifact
-    return state
-
-
-def _write_approval_state(plan_path: Path, artifact: str, status: str, reviewer: str, comments: str, signature: str = "", signed_ts: str = "") -> dict:
-    """Helper ghi approval state cho plan hoặc SDD.
-
-    CVE-2026-AHD-006: nếu reviewer_keys được cấu hình (hoặc HLK config bật
-    approval_signature_required), status=approved BẮT BUỘC có Ed25519
-    signature hợp lệ (base64, ký trên plan_hash|reviewer|timestamp).
-    `signed_ts` (nếu có) là timestamp ĐÃ ký — được ghi verbatim vào state/audit
-    để replay verify; mặc định = now.
-    Mọi thao tác đều được ghi vào telemetry append-only.
-    """
-    if not plan_path.exists():
-        return {"error": f"Không tìm thấy file: {plan_path}"}
-    root = _repo_root(plan_path)
-    sp = _state_path(root, plan_path, artifact)
-
-    phash = plan_hash(plan_path)
-    ts = signed_ts or datetime.now(timezone.utc).isoformat()
-
-    # CVE-2026-AHD-006: verify signature cho approval
-    if status == STATUS_APPROVED:
-        keys = load_reviewer_keys(root)
-        if signature_required(root):
-            if not signature:
-                _append_approval_audit(root, {
-                    "event": "approval_rejected", "plan_hash": phash,
-                    "artifact": artifact, "reviewer": reviewer,
-                    "reason": "missing_signature", "date": ts,
-                })
-                return {
-                    "error": "Signature bắt buộc (CVE-2026-AHD-006): approve cần "
-                             "--signature <base64 Ed25519> từ reviewer được ủy quyền",
-                    "status": STATUS_PENDING,
-                }
-            if not verify_signature(_sig_message(phash, reviewer, ts), signature, keys):
-                _append_approval_audit(root, {
-                    "event": "approval_rejected", "plan_hash": phash,
-                    "artifact": artifact, "reviewer": reviewer,
-                    "reason": "invalid_signature", "date": ts,
-                })
-                return {
-                    "error": "Chữ ký không hợp lệ hoặc reviewer không được ủy quyền "
-                             "(CVE-2026-AHD-006)",
-                    "status": STATUS_PENDING,
-                }
-
-    state = {
-        "plan_file": str(plan_path.relative_to(root)),
-        "artifact": artifact,
-        "status": status,
-        "reviewer": reviewer,
-        "date": ts,
-        "comments": comments,
-        "plan_hash": phash,
-    }
-    if signature:
-        state["signature"] = signature
-    # CVE-2026-AHD-010: ghi SHA-256 từng file tham chiếu + archive bất biến
-    if status == STATUS_APPROVED and artifact == "plan":
-        state["file_hashes"] = _plan_file_hashes(plan_path, root)
-        archived = _archive_approved_plan(root, plan_path, phash)
-        if archived:
-            state["artifact_path"] = archived
-    _save_state(sp, state)
-
-    # Audit log append-only (mọi event: approve/reject/changes_requested)
-    _append_approval_audit(root, {
-        "event": f"approval_{status}", "plan_hash": phash,
-        "artifact": artifact, "reviewer": reviewer,
-        "plan_file": state["plan_file"], "date": ts,
-        "has_signature": bool(signature),
-    })
-    return state
-
-
-def cmd_approve(plan_path: Path, reviewer: str, comments: str, artifact: str = "plan", signature: str = "", signed_ts: str = "") -> dict:
-    """--approve: Đánh dấu plan/SDD approved (cần Ed25519 signature nếu cấu hình)."""
-    return _write_approval_state(plan_path, artifact, STATUS_APPROVED, reviewer, comments, signature=signature, signed_ts=signed_ts)
-
-
-def cmd_reject(plan_path: Path, reviewer: str, reason: str, artifact: str = "plan") -> dict:
-    """--reject: Đánh dấu plan/SDD rejected (kèm lý do)."""
-    return _write_approval_state(plan_path, artifact, STATUS_REJECTED, reviewer, reason)
-
-
-def cmd_request_changes(plan_path: Path, reviewer: str, feedback: str, artifact: str = "plan") -> dict:
-    """--request-changes: Đánh dấu plan/SDD cần sửa đổi (kèm feedback)."""
-    return _write_approval_state(plan_path, artifact, STATUS_CHANGES_REQUESTED, reviewer, feedback)
-
-
-def _parse_plan_summary(plan_path: Path) -> dict:
-    """Trích tóm tắt plan từ Markdown file — dùng cho interactive mode."""
-    try:
-        text = plan_path.read_text(encoding="utf-8")
-    except OSError:
-        return {}
-    summary = {
-        "feature": "",
-        "complexity": "",
-        "risk_tier": "",
-        "files_count": 0,
-        "requirements_count": 0,
-        "tasks_count": 0,
-    }
-    # Trích Metadata table
-    import re
-    # Risk Tier — match cả [FILL IN: R2] và giá trị thực R2/P0/P1/P2/P3
-    m = re.search(r"Risk Tier.*?\|\s*`?\*?\*?\s*(?:\[FILL IN:\s*)?([A-Za-z]\d+)\s*\]?\*?`?\s*\|", text, re.IGNORECASE)
-    if m:
-        summary["risk_tier"] = m.group(1).strip()
-    elif "[FILL IN:" in text and "Risk Tier" in text:
-        m2 = re.search(r"Risk Tier.*?\[FILL IN:\s*(.*?)\]", text, re.IGNORECASE)
-        if m2:
-            summary["risk_tier"] = m2.group(1).strip()
-    # Đếm task IDs (T1.1, T1.2, T2.1, v.v.)
-    task_ids = re.findall(r"\bT\d+\.\d+\b", text)
-    summary["tasks_count"] = len(set(task_ids))
-    # Đếm REQ IDs
-    req_ids = re.findall(r"\bREQ-\d+\b", text)
-    summary["requirements_count"] = len(set(req_ids))
-    # Đếm file paths (đường dẫn có / hoặc \)
-    file_paths = re.findall(r"`([^`]*[/\\][^`]*)`", text)
-    summary["files_count"] = len(set(file_paths))
-    # Feature = task_slug nếu file nằm trong docs/plans/<task_slug>/; fallback = tên file
-    parts = plan_path.parts
-    if "docs" in parts and "plans" in parts:
-        try:
-            idx = parts.index("plans")
-            if idx + 1 < len(parts):
-                summary["feature"] = parts[idx + 1].replace("-", " ")
-                return summary
-        except ValueError:
-            pass
-    summary["feature"] = plan_path.stem.replace("IMPLEMENTATION_PLAN_", "").replace("SOLUTION_DESIGN_", "").replace("_", " ")
-    return summary
-
-
-def _parse_quality_report(qr_path: Path) -> dict:
-    """Trích tóm tắt quality report từ Markdown file."""
-    if not qr_path or not qr_path.exists():
-        return {}
-    try:
-        text = qr_path.read_text(encoding="utf-8")
-    except OSError:
-        return {}
-    import re
-    result = {"scorecard": "", "passed": 0, "failed": 0, "all_pass": False}
-    # Overall PASS/FAIL
-    if "**Overall**: **PASS**" in text or "**Overall**: PASS" in text:
-        result["all_pass"] = True
-    # Đếm PASS/FAIL trong table
-    passes = len(re.findall(r"\|\s*PASS\s*\|", text))
-    fails = len(re.findall(r"\|\s*FAIL\s*\|", text))
-    result["passed"] = passes
-    result["failed"] = fails
-    result["scorecard"] = f"{passes} PASS, {fails} FAIL"
-    return result
-
-
-def cmd_interactive(plan_path: Path, reviewer: str, quality_report_path: str = "", artifact: str = "plan") -> dict:
-    """--interactive: Present plan/SDD summary + hỏi user approve/reject/modify."""
-    if not plan_path.exists():
-        return {"error": f"Không tìm thấy file: {plan_path}"}
-
-    root = _repo_root(plan_path)
-    summary = _parse_plan_summary(plan_path)
-    qr_summary = {}
-    if quality_report_path:
-        qr_path = Path(quality_report_path).resolve()
-        qr_summary = _parse_quality_report(qr_path)
-
-    title = "SDD APPROVAL GATE — Human Review Required" if artifact == "sd" else "PLAN APPROVAL GATE — Human Review Required"
-    artifact_label = "Solution Design" if artifact == "sd" else "Plan"
-
-    # Bước 1: Present summary
-    print("\n" + "=" * 60)
-    print(f"  {title}")
-    print("=" * 60)
-    print()
-    print(f"## {artifact_label} Summary")
-    print(f"  Feature:           {summary.get('feature', 'N/A')}")
-    print(f"  Risk Tier:         {summary.get('risk_tier', 'N/A')}")
-    print(f"  Tasks:             {summary.get('tasks_count', 0)}")
-    print(f"  Requirements:      {summary.get('requirements_count', 0)}")
-    print(f"  Files to change:   {summary.get('files_count', 0)}")
-    if qr_summary:
-        print(f"  Quality scorecard: {qr_summary.get('scorecard', 'N/A')}")
-        print(f"  Overall:           {'PASS' if qr_summary.get('all_pass') else 'FAIL'}")
-    print()
-    print(f"  {artifact_label} file:    {plan_path}")
-    if quality_report_path:
-        print(f"  Quality report:    {quality_report_path}")
-    print()
-    print("-" * 60)
-    print("  Options:")
-    print("    [y]     Approve")
-    print("    [n]     Reject")
-    print("    [m]     Approve with modifications")
-    print("    [i]     Request more information")
-    print("-" * 60)
-
-    # Bước 2: Hỏi user
-    try:
-        response = input("\n  Decision [y/n/m/i]: ").strip().lower()
-    except (EOFError, KeyboardInterrupt):
-        print("\n  [Aborted by user]")
-        return {"status": STATUS_PENDING, "reason": "User aborted"}
-
-    # Bước 3: Xử lý response
-    label = "SDD" if artifact == "sd" else "Plan"
-    if response == "y":
-        state = cmd_approve(plan_path, reviewer, "Approved via interactive mode", artifact=artifact)
-        print(f"\n  [APPROVED] {label} state written: {_plan_state_name(plan_path, artifact)}.json")
-        return state
-    elif response == "n":
-        try:
-            reason = input("  Reason for rejection (optional): ").strip()
-        except (EOFError, KeyboardInterrupt):
-            reason = "Rejected via interactive mode"
-        state = cmd_reject(plan_path, reviewer, reason or "Rejected via interactive mode", artifact=artifact)
-        print(f"\n  [REJECTED] Reason: {reason}")
-        return state
-    elif response == "m":
-        try:
-            modifications = input("  Specify modifications needed: ").strip()
-        except (EOFError, KeyboardInterrupt):
-            modifications = "Modifications requested via interactive mode"
-        state = cmd_request_changes(plan_path, reviewer, modifications, artifact=artifact)
-        print(f"\n  [CHANGES REQUESTED] {modifications}")
-        return state
-    elif response == "i":
-        try:
-            question = input("  What information do you need? ").strip()
-        except (EOFError, KeyboardInterrupt):
-            question = "Information requested"
-        print(f"\n  [INFO REQUESTED] {question}")
-        return {"status": STATUS_PENDING, "reason": f"Info requested: {question}"}
-    else:
-        print(f"\n  [INVALID] Response '{response}' not recognized. Use y/n/m/i.")
-        return {"status": STATUS_PENDING, "reason": f"Invalid response: {response}"}
-
-
-def _parse_args(argv: list[str]) -> dict:
-    """Parse CLI args thủ công (không dùng argparse để giữ stdlib tối giản).
-
-    Hỗ trợ: --status, --approve, --reject, --request-changes, --artifact <sd|plan>
-            --reviewer <name>, --reason <text>, --comments <text>
-    """
-    args = {
-        "plan_file": "",
-        "status": False,
-        "approve": False,
-        "reject": False,
-        "request_changes": False,
-        "interactive": False,
-        "reviewer": "",
-        "reason": "",
-        "comments": "",
-        "quality_report": "",
-        "artifact": "plan",
-        "signature": "",
-        "date": "",
-    }
-    i = 0
-    # Bước 1: Tìm plan_file (đối số đầu tiên không phải flag)
-    positional = []
-    while i < len(argv):
-        a = argv[i]
-        if a in ("--status",):
-            args["status"] = True
-        elif a in ("--approve",):
-            args["approve"] = True
-        elif a in ("--reject",):
-            args["reject"] = True
-        elif a in ("--request-changes", "--request_changes"):
-            args["request_changes"] = True
-        elif a in ("--interactive",):
-            args["interactive"] = True
-        elif a in ("--reviewer",):
-            i += 1
-            if i < len(argv):
-                args["reviewer"] = argv[i]
-        elif a in ("--reason",):
-            i += 1
-            if i < len(argv):
-                args["reason"] = argv[i]
-        elif a in ("--comments",):
-            i += 1
-            if i < len(argv):
-                args["comments"] = argv[i]
-        elif a in ("--quality-report", "--quality_report"):
-            i += 1
-            if i < len(argv):
-                args["quality_report"] = argv[i]
-        elif a in ("--artifact",):
-            i += 1
-            if i < len(argv):
-                args["artifact"] = argv[i]
-        elif a in ("--signature",):
-            i += 1
-            if i < len(argv):
-                args["signature"] = argv[i]
-        elif a in ("--date",):
-            i += 1
-            if i < len(argv):
-                args["date"] = argv[i]
-        elif a.startswith("--"):
-            # Flag không nhận dạng -> bỏ qua
-            pass
-        else:
-            positional.append(a)
-        i += 1
-    if positional:
-        args["plan_file"] = positional[0]
-    # Bước 2: --reason và --comments dùng chung cho reject/request_changes
-    if args["reason"] and not args["comments"]:
-        args["comments"] = args["reason"]
-    return args
+# Initialize UTF-8 for Windows console
+from approval_gate_constants import (
+    _ensure_utf8,
+    EXIT_APPROVED,
+    EXIT_PENDING_OR_REJECTED,
+    EXIT_USAGE_ERROR,
+    STATUS_APPROVED,
+    STATUS_PENDING,
+    STATUS_REJECTED,
+    STATUS_CHANGES_REQUESTED,
+    ARTIFACT_PLAN,
+    ARTIFACT_SD,
+    VALID_STATUSES,
+)
+from approval_gate_args import _parse_args
+from approval_gate_commands import (
+    cmd_status,
+    cmd_approve,
+    cmd_reject,
+    cmd_request_changes,
+    _write_approval_state,
+)
+from approval_gate_interactive import cmd_interactive
+from approval_gate_summary import _parse_plan_summary, _parse_quality_report
+from approval_gate_state import (
+    _repo_root,
+    _state_dir,
+    _plan_state_name,
+    _state_path,
+    _load_state,
+    _save_state,
+    _init_state_if_needed,
+)
+from approval_gate_crypto import (
+    plan_hash,
+    load_reviewer_keys,
+    signature_required,
+    verify_signature,
+    _sig_message,
+    CRYPTO_AVAILABLE,
+)
+from approval_gate_archive import _sha256_chunked, _plan_file_hashes, _archive_approved_plan
+from approval_gate_audit import _append_approval_audit
 
 
 def main() -> int:
@@ -663,7 +86,7 @@ def main() -> int:
     if not args["plan_file"]:
         print("Usage: python approval_gate.py <plan_file.md> [--approve|--reject|--request-changes|--status] [--artifact sd|plan]",
               file=sys.stderr)
-        return 2
+        return EXIT_USAGE_ERROR
 
     plan_path = Path(args["plan_file"]).resolve()
 
@@ -692,10 +115,10 @@ def main() -> int:
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
     # Bước 3: Exit code dựa trên status
-    status = result.get("status", STATUS_PENDING)
+    status = result.get("status", STATUS_APPROVED)  # default to pending-like
     if "error" in result:
-        return 1
-    return 0 if status == STATUS_APPROVED else 1
+        return EXIT_PENDING_OR_REJECTED
+    return EXIT_APPROVED if status == STATUS_APPROVED else EXIT_PENDING_OR_REJECTED
 
 
 if __name__ == "__main__":
