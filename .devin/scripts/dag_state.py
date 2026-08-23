@@ -15,9 +15,14 @@ from typing import Any
 import checkpoint as checkpoint_module
 from data_models import CheckpointState
 
-import dag_executor
 from dag_types import ExecResult
 from dag_analysis import _detect_cycle, _mark_ready
+
+
+def _executor():
+    """Lazy access to dag_executor module (tránh circular import)."""
+    import dag_executor
+    return dag_executor
 
 
 # ---------------------------------------------------------------------------
@@ -84,7 +89,7 @@ def _load_workflow(path: str) -> dict | None:
 
 def _load_state(workflow_id: str) -> dict | None:
     """Tải trạng thái thực thi từ file. Nếu lỗi → trả None."""
-    f = dag_executor._state_file(workflow_id)
+    f = _executor()._state_file(workflow_id)
     if not f.exists():
         return None
     try:
@@ -98,7 +103,7 @@ def _load_state(workflow_id: str) -> dict | None:
 def _save_state(state: dict) -> bool:
     """Lưu trạng thái thực thi vào file."""
     wf_id = state.get("workflow_id", "unknown")
-    f = dag_executor._state_file(wf_id)
+    f = _executor()._state_file(wf_id)
     try:
         f.write_text(json.dumps(state, ensure_ascii=False, indent=2),
                      encoding="utf-8")
@@ -107,7 +112,7 @@ def _save_state(state: dict) -> bool:
         try:
             from loop_memory_sync import append_state_log
             append_state_log(
-                dag_executor._repo_root(), str(wf_id), "dag_state_saved",
+                _executor()._repo_root(), str(wf_id), "dag_state_saved",
                 {"step": state.get("last_executed_step", ""),
                  "status": state.get("status", "")},
             )
@@ -184,7 +189,7 @@ def _save_checkpoint_for_state(state: dict) -> None:
             timestamp=ts,
             step_id=step_id,
         )
-        checkpoint_module.save(ckpt, workflow_id=wf_id, root=dag_executor._repo_root())
+        checkpoint_module.save(ckpt, workflow_id=wf_id, root=_executor()._repo_root())
     except (ValueError, TypeError, KeyError, AttributeError):
         pass
     except Exception as e:
