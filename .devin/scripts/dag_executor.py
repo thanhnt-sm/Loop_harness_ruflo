@@ -60,19 +60,19 @@ _script_dir = os.path.dirname(os.path.abspath(__file__))
 if _script_dir not in sys.path:
     sys.path.insert(0, _script_dir)
 
-# Khi chạy trực tiếp `python dag_executor.py`, module này có __name__ ==
-# "__main__". Đăng ký vào sys.modules["dag_executor"] để các sub-module
+# Đăng ký module này vào sys.modules["dag_executor"] để các sub-module
 # (vd dag_state) import dag_executor tìm đúng module này, tránh circular
 # import do double-import (hai instance module khác nhau khi chạy script).
-if __name__ == "__main__":
-    sys.modules["dag_executor"] = sys.modules["__main__"]
-    # Reconfigure stdout/stderr sang UTF-8 để help text tiếng Việt không
-    # gây UnicodeEncodeError trên console Windows (cp1258/ cp1252).
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
-        sys.stderr.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
-    except (AttributeError, ValueError, OSError):
-        pass
+# Chạy BẤT KỂ import hay chạy trực tiếp.
+if "dag_executor" not in sys.modules:
+    sys.modules["dag_executor"] = sys.modules[__name__]
+# Reconfigure stdout/stderr sang UTF-8 để help text tiếng Việt không
+# gây UnicodeEncodeError trên console Windows (cp1258/ cp1252).
+try:
+    sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+    sys.stderr.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+except (AttributeError, ValueError, OSError):
+    pass
 
 # Config functions (need to be here for test monkeypatching)
 def _repo_root() -> Path:
