@@ -1,7 +1,13 @@
 {
   "_description": "U41: Hook integrity verification baseline",
   "hooks": {
-    ".devin/hooks/ahd_session.py": "d18813b5ebda1f913531779f6c4f1b4fd45a1ed34ec3ac1e8ce849f3e6fb22bd",
+    ".devin/hooks/ahd_session.py": "235fac542e25b26fd4bcc0700259fa6e52f529516b2bcd714d668ce4d10895cb",
+    ".devin/hooks/ahd_session_circuit.py": "1bfea0aa45d4e4a34b705337f5e0b9f8a468673852c37e34bd93af5de119186a",
+    ".devin/hooks/ahd_session_id.py": "577361d5e156bedf442bbc554e6d577478d2567c11475a3f0aea2bbbf5f71742",
+    ".devin/hooks/ahd_session_lock.py": "a635a82e6693d36b7667ffdf299cb4d727092b933fa0e5463513dda9bfa2c949",
+    ".devin/hooks/ahd_session_paths.py": "6b1b3626530e3e38576b983ae5532a1a3002b679782749010e722115e4d66271",
+    ".devin/hooks/ahd_session_state.py": "9181cdd4374698f1de664492822b4f68c0c2db4e95e260a7b8b83fbd97c6fb32",
+    ".devin/hooks/ahd_session_utils.py": "d4cb6b1b75299b3794f2d1f055e4cf8173f54ed522ac0b903105a8d5dfca340e",
     ".devin/hooks/compress_terminal_output.py": "1d38913d015e1c3cdaeaa59f48bc8a4b2c7f1ec86b05edf04a64cabee2dd240d",
     ".devin/hooks/context_compaction.py": "0984fb01266d17a2b1a6f16f251d28f783a9a653b1547b13e998aacc3345439a",
     ".devin/hooks/coverage_enforce.py": "ca9273c82b51c00edc69f8be775113d2ed3ee39c8858ed106e7cd8fd2d9ff91b",

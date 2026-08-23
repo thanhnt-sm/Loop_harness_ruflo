@@ -115,7 +115,7 @@ class TestAtomicFileWrites:
     """ARCH-002: State files phải được viết atomically (tmp + replace)."""
 
     @pytest.mark.parametrize("script", [
-        "ahd_session.py",
+        "ahd_session_state.py",
         "coverage_enforce.py",
         "self_heal.py",
     ])

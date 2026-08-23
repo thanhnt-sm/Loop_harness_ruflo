@@ -316,3 +316,67 @@
 <!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-20T12:34:15+00:00 session_id=test status=crashed cleanup_failed=False
 
 <!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-20T12:34:18+00:00 session_id=s-20260819-bien-harness-upgrade-loop status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-22T10:57:34+00:00 session_id=test status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-22T10:57:36+00:00 session_id=s-20260819-bien-harness-upgrade-loop status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-22T11:05:04+00:00 session_id=test status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-22T11:05:06+00:00 session_id=s-20260819-bien-harness-upgrade-loop status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-22T11:08:14+00:00 session_id=test status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-22T11:08:16+00:00 session_id=s-20260819-bien-harness-upgrade-loop status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-22T11:11:56+00:00 session_id=test status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-22T11:11:58+00:00 session_id=s-20260819-bien-harness-upgrade-loop status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-22T11:13:12+00:00 session_id=test status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-22T11:13:14+00:00 session_id=s-20260819-bien-harness-upgrade-loop status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-22T11:14:08+00:00 session_id=test status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-22T11:14:10+00:00 session_id=s-20260819-bien-harness-upgrade-loop status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-22T11:18:51+00:00 session_id=test status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-22T11:18:54+00:00 session_id=s-20260819-bien-harness-upgrade-loop status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-22T11:24:14+00:00 session_id=test status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-22T11:24:17+00:00 session_id=s-20260819-bien-harness-upgrade-loop status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-22T12:07:19+00:00 session_id=test status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-22T12:07:22+00:00 session_id=s-20260819-bien-harness-upgrade-loop status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-22T12:09:47+00:00 session_id=test status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-22T12:09:49+00:00 session_id=s-20260819-bien-harness-upgrade-loop status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-22T12:17:46+00:00 session_id=test status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-22T12:17:49+00:00 session_id=s-20260819-bien-harness-upgrade-loop status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-22T12:31:22+00:00 session_id=test status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-22T12:31:24+00:00 session_id=s-20260819-bien-harness-upgrade-loop status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-22T12:49:45+00:00 session_id=test status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-22T12:49:48+00:00 session_id=s-20260819-bien-harness-upgrade-loop status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-22T21:43:41+00:00 session_id=test status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-22T21:43:43+00:00 session_id=s-20260819-bien-harness-upgrade-loop status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-22T21:46:20+00:00 session_id=test status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-22T21:46:22+00:00 session_id=s-20260819-bien-harness-upgrade-loop status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-22T21:54:35+00:00 session_id=test status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-22T21:54:37+00:00 session_id=s-20260819-bien-harness-upgrade-loop status=crashed cleanup_failed=False
