@@ -115,6 +115,20 @@ S-tier (<5 lines, 1 file, no destructive op) → orchestrator auto-skip, sửa t
 - Fan-out chỉ khi write sets disjoint + user yêu cầu
 - Executor unavailable → stop, report missing profile
 
+## Dependency Management (BẮT BUỘC — không phá CI)
+
+`requirements-lock.txt` là **hash-pinned lock** (sinh bởi `uv pip compile`). Bump sai một package = phá `--require-hashes` + `supply-chain` + `CI`.
+
+1. **KHÔNG sửa tay version/hash trong `requirements-lock.txt`**. Muốn đổi dep → sửa `pyproject.toml` rồi regenerate:
+   ```bash
+   uv pip compile pyproject.toml -o requirements-lock.txt --generate-hashes
+   ```
+2. **`filelock` PIN `<3.13`** (có comment giải thích trong `pyproject.toml`). filelock 3.13+ eager import asyncio (~6s) làm hook vượt timeout 2.5s. **Không bao giờ bump độc lập** — đã có `ignore` trong `.github/dependabot.yml`.
+3. **`pydantic-core` pin `==` bởi `pydantic`**. Bump `pydantic-core` độc lập → `ResolutionImpossible` (pydantic 2.x yêu cầu đúng một version pydantic-core). Bump `pydantic` + `pydantic-core` cùng nhau.
+4. **SBOM phải khớp lock**: `sbom/python.sbom.json` phản ánh deps trong lock. Đổi lock → cập nhật SBOM.
+5. Trước khi commit thay đổi dependency: chạy `python tools/check_deps.py` (chặn filelock vi phạm pin, pydantic-core lệch, SBOM drift). Pre-commit hook đã auto-chạy khi stage file dep.
+6. **Không commit debug noise** (print debug, file tạm, commit `debug:`/`fix:` lặp lại). Chạy test + `python tools/check_governance.py` trước khi push.
+
 ## MCP servers
 
 | Server | Mục đích |

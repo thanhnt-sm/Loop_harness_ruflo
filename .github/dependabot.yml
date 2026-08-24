@@ -50,3 +50,19 @@ updates:
     commit-message:
       prefix: "chore"
       include: "scope"
+    # Các package bị ignore để không làm hỏng hash-pinned lock + CI:
+    # - filelock: PIN <3.13 (documented) — filelock 3.13+ eager import asyncio (~6s)
+    #   làm hook vượt timeout 2.5s. Không bao giờ bump độc lập.
+    # - pydantic-core: pydantic==2.x pin CHÍNH XÁC version (==) nên bump độc lập
+    #   tạo conflict ResolutionImpossible → supply-chain "Install deps" fail.
+    # - typing-extensions/typing-inspection: transitive pin của pydantic/pydantic-core.
+    ignore:
+      - dependency-name: "filelock"
+      - dependency-name: "pydantic-core"
+      - dependency-name: "typing-extensions"
+      - dependency-name: "typing-inspection"
+    # Nhóm pydantic + các transitive pin liên quan để bump cùng nhau nếu cần.
+    groups:
+      pydantic:
+        patterns:
+          - "pydantic*"

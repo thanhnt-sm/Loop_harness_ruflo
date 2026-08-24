@@ -30,7 +30,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest pytest-cov hypothesis pydantic bandit filelock cryptography pyyaml
+          pip install pytest pytest-cov hypothesis pydantic bandit "filelock<3.13" cryptography pyyaml
 
       - name: Make shell scripts executable (Linux)
         run: |
