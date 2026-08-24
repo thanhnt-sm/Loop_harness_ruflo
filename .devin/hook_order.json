@@ -1,6 +1,6 @@
 {
   "_description": "U41/T1.5: Hook chain order baseline (pre->plan->schema->coverage->otel->post)",
-  "_generated": "2026-08-24T15:54:05.785991",
+  "_generated": "2026-08-24T16:02:01.333553",
   "canonical_order": [
     "pre_tool_use",
     "plan_enforce",

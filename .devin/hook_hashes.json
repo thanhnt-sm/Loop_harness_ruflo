@@ -35,7 +35,7 @@
     ".devin/hooks/pre_tool_sandbox.py": "2695445b016f9f7d835957285f38b4f505e7efc23c4e45496983452203b94c23",
     ".devin/hooks/pre_tool_secrets.py": "f516346e54a8edf1b0950f1db089f0e47f3c569ee9ce7b11c517fd04c6dd0fb3",
     ".devin/hooks/pre_tool_use.py": "5c190c78b7756dd74bf78eff14298ecf8fe3a566be6fc6310ad149edafe1f823",
-    ".devin/hooks/pre_tool_workspace.py": "cb7b11dcf8008a5d6199501d11838333d996ba899f0b67a54543410eb50cebc8",
+    ".devin/hooks/pre_tool_workspace.py": "0f61e61afc546f118e8b3a764ef7d3223a93b09106c0b4d04aef14d4162ec3d5",
     ".devin/hooks/prompt_cache_metrics.py": "46e8236e45d6f79d3c10ef6579edca23fa215c143db7eb105d0ad3ee8f3367ca",
     ".devin/hooks/reflection_gate.py": "1405e0c13f5cbbbc8dbd174bd45dbfa4fbbc6da0cc5357dbc25aba53bc4bfd84",
     ".devin/hooks/sandboxed_hook.py": "85436a2a041f9eb87a8378c267acb7ef6a4293f045baf28da0e242556f29329b",
