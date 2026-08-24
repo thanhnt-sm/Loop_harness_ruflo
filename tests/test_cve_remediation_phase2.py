@@ -166,13 +166,19 @@ def _run_pre_tool_use(command: str, reload: bool = True, monkeypatch=None) -> in
         importlib.reload(pre_tool_use)
     # Mock call-graph gate and workspace layout gate to not interfere with encoding bypass tests
     # Direct assignment works better than monkeypatch across reloads
-    pre_tool_use._check_call_graph_gate = lambda _data: None
-    pre_tool_gates._check_call_graph_gate = lambda _data: None
-    pre_tool_callgraph._check_call_graph_gate = lambda _data: None
-    pre_tool_cli._check_call_graph_gate = lambda _data: None
-    pre_tool_gates._check_workspace_layout_gate = lambda _data: None
-    pre_tool_workspace._check_workspace_layout_gate = lambda _data: None
-    pre_tool_cli._check_workspace_layout_gate = lambda _data: None
+    mocked = [
+        (pre_tool_use, "_check_call_graph_gate"),
+        (pre_tool_gates, "_check_call_graph_gate"),
+        (pre_tool_callgraph, "_check_call_graph_gate"),
+        (pre_tool_cli, "_check_call_graph_gate"),
+        (pre_tool_gates, "_check_workspace_layout_gate"),
+        (pre_tool_workspace, "_check_workspace_layout_gate"),
+        (pre_tool_cli, "_check_workspace_layout_gate"),
+    ]
+    _MISSING = object()
+    saved = [(mod, name, getattr(mod, name, _MISSING)) for mod, name in mocked]
+    for mod, name in mocked:
+        setattr(mod, name, lambda _data: None)
     old_stdin = sys.stdin
     try:
         sys.stdin = io.StringIO(json.dumps({"tool_name": "Bash", "tool_input": {"command": command}}))
@@ -184,6 +190,16 @@ def _run_pre_tool_use(command: str, reload: bool = True, monkeypatch=None) -> in
         sys.stdin = old_stdin
         if monkeypatch is None:
             os.environ.pop("AHD_COST_LEDGER_KEY", None)
+        # Hoàn nguyên gate gốc để tránh nhiễm state sang test file khác.
+        # pre_tool_use from-import copy reference nên phải re-bind tay sau khi restore.
+        for mod, name, fn in saved:
+            if fn is _MISSING:
+                delattr(mod, name)
+            else:
+                setattr(mod, name, fn)
+        for name in ("_check_call_graph_gate", "_check_workspace_layout_gate"):
+            if hasattr(pre_tool_gates, name):
+                setattr(pre_tool_use, name, getattr(pre_tool_gates, name))
     return 0
 
 
