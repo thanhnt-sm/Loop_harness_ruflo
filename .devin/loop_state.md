@@ -10,8 +10,8 @@ active_session: s-20260823-refactor-pre-tool
 ## Active sessions
 | session_id | goal | status | tags | owned_files | last_heartbeat |
 |---|---|---|---|---|---|
-| s-20260823-refactor-pre-tool |  | suspected_crashed |  |  | 2026-08-24T08:47:41+00:00 |
-| x |  | in_progress |  |  | 2026-08-24T08:45:56+00:00 |
+| s-20260823-refactor-pre-tool |  | suspected_crashed |  |  | 2026-08-24T08:52:55+00:00 |
+| x |  | in_progress |  |  | 2026-08-24T08:50:30+00:00 |
 | s-20260819-bien-harness-upgrade-loop |  | suspected_crashed |  |  | 2026-08-22T21:54:36+00:00 |
 
 ## Recent sessions (last 3)
