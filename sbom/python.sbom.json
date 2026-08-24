@@ -43,10 +43,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "annotated-types==0.7.0",
+      "bom-ref": "annotated-types==0.8.0",
       "name": "annotated-types",
-      "version": "0.7.0",
-      "purl": "pkg:pypi/annotated-types@0.7.0"
+      "version": "0.8.0",
+      "purl": "pkg:pypi/annotated-types@0.8.0"
     },
     {
       "type": "library",
@@ -78,10 +78,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "cffi==2.1.0",
+      "bom-ref": "cffi==2.1.1",
       "name": "cffi",
-      "version": "2.1.0",
-      "purl": "pkg:pypi/cffi@2.1.0"
+      "version": "2.1.1",
+      "purl": "pkg:pypi/cffi@2.1.1"
     },
     {
       "type": "library",
@@ -127,10 +127,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "cryptography==49.0.0",
+      "bom-ref": "cryptography==50.0.0",
       "name": "cryptography",
-      "version": "49.0.0",
-      "purl": "pkg:pypi/cryptography@49.0.0"
+      "version": "50.0.0",
+      "purl": "pkg:pypi/cryptography@50.0.0"
     },
     {
       "type": "library",
@@ -176,10 +176,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "filelock==3.32.2",
+      "bom-ref": "filelock==3.12.4",
       "name": "filelock",
-      "version": "3.32.2",
-      "purl": "pkg:pypi/filelock@3.32.2"
+      "version": "3.12.4",
+      "purl": "pkg:pypi/filelock@3.12.4"
     },
     {
       "type": "library",
@@ -897,17 +897,17 @@
     },
     {
       "type": "library",
-      "bom-ref": "typing-inspection==0.4.2",
+      "bom-ref": "typing-inspection==0.4.4",
       "name": "typing-inspection",
-      "version": "0.4.2",
-      "purl": "pkg:pypi/typing-inspection@0.4.2"
+      "version": "0.4.4",
+      "purl": "pkg:pypi/typing-inspection@0.4.4"
     },
     {
       "type": "library",
-      "bom-ref": "typing_extensions==4.15.0",
+      "bom-ref": "typing_extensions==4.16.0",
       "name": "typing_extensions",
-      "version": "4.15.0",
-      "purl": "pkg:pypi/typing_extensions@4.15.0"
+      "version": "4.16.0",
+      "purl": "pkg:pypi/typing_extensions@4.16.0"
     },
     {
       "type": "library",
