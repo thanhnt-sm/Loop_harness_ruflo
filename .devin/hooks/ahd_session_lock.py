@@ -153,7 +153,15 @@ def _release_lock(handle: Any) -> None:
     try:
         if hasattr(handle, "release"):
             # Bước 1: filelock handle có method release() riêng.
+            # Lưu ý: UnixFileLock (fcntl) KHÔNG tự xóa lock file khi release
+            # (khác WindowsFileLock) → dọn tay để hành vi nhất quán đa nền tảng.
             handle.release()
+            try:
+                lock_file = getattr(handle, "lock_file", None)
+                if lock_file:
+                    Path(str(lock_file)).unlink()
+            except (OSError, ValueError):
+                pass
         elif hasattr(handle, "close"):
             # Bước 2: Đưa con trỏ về đầu file trước khi mở khóa (Windows cần vị trí cố định).
             try:
