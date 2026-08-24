@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""plan_dispatch.py ??Dependency graph analysis + file ownership allocation + conflict detection.
+"""plan_dispatch.py — Dependency graph analysis + file ownership allocation + conflict detection.
 
 The Commander calls this BEFORE dispatching parallel Workers. It:
 
   1. Analyzes which files each subtask touches (from grep/AST scan)
   2. Detects file ownership conflicts (two subtasks touching the same file)
-  3. Allocates files to workers (disjoint sets ??no overlap)
+  3. Allocates files to workers (disjoint sets — no overlap)
   4. Suggests Nuwa cognitive angles for each subtask (from the deployer's
      Nuwa 3-tree system + any user-distilled perspective skills)
   5. Outputs a JSON dispatch plan the Commander can paste into Worker prompts
@@ -56,397 +56,31 @@ Output (JSON):
 """
 from __future__ import annotations
 
-import argparse
-import json
-import re
-import subprocess
 import sys
 from pathlib import Path
-from collections import defaultdict
 
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+# Re-export all public APIs from submodules
+try:
+    from .plan_dispatch_grep import _grep_files, _expand_file_hints
+    from .plan_dispatch_parse import _plan_to_subtasks, _parse_tasks, _parse_task_tables, _parse_mermaid_edges
+    from .plan_dispatch_conflict import _detect_conflicts, _allocate_ownership, _active_session_conflicts
+    from .plan_dispatch_nuwa import _suggest_nuwa_angles, NUWA_ANGLES
+    from .plan_dispatch_dag import _build_dependency_graph, _topological_sort, _parallel_groups
+    from .plan_dispatch_worktree import _get_active_sessions, _assign_worktrees
+except ImportError:  # pragma: no cover - fallback for direct script execution
+    from plan_dispatch_grep import _grep_files, _expand_file_hints
+    from plan_dispatch_parse import _plan_to_subtasks, _parse_tasks, _parse_task_tables, _parse_mermaid_edges
+    from plan_dispatch_conflict import _detect_conflicts, _allocate_ownership, _active_session_conflicts
+    from plan_dispatch_nuwa import _suggest_nuwa_angles, NUWA_ANGLES
+    from plan_dispatch_dag import _build_dependency_graph, _topological_sort, _parallel_groups
+    from plan_dispatch_worktree import _get_active_sessions, _assign_worktrees
 
+# Import ahd_session for the analyze function
 try:
     import ahd_session
 except ImportError:  # pragma: no cover
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "hooks"))
     import ahd_session
-
-try:
-    import plan_quality_check as _pqc
-except ImportError:  # pragma: no cover
-    _pqc = None
-
-
-def _get_repo_root() -> Path:
-    """Find the main repo root. Prefer git toplevel, then walk up for .git/.agents."""
-    return ahd_session.get_repo_root()
-
-
-ROOT = _get_repo_root()
-
-# Worktree script location: prefer the deployer repo's scripts/, then <config_root>/scripts/
-if (ROOT / "scripts" / "worktree.py").exists():
-    WORKTREE_SCRIPT = ROOT / "scripts" / "worktree.py"
-else:
-    WORKTREE_SCRIPT = ahd_session.get_config_root(ROOT) / "scripts" / "worktree.py"
-
-# Nuwa's 3 cognitive angles (from Docs/Agents/nuwa.md)
-NUWA_ANGLES = {
-    "edge-case": {
-        "name": "Edge Case Breaker",
-        "question": "What input, state, or condition would break this?",
-        "mindset": "adversarial",
-    },
-    "dependency": {
-        "name": "Dependency Inspector",
-        "question": "What else depends on what I'm changing, and will it break?",
-        "mindset": "structural",
-    },
-    "regression": {
-        "name": "Regression Prophet",
-        "question": "What previously-working behavior will this change break?",
-        "mindset": "historical",
-    },
-}
-
-
-def _grep_files(pattern: str, path: str = ".") -> list[str]:
-    """Find files matching a pattern (import/reference grep).
-
-    Thử `rg` trước, nếu thất bại thì fallback `grep` (Unix) hoặc `findstr` (Windows).
-    """
-    candidates = [
-        ["rg", "-l", "--no-heading", pattern, path],
-    ]
-    if sys.platform == "win32":
-        candidates.append(["findstr", "/M", "/S", f"/C:{pattern}", f"{path}\\*"])
-    else:
-        candidates.append(["grep", "-lR", "--", pattern, path])
-
-    for cmd in candidates:
-        try:
-            r = subprocess.run(
-                cmd,
-                capture_output=True, text=True, timeout=10, cwd=str(ROOT)
-            )
-            if r.returncode in (0, 1):
-                out = [f.strip() for f in r.stdout.strip().split("\n") if f.strip()]
-                if out or r.returncode == 0:
-                    return out
-        except (subprocess.SubprocessError, FileNotFoundError, subprocess.TimeoutExpired, OSError):
-            continue
-    return []
-
-
-def _plan_to_subtasks(plan_path: Path) -> list[dict]:
-    """Chuyển IMPLEMENTATION_PLAN.md thành danh sách subtasks để dispatch.
-
-    Dùng parser từ `plan_quality_check.py` để trích task, file path,
-    Mermaid DAG. Mỗi subtask có id, goal, files_hint, deps.
-    """
-    if _pqc is None:
-        raise RuntimeError("plan_quality_check.py not available; cannot parse plan file")
-
-    text = plan_path.read_text(encoding="utf-8-sig")
-    tasks = _pqc._parse_tasks(text)
-    edges = _pqc._parse_mermaid_edges(text)
-
-    # Xây adjacency list: task_id -> [deps] (A --> B nghĩa là B phụ thuộc A)
-    deps_map: dict[str, list[str]] = defaultdict(list)
-    for src, dst in edges:
-        if src and dst:
-            deps_map[dst].append(src)
-
-    subtasks = []
-    for t in tasks:
-        tid = t.get("id", "")
-        if not tid:
-            continue
-        files_hint = []
-        fp = t.get("file_path", "")
-        if fp:
-            files_hint.append(fp)
-        subtasks.append({
-            "id": tid,
-            "goal": t.get("raw", ""),
-            "files_hint": files_hint,
-            "deps": list(dict.fromkeys(deps_map.get(tid, []))),
-        })
-    return subtasks
-
-
-def _expand_file_hints(files_hint: list[str]) -> set[str]:
-    """Given explicit file hints, expand to include files that import/reference them.
-
-    For each file in the hint, grep for its module name to find dependents.
-    This catches the "I'm changing base.py but 10 files import it" case.
-    """
-    touched = set(files_hint)
-
-    for f in files_hint:
-        # Derive module name from path (e.g. adapters/base.py ??"base" or "from .base")
-        p = Path(f)
-        if p.suffix == ".py":
-            mod_name = p.stem
-            # Find files that import this module
-            importers = _grep_files(
-                rf"(from \. import {mod_name}|from \.{mod_name}|import {mod_name}|from \.\.\.{mod_name})",
-            )
-            touched.update(importers)
-        elif f.endswith(".json"):
-            # Find files that reference this JSON path
-            ref = p.name
-            refs = _grep_files(re.escape(ref))
-            touched.update(refs)
-
-    return touched
-
-
-def _detect_conflicts(subtasks: list[dict]) -> list[dict]:
-    """Detect files touched by multiple subtasks."""
-    file_to_subtasks: dict[str, list[str]] = defaultdict(list)
-
-    for st in subtasks:
-        for f in st.get("_expanded_files", []):
-            file_to_subtasks[f].append(st["id"])
-
-    conflicts = []
-    for f, sts in file_to_subtasks.items():
-        if len(sts) > 1:
-            conflicts.append({
-                "file": f,
-                "subtasks": sts,
-                "resolution": "serialize",
-                "suggested_order": sts,  # first-listed goes first
-            })
-
-    return conflicts
-
-
-def _allocate_ownership(subtasks: list[dict], conflicts: list[dict]) -> dict:
-    """Allocate files to workers as disjoint sets.
-
-    Files in conflict ??assigned to the first subtask that touches them (serialized).
-    Other subtasks must wait for that subtask to finish before touching the file.
-    Files not in conflict ??owned by the single subtask that touches them.
-    """
-    conflict_files = {c["file"] for c in conflicts}
-    conflict_owner = {}
-    for c in conflicts:
-        # First subtask in suggested_order owns the file
-        conflict_owner[c["file"]] = c["suggested_order"][0]
-
-    allocation = {}
-    for st in subtasks:
-        owned = []
-        shared = []
-        for f in st.get("_expanded_files", []):
-            if f in conflict_files:
-                if conflict_owner[f] == st["id"]:
-                    owned.append(f)  # This subtask owns the conflicting file
-                else:
-                    shared.append(f)  # Must wait for the owner
-            else:
-                owned.append(f)
-        allocation[st["id"]] = {
-            "owned_files": sorted(set(owned)),
-            "shared_files": sorted(set(shared)),
-        }
-
-    return allocation
-
-
-def _suggest_nuwa_angles(st: dict) -> list[str]:
-    """Suggest which Nuwa cognitive angles to apply to this subtask.
-
-    Heuristics:
-    - If the subtask touches >2 files ??dependency angle (check blast radius)
-    - If the subtask goal mentions "fix", "bug", "error", "edge" ??edge-case angle
-    - If the subtask goal mentions "refactor", "change", "update", "modify" ??regression angle
-    - Default: all 3 angles (full Nuwa)
-    """
-    goal = st.get("goal", "").lower()
-    files = st.get("_expanded_files", [])
-
-    angles = []
-
-    if any(kw in goal for kw in ["fix", "bug", "error", "edge", "crash", "fail"]):
-        angles.append("edge-case")
-
-    if len(files) > 2 or any(kw in goal for kw in ["refactor", "change", "update", "modify", "rename"]):
-        angles.append("dependency")
-        angles.append("regression")
-
-    if not angles:
-        angles = ["edge-case", "dependency", "regression"]
-
-    return list(dict.fromkeys(angles))  # dedupe, preserve order
-
-
-def _get_active_sessions(root: Path) -> list[dict]:
-    """Read loop_state.md registry and return active session metadata."""
-    sessions = []
-    registry = ahd_session.get_config_root(root) / "loop_state.md"
-    if not registry.exists():
-        return sessions
-    # Very tolerant: look for "| <sid> | ... | active |" or "| in_progress |"
-    in_active = False
-    for line in registry.read_text(encoding="utf-8").splitlines():
-        if line.startswith("## Active sessions"):
-            in_active = True
-            continue
-        if in_active and line.startswith("## "):
-            break
-        if in_active and line.startswith("|") and "session_id" not in line:
-            parts = [p.strip() for p in line.split("|")]
-            parts = [p for p in parts if p]
-            if not parts:
-                continue
-            sid = parts[0]
-            if sid in ("session_id", "---"):
-                continue
-            ss = ahd_session.get_config_root(root) / "session_state" / f"{sid}.json"
-            if ss.exists():
-                try:
-                    data = json.loads(ss.read_text(encoding="utf-8"))
-                    sessions.append(data)
-                except (json.JSONDecodeError, TypeError, ValueError, OSError, UnicodeDecodeError):
-                    pass
-    return sessions
-
-
-def _active_session_conflicts(subtasks: list[dict], active_sessions: list[dict]) -> list[dict]:
-    """Detect new subtasks that overlap with active session owned_files/affected_files.
-
-    If `affected_files` is not already recorded in session_state, derive it by
-    expanding the session's `owned_files` with `_expand_file_hints`.
-    """
-    conflicts = []
-    for s in active_sessions:
-        s.setdefault("_expanded_affected", set(s.get("affected_files", [])))
-        if not s["_expanded_affected"] and s.get("owned_files"):
-            s["_expanded_affected"] = _expand_file_hints(list(s.get("owned_files", [])))
-    for st in subtasks:
-        for s in active_sessions:
-            owned = set(s.get("owned_files", []))
-            affected = set(s.get("_expanded_affected", []))
-            touched = set(st.get("_expanded_files", []))
-            overlap = (owned | affected) & touched
-            if overlap:
-                conflicts.append({
-                    "file": list(overlap)[0],
-                    "subtasks": [st["id"], s.get("session_id", "")],
-                    "resolution": "wait_for_session",
-                    "suggested_order": [s.get("session_id", ""), st["id"]],
-                    "depends_on_session": s.get("session_id", ""),
-                    "reason": f"active session {s.get('session_id', '')} owns/affects {overlap}",
-                })
-    return conflicts
-
-
-def _assign_worktrees(subtasks: list[dict], allocation: dict, session_id: str = "") -> dict:
-    """Assign a worker id (builder-a, builder-b, ...). worktree.py will prefix with session_id."""
-    worktree_map = {}
-    wt_idx = 0
-    for st in subtasks:
-        wt_name = f"builder-{chr(ord('a') + wt_idx)}"
-        worktree_map[st["id"]] = wt_name
-        wt_idx += 1
-    return worktree_map
-
-
-def _build_dependency_graph(subtasks: list[dict], conflicts: list[dict]) -> dict[str, list[str]]:
-    """U16: Build a dependency graph from explicit deps + file conflicts.
-
-    Nếu subtask A và B share file, và A được suggest đi trước,
-    thì B phụ thuộc A. Ngoài ra, plan Mermaid DAG cũng được tôn trọng
-    qua trường `deps` trong mỗi subtask.
-
-    U16 redteam: Active session conflicts có session_id trong suggested_order,
-    không phải subtask. Bỏ qua — active session conflicts xử lý qua parallel_safe.
-
-    Returns adjacency list: {subtask_id: [depends_on_ids]}.
-    """
-    graph: dict[str, list[str]] = {st["id"]: list(st.get("deps", [])) for st in subtasks}
-    for c in conflicts:
-        # U16 redteam: skip active session conflicts (session_id not a subtask)
-        if c.get("resolution") == "wait_for_session":
-            continue
-        order = c.get("suggested_order", [])
-        if len(order) >= 2:
-            # order[0] goes first, order[1+] depend on order[0]
-            for dependent in order[1:]:
-                # U16 redteam: skip self-dependency
-                if dependent == order[0]:
-                    continue
-                if dependent in graph and order[0] in graph and order[0] not in graph[dependent]:
-                    graph[dependent].append(order[0])
-    return graph
-
-
-def _topological_sort(graph: dict[str, list[str]]) -> tuple[list[str] | None, list[str] | None]:
-    """U16: Topological sort with cycle detection (Kahn's algorithm).
-
-    Returns (dispatch_order, cycle_nodes):
-    - dispatch_order: list of subtask IDs in dependency order (None if cycle)
-    - cycle_nodes: list of subtask IDs with unresolved dependencies
-      (includes nodes in cycles AND nodes depending on cycles)
-    """
-    from collections import deque
-
-    # U16 redteam: in_degree = count of dependencies that exist in graph
-    in_degree: dict[str, int] = {}
-    for node in graph:
-        in_degree[node] = sum(1 for dep in graph[node] if dep in in_degree or dep in graph)
-
-    # Queue of nodes with no dependencies
-    queue = deque([n for n in graph if in_degree[n] == 0])
-    order: list[str] = []
-
-    while queue:
-        node = queue.popleft()
-        order.append(node)
-        # Find nodes that depend on this node (reverse edges)
-        for other in graph:
-            if node in graph[other]:
-                in_degree[other] -= 1
-                if in_degree[other] == 0:
-                    queue.append(other)
-
-    if len(order) < len(graph):
-        # Cycle detected — find nodes with remaining dependencies
-        # Note: includes nodes in cycles AND nodes that depend on cycles
-        cycle_nodes = [n for n in graph if in_degree[n] > 0]
-        return None, cycle_nodes
-
-    return order, []
-
-
-def _parallel_groups(graph: dict[str, list[str]], dispatch_order: list[str]) -> list[list[str]]:
-    """U16: Group subtasks into parallel execution levels.
-
-    Subtasks at the same level have all dependencies satisfied by previous levels.
-    Level 0 = no dependencies. Level N = depends on something in level N-1 or earlier.
-    """
-    if not dispatch_order:
-        return []
-
-    levels: dict[str, int] = {}
-    for node in dispatch_order:
-        if not graph[node]:
-            levels[node] = 0
-        else:
-            levels[node] = max(levels.get(dep, 0) for dep in graph[node]) + 1
-
-    max_level = max(levels.values()) if levels else 0
-    groups: list[list[str]] = [[] for _ in range(max_level + 1)]
-    for node, level in levels.items():
-        groups[level].append(node)
-
-    return groups
 
 
 def analyze(subtasks: list[dict], session_id: str = "") -> dict:
@@ -475,7 +109,7 @@ def analyze(subtasks: list[dict], session_id: str = "") -> dict:
     # Step 6: Assign worktrees
     worktree_map = _assign_worktrees(subtasks, allocation, session_id)
 
-    # U16: Step 7: Build dependency graph + topological sort + deadlock detection
+    # Step 7: Build dependency graph + topological sort + deadlock detection
     dep_graph = _build_dependency_graph(subtasks, conflicts)
     dispatch_order, cycle_nodes = _topological_sort(dep_graph)
     parallel_groups = _parallel_groups(dep_graph, dispatch_order) if dispatch_order else []
@@ -519,95 +153,9 @@ def analyze(subtasks: list[dict], session_id: str = "") -> dict:
     }
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser(
-        description="Analyze subtasks for file ownership, conflicts, and Nuwa angle assignment."
-    )
-    ap.add_argument("--analyze", action="store_true", help="Run analysis")
-    ap.add_argument("--subtasks", help="Path to subtasks.json")
-    ap.add_argument("--plan", help="Path to IMPLEMENTATION_PLAN.md (derive subtasks from plan)")
-    ap.add_argument("--json", action="store_true", help="Output as JSON")
-    ap.add_argument("--session", default="", help="Session ID to prefix worktree names")
-    args = ap.parse_args()
-
-    if not args.analyze:
-        ap.print_help()
-        return 1
-
-    if not args.subtasks and not args.plan:
-        print("  [!] Cần --subtasks <file.json> hoặc --plan <plan.md>")
-        return 1
-
-    if args.subtasks:
-        subtask_path = Path(args.subtasks)
-        if not subtask_path.exists():
-            print(f"  [!] Subtasks file not found: {subtask_path}")
-            return 1
-        subtasks = json.loads(subtask_path.read_text(encoding="utf-8-sig"))
-    else:
-        plan_path = Path(args.plan)
-        if not plan_path.exists():
-            print(f"  [!] Plan file not found: {plan_path}")
-            return 1
-        subtasks = _plan_to_subtasks(plan_path)
-
-    if not subtasks:
-        print("  [!] No subtasks found.")
-        return 1
-
-    result = analyze(subtasks, args.session)
-
-    if args.json:
-        print(json.dumps(result, indent=2, ensure_ascii=False))
-    else:
-        print("== Agent Harness Deploy Dispatch Planner ==")
-        print()
-        for st in result["subtasks"]:
-            tag = "PARALLEL" if st["parallel_safe"] else "SERIAL"
-            print(f"  [{tag}] {st['id']}: {st['goal']}")
-            print(f"         Worktree: {st['worktree']}")
-            print(f"         Owned:    {st['owned_files']}")
-            if st["shared_files"]:
-                print(f"         Shared:   {st['shared_files']} (wait for owner)")
-            print(f"         Nuwa:     {st['nuwa_angles']}")
-            if st["conflicts"]:
-                for c in st["conflicts"]:
-                    print(f"         Conflict: {c['file']} (with {c['subtasks']})")
-            print()
-
-        if result["conflicts"]:
-            print("  Conflicts:")
-            for c in result["conflicts"]:
-                print(f"    {c['file']}: {c['subtasks']} -> {c['resolution']}")
-            print()
-
-        # U16: Deadlock detection output
-        if result.get("deadlock_detected"):
-            print("  [!] DEADLOCK DETECTED — circular dependency:")
-            print(f"      Cycle nodes: {result['cycle_nodes']}")
-            print("      Escalate to human. Cannot auto-resolve.")
-            print()
-        else:
-            print(f"  Dispatch order: {result.get('dispatch_order', [])}")
-            groups = result.get("parallel_groups", [])
-            if groups:
-                print("  Parallel groups:")
-                for i, group in enumerate(groups):
-                    print(f"    Level {i}: {group} (run in parallel)")
-            print()
-
-        print(f"  Worktrees: {result['worktrees']}")
-        print(f"  Summary:   {result['summary']}")
-        print()
-        print("  Next:")
-        worktree_rel = WORKTREE_SCRIPT.relative_to(ROOT)
-        for wt in result["worktrees"]:
-            print(f"    python {worktree_rel} create {wt} --session {args.session}")
-        print("    (dispatch Workers with owned_files from above)")
-        print("    (after all report: merge each worktree, then clean)")
-
-    return 0
-
-
 if __name__ == "__main__":
+    try:
+        from .plan_dispatch_cli import main
+    except ImportError:
+        from plan_dispatch_cli import main
     sys.exit(main())

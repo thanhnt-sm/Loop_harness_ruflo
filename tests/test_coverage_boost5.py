@@ -7,6 +7,7 @@ import io
 import json
 import os
 import sys
+import importlib
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -89,7 +90,7 @@ class TestAhdSession:
     def test_get_session_id_from_file(self, monkeypatch, tmp_path):
         from ahd_session import get_session_id
         monkeypatch.delenv("AHD_SESSION_ID", raising=False)
-        monkeypatch.setattr("ahd_session.get_repo_root", lambda *a, **kw: tmp_path)
+        monkeypatch.setattr("ahd_session_id.get_repo_root", lambda *a, **kw: tmp_path)
         # Tạo current_session file
         config_root = tmp_path / ".agents"
         (config_root / "session_state").mkdir(parents=True)
@@ -758,6 +759,23 @@ class TestPreToolUse:
 
     def test_main_safe_command(self, monkeypatch, capsys):
         from pre_tool_use import main
+        import pre_tool_use
+        import pre_tool_callgraph
+        import pre_tool_gates
+        import pre_tool_cli
+        import pre_tool_workspace
+        importlib.reload(pre_tool_workspace)
+        importlib.reload(pre_tool_callgraph)
+        importlib.reload(pre_tool_gates)
+        importlib.reload(pre_tool_cli)
+        importlib.reload(pre_tool_use)
+        # Mock call-graph gate and workspace layout gate to not interfere with tests
+        monkeypatch.setattr(pre_tool_use, "_check_call_graph_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_callgraph, "_check_call_graph_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_cli, "_check_call_graph_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_workspace, "_check_workspace_layout_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_gates, "_check_workspace_layout_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_cli, "_check_workspace_layout_gate", lambda _data: None)
         monkeypatch.setenv("AHD_COST_LEDGER_KEY", "test-key")
         monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({
             "tool_name": "Bash",
@@ -770,6 +788,22 @@ class TestPreToolUse:
 
     def test_main_dangerous_rm_rf(self, monkeypatch, capsys):
         from pre_tool_use import main
+        import pre_tool_use
+        import pre_tool_callgraph
+        import pre_tool_gates
+        import pre_tool_cli
+        import pre_tool_workspace
+        importlib.reload(pre_tool_workspace)
+        importlib.reload(pre_tool_callgraph)
+        importlib.reload(pre_tool_gates)
+        importlib.reload(pre_tool_cli)
+        importlib.reload(pre_tool_use)
+        monkeypatch.setattr(pre_tool_use, "_check_call_graph_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_callgraph, "_check_call_graph_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_cli, "_check_call_graph_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_workspace, "_check_workspace_layout_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_gates, "_check_workspace_layout_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_cli, "_check_workspace_layout_gate", lambda _data: None)
         monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({
             "tool_name": "Bash",
             "tool_input": {"command": "rm -rf /"},
@@ -781,6 +815,22 @@ class TestPreToolUse:
 
     def test_main_dangerous_force_push(self, monkeypatch, capsys):
         from pre_tool_use import main
+        import pre_tool_use
+        import pre_tool_callgraph
+        import pre_tool_gates
+        import pre_tool_cli
+        import pre_tool_workspace
+        importlib.reload(pre_tool_workspace)
+        importlib.reload(pre_tool_callgraph)
+        importlib.reload(pre_tool_gates)
+        importlib.reload(pre_tool_cli)
+        importlib.reload(pre_tool_use)
+        monkeypatch.setattr(pre_tool_use, "_check_call_graph_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_callgraph, "_check_call_graph_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_cli, "_check_call_graph_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_workspace, "_check_workspace_layout_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_gates, "_check_workspace_layout_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_cli, "_check_workspace_layout_gate", lambda _data: None)
         monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({
             "tool_name": "Bash",
             "tool_input": {"command": "git push --force origin main"},
@@ -792,6 +842,22 @@ class TestPreToolUse:
 
     def test_main_non_bash_tool(self, monkeypatch, capsys):
         from pre_tool_use import main
+        import pre_tool_use
+        import pre_tool_callgraph
+        import pre_tool_gates
+        import pre_tool_cli
+        import pre_tool_workspace
+        importlib.reload(pre_tool_workspace)
+        importlib.reload(pre_tool_callgraph)
+        importlib.reload(pre_tool_gates)
+        importlib.reload(pre_tool_cli)
+        importlib.reload(pre_tool_use)
+        monkeypatch.setattr(pre_tool_use, "_check_call_graph_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_callgraph, "_check_call_graph_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_cli, "_check_call_graph_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_workspace, "_check_workspace_layout_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_gates, "_check_workspace_layout_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_cli, "_check_workspace_layout_gate", lambda _data: None)
         monkeypatch.setenv("AHD_COST_LEDGER_KEY", "test-key")
         monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({
             "tool_name": "Read",
@@ -804,6 +870,22 @@ class TestPreToolUse:
 
     def test_main_bash_no_command(self, monkeypatch, capsys):
         from pre_tool_use import main
+        import pre_tool_use
+        import pre_tool_callgraph
+        import pre_tool_gates
+        import pre_tool_cli
+        import pre_tool_workspace
+        importlib.reload(pre_tool_workspace)
+        importlib.reload(pre_tool_callgraph)
+        importlib.reload(pre_tool_gates)
+        importlib.reload(pre_tool_cli)
+        importlib.reload(pre_tool_use)
+        monkeypatch.setattr(pre_tool_use, "_check_call_graph_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_callgraph, "_check_call_graph_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_cli, "_check_call_graph_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_workspace, "_check_workspace_layout_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_gates, "_check_workspace_layout_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_cli, "_check_workspace_layout_gate", lambda _data: None)
         monkeypatch.setenv("AHD_COST_LEDGER_KEY", "test-key")
         monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({
             "tool_name": "Bash",
@@ -816,6 +898,22 @@ class TestPreToolUse:
 
     def test_main_parse_error_fail_open(self, monkeypatch, capsys):
         from pre_tool_use import main
+        import pre_tool_use
+        import pre_tool_callgraph
+        import pre_tool_gates
+        import pre_tool_cli
+        import pre_tool_workspace
+        importlib.reload(pre_tool_workspace)
+        importlib.reload(pre_tool_callgraph)
+        importlib.reload(pre_tool_gates)
+        importlib.reload(pre_tool_cli)
+        importlib.reload(pre_tool_use)
+        monkeypatch.setattr(pre_tool_use, "_check_call_graph_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_callgraph, "_check_call_graph_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_cli, "_check_call_graph_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_workspace, "_check_workspace_layout_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_gates, "_check_workspace_layout_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_cli, "_check_workspace_layout_gate", lambda _data: None)
         monkeypatch.delenv("AHD_FAIL_CLOSED", raising=False)
         monkeypatch.setattr(sys, "stdin", io.StringIO("{not json"))
         try:
@@ -825,6 +923,22 @@ class TestPreToolUse:
 
     def test_main_parse_error_fail_closed(self, monkeypatch, capsys):
         from pre_tool_use import main
+        import pre_tool_use
+        import pre_tool_callgraph
+        import pre_tool_gates
+        import pre_tool_cli
+        import pre_tool_workspace
+        importlib.reload(pre_tool_workspace)
+        importlib.reload(pre_tool_callgraph)
+        importlib.reload(pre_tool_gates)
+        importlib.reload(pre_tool_cli)
+        importlib.reload(pre_tool_use)
+        monkeypatch.setattr(pre_tool_use, "_check_call_graph_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_callgraph, "_check_call_graph_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_cli, "_check_call_graph_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_workspace, "_check_workspace_layout_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_gates, "_check_workspace_layout_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_cli, "_check_workspace_layout_gate", lambda _data: None)
         monkeypatch.setenv("AHD_FAIL_CLOSED", "1")
         monkeypatch.setattr(sys, "stdin", io.StringIO("{not json"))
         try:
@@ -858,6 +972,22 @@ class TestPreToolUse:
 
     def test_main_warn_pattern(self, monkeypatch, capsys):
         from pre_tool_use import main
+        import pre_tool_use
+        import pre_tool_callgraph
+        import pre_tool_gates
+        import pre_tool_cli
+        import pre_tool_workspace
+        importlib.reload(pre_tool_workspace)
+        importlib.reload(pre_tool_callgraph)
+        importlib.reload(pre_tool_gates)
+        importlib.reload(pre_tool_cli)
+        importlib.reload(pre_tool_use)
+        monkeypatch.setattr(pre_tool_use, "_check_call_graph_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_callgraph, "_check_call_graph_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_cli, "_check_call_graph_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_workspace, "_check_workspace_layout_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_gates, "_check_workspace_layout_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_cli, "_check_workspace_layout_gate", lambda _data: None)
         monkeypatch.setenv("AHD_COST_LEDGER_KEY", "test-key")
         monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({
             "tool_name": "Bash",

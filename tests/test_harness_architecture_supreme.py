@@ -115,7 +115,7 @@ class TestAtomicFileWrites:
     """ARCH-002: State files phải được viết atomically (tmp + replace)."""
 
     @pytest.mark.parametrize("script", [
-        "ahd_session.py",
+        "ahd_session_state.py",
         "coverage_enforce.py",
         "self_heal.py",
     ])
@@ -144,17 +144,17 @@ class TestLockMechanism:
     """ARCH-003: State operations phải có lock mechanism."""
 
     def test_ahd_session_has_lock(self):
-        """ahd_session.py phải có file locking."""
-        source = _read_source(HOOKS_DIR / "ahd_session.py")
+        """ahd_session_lock.py phải có file locking."""
+        source = _read_source(HOOKS_DIR / "ahd_session_lock.py")
         has_lock = any(p in source for p in [
             "filelock", "FileLock", "flock", "fcntl",
             "O_CREAT|O_EXCL", "sentinel", "LockAcquire",
         ])
-        assert has_lock, "ahd_session.py thiếu file locking mechanism"
+        assert has_lock, "ahd_session_lock.py thiếu file locking mechanism"
 
     def test_lock_has_timeout(self):
         """Lock phải có timeout để tránh deadlock."""
-        source = _read_source(HOOKS_DIR / "ahd_session.py")
+        source = _read_source(HOOKS_DIR / "ahd_session_lock.py")
         has_timeout = "timeout" in source.lower() and "deadline" in source.lower()
         assert has_timeout, "Lock mechanism thiếu timeout — deadlock risk"
 

@@ -34,14 +34,22 @@ def test_verify_passes_with_mocked_commands(tmp_path: Path):
     update_common.REPO_ROOT = tmp_path
     apply_ahd_patch.REPO_ROOT = tmp_path
     try:
+        # Tạo file test để py_compile pass
+        test_file = tmp_path / ".devin" / "scripts" / "test.py"
+        test_file.parent.mkdir(parents=True, exist_ok=True)
+        test_file.write_text("# test\nprint('hello')\n", encoding="utf-8")
+
         import json as _json
+        import apply_ahd_verify
 
         def _fake_run(cmd, cwd=None, timeout=120, input_text=""):
             if any("qa_doc_audit.py" in c for c in cmd):
                 return 0, _json.dumps({"stale_refs": [], "missing_paths": []}), ""
+            if any("import_smoke_test.py" in c for c in cmd):
+                return 0, "SMOKE TEST: 0 passed, 0 failed", ""
             return 0, "", ""
 
-        with patch.object(apply_ahd_patch, "run_cmd", _fake_run):
+        with patch.object(apply_ahd_verify, "run_cmd", _fake_run):
             ok = apply_ahd_patch.verify([".devin/scripts/test.py"])
             assert ok is True
     finally:

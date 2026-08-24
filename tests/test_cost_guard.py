@@ -65,14 +65,22 @@ def _seed_ledger(root: Path, session_id: str, cumulative: float) -> None:
 def _run_pre_tool_use(data: dict, capsys, monkeypatch=None):
     """Chạy pre_tool_use.main trong process, bắt SystemExit, trả (code, stderr)."""
     import pre_tool_use
+    import pre_tool_cli
+    import pre_tool_gates
+    import pre_tool_workspace
     import cost_tracker
     # Buộc reload để pick up monkeypatch trên ahd_session và cost_tracker.
+    importlib.reload(pre_tool_workspace)
+    importlib.reload(pre_tool_gates)
+    importlib.reload(pre_tool_cli)
     importlib.reload(pre_tool_use)
     importlib.reload(cost_tracker)
     # Mock call-graph gate để không can thiệp test cost cap.
     if monkeypatch is not None:
         monkeypatch.setattr(pre_tool_use, "_check_call_graph_gate", lambda _data: None)
-        monkeypatch.setattr(pre_tool_use, "_check_workspace_layout_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_gates, "_check_workspace_layout_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_workspace, "_check_workspace_layout_gate", lambda _data: None)
+        monkeypatch.setattr(pre_tool_cli, "_check_workspace_layout_gate", lambda _data: None)
         monkeypatch.setattr(pre_tool_use, "_check_sandbox_gate", lambda _data: None)
         monkeypatch.setattr(pre_tool_use, "_check_context_oversized_gate", lambda _data: None)
     old_stdin = sys.stdin

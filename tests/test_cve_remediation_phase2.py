@@ -147,6 +147,10 @@ def test_verify_signature_bad_inputs(plan_file):
 def _run_pre_tool_use(command: str, reload: bool = True, monkeypatch=None) -> int:
     import io
     import pre_tool_use
+    import pre_tool_callgraph
+    import pre_tool_gates
+    import pre_tool_cli
+    import pre_tool_workspace
     # Set cost ledger key for tests (CVE-2026-AHD-013 fail-closed requires it)
     # Use monkeypatch if available, otherwise set directly and clean up
     key = "test-key-" + "k" * 32
@@ -155,7 +159,20 @@ def _run_pre_tool_use(command: str, reload: bool = True, monkeypatch=None) -> in
     else:
         os.environ["AHD_COST_LEDGER_KEY"] = key
     if reload:
+        importlib.reload(pre_tool_workspace)
+        importlib.reload(pre_tool_callgraph)
+        importlib.reload(pre_tool_gates)
+        importlib.reload(pre_tool_cli)
         importlib.reload(pre_tool_use)
+    # Mock call-graph gate and workspace layout gate to not interfere with encoding bypass tests
+    # Direct assignment works better than monkeypatch across reloads
+    pre_tool_use._check_call_graph_gate = lambda _data: None
+    pre_tool_gates._check_call_graph_gate = lambda _data: None
+    pre_tool_callgraph._check_call_graph_gate = lambda _data: None
+    pre_tool_cli._check_call_graph_gate = lambda _data: None
+    pre_tool_gates._check_workspace_layout_gate = lambda _data: None
+    pre_tool_workspace._check_workspace_layout_gate = lambda _data: None
+    pre_tool_cli._check_workspace_layout_gate = lambda _data: None
     old_stdin = sys.stdin
     try:
         sys.stdin = io.StringIO(json.dumps({"tool_name": "Bash", "tool_input": {"command": command}}))
@@ -181,8 +198,8 @@ def _run_pre_tool_use(command: str, reload: bool = True, monkeypatch=None) -> in
     "echo '&#47;etc&#47;passwd'",        # HTML entity
     "echo aGVsbG8= | base64 -d | sh",    # base64 pipe
 ])
-def test_cve007_encoded_bypass_blocked(command):
-    assert _run_pre_tool_use(command) == 2
+def test_cve007_encoded_bypass_blocked(command, monkeypatch):
+    assert _run_pre_tool_use(command, monkeypatch=monkeypatch) == 2
 
 
 @pytest.mark.parametrize("command", [
@@ -196,8 +213,8 @@ def test_cve007_encoded_bypass_blocked(command):
     "cd /tmp && make",                # normal chaining (space-separated)
     "echo hi || echo bye",
 ])
-def test_cve007_legit_commands_allowed(command):
-    assert _run_pre_tool_use(command) == 0
+def test_cve007_legit_commands_allowed(command, monkeypatch):
+    assert _run_pre_tool_use(command, monkeypatch=monkeypatch) == 0
 
 
 def test_cve007_detection_runs_on_normalized():
@@ -296,10 +313,12 @@ def test_cve008_dns_rebinding_blocked(monkeypatch, tmp_path):
 def test_cve008_rebinding_after_ttl_allowed(monkeypatch, tmp_path):
     """Sau TTL, IP đổi là hợp lệ (không còn là rebinding)."""
     import pre_tool_use
+    import pre_tool_secrets
     importlib.reload(pre_tool_use)
+    importlib.reload(pre_tool_secrets)
     pins_path = tmp_path / "ssrf_pins.json"
     monkeypatch.setattr(pre_tool_use, "_ssrf_pins_path", lambda: pins_path)
-    monkeypatch.setattr(pre_tool_use, "time", time)
+    monkeypatch.setattr(pre_tool_secrets, "time", time)
     monkeypatch.setattr(pre_tool_use, "_resolve_host", lambda host: (["1.2.3.4"], True))
     assert pre_tool_use._pin_and_verify_url("http://ttl.example.com/x")[0] == 0
     # Giả lập TTL đã hết: ghi đè ts quá khứ

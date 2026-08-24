@@ -1,604 +1,90 @@
 #!/usr/bin/env python3
 """checkpoint.py — Luu/phuc hoi trang thai (checkpointed backtracking).
 
-Luu checkpoint (snapshot trang thai) cho moi buoc trong workflow, cho phep
-phuc hoi (restore) khi that bai, va danh dau cac buoc xuong dong (downstream)
-la "needs_replay" de chay lai.
-
-Checkpoint structure:
-  {
-    "step_id": str,
-    "state_snapshot": dict,   # ban sao chep sau trang thai
-    "timestamp": str,         # ISO format
-    "dependencies": list,     # cac buoc phu thuoc
-    "downstream_steps": list  # cac buoc xuong dong
-  }
-
-CLI:
-  python checkpoint.py <workflow.json> --save <step_id> <state_file>
-  python checkpoint.py <workflow.json> --restore <step_id>
-  python checkpoint.py <workflow.json> --list
-
-Trang thai:
-  .devin/checkpoints/<workflow_id>/
-
-Repair memory: ghi loi + phuc hoi vao .devin/telemetry/repair_memory.json.
-
-Ma thoat:
-  0 = thanh cong
-  1 = khong tim thay checkpoint an toan / loi
+Entry point that re-exports public API from sub-modules.
+Works both as module (import checkpoint) and as script (python checkpoint.py).
 """
 from __future__ import annotations
 
-import copy
-import json
-import re
-import shutil
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 
-from data_models import CheckpointState
-
-# Cau hinh
-CHECKPOINTS_DIR = ".devin/checkpoints"
-REPAIR_MEMORY_FILE = ".devin/telemetry/repair_memory.json"
-
-
-def _repo_root() -> Path:
-    """Tim thu muc goc repo (co .devin)."""
-    p = Path(__file__).resolve().parent
-    for parent in [p, *p.parents]:
-        if (parent / ".devin").is_dir():
-            return parent
-    return p
-
-
-def _load_json(path: Path, default):
-    """Doc JSON an toan (tra ve default neu loi/khong ton tai)."""
-    try:
-        if path.exists():
-            return json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, TypeError, ValueError, OSError, UnicodeDecodeError):
-        pass
-    return default
-
-
-def _save_json(path: Path, data) -> None:
-    """Ghi JSON an toan."""
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(data, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
-    except (OSError, UnicodeDecodeError, TypeError, ValueError) as e:
-        print(f"[checkpoint] khong the ghi {path}: {e}", file=sys.stderr)
-
-
-def _checkpoints_root(root: Path, workflow_id: str) -> Path:
-    """Duong dan thu muc checkpoint cho workflow — chroot vào .devin/checkpoints/.
-
-    CVE-2026-AHD-004 fix:
-    1. REJECT '..' ngay trên input raw (trước sanitize).
-    2. Sau sanitize: resolve() và verify nằm trong root/.devin/checkpoints/.
-    3. Mọi file operation sau đó đều nằm dưới ckpt_root (chroot).
-    """
-    _reject_dotdot(workflow_id, "workflow_id")
-    workflow_id = _sanitize_workflow_id(workflow_id)
-    ckpt_root = (root / CHECKPOINTS_DIR).resolve()
-    resolved = (ckpt_root / workflow_id).resolve()
-    try:
-        resolved.relative_to(ckpt_root)
-    except ValueError:
-        # Không thể xảy ra sau khi reject '..', nhưng fail-closed phòng hộ.
-        raise ValueError(f"workflow_id '{workflow_id}' resolves outside checkpoints root")
-    return resolved
-
-
-def _reject_dotdot(value: str, label: str) -> None:
-    """CVE-2026-AHD-004: REJECT bất kỳ '..' sequence nào trong input raw.
-
-    Không chỉ thay thế: '....//HLK/config' có thể sanitize thành tên hợp lệ
-    nhưng resolve ra ngoài root. Kiểm tra raw TRƯỚC khi sanitize là bắt buộc.
-    """
-    if not value:
-        return
-    # '..' với các separator khác nhau, kể cả unicode slash
-    if ".." in value.replace("\\", "/"):
-        raise ValueError(f"{label} chứa '..' (path traversal) — bị từ chối")
-
-
-def _sanitize_workflow_id(workflow_id: str) -> str:
-    """Làm sạch workflow_id theo allowlist, chống path traversal.
-
-    Thay path separator bằng _, chỉ giữ [a-zA-Z0-9_-], giới hạn 64 ký tự.
-    Gọi _reject_dotdot trước (CVE-2026-AHD-004): '..' bị REJECT, không bị
-    vô hiệu hóa bằng sanitize (vì '....' cũng bypass được sanitize).
-    """
-    if not workflow_id:
-        return "default"
-    _reject_dotdot(workflow_id, "workflow_id")
-    wid = workflow_id.replace("/", "_").replace("\\", "_")
-    wid = re.sub(r"[^a-zA-Z0-9_-]", "_", wid)
-    wid = re.sub(r"_+", "_", wid)
-    wid = wid.strip("_-.")
-    if not wid:
-        return "default"
-    wid = wid[:64]
-    if not _STEP_ID_PATTERN.match(wid):
-        return "default"
-    return wid
-
-
-# --- T2.6: Checkpoint schema + sanitize + redact ---
-
-_STEP_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
-
-
-def _default_redact_patterns() -> list[str]:
-    """Tải patterns redact từ HLK config nếu có, nếu không dùng danh sách mặc định."""
-    default_patterns = [
-        r"sk-[a-zA-Z0-9]{32,}",
-        r"ghp_[a-zA-Z0-9]{36}",
-        # Pentest fix: bổ sung các pattern secret còn thiếu (gho_, AIza, Bearer, xox).
-        r"gho_[a-zA-Z0-9]{36}",
-        r"ghs_[a-zA-Z0-9]{36}",
-        r"ghu_[a-zA-Z0-9]{36}",
-        r"AKIA[A-Z0-9]{16}",
-        r"AIza[A-Za-z0-9_-]{35}",
-        r"xox[baprs]-[A-Za-z0-9-]{10,}",
-        r"(?i)Bearer\s+[A-Za-z0-9_-]{20,}",
-        r"(?i)password\s*=\s*['\"]?[^'\"\s]+",
-        r"(?i)api[_-]?key\s*=\s*['\"]?[^'\"\s]+",
-        r"(?i)secret\s*[:=]\s*['\"]?[^'\"\s]+",
-        r"(?i)token\s*[:=]\s*['\"]?[^'\"\s]+",
-    ]
-    try:
-        hlk_path = _repo_root() / "HLK" / "config" / "hlk.config.json"
-        if hlk_path.exists():
-            hlk = json.loads(hlk_path.read_text(encoding="utf-8"))
-            hlk_patterns = hlk.get("security_rules", {}).get("redact_patterns", [])
-            # Pentest fix: merge HLK patterns vào default (union) thay vì thay thế.
-            # Tránh trường hợp HLK config thiếu pattern (vd gho_) -> secret leak.
-            # Default patterns luôn áp dụng; HLK chỉ bổ sung thêm pattern chuyên biệt.
-            merged = list(default_patterns)
-            for p in hlk_patterns:
-                if p not in merged:
-                    merged.append(p)
-            return merged
-    except (json.JSONDecodeError, TypeError, ValueError, OSError, UnicodeDecodeError):
-        pass
-    return default_patterns
-
-
-def _sanitize_step_id(step_id: str) -> str:
-    """T2.6: Làm sạch step_id theo allowlist ^[a-zA-Z0-9_-]{1,64}$.
-
-    Đảm bảo Path(step_id).name == step_id, không chứa path separator.
-    CVE-2026-AHD-004: REJECT '..' trước khi sanitize (fail closed).
-    """
-    if not step_id:
-        return "unnamed"
-    _reject_dotdot(step_id, "step_id")
-    # Thay path separator bằng _ rồi dùng allowlist
-    step_id = step_id.replace("/", "_").replace("\\", "_")
-    step_id = re.sub(r"[^a-zA-Z0-9_-]", "_", step_id)
-    step_id = re.sub(r"_+", "_", step_id)
-    step_id = step_id.strip("_-.")
-    if not step_id:
-        return "unnamed"
-    step_id = step_id[:64]
-    if not _STEP_ID_PATTERN.match(step_id):
-        return "unnamed"
-    return step_id
-
-
-def _redact_snapshot(state: CheckpointState) -> CheckpointState:
-    """T2.6: Redact secret khỏi state trước khi lưu.
-
-    Quét đệ quy các string trong state và thay thế pattern secret bằng [REDACTED].
-    """
-    patterns = _default_redact_patterns()
-    compiled = [re.compile(p) for p in patterns]
-    replacement = "[REDACTED]"
-
-    def _redact_value(value):
-        if isinstance(value, str):
-            for pat in compiled:
-                value = pat.sub(replacement, value)
-            return value
-        if isinstance(value, dict):
-            return {k: _redact_value(v) for k, v in value.items()}
-        if isinstance(value, list):
-            return [_redact_value(item) for item in value]
-        return value
-
-    data = state.model_dump(by_alias=True, mode="json")
-    redacted = _redact_value(data)
-    return CheckpointState.model_validate(redacted)
-
-
-def _to_checkpoint_state(state) -> CheckpointState:
-    """Chuyển dict/Pydantic model thành CheckpointState, sanitize step_id trước."""
-    if isinstance(state, CheckpointState):
-        data = state.model_dump(by_alias=True, mode="json")
-        data["step_id"] = _sanitize_step_id(data.get("step_id", "unknown"))
-        return CheckpointState.model_validate(data)
-    if isinstance(state, dict):
-        data = dict(state)
-        data["step_id"] = _sanitize_step_id(data.get("step_id", "unknown"))
-        if data.get("version", 0) != 2:
-            data = migrate(data, target_version=2)
-        return CheckpointState.model_validate(data)
-    raise TypeError(f"state phải là dict hoặc CheckpointState, nhận {type(state)}")
-
-
-def save(state, workflow_id: str = "", root: Path | None = None) -> Path:
-    """T2.6: Lưu checkpoint dưới dạng CheckpointState.
-
-    - Sanitize step_id.
-    - Redact secret trước khi lưu.
-    - Trả về đường dẫn file checkpoint.
-    """
-    ckpt = _to_checkpoint_state(state)
-    if not workflow_id:
-        workflow_id = ckpt.run_id or "default"
-    root = root or _repo_root()
-
-    step_id = _sanitize_step_id(ckpt.step_id)
-    ckpt = ckpt.model_copy(update={"step_id": step_id})
-    ckpt = _redact_snapshot(ckpt)
-
-    ckpt_dir = _checkpoints_root(root, workflow_id)
-    ckpt_dir.mkdir(parents=True, exist_ok=True)
-    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
-    ckpt_path = ckpt_dir / f"{step_id}_{ts}.json"
-
-    _save_json(ckpt_path, ckpt.model_dump(by_alias=True, mode="json"))
-
-    # Cập nhật index
-    index_path = ckpt_dir / "index.json"
-    index = _load_json(index_path, {"checkpoints": []})
-    if not isinstance(index, dict):
-        index = {"checkpoints": []}
-    index.setdefault("checkpoints", []).append({
-        "step_id": step_id,
-        "file": ckpt_path.name,
-        "timestamp": ckpt.timestamp.isoformat() if ckpt.timestamp else datetime.now(timezone.utc).isoformat(),
-    })
-    _save_json(index_path, index)
-
-    return ckpt_path
-
-
-def load(path: Path) -> CheckpointState:
-    """T2.6: Đọc checkpoint và trả CheckpointState.
-
-    Tự động migrate nếu version cũ.
-    """
-    data = _load_json(path, {})
-    if not data:
-        raise ValueError(f"Không thể đọc checkpoint: {path}")
-    if data.get("version", 0) != 2:
-        data = migrate(data, target_version=2)
-    return CheckpointState.model_validate(data)
-
-
-def migrate(old: dict, target_version: int = 2) -> dict:
-    """T2.6: Migrate old checkpoint dict lên target_version.
-
-    Thêm các field mặc định còn thiếu, giữ nguyên dữ liệu cũ.
-    """
-    if not isinstance(old, dict):
-        old = {}
-    new = copy.deepcopy(old)
-    current = new.get("version", 0)
-
-    if current < 2:
-        new.setdefault("run_id", new.get("run_id", "default"))
-        new.setdefault("conversation", [])
-        new.setdefault("side_effects_ledger", [])
-        new.setdefault("run_metadata", {})
-        new.setdefault("external_handles", [])
-        new.setdefault("timestamp", datetime.now(timezone.utc).isoformat())
-        new.setdefault("step_id", new.get("step_id", "unknown"))
-
-    new["version"] = target_version
-    return new
-
-
-def _load_workflow(root: Path, workflow_path: Path) -> dict | None:
-    """Tai workflow JSON. Tra ve None neu khong ton tai / hong."""
-    if not workflow_path.exists():
-        print(f"[ERROR] Khong tim thay workflow file: {workflow_path}")
-        return None
-    try:
-        data = json.loads(workflow_path.read_text(encoding="utf-8"))
-        if isinstance(data, dict):
-            return data
-    except (json.JSONDecodeError, TypeError, ValueError, OSError, UnicodeDecodeError) as e:
-        print(f"[ERROR] Workflow file hong: {e}")
-        return None
-    return None
-
-
-def _build_downstream_map(workflow: dict) -> dict:
-    """Xay dung anh xa: step_id -> list downstream steps (transitive).
-
-    Dua vao edges (from -> to): downstream cua X = tat ca node ma X co the den.
-    """
-    edges = workflow.get("edges", [])
-    adj = {}
-    for e in edges:
-        adj.setdefault(e["from"], []).append(e["to"])
-    # Tinh transitive downstream bang BFS
-    downstream = {}
-    nodes = {n["task_id"] for n in workflow.get("nodes", [])}
-    for start in nodes:
-        visited = set()
-        queue = list(adj.get(start, []))
-        while queue:
-            node = queue.pop(0)
-            if node in visited:
-                continue
-            visited.add(node)
-            queue.extend(adj.get(node, []))
-        downstream[start] = sorted(visited)
-    return downstream
-
-
-def _dependencies_for(workflow: dict, step_id: str) -> list:
-    """Lay danh sach phu thuoc cua 1 step tu workflow."""
-    for n in workflow.get("nodes", []):
-        if n["task_id"] == step_id:
-            return n.get("deps", [])
-    return []
-
-
-def cmd_save(root: Path, workflow: dict, workflow_id: str, step_id: str, state_file: str) -> int:
-    """Luu checkpoint cho 1 buoc: snapshot trang thai, timestamp, deps, downstream."""
-    # Bước 1: doc state file (snapshot sau trang thai)
-    state_path = Path(state_file)
-    if not state_path.is_absolute():
-        state_path = root / state_path
-    if not state_path.exists():
-        print(f"[ERROR] Khong tim thay state file: {state_path}")
-        return 1
-    try:
-        snapshot = json.loads(state_path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, TypeError, ValueError, OSError, UnicodeDecodeError) as e:
-        print(f"[ERROR] State file hong: {e}")
-        return 1
-
-    # Bước 2: tinh dependencies + downstream
-    deps = _dependencies_for(workflow, step_id)
-    downstream_map = _build_downstream_map(workflow)
-    downstream = downstream_map.get(step_id, [])
-
-    # Bước 3: tao checkpoint
-    checkpoint = {
-        "step_id": step_id,
-        "state_snapshot": snapshot,
-        "timestamp": datetime.now().isoformat(),
-        "dependencies": deps,
-        "downstream_steps": downstream,
-    }
-
-    # Bước 4: luu vao thu muc checkpoint
-    ckpt_dir = _checkpoints_root(root, workflow_id)
-    ckpt_dir.mkdir(parents=True, exist_ok=True)
-    # Luu theo step_id + timestamp de giu lich su
-    # Pentest fix: dùng _sanitize_step_id (allowlist) thay vì chỉ thay '/' để chống backslash traversal.
-    safe_step = _sanitize_step_id(step_id)
-    ckpt_path = ckpt_dir / f"{safe_step}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-    _save_json(ckpt_path, checkpoint)
-    # Cap nhat index
-    index_path = ckpt_dir / "index.json"
-    index = _load_json(index_path, {"checkpoints": []})
-    if not isinstance(index, dict):
-        index = {"checkpoints": []}
-    index.setdefault("checkpoints", []).append({
-        "step_id": step_id,
-        "file": ckpt_path.name,
-        "timestamp": checkpoint["timestamp"],
-    })
-    _save_json(index_path, index)
-
-    print(f"[OK] Da luu checkpoint cho step '{step_id}': {ckpt_path}")
-    print(f"     Dependencies: {deps}")
-    print(f"     Downstream: {downstream}")
-    return 0
-
-
-def _safe_ckpt_path(ckpt_dir: Path, name: str) -> Path | None:
-    """CVE-2026-AHD-004: Build checkpoint file path chroot trong ckpt_dir.
-
-    Chống index.json/checkpoint tampered: name chứa '..' hoặc resolve ra ngoài
-    ckpt_dir → trả None (không đọc/ghi ngoài vùng checkpoint).
-    """
-    if not name:
-        return None
-    try:
-        _reject_dotdot(name, "checkpoint file")
-    except ValueError:
-        return None
-    resolved = (ckpt_dir / name).resolve()
-    try:
-        resolved.relative_to(ckpt_dir.resolve())
-    except ValueError:
-        return None
-    return resolved
-
-
-def _find_latest_checkpoint(ckpt_dir: Path, step_id: str) -> Path | None:
-    """Tim checkpoint moi nhat cho 1 step_id."""
-    index = _load_json(ckpt_dir / "index.json", {"checkpoints": []})
-    entries = [c for c in index.get("checkpoints", []) if c.get("step_id") == step_id]
-    if not entries:
-        return None
-    # Sap xep theo timestamp giam dan
-    entries.sort(key=lambda c: c.get("timestamp", ""), reverse=True)
-    for entry in entries:
-        p = _safe_ckpt_path(ckpt_dir, entry.get("file", ""))
-        if p is not None:
-            return p
-    return None
-
-
-def _find_safe_checkpoint_before(ckpt_dir: Path, failed_step: str, workflow: dict) -> Path | None:
-    """Tim checkpoint an toan moi nhat TRUOC buoc that bai.
-
-    Uu tien checkpoint cua cac dependency gan nhat cua failed_step.
-    Tra ve duong dan checkpoint, None neu khong co.
-    """
-    # Bước 1: lay dependencies cua failed_step
-    deps = _dependencies_for(workflow, failed_step)
-    # Bước 2: tim checkpoint moi nhat cua moi dep (uu tien dep cuoi cung)
-    candidates = []
-    for dep in reversed(deps):
-        ckpt = _find_latest_checkpoint(ckpt_dir, dep)
-        if ckpt and ckpt.exists():
-            candidates.append(ckpt)
-    # Bước 3: neu khong co dep checkpoint -> tim bat ky checkpoint truoc failed_step
-    if not candidates:
-        index = _load_json(ckpt_dir / "index.json", {"checkpoints": []})
-        all_entries = index.get("checkpoints", [])
-        # Sap xep theo timestamp giam dan, bo qua failed_step
-        all_entries = [c for c in all_entries if c.get("step_id") != failed_step]
-        all_entries.sort(key=lambda c: c.get("timestamp", ""), reverse=True)
-        for entry in all_entries:
-            p = _safe_ckpt_path(ckpt_dir, entry.get("file", ""))
-            if p is not None and p.exists():
-                candidates.append(p)
-                break
-    return candidates[0] if candidates else None
-
-
-def cmd_restore(root: Path, workflow: dict, workflow_id: str, failed_step: str) -> int:
-    """Phuc hoi: tim checkpoint an toan truoc failed_step, restore, invalidate downstream."""
-    ckpt_dir = _checkpoints_root(root, workflow_id)
-    if not ckpt_dir.exists():
-        print(f"[ERROR] Khong co checkpoint nao cho workflow '{workflow_id}'")
-        return 1
-
-    # Bước 1: tim checkpoint an toan truoc failed_step
-    safe_ckpt = _find_safe_checkpoint_before(ckpt_dir, failed_step, workflow)
-    if not safe_ckpt:
-        print(f"[ERROR] Khong tim thay checkpoint an toan truoc step '{failed_step}'")
-        return 1
-
-    # Bước 2: doc checkpoint (xu ly state hong)
-    try:
-        checkpoint = json.loads(safe_ckpt.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, TypeError, ValueError, OSError, UnicodeDecodeError) as e:
-        print(f"[WARN] Checkpoint hong, bo qua: {safe_ckpt} ({e})")
-        # Thu checkpoint ke tiep
-        return 1
-
-    # Bước 3: phuc hoi state snapshot
-    restored_step = _sanitize_step_id(str(checkpoint.get("step_id", "unknown")))
-    snapshot = checkpoint.get("state_snapshot", {})
-    # Ghi snapshot ra file restore (chroot trong ckpt_dir — CVE-2026-AHD-004)
-    restore_path = _safe_ckpt_path(ckpt_dir, f"restored_{restored_step}.json")
-    if restore_path is None:
-        print(f"[ERROR] Khong the tao file restore (path traversal blocked)", file=sys.stderr)
-        return 1
-    _save_json(restore_path, snapshot)
-
-    # Bước 4: invalidate downstream (danh dau needs_replay)
-    downstream_map = _build_downstream_map(workflow)
-    downstream = downstream_map.get(restored_step, [])
-    replay_path = ckpt_dir / "replay_queue.json"
-    replay = _load_json(replay_path, {"steps": []})
-    if not isinstance(replay, dict):
-        replay = {"steps": []}
-    existing = {s["step_id"] for s in replay.get("steps", [])}
-    for step in downstream:
-        if step not in existing:
-            replay.setdefault("steps", []).append({
-                "step_id": step,
-                "reason": f"invalidated_sau_restore_{restored_step}",
-                "timestamp": datetime.now().isoformat(),
-            })
-    _save_json(replay_path, replay)
-
-    # Bước 5: ghi repair memory
-    memory = _load_json(root / REPAIR_MEMORY_FILE, {"entries": []})
-    if not isinstance(memory, dict):
-        memory = {"entries": []}
-    memory.setdefault("entries", []).append({
-        "timestamp": datetime.now().isoformat(),
-        "event": "checkpoint_restore",
-        "failed_step": failed_step,
-        "restored_from": restored_step,
-        "checkpoint_file": str(safe_ckpt),
-        "invalidated_steps": downstream,
-    })
-    if len(memory["entries"]) > 200:
-        memory["entries"] = memory["entries"][-200:]
-    _save_json(root / REPAIR_MEMORY_FILE, memory)
-
-    print(f"[OK] Da phuc hoi tu checkpoint step '{restored_step}': {safe_ckpt}")
-    print(f"     State restore: {restore_path}")
-    print(f"     Downstream invalidated (needs_replay): {downstream}")
-    return 0
-
-
-def cmd_list(root: Path, workflow: dict, workflow_id: str) -> int:
-    """Liet ke tat ca checkpoint cua 1 workflow."""
-    ckpt_dir = _checkpoints_root(root, workflow_id)
-    if not ckpt_dir.exists():
-        print(f"[INFO] Chua co checkpoint nao cho workflow '{workflow_id}'")
-        return 0
-    index = _load_json(ckpt_dir / "index.json", {"checkpoints": []})
-    entries = index.get("checkpoints", [])
-    if not entries:
-        print(f"[INFO] Chua co checkpoint nao cho workflow '{workflow_id}'")
-        return 0
-    print(f"Checkpoints cho workflow '{workflow_id}' ({len(entries)}):")
-    for entry in sorted(entries, key=lambda c: c.get("timestamp", "")):
-        print(f"  - step: {entry['step_id']} | file: {entry['file']} | time: {entry['timestamp']}")
-    # Hien thi replay queue neu co
-    replay_path = ckpt_dir / "replay_queue.json"
-    if replay_path.exists():
-        replay = _load_json(replay_path, {"steps": []})
-        steps = replay.get("steps", [])
-        if steps:
-            print(f"\nReplay queue ({len(steps)} buoc can chay lai):")
-            for s in steps:
-                print(f"  - {s['step_id']}: {s.get('reason', '')}")
-    return 0
-
-
-def main() -> int:
-    """Xu ly CLI."""
-    import argparse
-    ap = argparse.ArgumentParser(description="Checkpointed backtracking — luu/phuc hoi trang thai")
-    ap.add_argument("workflow", help="Duong dan den workflow JSON")
-    ap.add_argument("--save", nargs=2, metavar=("STEP_ID", "STATE_FILE"), help="Luu checkpoint cho 1 buoc")
-    ap.add_argument("--restore", metavar="STEP_ID", help="Phuc hoi tu checkpoint an toan truoc buoc that bai")
-    ap.add_argument("--list", action="store_true", help="Liet ke tat ca checkpoint")
-    ap.add_argument("--root", default=".", help="Thu muc goc repo")
-    args = ap.parse_args()
-
-    root = Path(args.root).resolve()
-    workflow_path = Path(args.workflow)
-    if not workflow_path.is_absolute():
-        workflow_path = root / workflow_path
-
-    workflow = _load_workflow(root, workflow_path)
-    if workflow is None:
-        return 1
-    workflow_id = workflow.get("workflow_id", workflow_path.stem)
-
-    if args.save:
-        step_id, state_file = args.save
-        return cmd_save(root, workflow, workflow_id, step_id, state_file)
-    elif args.restore:
-        return cmd_restore(root, workflow, workflow_id, args.restore)
-    elif args.list:
-        return cmd_list(root, workflow, workflow_id)
-    else:
-        ap.print_help()
-        return 1
+# Ensure .devin/scripts is on sys.path for absolute imports
+_SCRIPTS_DIR = Path(__file__).resolve().parent
+if str(_SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS_DIR))
+
+# Re-export public API from sub-modules (absolute imports)
+from checkpoint_sanitize import (
+    _reject_dotdot,
+    _sanitize_workflow_id,
+    _sanitize_step_id,
+)
+from checkpoint_redact import (
+    _default_redact_patterns,
+    _redact_snapshot,
+    migrate,
+)
+from checkpoint_core import (
+    save,
+    load,
+    _to_checkpoint_state,
+    _checkpoints_root,
+    _load_json,
+    _save_json,
+    _repo_root,
+    CHECKPOINTS_DIR,
+    REPAIR_MEMORY_FILE,
+    _safe_ckpt_path,
+)
+from checkpoint_workflow import (
+    _load_workflow,
+    _build_downstream_map,
+    _dependencies_for,
+)
+from checkpoint_cli import (
+    cmd_save,
+    cmd_restore,
+    cmd_list,
+    main,
+    _find_latest_checkpoint,
+    _find_safe_checkpoint_before,
+    _sanitize_step_id,
+)
+
+# Backwards-compat: expose everything that old code might import
+__all__ = [
+    # Sanitize
+    "_reject_dotdot",
+    "_sanitize_workflow_id",
+    "_sanitize_step_id",
+    # Redact/migrate
+    "_default_redact_patterns",
+    "_redact_snapshot",
+    "migrate",
+    # Core
+    "save",
+    "load",
+    "_to_checkpoint_state",
+    "_checkpoints_root",
+    "_load_json",
+    "_save_json",
+    "_repo_root",
+    "CHECKPOINTS_DIR",
+    "REPAIR_MEMORY_FILE",
+    # Workflow
+    "_load_workflow",
+    "_build_downstream_map",
+    "_dependencies_for",
+    # CLI
+    "cmd_save",
+    "cmd_restore",
+    "cmd_list",
+    "main",
+    "_find_latest_checkpoint",
+    "_find_safe_checkpoint_before",
+    "_safe_ckpt_path",
+]
 
 
 if __name__ == "__main__":

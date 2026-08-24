@@ -15,12 +15,13 @@ import json
 import os
 import subprocess
 import sys
+import uuid
 from pathlib import Path
 
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-for sub in (".devin/scripts", ".devin/hooks"):
+for sub in (".devin/hooks", ".devin/scripts"):
     d = str(REPO_ROOT / sub)
     if d not in sys.path:
         sys.path.insert(0, d)
@@ -137,6 +138,9 @@ def _run_pre_tool(command: str) -> subprocess.CompletedProcess:
     env = os.environ.copy()
     env["PYTHONUTF8"] = "1"
     env["AHD_COST_LEDGER_KEY"] = "test-key"
+    # Mỗi lần gọi là 1 subprocess độc lập: dùng session id riêng để không
+    # kế thừa call_stack của current_session (RC-3 call-graph) hoặc ledger cũ.
+    env["AHD_SESSION_ID"] = f"test-pretool-{uuid.uuid4().hex}"
     return subprocess.run(
         cmd,
         input=json.dumps({"tool_name": "exec", "tool_input": {"command": command}}),
