@@ -86,9 +86,9 @@ def parse_pyproject_filelock(pyproject_path: Path) -> list[str]:
                 req = Requirement(dep)
             except (ImportError, ValueError):
                 # Fallback: cắt name bằng regex (dep có dạng "filelock>=3.0,<3.13").
-                m = re.match(r"^[a-zA-Z0-9_.-]+\s*(.*)$", dep)
-                if m:
-                    constraints.append(m.group(1))
+                m = re.match(r"^([a-zA-Z0-9_.-]+)\s*([^;]*?)(?:;.*)?$", dep)
+                if m and _norm(m.group(1)) == "filelock" and m.group(2).strip():
+                    constraints.append(m.group(2).strip())
                 continue
             if req.name.strip().lower() == "filelock":
                 constraints.append(str(req.specifier))
