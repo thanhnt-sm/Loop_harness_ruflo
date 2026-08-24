@@ -29,7 +29,7 @@ keywords = ["agent", "harness", "devin", "loop"]
 #   Ed25519 verify chữ ký reviewer; thiếu -> không thể verify -> fail closed.
 dependencies = [
     "pydantic>=2.0",
-    "filelock>=3.0,<3.33",
+    "filelock>=3.0,<3.13",
     "cryptography>=41.0",
 ]
 
@@ -42,7 +42,7 @@ test = [
     "pytest-cov>=4.0",
     "hypothesis>=6.0",
     "pydantic>=2.0",
-    "filelock>=3.0,<3.33",
+    "filelock>=3.0,<3.13",
 ]
 redis = [
     "redis>=5.0",
