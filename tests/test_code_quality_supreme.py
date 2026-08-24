@@ -26,9 +26,12 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 HOOKS_DIR = REPO_ROOT / ".devin" / "hooks"
 SCRIPTS_DIR = REPO_ROOT / ".devin" / "scripts"
 
-ALL_PY_FILES = list(HOOKS_DIR.glob("*.py")) + list(SCRIPTS_DIR.glob("*.py"))
-# Exclude __init__.py, __pycache__, test files within scripts
-ALL_PY_FILES = [f for f in ALL_PY_FILES if f.name != "__init__.py" and "test_" not in f.name]
+# glob() không đảm bảo thứ tự (khác nhau giữa NTFS/ext4) → sorted() để
+# ALL_PY_FILES[:N] deterministic trên mọi nền tảng.
+ALL_PY_FILES = sorted(
+    [f for f in list(HOOKS_DIR.glob("*.py")) + list(SCRIPTS_DIR.glob("*.py"))
+     if f.name != "__init__.py" and "test_" not in f.name]
+)
 
 
 def _read_source(path: Path) -> str:
@@ -133,6 +136,9 @@ class TestNoUnusedImports:
         "drift_detect.py",               # Path used in dynamic code
         "plan_enforce.py",               # Path used in dynamic code
         "pre_tool_use.py",               # Path used in dynamic code
+        "pre_tool_gates.py",             # Re-export hub (pre_tool_use from-import từ đây)
+        "post_tool_enforce_loop.py",     # Re-export hub (post_tool_engine/use from-import)
+        "post_tool_memory_candidate.py", # Re-export hub (post_tool_engine/use from-import)
     }
 
     @pytest.mark.parametrize("py_file", ALL_PY_FILES[:15], ids=lambda f: f.name)
