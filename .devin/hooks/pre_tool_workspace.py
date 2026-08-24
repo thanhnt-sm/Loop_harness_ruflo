@@ -28,13 +28,6 @@ def _check_workspace_layout_gate(data: dict) -> None:
     # Lazy-resolve để tránh bị "đóng băng" giá trị None khi module được import
     # lần đầu mà .devin/scripts chưa nằm trong sys.path (trường hợp test reload/import chéo).
     vwp = validate_workspace_path
-    import sys as _sys  # noqa
-    print(f"[DEBUG workspace gate] module-level vwp={validate_workspace_path!r}", file=sys.stderr)
-    try:
-        from path_zones import validate_workspace_path as _dbg  # noqa
-        print("[DEBUG workspace gate] lazy import OK", file=sys.stderr)
-    except Exception as _e:  # noqa
-        print(f"[DEBUG workspace gate] lazy import FAIL: {_e!r}", file=sys.stderr)
     if vwp is None:
         try:
             from path_zones import validate_workspace_path as vwp  # noqa: PLC0415
