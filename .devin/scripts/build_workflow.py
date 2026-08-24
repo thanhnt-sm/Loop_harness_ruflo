@@ -19,7 +19,11 @@ import plan_quality_check as pqc  # type: ignore
 
 def main() -> int:
     plan_path = ROOT / "docs" / "plans" / "conduct-a-comprehensive-adversarial-red-team-audit-and-long-" / "IMPLEMENTATION_PLAN.md"
-    text = pqc._read_plan(plan_path)
+    try:
+        text = pqc._read_plan(plan_path)
+    except (FileNotFoundError, OSError) as e:
+        print(f"[ERROR] Không thể đọc plan: {e}", file=sys.stderr)
+        return 1
     tasks = pqc._parse_tasks(text)
     edges = pqc._parse_mermaid_edges(text)
 
@@ -50,9 +54,17 @@ def main() -> int:
     }
 
     out_dir = ROOT / ".devin" / "plan_state"
-    out_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        out_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        print(f"[ERROR] Không thể tạo thư mục output: {e}", file=sys.stderr)
+        return 1
     out_path = out_dir / f"{plan_path.stem}_workflow.json"
-    out_path.write_text(json.dumps(workflow, indent=2, ensure_ascii=False), encoding="utf-8")
+    try:
+        out_path.write_text(json.dumps(workflow, indent=2, ensure_ascii=False), encoding="utf-8")
+    except OSError as e:
+        print(f"[ERROR] Không thể ghi workflow: {e}", file=sys.stderr)
+        return 1
 
     print(f"[OK] Workflow: {len(workflow_tasks)} tasks, {len(edges)} edges")
     print(f"[OK] Written: {out_path}")

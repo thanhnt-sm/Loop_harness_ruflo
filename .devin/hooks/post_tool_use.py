@@ -29,6 +29,13 @@ from pathlib import Path
 # Config timeout is 5s; internal 4s (1s margin) to exit before config kills us.
 HOOK_TIMEOUT_SECONDS = 4.0
 
+# Magic numbers (thresholds)
+MAX_ITERATIONS_WITHOUT_STATE_WRITE = 5
+MIN_COMPRESSION_THRESHOLD = 3
+MAX_OUTPUT_SIZE_COMPRESSION = 70
+DEFAULT_COMPRESSION_THRESHOLD = 5
+MAX_FAILURE_THRESHOLD = 3
+
 # U64: In-memory cache for context_flags (read once per session)
 _CONTEXT_FLAGS_CACHE: dict[str, dict] = {}
 _CONTEXT_FLAGS_LOADED: set[str] = set()
@@ -640,7 +647,7 @@ def _u57_auto_quality_checks(data: dict, session_id: str, root: Path) -> None:
             default={},
             session_id=session_id,
         )
-        if slop_score >= 5:
+        if slop_score >= DEFAULT_COMPRESSION_THRESHOLD:
             print(
                 f"[U57] WARNING: High slop score ({slop_score}) in {file_path}. "
                 f"Review for AI slop patterns.",
@@ -767,7 +774,7 @@ def _u60_loop_enforcement(data: dict, session_id: str, root: Path) -> None:
     # Check iteration count vs state writes
     iteration_count = state.get("iteration_count", 0)
     last_state_write = state.get("last_state_write_iteration", 0)
-    if iteration_count - last_state_write > 5:
+    if iteration_count - last_state_write > MAX_ITERATIONS_WITHOUT_STATE_WRITE:
         print(
             f"[U60] WARNING: {iteration_count - last_state_write} iterations "
             f"without state write. Loop state may be stale.",
@@ -797,7 +804,7 @@ def _u61_state_write_verification(data: dict, session_id: str, root: Path) -> No
                 default={},
                 session_id=session_id,
             )
-            if fail_count > 3:
+            if fail_count > MAX_FAILURE_THRESHOLD:
                 print(
                     f"[U61] CRITICAL: {fail_count} state write failures. "
                     f"Escalate to human.",
@@ -841,7 +848,7 @@ def _u62_memory_confidence(data: dict, session_id: str, root: Path) -> None:
     for pattern in uncertainty_markers:
         uncertainty_count += len(re.findall(pattern, output, re.IGNORECASE))
 
-    if uncertainty_count > 3:
+    if uncertainty_count > MIN_COMPRESSION_THRESHOLD:
         confidence = min(confidence, 50)
 
     state_path = ahd_session.get_session_state_path(session_id, root)
@@ -857,7 +864,7 @@ def _u62_memory_confidence(data: dict, session_id: str, root: Path) -> None:
     )
 
     # U62: Honest limit — auto-escalate if uncertainty > 30%
-    if confidence < 70:
+    if confidence < MAX_OUTPUT_SIZE_COMPRESSION:
         print(
             f"[U62] Memory confidence low ({confidence}%). "
             f"Consider escalating to human. Honest limit threshold: 70%.",

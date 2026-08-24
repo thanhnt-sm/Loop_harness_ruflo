@@ -3,6 +3,8 @@
 # Source: source .opencode/hooks/find_python.sh
 # Output: PYTHON variable = path to python executable, or empty string
 
+set -uo pipefail
+
 find_python() {
     if [ -f ".venv/Scripts/python.exe" ]; then
         echo ".venv/Scripts/python.exe"
