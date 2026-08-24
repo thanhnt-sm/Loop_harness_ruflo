@@ -1,4 +1,4 @@
-# Harness Issue Report — 2026-08-24 16:02
+# Harness Issue Report — 2026-08-24 19:08
 
 ## Tóm tắt
 
@@ -55,7 +55,7 @@
 | 39 | QUAL-002: Function Too Long | `.devin\scripts\approval_gate_args.py` | 12 | _parse_args: 75 lines (> 50 limit) | Refactor into smaller functions |
 | 40 | QUAL-002: Function Too Long | `.devin\scripts\approval_gate_commands.py` | 45 | _write_approval_state: 79 lines (> 50 limit) | Refactor into smaller functions |
 | 41 | QUAL-002: Function Too Long | `.devin\scripts\approval_gate_interactive.py` | 18 | cmd_interactive: 80 lines (> 50 limit) | Refactor into smaller functions |
-| 42 | QUAL-002: Function Too Long | `.devin\scripts\artifact_registry.py` | 190 | register: 66 lines (> 50 limit) | Refactor into smaller functions |
+| 42 | QUAL-002: Function Too Long | `.devin\scripts\artifact_registry.py` | 191 | register: 72 lines (> 50 limit) | Refactor into smaller functions |
 | 43 | QUAL-002: Function Too Long | `.devin\scripts\baseline_validator.py` | 94 | validate_baseline: 51 lines (> 50 limit) | Refactor into smaller functions |
 | 44 | QUAL-002: Function Too Long | `.devin\scripts\best_of_n.py` | 31 | _verify_code_quality: 73 lines (> 50 limit) | Refactor into smaller functions |
 | 45 | QUAL-002: Function Too Long | `.devin\scripts\best_of_n.py` | 142 | best_of_n: 63 lines (> 50 limit) | Refactor into smaller functions |
