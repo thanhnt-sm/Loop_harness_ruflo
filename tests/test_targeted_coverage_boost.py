@@ -839,8 +839,9 @@ class TestAhdSessionExtra:
     def test_resolve_state_file_canonical(self, tmp_path, monkeypatch):
         """Test resolve_shared_state_file với canonical path tồn tại."""
         import ahd_session
-        monkeypatch.setattr(ahd_session, "get_shared_state_root", lambda root: tmp_path / "shared")
-        monkeypatch.setattr(ahd_session, "get_config_root", lambda root: tmp_path / "config")
+        from ahd_session_paths import get_shared_state_root, get_config_root
+        monkeypatch.setattr("ahd_session_paths.get_shared_state_root", lambda root: tmp_path / "shared")
+        monkeypatch.setattr("ahd_session_paths.get_config_root", lambda root: tmp_path / "config")
         (tmp_path / "shared").mkdir()
         (tmp_path / "shared" / "test.json").write_text("{}", encoding="utf-8")
         result = ahd_session.resolve_shared_state_file("test.json", tmp_path)
@@ -849,8 +850,9 @@ class TestAhdSessionExtra:
     def test_resolve_state_file_old(self, tmp_path, monkeypatch):
         """Test resolve_shared_state_file với old path tồn tại."""
         import ahd_session
-        monkeypatch.setattr(ahd_session, "get_shared_state_root", lambda root: tmp_path / "shared")
-        monkeypatch.setattr(ahd_session, "get_config_root", lambda root: tmp_path / "config")
+        from ahd_session_paths import get_shared_state_root, get_config_root
+        monkeypatch.setattr("ahd_session_paths.get_shared_state_root", lambda root: tmp_path / "shared")
+        monkeypatch.setattr("ahd_session_paths.get_config_root", lambda root: tmp_path / "config")
         (tmp_path / "shared").mkdir()
         (tmp_path / "config").mkdir()
         (tmp_path / "config" / "test.json").write_text("{}", encoding="utf-8")
@@ -860,8 +862,9 @@ class TestAhdSessionExtra:
     def test_resolve_state_file_default(self, tmp_path, monkeypatch):
         """Test resolve_shared_state_file mặc định trả canonical."""
         import ahd_session
-        monkeypatch.setattr(ahd_session, "get_shared_state_root", lambda root: tmp_path / "shared")
-        monkeypatch.setattr(ahd_session, "get_config_root", lambda root: tmp_path / "config")
+        from ahd_session_paths import get_shared_state_root, get_config_root
+        monkeypatch.setattr("ahd_session_paths.get_shared_state_root", lambda root: tmp_path / "shared")
+        monkeypatch.setattr("ahd_session_paths.get_config_root", lambda root: tmp_path / "config")
         (tmp_path / "shared").mkdir()
         (tmp_path / "config").mkdir()
         result = ahd_session.resolve_shared_state_file("new.json", tmp_path)
@@ -870,8 +873,10 @@ class TestAhdSessionExtra:
     def test_get_session_id_from_current_file(self, tmp_path, monkeypatch):
         """Test get_session_id khi có current_session file."""
         import ahd_session
-        monkeypatch.setattr(ahd_session, "get_repo_root", lambda: tmp_path)
-        monkeypatch.setattr(ahd_session, "get_config_root", lambda root: tmp_path / ".devin")
+        from ahd_session_id import get_repo_root
+        from ahd_session_paths import get_config_root
+        monkeypatch.setattr("ahd_session_id.get_repo_root", lambda: tmp_path)
+        monkeypatch.setattr("ahd_session_paths.get_config_root", lambda root: tmp_path / ".devin")
         (tmp_path / ".devin" / "session_state").mkdir(parents=True)
         (tmp_path / ".devin" / "session_state" / "current_session").write_text(
             "test-session-123", encoding="utf-8")

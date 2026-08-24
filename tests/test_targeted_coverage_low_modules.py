@@ -45,10 +45,10 @@ def patched_root(tmp_path, monkeypatch):
     """Patch repo root + config root của ahd_session về tmp_path/.devin."""
     devin_dir = tmp_path / ".devin"
     devin_dir.mkdir(parents=True, exist_ok=True)
-    monkeypatch.setattr(ahd_session, "get_repo_root", lambda _start_from=None: tmp_path)
-    monkeypatch.setattr(ahd_session, "get_config_root", lambda _root=None: devin_dir)
+    monkeypatch.setattr("ahd_session_id.get_repo_root", lambda _start_from=None: tmp_path)
+    monkeypatch.setattr("ahd_session_paths.get_config_root", lambda _root=None: devin_dir)
     # Xoá cache repo root để tránh leak giữa test
-    monkeypatch.setattr(ahd_session, "_REPO_ROOT_CACHE", None)
+    monkeypatch.setattr("ahd_session_id._REPO_ROOT_CACHE", None)
     return tmp_path
 
 
@@ -65,6 +65,7 @@ class TestArtifactRegistryCLI:
 
     def test_cli_register_and_get(self, patched_root, capsys, monkeypatch):
         from artifact_registry import _cli
+        monkeypatch.setattr("artifact_registry._repo_root", lambda: patched_root)
         monkeypatch.setattr(sys, "argv", [
             "artifact_registry.py", "register", "cot", "cli-1",
             json.dumps({"k": "v"}),
@@ -98,6 +99,7 @@ class TestArtifactRegistryCLI:
 
     def test_cli_get_missing(self, patched_root, capsys, monkeypatch):
         from artifact_registry import _cli
+        monkeypatch.setattr("artifact_registry._repo_root", lambda: patched_root)
         monkeypatch.setattr(sys, "argv", ["artifact_registry.py", "get", "nope", "missing"])
         code = _cli()
         assert code == 1
@@ -110,6 +112,7 @@ class TestArtifactRegistryCLI:
 
     def test_cli_list(self, patched_root, capsys, monkeypatch):
         from artifact_registry import _cli, register
+        monkeypatch.setattr("artifact_registry._repo_root", lambda: patched_root)
         register("cot", "list-1", {"a": 1}, root=patched_root)
         register("verdict", "list-2", {"b": 2}, root=patched_root)
         monkeypatch.setattr(sys, "argv", ["artifact_registry.py", "list"])
@@ -121,6 +124,7 @@ class TestArtifactRegistryCLI:
 
     def test_cli_list_with_type_filter(self, patched_root, capsys, monkeypatch):
         from artifact_registry import _cli, register
+        monkeypatch.setattr("artifact_registry._repo_root", lambda: patched_root)
         register("cot", "f1", {"a": 1}, root=patched_root)
         register("verdict", "f2", {"b": 2}, root=patched_root)
         monkeypatch.setattr(sys, "argv", ["artifact_registry.py", "list", "cot"])
@@ -291,12 +295,14 @@ class TestIdempotencyRegister:
 
     def test_register_uses_env_run_id(self, patched_root, monkeypatch):
         from idempotency import register, lookup
+        monkeypatch.setattr("idempotency._repo_root", lambda: patched_root)
         monkeypatch.setenv("AHD_RUN_ID", "env-run-x")
         register("env-key", lambda: 42)
         assert lookup("env-key", run_id="env-run-x") == 42
 
-    def test_register_corrupt_ledger_line_skipped(self, patched_root):
+    def test_register_corrupt_ledger_line_skipped(self, patched_root, monkeypatch):
         from idempotency import register, lookup, ledger_path
+        monkeypatch.setattr("idempotency._repo_root", lambda: patched_root)
         # Tạo ledger có dòng hỏng
         path = ledger_path("r-corrupt", root=patched_root)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -519,6 +525,7 @@ class TestCognitiveScaffoldCLI:
     def test_cli_recall(self, patched_root, capsys, monkeypatch):
         from cognitive_scaffold_memory import _cli, record
         record("main", "test content", run_id="cli-run", root=patched_root)
+        monkeypatch.setattr("cognitive_scaffold_memory._repo_root", lambda: patched_root)
         monkeypatch.setattr(sys, "argv", ["cognitive_scaffold_memory.py", "recall", "cli-run"])
         code = _cli()
         assert code == 0

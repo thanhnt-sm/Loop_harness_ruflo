@@ -154,7 +154,7 @@ from dag_failure import (
 )
 from dag_execution import _run_task, _transient_exception, _default_runner, _current_run_id
 from dag_state import _save_checkpoint_for_state
-from dag_cli import main
+from dag_cli import main, _read_result_file, _exit_code_from_summary
 
 __all__ = [
     # Types
@@ -197,6 +197,8 @@ __all__ = [
     "MAX_RETRIES",
     # CLI
     "main",
+    "_read_result_file",
+    "_exit_code_from_summary",
 ]
 
 
