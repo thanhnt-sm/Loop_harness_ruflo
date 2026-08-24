@@ -21,6 +21,7 @@ import json
 import os
 import re
 import sys
+import threading
 import time
 from pathlib import Path
 from typing import Any, Optional
@@ -244,14 +245,20 @@ def register(
             version=version,
         )
 
-        # Ghi atomic: tmp -> rename
+        # Ghi atomic: tmp -> rename. Tên tmp phải unique per writer (pid + thread)
+        # vì nhiều thread/process ghi cùng artifact: tmp cố định sẽ bị worker
+        # khác replace() mất trước khi worker này kịp rename → FileNotFoundError.
         path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(".tmp")
+        tmp = path.with_suffix(f".{os.getpid()}.{threading.get_ident()}.tmp")
         tmp.write_text(
             artifact.model_dump_json(indent=2, by_alias=True),
             encoding="utf-8",
         )
-        tmp.replace(path)
+        try:
+            tmp.replace(path)
+        except OSError:
+            tmp.unlink(missing_ok=True)
+            raise
     finally:
         _release_lock((_lock_path_val, lock_handle, _is_sentinel))
 
