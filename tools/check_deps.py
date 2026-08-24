@@ -101,9 +101,37 @@ def _version_tuple(v: str) -> tuple[int, ...]:
     return tuple(int(n) for n in nums) if nums else (0,)
 
 
+def _satisfies_simple(version: str, specifier: str) -> bool:
+    """Fallback không cần packaging: so sánh tuple số cho ==, !=, <, <=, >=, >."""
+    ver = _version_tuple(version)
+    for clause in specifier.split(","):
+        clause = clause.strip()
+        if not clause:
+            continue
+        m = re.match(r"^(==|!=|<=|>=|<|>)\s*(.+)$", clause)
+        if not m:
+            continue  # spec lạ → bỏ qua (fail-open)
+        op, target = m.group(1), _version_tuple(m.group(2))
+        ok = {
+            "==": ver == target,
+            "!=": ver != target,
+            "<": ver < target,
+            "<=": ver <= target,
+            ">=": ver >= target,
+            ">": ver > target,
+        }[op]
+        if not ok:
+            return False
+    return True
+
+
 def _satisfies(version: str, specifier: str) -> bool:
     """Kiểm tra version thỏa một specifier PEP 440 đơn giản (==, <, <=, >=, >)."""
-    from packaging.specifiers import SpecifierSet
+    try:
+        from packaging.specifiers import SpecifierSet
+    except ImportError:
+        # Runner CI có thể chưa cài deps ở step này → dùng fallback thuần stdlib.
+        return _satisfies_simple(version, specifier)
 
     try:
         return SpecifierSet(specifier).contains(version)
