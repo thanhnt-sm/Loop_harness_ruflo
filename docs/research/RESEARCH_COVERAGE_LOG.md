@@ -60,9 +60,9 @@
 
 | # | Chủ đề (Topic) | Góc MỚI sẽ cover | File dự kiến | Nguồn | Status |
 |---|----------------|------------------|--------------|-------|--------|
-| T12 | Emerging tech agents 2026 | A2A protocol, agent SDK mới, standards evolution, agent taxonomies | TBD | TBD | `[pending]` |
-| T13 | Pain points - production góc mới | Production deployment failures, RAG limitations, MCP real-world adoption | TBD | TBD | `[pending]` |
-| T14 | Multi-agent communication | Message schemas, protocol, handoff, shared blackboard, tool-call contracts | TBD | TBD | `[pending]` |
+| T12 | Emerging tech agents 2026 | A2A v1.0, AAIF (MCP+goose+AGENTS.md+A2A one roof), 3-layer stack, Agent Cards, standards evolution | `BUILD_EMERGING_STANDARDS_2026.md` | a2a-protocol.org, aaif.io, linuxfoundation, byteiota, googleblog | `[covered]` |
+| T13 | Pain points - production góc mới | Production deployment failures, RAG limitations, MCP real-world adoption, 88% pilots fail, cost/risk cancellations | `BUILD_PRODUCTION_PAIN_POINTS_2026.md` | arxiv 2603.13417, Miami post-mortem, towardsai, openempower, thegradient, aiagentsfirst | `[covered]` |
+| T14 | Multi-agent communication | Message schemas, protocol, handoff, shared blackboard, tool-call contracts, A2A delegation | `orchestration_patterns.md` (subagent, Iter 3b) | A2A spec, OpenAI Swarm, Blackboard, AgentBus | `[covered]` (subagent report) |
 
 ---
 
@@ -75,4 +75,4 @@
 
 ---
 
-*Cập nhật: 2026-08-27 | Vòng (iteration): 2 — đang chạy T7-T11 (BUILD STRATEGY)*
+*Cập nhật: 2026-08-27 | Vòng (iteration): 5 — BUILD STRATEGY COMPLETE (T4, T7-T14 covered). Backlog 48 recs created.*
