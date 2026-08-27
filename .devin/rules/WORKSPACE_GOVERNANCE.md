@@ -29,7 +29,7 @@
 
 ## 3. File root — danh sách được phép (CHỈ những file này, không thêm bừa)
 
-- Entry/rules: `AGENTS.md`, `CLAUDE.md`, `.clinerules/`, `opencode.json`, `SECURITY.md`, `REPOS.md`, `LICENSE`
+- Entry/rules: `AGENTS.md`, `CLAUDE.md`, `.clinerules/`, `opencode.json`, `README.md`, `SECURITY.md`, `REPOS.md`, `LICENSE`
 - Config/deps: `pyproject.toml`, `pytest.ini`, `package.json`, `package-lock.json`, `requirements-lock.txt`, `renovate.json`, `.gitignore`, `.gitattributes`, `.ignore`
 - Launcher: `activate.*`, `devin-run.*`, `devin-swe.*`, `loop`, `session`
 
@@ -44,7 +44,7 @@ Các hook chạy trước mỗi tool call sẽ chặn ngay nếu agent cố ghi 
 - Source of truth: `tools/source_map_data.py` (root allowlist), `.devin/scripts/path_zones.py` (safe zones, blocked zones, junk patterns).
 
 Danh sách **file được phép ở root** (cập nhật ở `path_zones.ALLOWED_ROOT_FILES`):
-`AGENTS.md`, `CLAUDE.md`, `SECURITY.md`, `REPOS.md`, `LICENSE`, `.gitignore`, `.gitattributes`, `.ignore`, `opencode.json`, `pyproject.toml`, `pytest.ini`, `package.json`, `package-lock.json`, `requirements-lock.txt`, `renovate.json`, `loop`, `session`, `activate.*`, `devin-run.*`, `devin-swe.*`.
+`AGENTS.md`, `CLAUDE.md`, `SECURITY.md`, `REPOS.md`, `README.md`, `LICENSE`, `.gitignore`, `.gitattributes`, `.ignore`, `opencode.json`, `pyproject.toml`, `pytest.ini`, `package.json`, `package-lock.json`, `requirements-lock.txt`, `renovate.json`, `loop`, `session`, `activate.*`, `devin-run.*`, `devin-swe.*`.
 
 **Hậu quả nếu vi phạm:** tool call bị từ chối với lý do `Root file '<name>' is not allowed` hoặc `Junk file blocked`.
 

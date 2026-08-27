@@ -283,6 +283,24 @@ docs/*
 !docs/plans/
 !docs/reports/
 !docs/reports/**
+!docs/research/
+!docs/research/**
+!docs/prompts/
+!docs/prompts/**
+!docs/templates/
+!docs/templates/**
+!docs/INDEX.md
+!docs/USAGE_GUIDE.md
+!docs/AGENTS_full_reference.md
+!docs/BOOT_PROTOCOL_full.md
+!docs/PLAN_ORCHESTRATOR_GUIDE.md
+!docs/CONTINUOUS_LOOP_GUIDE.md
+!docs/PROPOSAL.md
+!docs/PROPOSAL_PLAN_PHASE_REDESIGN.md
+!docs/REDLINES_full.md
+!docs/REDTEAM_AUDIT.md
+!docs/CONSTRAINT_LEDGER.md
+!docs/REFACTOR_LONG_FILES.md
 
 verification/
 services/

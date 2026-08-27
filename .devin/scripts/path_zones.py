@@ -96,6 +96,7 @@ ALLOWED_ROOT_FILES: tuple[str, ...] = (
     "CLAUDE.md",
     "SECURITY.md",
     "REPOS.md",
+    "README.md",
     "LICENSE",
     ".gitignore",
     ".gitattributes",
