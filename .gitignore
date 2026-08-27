@@ -278,6 +278,8 @@ docs/plans/*/
 !docs/plans/workspace-governance-enforcement/**
 !docs/plans/root-cleanup/
 !docs/plans/root-cleanup/**
+!docs/plans/system-docs-vi-en/
+!docs/plans/system-docs-vi-en/**
 docs/plans/*.md
 docs/*
 !docs/plans/
@@ -289,6 +291,10 @@ docs/*
 !docs/prompts/**
 !docs/templates/
 !docs/templates/**
+!docs/vi/
+!docs/vi/**
+!docs/en/
+!docs/en/**
 !docs/INDEX.md
 !docs/USAGE_GUIDE.md
 !docs/AGENTS_full_reference.md
