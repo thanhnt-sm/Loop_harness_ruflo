@@ -278,11 +278,17 @@ docs/plans/*/
 !docs/plans/workspace-governance-enforcement/**
 !docs/plans/root-cleanup/
 !docs/plans/root-cleanup/**
+!docs/plans/system-docs-vi-en/
+!docs/plans/system-docs-vi-en/**
 docs/plans/*.md
 docs/*
 !docs/plans/
 !docs/reports/
 !docs/reports/**
+!docs/vi/
+!docs/vi/**
+!docs/en/
+!docs/en/**
 
 verification/
 services/
