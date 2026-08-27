@@ -280,6 +280,8 @@ docs/plans/*/
 !docs/plans/root-cleanup/**
 !docs/plans/system-docs-vi-en/
 !docs/plans/system-docs-vi-en/**
+!docs/plans/ahd-build-strategy-implementation/
+!docs/plans/ahd-build-strategy-implementation/**
 docs/plans/*.md
 docs/*
 !docs/plans/
