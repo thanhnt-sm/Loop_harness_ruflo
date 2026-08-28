@@ -5,7 +5,43 @@
     ".devin/rules/WORKSPACE_GOVERNANCE.md"
   ],
   "skills": {
-    "paths": [".opencode/skills"]
+    "paths": [".opencode/skills", ".devin/skills"]
+  },
+  "mcp": {
+    "aide-memory": {
+      "type": "local",
+      "command": ["npx", "-y", "aide-memory", "mcp", "."],
+      "enabled": true,
+      "timeout": 20000
+    },
+    "ruflo-hlk-mcp": {
+      "type": "local",
+      "command": ["node", "HLK/wrappers/ruflo-hlk-mcp.mjs", "mcp", "start"],
+      "enabled": true,
+      "timeout": 30000
+    }
+  },
+  "references": {
+    "canon": {
+      "path": ".devin/canon",
+      "description": "Bộ protocol cốt lõi của harness (CORE_CANON, BOOT_PROTOCOL, REDLINES, MEMORY_PROTOCOL, LOOP_PROTOCOL, VERIFICATION_PROTOCOL, CAVEMAN_PROTOCOL, HARNESS_ENGINEERING...). Dùng để tuân theo canon khi chạy harness."
+    },
+    "agents-state": {
+      "path": ".agents",
+      "description": "Persistence/memory của agent (knowledge_distill, user_profile, loop_state). Dùng để biết bài học đã học, profile người dùng, trạng thái loop."
+    },
+    "hlk-docs": {
+      "path": "HLK/docs",
+      "description": "Tài liệu HLK (runbook, checklist, upgrade plan, red-team report). Dùng khi cần vận hành/khắc phục sự cố HLK."
+    },
+    "hlk-prompts": {
+      "path": "HLK/prompts",
+      "description": "Các prompt tái sử dụng của HLK (codebase analysis, redteam security, solution architect, hardening)."
+    },
+    "docs": {
+      "path": "docs",
+      "description": "Hướng dẫn sử dụng harness (USAGE_GUIDE, CONTINUOUS_LOOP_GUIDE) + plan/report artifacts."
+    }
   },
   "permission": {
     "edit": "ask",

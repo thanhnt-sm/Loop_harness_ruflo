@@ -57,6 +57,7 @@
 .cache/
 .claude-flow/
 .claude/settings.local.json
+.commandcode/settings.local.json
 .deno/
 .env
 .env.*.local
@@ -269,6 +270,10 @@ plugins/
 ruflo/
 .claude-plugin/
 
+# .opencode/plugins/ là config plugin opencode hợp lệ (không phải ruflo source bị xóa)
+!.opencode/plugins/
+!.opencode/plugins/**
+
 # Allow selected docs/ content; block transient docs dirs by default.
 !docs/plans/
 docs/plans/*/
@@ -282,6 +287,8 @@ docs/plans/*/
 !docs/plans/system-docs-vi-en/**
 !docs/plans/ahd-build-strategy-implementation/
 !docs/plans/ahd-build-strategy-implementation/**
+!docs/plans/opencode-full-integration/
+!docs/plans/opencode-full-integration/**
 docs/plans/*.md
 docs/*
 !docs/plans/
