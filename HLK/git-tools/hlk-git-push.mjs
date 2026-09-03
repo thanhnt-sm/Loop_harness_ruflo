@@ -19,6 +19,7 @@ import {
   getRemotes,
   getTrackingBranch,
   gitStatus,
+  scanDiffForSecrets,
   prompt,
 } from './lib/hlk-git-lib.mjs';
 
@@ -124,6 +125,22 @@ async function prePushChecks() {
         process.exit(0);
       }
     }
+  }
+
+  // Pre-push secret scan: quét commits sắp push để tránh GitHub Push Protection từ chối
+  const range = `${expectedUpstream}..HEAD`;
+  const secretFindings = scanDiffForSecrets(range, CWD);
+  if (secretFindings.length > 0) {
+    for (const f of secretFindings) {
+      log('error', `Push sẽ chứa secret trong ${f.file}: ${f.sample}`);
+    }
+    log('error', `Tìm thấy ${secretFindings.length} secret trong commits. Push bị hủy để tránh GitHub Push Protection từ chối.`);
+    log('warn', 'Sử dụng --no-verify để bỏ qua kiểm tra này (KHÔNG khuyến nghị).');
+    if (!args.includes('--no-verify')) {
+      process.exit(1);
+    }
+  } else {
+    log('success', 'Pre-push secret scan OK.');
   }
 
   return { localBranch, remoteBranch };

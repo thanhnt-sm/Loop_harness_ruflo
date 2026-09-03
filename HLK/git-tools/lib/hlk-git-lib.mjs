@@ -186,6 +186,15 @@ const TRACKED_SECRET_PATTERNS = [
 // ví dụ trong tài liệu (không phải secret thật). Chỉ bỏ qua khi trùng CHÍNH XÁC
 // cả file lẫn chuỗi — secret mới ở bất kỳ đâu vẫn bị phát hiện.
 // Giá trị match ghép từ nhiều phần để file này không tự trigger scanner.
+//
+// Best practice cho test fixture chứa fake secrets:
+//   1. Nếu fake secret dùng format mà GitHub Push Protection / scanner local
+//      nhận diện (sk_live_, xoxb-, AKIA..., ghp_, gho_, ...) → tách bằng +
+//      trong code để scanner không match được pattern literal:
+//        text = "value=sk_live_" + "abcdefghijklmnop"  (runtime: cùng giá trị)
+//      Đồng thời thêm entry allowlist ở đây cho defense-in-depth.
+//   2. Nếu format an toàn (không bị scanner nhận diện) → dùng trực tiếp,
+//      chỉ cần thêm allowlist để scanner local bỏ qua.
 const TRACKED_SECRET_ALLOWLIST = [
   { file: 'HLK/docs/02-thanh-phan-va-luong-hoat-dong.md', match: '-----BEGIN ' + 'PRIVATE KEY-----' },
   { file: 'HLK/reports/07_hardening_implementation.md', match: 'sk-' + 'abc123def456ghijk789lmno01234567' },
@@ -592,4 +601,45 @@ export function findEmbeddedGitRepos(cwd = process.cwd()) {
   }
 
   return { submodules, nested };
+}
+
+// ---------------------------------------------------------------------------
+// Pre-push secret scan: quét diff của commits sắp push để phòng GitHub
+// Push Protection từ chối. Dùng cả SECRET_PATTERNS và TRACKED_SECRET_PATTERNS.
+// ---------------------------------------------------------------------------
+
+export function scanDiffForSecrets(range, cwd = process.cwd()) {
+  const r = runGit(['diff', '--no-color', '--no-ext-diff', range], { cwd });
+  if (r.status !== 0) return [];
+
+  const ALL_PATTERNS = [...SECRET_PATTERNS, ...TRACKED_SECRET_PATTERNS];
+  const findings = [];
+  let currentFile = null;
+
+  for (const line of r.stdout.split('\n')) {
+    if (line.startsWith('diff --git ')) {
+      const m = line.match(/^diff --git a\/(.+?) b\/.+$/);
+      currentFile = m ? m[1] : null;
+      continue;
+    }
+    if (line.startsWith('+++') || line.startsWith('---') || line.startsWith('@@') || line.startsWith(' ')) {
+      continue;
+    }
+    if (!line.startsWith('+') || line.startsWith('++')) continue;
+
+    const added = stripAllowlistedFixtures(line.slice(1), currentFile ?? '');
+    for (const pattern of ALL_PATTERNS) {
+      const matches = added.match(pattern);
+      if (matches) {
+        findings.push({
+          file: currentFile ?? 'unknown',
+          pattern: pattern.toString(),
+          sample: matches[0].slice(0, 60) + (matches[0].length > 60 ? '...' : ''),
+        });
+        break;
+      }
+    }
+  }
+
+  return findings;
 }
