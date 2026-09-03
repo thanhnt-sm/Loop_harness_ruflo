@@ -243,3 +243,105 @@ Before ending a substantial Khuym work chunk:
 2. Leave `.khuym/state.json` and `.khuym/HANDOFF.json` consistent with the current pause/resume state.
 3. Mention any remaining blockers, open questions, or next actions in the final response.
 <!-- KHUYM:END -->
+
+
+---
+
+## HLK is Source of Truth (BẮT BUỘC — mọi agent, mọi provider)
+
+> **Theo user directive**: từ giờ về sau, mọi phát triển hệ thống loop harness đặt vào **HLK**.
+> Mọi AI agent (opencode, cmdc, Claude, GPT) phải **tham chiếu, đăng ký, dẫn chiếu** vào HLK.
+
+### Quy tắc cứng
+
+1. **HLK là source of truth duy nhất** cho verify-first chain.
+   - Implementation: `HLK/chain/` (Python), `HLK/chain/loaders/` (Node), `HLK/chain/hlk_wrappers/` (Node wrapper)
+   - Config: `HLK/config/hlk.config.json` (centralized, có section `verify_first`)
+   - Skills: `HLK/skills/verify-first/SKILL.md` (canonical)
+2. **Mọi provider phải trỏ vào HLK**:
+   - opencode: `opencode.json` tham chiếu `HLK` + `verify-first` skills
+   - cmdc: `.commandcode/skills/`, `.commandcode/agents/`, `.commandcode/commands/` — chỉ là **POINTER** tới HLK
+   - .opencode: tương tự — POINTER
+3. **KHÔNG tạo implementation mới ngoài HLK** — nếu cần thêm feature, edit HLK trước, sau đó sync mirror.
+4. **`.devin/` là NGOẠI LỆ** — KHÔNG xóa, giữ code cũ. Phần nào HLK có mà `.devin` không có → tạo **shim re-export** ở `.devin` trỏ về HLK.
+5. **Mirror 1 chiều**: HLK → providers (KHÔNG BAO GIỜ sync ngược).
+
+### Cách tham chiếu HLK
+
+```bash
+# Chạy verify-first chain
+py HLK/chain/verify_first_cli.py <BRD.md>
+
+# Node wrapper (thêm HLK loader + audit log)
+node HLK/chain/hlk_wrappers/verify-first-wrapper.mjs <BRD.md>
+
+# Python API
+import sys; sys.path.insert(0, "HLK")
+from chain import BRD, parse_brd_file, should_auto_merge
+```
+
+### Khi nào KHÔNG cần chain (S-tier)
+
+- Bug fix <5 dòng, 1 file
+- Documentation update nhỏ
+- Typo/format
+
+### Khi nào BẮT BUỘC chain (M-tier+)
+
+- Multi-file changes (≥3 files)
+- Functional requirement mới
+- Có test code generation
+- Mọi task > 30 phút
+
+Xem `HLK/docs/migration-diff.md` cho diff .devin vs HLK, và `HLK/skills/verify-first/SKILL.md` cho chi tiết.
+
+
+---
+
+## HLK is Source of Truth (BẮT BUỘC — mọi agent, mọi provider)
+
+> **Theo user directive**: từ giờ về sau, mọi phát triển hệ thống loop harness đặt vào **HLK**.
+> Mọi AI agent (opencode, cmdc, Claude, GPT) phải **tham chiếu, đăng ký, dẫn chiếu** vào HLK.
+
+### Quy tắc cứng
+
+1. **HLK là source of truth duy nhất** cho verify-first chain.
+   - Implementation: `HLK/chain/` (Python), `HLK/chain/loaders/` (Node), `HLK/chain/hlk_wrappers/` (Node wrapper)
+   - Config: `HLK/config/hlk.config.json` (centralized, có section `verify_first`)
+   - Skills: `HLK/skills/verify-first/SKILL.md` (canonical)
+2. **Mọi provider phải trỏ vào HLK**:
+   - opencode: `opencode.json` tham chiếu `HLK` + `verify-first` skills
+   - cmdc: `.commandcode/skills/`, `.commandcode/agents/`, `.commandcode/commands/` — chỉ là **POINTER** tới HLK
+   - .opencode: tương tự — POINTER
+3. **KHÔNG tạo implementation mới ngoài HLK** — nếu cần thêm feature, edit HLK trước, sau đó sync mirror.
+4. **`.devin/` là NGOẠI LỆ** — KHÔNG xóa, giữ code cũ. Phần nào HLK có mà `.devin` không có → tạo **shim re-export** ở `.devin` trỏ về HLK.
+5. **Mirror 1 chiều**: HLK → providers (KHÔNG BAO GIỜ sync ngược).
+
+### Cách tham chiếu HLK
+
+```bash
+# Chạy verify-first chain
+py HLK/chain/verify_first_cli.py <BRD.md>
+
+# Node wrapper (thêm HLK loader + audit log)
+node HLK/chain/hlk_wrappers/verify-first-wrapper.mjs <BRD.md>
+
+# Python API
+import sys; sys.path.insert(0, "HLK")
+from chain import BRD, parse_brd_file, should_auto_merge
+```
+
+### Khi nào KHÔNG cần chain (S-tier)
+
+- Bug fix <5 dòng, 1 file
+- Documentation update nhỏ
+- Typo/format
+
+### Khi nào BẮT BUỘC chain (M-tier+)
+
+- Multi-file changes (≥3 files)
+- Functional requirement mới
+- Có test code generation
+- Mọi task > 30 phút
+
+Xem `HLK/docs/migration-diff.md` cho diff .devin vs HLK, và `HLK/skills/verify-first/SKILL.md` cho chi tiết.

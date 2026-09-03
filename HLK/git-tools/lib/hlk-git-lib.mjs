@@ -125,6 +125,7 @@ const SENSITIVE_GLOBS = [
 
 const SECRET_PATTERNS = [
   /\bsk-[a-zA-Z0-9]{32,}\b/,
+  /\bsk_live_[a-zA-Z0-9]{20,}\b/,
   /\bghp_[a-zA-Z0-9]{36}\b/,
   /\bghs_[a-zA-Z0-9]{36}\b/,
   /\beyJ[a-zA-Z0-9_-]*\.eyJ[a-zA-Z0-9_-]*\.[a-zA-Z0-9_-]*\b/,
@@ -168,6 +169,7 @@ export function listTrackedSensitiveFiles(cwd = process.cwd()) {
 // High-confidence secret patterns — tái dùng từ checkpoint.py redaction (T2.6).
 const TRACKED_SECRET_PATTERNS = [
   /\bsk-[a-zA-Z0-9]{32,}\b/,
+  /\bsk_live_[a-zA-Z0-9]{20,}\b/,
   /\bghp_[a-zA-Z0-9]{36}\b/,
   /\bghs_[a-zA-Z0-9]{36}\b/,
   /\bgho_[a-zA-Z0-9]{36}\b/,
@@ -176,7 +178,7 @@ const TRACKED_SECRET_PATTERNS = [
   /\bAIza[A-Za-z0-9_-]{35}\b/,
   /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/,
   /\beyJ[a-zA-Z0-9_-]*\.eyJ[a-zA-Z0-9_-]*\.[a-zA-Z0-9_-]*\b/,
-  /-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----/,
+  /-----BEGIN (RSA |EC |OPENSHIFT )?PRIVATE KEY-----/,
   /\bghp_[a-f0-9]{36}\b/,
 ];
 
@@ -200,8 +202,19 @@ const TRACKED_SECRET_ALLOWLIST = [
   { file: 'tests/test_pentest_secret_redaction.py', match: 'sk-' + 'abcdefghijklmnopqrstuvwxyz1234567890' },
   { file: 'tests/test_red_team_suite.py', match: 'sk-' + 'abcdefghijklmnopqrstuvwxyz1234567890' },
   { file: 'tests/test_schema_gate.py', match: 'ghp_' + '1234567890abcdef1234567890abcdef1234' },
-  { file: 'tests/test_targeted_coverage_low_modules.py', match: 'AKIA' + 'ABCDEFGHIJKLMNOP' },
+   { file: 'tests/test_targeted_coverage_low_modules.py', match: 'AKIA' + 'ABCDEFGHIJKLMNOP' },
   { file: 'tests/test_targeted_coverage_low_modules.py', match: 'xoxb-' + '1234567890-abcdefghij' },
+  { file: '.commandcode/commands/hlk-sanitize.md', match: 'sk-' + 'abc1234567890abcdef1234567890abcdef' },
+  { file: 'tests/test_command_code_client.py', match: 'ghp_' + '1234567890abcdefghijklmnopqrstuvwxyz' },
+  { file: 'tests/test_secret_scanner.py', match: 'ghp_' + '1234567890abcdefghijklmnopqrstuvwxyz' },
+  { file: 'tests/test_secret_scanner.py', match: 'api_key = "' + 'abcdefghijklmnop12345' },
+  { file: 'tests/test_secret_scanner.py', match: '-----BEGIN ' + 'RSA PRIVATE KEY-----' },
+  { file: 'tests/test_auto_pr_gh_live.py', match: 'AKIA' + 'IOSFODNN7EXAMPLE' },
+  { file: 'tests/test_command_code_client.py', match: 'AKIA' + 'IOSFODNN7EXAMPLE' },
+  { file: 'tests/test_secret_scanner.py', match: 'gho_' + 'abcdefghijklmnopqrstuvwxyz1234567890' },
+  { file: 'tests/test_secret_scanner.py', match: 'AKIA' + 'IOSFODNN7EXAMPLE' },
+  { file: 'tests/test_secret_scanner.py', match: 'xoxb-' + '1234567890-abcdefghijklmnopqrstuvwx' },
+  { file: 'tests/test_secret_scanner.py', match: 'sk_live_' + 'abcdefghijklmnopqrstuvwx' },
 ];
 
 function stripAllowlistedFixtures(text, file) {

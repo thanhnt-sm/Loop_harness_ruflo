@@ -54,7 +54,7 @@ Danh sách **file được phép ở root** (cập nhật ở `path_zones.ALLOWE
 2. Không để `*.bak`, `*.tmp`, `*.orig`, `*.swp`, `*~`, `untitled*`, `scratch*`, `.DS_Store`, `*.log` (tracked) trong workspace.
 3. Mọi file mới phải được **commit trong git** khi kết thúc task; file chưa dùng → xóa, không để lại.
 4. Không tạo file `.py` ở root; không tạo test ngoài `tests/`.
-5. File/variable name tiếng Anh, không dấu. Python `snake_case.py`; shell/PowerShell `kebab-case.*`.
+5. **LSP-driven edits phải kèm `read` xác nhận.** Mọi chỉnh sửa file qua `xd://lsp` (khi được re-enable trong tương lai) PHẢI theo sau bằng một lệnh `read` vùng thay đổi để xác nhận edit landed đúng symbol. Quy tắc này chống hallucinated LSP results (Surface C trong `docs/reports/LSP_ALWAYS_ON_2026-08-28.md`).
 
 ## 5. Plan ↔ Act contract (khớp plan và act)
 

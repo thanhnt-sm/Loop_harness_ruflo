@@ -1,0 +1,318 @@
+{
+  "$comment": "cmdc settings.json — bridge to .devin + .opencode + HLK harness. Schema: commandcode.ai/docs/reference/cli. Hardened 2026-08-27 theo commandcode.ai/docs/security (disableBypass, sensitive paths, MCP allowlist, skill shell execution).",
+  "skills": [
+    ".devin/skills",
+    ".opencode/skills"
+  ],
+  "disableSkillShellExecution": true,
+  "$skillShellNote": "Block !cmd inline + ```! fenced shell trong SKILL.md. Skill chỉ đọc file, không exec. Tăng cường supply-chain safety.",
+  "onDemandToolDescriptions": true,
+  "$onDemandNote": "Shell prompt chỉ generate explanation khi user nhấn ctrl+e. Mặc định = on; tắt = mọi shell command đều explain upfront (token expensive).",
+  "disableScratchpad": false,
+  "$scratchpadNote": "Session scratchpad BẬT. Mỗi session có /tmp/commandcode-<uid>/<cwd>/<session-id>/scratchpad, exposed as $COMMANDCODE_SCRATCHPAD env. Silent access (no prompt). Shared with sub-agents. Survives compaction. Cleaned after 30d.",
+  "autoCompact": true,
+  "$compactNote": "Auto-compact when context approaches limit. Manual: /compact. Compaction append-only (transcript tree preserved, /tree can reach everything).",
+  "permissions": {
+    "defaultMode": "default",
+    "disableBypass": "disable",
+    "$bypassNote": "Block --yolo + --dangerously-skip-permissions. Enforced ở mọi layer (engine, CLI entry, TUI mode cycle). Best practice: đặt ở settings.json này (project). User-global đã có thể đặt ở ~/.commandcode/settings.json.",
+    "additionalDirectories": [
+      "HLK"
+    ],
+    "$addDirNote": "Đã ở workspace; liệt kê tường minh để audit rõ ràng. Skill dirs registered qua skills.paths tự grant.",
+    "allow": [
+      "Shell(git status:*)",
+      "Shell(git diff:*)",
+      "Shell(git log:*)",
+      "Shell(git add:*)",
+      "Shell(git config:*)",
+      "Shell(npm run build)",
+      "Shell(npm run test)",
+      "Shell(npm run lint)",
+      "Shell(python tools/check_governance.py)",
+      "Shell(python tools/check_deps.py)",
+      "Shell(python .devin/scripts/hook_integrity.py:*)",
+      "Shell(python .devin/scripts/plan_orchestrator.py:*)",
+      "Shell(python .devin/scripts/approval_gate.py:*)",
+      "Shell(python .devin/scripts/plan_quality_check.py:*)",
+      "Shell(python .devin/scripts/*.py:*)",
+      "Read(src/**)",
+      "Read(.devin/**)",
+      "Read(.opencode/**)",
+      "Read(.commandcode/**)",
+      "Read(docs/**)",
+      "Read(tests/**)",
+      "Read(tools/**)",
+      "Read(scripts/**)",
+      "mcp__aide-memory__aide_recall",
+      "mcp__aide-memory__aide_remember",
+      "mcp__aide-memory__aide_search",
+      "mcp__aide-memory__aide_update",
+      "mcp__aide-memory__aide_forget",
+      "mcp__ruflo-hlk-mcp__*",
+      "Shell(cd /d \"D:\\100.Software\\Github\\Loop_harness_new\\Loop_harness_ruflo\" && dir /b .devin\\skills 2>nul | findstr /v \"^$\")",
+      "Shell(cd /d \"D:\\100.Software\\Github\\Loop_harness_new\\Loop_harness_ruflo\" && dir /b .devin\\scripts 2>nul | findstr /v \"^$\")",
+      "Shell(cd /d \"D:\\100.Software\\Github\\Loop_harness_new\\Loop_harness_ruflo\" && dir /b .devin\\hooks 2>nul | findstr /v \"^$\")",
+      "Shell(cd /d \"D:\\100.Software\\Github\\Loop_harness_new\\Loop_harness_ruflo\" && dir /b .devin\\sessions 2>nul | findstr /v \"^$\")",
+      "Shell(cd /d \"D:\\100.Software\\Github\\Loop_harness_new\\Loop_harness_ruflo\" && findstr /I \"bypass.permission\" settings.json .claude\\settings.json opencode.json 2>nul | findstr /v \"^$\" | head -20)",
+      "Shell(cd /d \"D:\\100.Software\\Github\\Loop_harness_new\\Loop_harness_ruflo\" && findstr /I \"permission\" settings.json .claude\\settings.json 2>nul | findstr /v \"^$\" | head -20)",
+      "Shell(cd /d \"D:\\100.Software\\Github\\Loop_harness_new\\Loop_harness_ruflo\" && findstr /I \"skipPermissions\\|bypassPermissions\\|--dangerously\" .claude\\settings.json settings.json opencode.json 2>nul | findstr /v \"^$\" | head -20)",
+      "Shell(cd /d \"D:\\100.Software\\Github\\Loop_harness_new\\Loop_harness_ruflo\" && type opencode.json 2>nul | findstr /v \"^$\" | head -60)",
+      "Shell(cd /d \"D:\\100.Software\\Github\\Loop_harness_new\\Loop_harness_ruflo\" && findstr /I \"skip\\|dangerously\\|--yolo\" package.json 2>nul | findstr /v \"^$\" | head -10)",
+      "Shell(py:*)",
+      "Shell(cd /d \"D:\\100.Software\\Github\\Loop_harness_new\\Loop_harness_ruflo\" && findstr /I \"^pydantic\\|^from pydantic\" .devin\\scripts\\*.py 2>nul | findstr /v \"^$\" | head -5)",
+      "Shell(cd /d \"D:\\100.Software\\Github\\Loop_harness_new\\Loop_harness_ruflo\" && findstr /n \"c1\" tests\\test_scenario_runner.py 2>nul | findstr /v \"^$\")",
+      "powershell",
+      "Shell(cd /d \"D:\\100.Software\\Github\\Loop_harness_new\\Loop_harness_ruflo\" && type pytest.ini 2>nul | findstr /v \"^$\")",
+      "Shell(cd /d \"D:\\100.Software\\Github\\Loop_harness_new\\Loop_harness_ruflo\" && del .devin\\state\\auto_pr_audit.jsonl 2>nul & py \"C:\\Users\\thant\\AppData\\Local\\Temp\\commandcode\\D--100-Software-Github-Loop-harness-new-Loop-harness-ruflo\\a4f249c4-e215-45c3-800c-0435f9883c64\\scratchpad\\phase5_e2e.py\" 2>&1 | tail -40)",
+      "Shell(cd /d \"D:\\100.Software\\Github\\Loop_harness_new\\Loop_harness_ruflo\" && dir tests\\generated_verify_first 2>nul | findstr /v \"^$\" | head -5; echo \"---\"; py -m pytest tests/generated_verify_first --no-cov --collect-only 2>&1 | tail -15)",
+      "Shell(cd /d \"D:\\100.Software\\Github\\Loop_harness_new\\Loop_harness_ruflo\" && dir /b tests\\generated_verify_first 2>nul | findstr /v \"^$\"; echo \"---\"; py -m pytest tests/generated_verify_first --no-cov --collect-only 2>&1 | tail -15)",
+      "Shell(dir:*)",
+      "Shell(cd /d \"D:\\100.Software\\Github\\Loop_harness_new\\Loop_harness_ruflo\" && del .devin\\state\\auto_pr_audit.jsonl 2>nul; py \"C:\\Users\\thant\\AppData\\Local\\Temp\\commandcode\\D--100-Software-Github-Loop-harness-new-Loop-harness-ruflo\\a4f249c4-e215-45c3-800c-0435f9883c64\\scratchpad\\phase5_e2e.py\" 2>&1 | tail -25)",
+      "Shell(cd /d \"D:\\100.Software\\Github\\Loop_harness_new\\Loop_harness_ruflo\" && del .devin\\state\\auto_pr_audit.jsonl 2>nul && py \"C:\\Users\\thant\\AppData\\Local\\Temp\\commandcode\\D--100-Software-Github-Loop-harness-new-Loop-harness-ruflo\\a4f249c4-e215-45c3-800c-0435f9883c64\\scratchpad\\phase5_e2e.py\" 2>&1 | tail -30)",
+      "Shell(cd /d \"D:\\100.Software\\Github\\Loop_harness_new\\Loop_harness_ruflo\" && del .devin\\state\\auto_pr_audit.jsonl 2>nul; py \"C:\\Users\\thant\\AppData\\Local\\Temp\\commandcode\\D--100-Software-Github-Loop-harness-new-Loop-harness-ruflo\\a4f249c4-e215-45c3-800c-0435f9883c64\\scratchpad\\phase5_e2e.py\" 2>&1 | tail -40)",
+      "Shell(cd /d \"D:\\100.Software\\Github\\Loop_harness_new\\Loop_harness_ruflo\" && py -c \" p = 'docs/USAGE_GUIDE.md' t = open(p, encoding='utf-8').read() # append section mới ở cuối addition = ''' --- ## 11. Verify-First Workflow (Phase 6+) > **Triết lý**: \"Build verify environment + rubric + tests TRƯỚC khi để agent viết code.\" ### 11.1. Chain tổng quan ``` BRD (markdown) → brd_validator.py parse → BRD object (Pydantic, ép convention) → scenario_runner.make_scenarios_from_brd(brd) → scenarios → rubric_generator.generate_rubric_file(brd, ...) → rubric.json → test_generator.generate_from_rubric_file(...) → tests/generated/test_RB-XXX.py → pytest tests/generated -o addopts= --no-cov → auto_pr_runner.should_auto_merge(...) → GateVerdict (4 checks) → write_audit_log(...) nếu gate PASS ``` ### 11.2. Quick start ```bash # 1. User viết BRD theo template cp docs/templates/BRD.md docs/plans/<slug>/BRD.md # (sửa actors, FR, NFR) # 2. Generate rubric từ BRD py .devin/scripts/brd_validator.py docs/plans/<slug>/BRD.md py .devin/scripts/rubric_generator.py docs/plans/<slug>/BRD.json docs/plans/<slug>/rubric.json # 3. Generate test từ rubric py .devin/scripts/test_generator.py docs/plans/<slug>/rubric.json tests/generated/ # 4. Run tests py -m pytest tests/generated -o addopts= --no-cov -v # 5. Run auto-PR gate (mô phỏng) py -c \"from auto_pr_runner import should_auto_merge; print(should_auto_merge(['src/x.py','tests/test_x.py'], '+ diff', 'verify-first/', 'verify-first: add x'))\" ``` ### 11.3. Config - `.devin/config/llm_judge.yaml` — cấu hình LLM-as-judge model + redteam auto-spawn - `.devin/config/auto_pr.yaml` — cấu hình auto-merge gate + rate limit + kill switch ### 11.4. Kill switch ```bash # Disable auto-merge touch .devin/state/auto_pr_disabled # Re-enable rm .devin/state/auto_pr_disabled ``` ### 11.5. Test coverage (hiện tại) | Module | Tests | Status | |--------|-------|--------| | brd_schema.py | 11 | ✅ | | brd_validator.py | 8 | ✅ | | judge_config.py | 7 | ✅ | | redteam_spawner.py | 7 | ✅ | | scenario_runner.py | 14 | ✅ | | rubric_generator (qua test_scenario_runner) | 5 | ✅ | | test_generator.py | 4 | ✅ | | skill_promoter.py | 7 | ✅ | | skill_bench.py | 6 | ✅ | | auto_pr_runner.py | 20 | ✅ | | **Tổng** | **89 tests** | **All passing** | ''' open(p, 'w', encoding='utf-8').write(t + addition) print('Appended to USAGE_GUIDE.md') \")",
+      "Shell(copy:*)",
+      "Shell(findstr:*)",
+      "Shell(cd /d \"D:\\100.Software\\Github\\Loop_harness_new\\Loop_harness_ruflo\" && findstr /I \"harness-upgrade-verify-first\" tools\\check_governance.py 2>nul | findstr /v \"^$\" | head -10)",
+      "Shell(cd /d \"D:\\100.Software\\Github\\Loop_harness_new\\Loop_harness_ruflo\" && findstr /I \"IMPLEMENTATION_PLAN\\|plan_slug\" tools\\check_governance.py 2>nul | findstr /v \"^$\" | head -10)",
+      "Shell(cd /d \"D:\\100.Software\\Github\\Loop_harness_new\\Loop_harness_ruflo\" && findstr /n \"from typing\" .devin\\scripts\\auto_pr_runner.py 2>nul | findstr /v \"^$\")",
+      "Shell(cd /d \"D:\\100.Software\\Github\\Loop_harness_new\\Loop_harness_ruflo\" && py verify_first_cli.py docs/plans/harness-upgrade-verify-first/BRD.md --out-dir /tmp/vf-out --quiet 2>&1; echo \"EXIT: $?\")",
+      "Shell(type:*)",
+      "Shell(ls:*)",
+      "Shell(cd /d \"D:\\100.Software\\Github\\Loop_harness_new\\Loop_harness_ruflo\" && findstr /n \"^#\\|^##\" .devin\\skills\\hlk-loop\\SKILL.md 2>nul | findstr /v \"^$\" | tail -10)",
+      "Shell(cd /d \"D:\\100.Software\\Github\\Loop_harness_new\\Loop_harness_ruflo\" && py -c \" p = '.devin/skills/hlk-loop/SKILL.md' t = open(p, encoding='utf-8').read() addition = ''' ## Nightly skill_bench (Phase 7 wire) Tự động chạy `skill_bench.py` mỗi đêm để benchmark pass-rate của tất cả skills. ```bash # Wire vào cron (Linux/macOS) hoặc Task Scheduler (Windows) # Mỗi ngày 2:00 AM 0 2 * * * cd /path/to/repo && py .devin/scripts/skill_bench.py .devin/skills docs/reports/skill_bench_\\$(date +\\\\%Y-\\\\%m-\\\\%d).md --schedule-cron ``` Behavior: - `--schedule-cron` flag: skip nếu đã chạy trong ngày (dựa trên `.devin/state/skill_bench_last_run`) - State file chứa date hôm nay → exit 0, không chạy lại - State file là date hôm qua hoặc không tồn tại → chạy + update state Output: `docs/reports/skill_bench_<date>.md` với pass-rate, avg confidence, scenarios count cho mỗi skill. ''' open(p, 'w', encoding='utf-8').write(t + addition) print('Updated hlk-loop/SKILL.md') \")",
+      "Shell(head:*)",
+      "Shell(cd /d \"D:\\100.Software\\Github\\Loop_harness_new\\Loop_harness_ruflo\" && ls .commandcode\\skills\\verify-first 2>nul | findstr /v \"^$\")",
+      "Shell(del:*)",
+      "Lsp(*:status)",
+      "Lsp(*:capabilities)",
+      "Lsp(*:diagnostics)",
+      "Lsp(*:symbols)",
+      "Lsp(*:references)",
+      "Lsp(*:definition)",
+      "Lsp(*:hover)",
+      "Lsp(*:type_definition)",
+      "Lsp(*:implementation)",
+    ],
+    "$mcpAllowlistNote": "MCP tool phải allowlist cụ thể (theo docs: 'bare * / mcp__* is not fine trong allow'). aide-memory chỉ dùng 5 tool recall/remember/search/update/forget; ruflo-hlk-mcp giữ wildcard vì chưa biết tool list cụ thể (sẽ narrow sau khi /mcp liệt kê). HLK reads là allow riêng qua Read rule, không qua MCP allow.",
+    "ask": [
+      "Shell(git push:*)",
+      "Shell(git pull:*)",
+      "Shell(git commit:*)",
+      "Shell(git merge:*)",
+      "Shell(git rebase:*)",
+      "Shell(npm publish)",
+      "Shell(pip install:*)",
+      "Shell(npm install:*)",
+      "Shell(node *)",
+      "Shell(npx *)",
+      "Shell(python -c *)",
+      "Edit(.env)",
+      "Edit(.env.*)",
+      "WebFetch",
+      "WebSearch"
+    ],
+    "$askNote": "Network egress (WebFetch/WebSearch) + runtime exec (node/npx/python -c) → ASK theo default. Tighter hơn docs default; an toàn hơn cho task thật. /add-dir outside workspace sẽ ASK theo external-dir gate mặc định.",
+    "deny": [
+      "Shell(sudo:*)",
+      "Shell(rm -rf /)",
+      "Shell(rm -rf:*)",
+      "Shell(rm -rf ~)",
+      "Shell(rm -rf $HOME)",
+      "Shell(git push --force:*)",
+      "Shell(git push -f:*)",
+      "Shell(git reset --hard:*)",
+      "Shell(git clean -fd:*)",
+      "Shell(git branch -D:*)",
+      "Shell(git checkout -- .:*)",
+      "Shell(curl * | bash:*)",
+      "Shell(curl * | sh:*)",
+      "Shell(wget * | bash:*)",
+      "Shell(wget * | sh:*)",
+      "Shell(mkfs:*)",
+      "Shell(fdisk:*)",
+      "Shell(sfdisk:*)",
+      "Shell(parted:*)",
+      "Shell(lvremove:*)",
+      "Shell(vgremove:*)",
+      "Shell(pvremove:*)",
+      "Shell(cryptsetup luksFormat:*)",
+      "Shell(cryptsetup erase:*)",
+      "Shell(swapoff:*)",
+      "Shell(shutdown:*)",
+      "Shell(reboot:*)",
+      "Shell(halt:*)",
+      "Shell(poweroff:*)",
+      "Shell(chmod 777:*)",
+      "Shell(chmod -R 777:*)",
+      "Shell(chown:*)",
+      "Shell(dd:*)",
+      "Shell(format:*)",
+      "Shell(shred:*)",
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(HLK/config/secrets.*)",
+      "Read(HLK/config/secrets.env)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.gnupg/**)",
+      "Read(~/.kube/**)",
+      "Read(~/.config/gh/hosts.yml)",
+      "Read(secrets/**)",
+      "Edit(.env)",
+      "Edit(.env.*)",
+      "Edit(HLK/config/**)",
+      "Edit(HLK/config/secrets.*)",
+      "Edit(HLK/wrappers/**)",
+      "Edit(HLK/bin/**)",
+      "Edit(HLK/security/**)",
+      "Edit(HLK/custom-hooks/**)",
+      "Edit(.git/**)",
+      "Edit(.gitignore)",
+      "Edit(.gitmodules)",
+      "Edit(.gitconfig)",
+      "Edit(.mcp.json)",
+      "Edit(.commandcode/settings.json)",
+      "Edit(.commandcode/settings.local.json)",
+      "Edit(.bashrc)",
+      "Edit(.zshrc)",
+      "Edit(.profile)",
+      "Edit(~/.bashrc)",
+      "Edit(~/.zshrc)",
+      "Edit(~/.profile)",
+      "Edit(~/.ssh/**)",
+      "Edit(~/.aws/**)",
+      "Edit(~/.gnupg/**)",
+      "Edit(~/.kube/**)",
+      "Lsp(*:rename)",
+      "Lsp(*:rename_file)",
+      "Lsp(*:code_actions)",
+      "Lsp(*:reload)"
+    ],
+    "$denyNote": "Coverage (theo docs commandcode.ai/docs/security §sensitive-paths + §circuit-breaker): filesystem root/home; secret material (.env, .env.*, *.pem, *.key, id_rsa, ~/.ssh, ~/.aws, ~/.gnupg, ~/.kube); persistence vectors (.bashrc, .zshrc, .profile, .gitconfig, .gitmodules, .mcp.json); control surfaces (.git/**, .commandcode settings); HLK config/wrappers/bin/security/custom-hooks. Edit(.commandcode/settings.json) deny theo guidance 'persistence vector'."
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./.commandcode/hooks/session-start-git.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "node HLK/wrappers/hlk-hook-launcher.mjs",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "./.commandcode/hooks/bridge-devin.sh SessionStart \"\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "shell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./.commandcode/hooks/deny-dangerous.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "node HLK/wrappers/hlk-hook-launcher.mjs",
+            "timeout": 3
+          },
+          {
+            "type": "command",
+            "command": "./.commandcode/hooks/bridge-devin.sh PreToolUse shell",
+            "timeout": 3
+          }
+        ]
+      },
+      {
+        "matcher": "write|edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./.commandcode/hooks/schema-validate.sh",
+            "timeout": 3
+          },
+          {
+            "type": "command",
+            "command": "node HLK/wrappers/hlk-hook-launcher.mjs",
+            "timeout": 3
+          },
+          {
+            "type": "command",
+            "command": "./.commandcode/hooks/bridge-devin.sh PreToolUse write",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "shell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node HLK/wrappers/hlk-hook-launcher.mjs",
+            "timeout": 3
+          },
+          {
+            "type": "command",
+            "command": "./.commandcode/hooks/bridge-devin.sh PostToolUse shell",
+            "timeout": 3
+          }
+        ]
+      },
+      {
+        "matcher": "write|edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./.commandcode/hooks/schema-validate.sh",
+            "timeout": 3
+          },
+          {
+            "type": "command",
+            "command": "node HLK/wrappers/hlk-hook-launcher.mjs",
+            "timeout": 3
+          },
+          {
+            "type": "command",
+            "command": "./.commandcode/hooks/bridge-devin.sh PostToolUse write",
+            "timeout": 3
+          },
+          {
+            "type": "command",
+            "command": "./.commandcode/hooks/audit-writes.sh",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node HLK/wrappers/hlk-hook-launcher.mjs",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "./.commandcode/hooks/bridge-devin.sh Stop \"\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

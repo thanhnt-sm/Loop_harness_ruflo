@@ -58,6 +58,37 @@ from ahd_session_circuit import (
 # Utility functions
 from ahd_session_utils import now_utc
 
+# Durable execution layer (P1-05)
+try:
+    from ahd_session_durable import (
+        SessionPhase,
+        DurableCheckpoint,
+        LLMCallCacheEntry,
+        ToolReceipt,
+        SagaStep,
+        create_initial_checkpoint,
+        advance_phase,
+        record_step_completion,
+        save_checkpoint,
+        load_checkpoint,
+        resume_session,
+        get_compact_state,
+        llm_cache_get,
+        llm_cache_put,
+        llm_cache_persist,
+        llm_cache_load,
+        emit_tool_receipt,
+        check_idempotent,
+        saga_begin,
+        saga_execute_step,
+        saga_request_approval,
+        saga_approve_step,
+        saga_compensate,
+        saga_complete,
+    )
+except ImportError:
+    pass
+
 # Back-compat: expose internal functions that may be imported by other hooks
 __all__ = [
     # Lock
@@ -96,6 +127,32 @@ __all__ = [
     "reset_circuit",
     "get_failure_stats",
     "auto_minimal_mode",
+    # Durable execution (P1-05)
+    "SessionPhase",
+    "DurableCheckpoint",
+    "LLMCallCacheEntry",
+    "ToolReceipt",
+    "SagaStep",
+    "create_initial_checkpoint",
+    "advance_phase",
+    "record_step_completion",
+    "save_checkpoint",
+    "load_checkpoint",
+    "resume_session",
+    "get_compact_state",
+    "llm_cache_get",
+    "llm_cache_put",
+    "llm_cache_persist",
+    "llm_cache_load",
+    "emit_tool_receipt",
+    "check_idempotent",
+    "saga_begin",
+    "saga_execute_step",
+    "saga_request_approval",
+    "saga_approve_step",
+    "saga_compensate",
+    "saga_complete",
+    "get_compact_state",
     # Utils
     "now_utc",
 ]

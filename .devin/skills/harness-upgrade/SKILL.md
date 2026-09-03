@@ -42,6 +42,8 @@ permissions:
 
 # harness-upgrade — Tự rà soát + nâng cấp workspace thành best harness
 
+> **Ví dụ adversarial review**: xem `docs/plans/harness-upgrade-verify-first/ADVERSARIAL_REVIEW.md` (6 personas, ~400 dòng) làm reference cho format review sau này.
+
 > Mục tiêu: biến workspace này thành **harness tối ưu cho AI yếu + context nhỏ** — output
 > chất lượng cao nhất (tầm Opus/GPT-5/Fable) trong khi tiêu tốn tối thiểu token.
 

@@ -184,6 +184,44 @@ def estimate_task_cost(task_description: str, estimated_input_tokens: int = 1000
     }
 
 
+# ---- P1-01: tiered selection wrappers cho test_model_tiering ----
+
+def select_executor_by_role(role: str, task_description: str = "", root: Optional[Path] = None) -> dict:
+    """Chon executor theo role (cheap/premium) — test stub."""
+    try:
+        from router_config import ROLE_TIER_MAP, get_executor_for_role, estimate_cost_for_role
+
+        tier = ROLE_TIER_MAP.get(role, "cheap")
+        executor = get_executor_for_role(role)
+        return {"executor": executor, "tier": tier, "role": role, "reason": f"role:{role}->{tier}"}
+    except Exception:
+        # Fallback neu router_config chua co
+        return select_executor(task_description or role, root)
+
+
+def estimate_task_cost_by_role(role: str, task_description: str, input_tokens: int, output_tokens: int, root: Optional[Path] = None) -> dict:
+    """Uoc tinh cost theo role."""
+    try:
+        from router_config import estimate_cost_for_role, MODEL_COST_PER_MTOK, get_executor_for_role
+
+        total = estimate_cost_for_role(role, input_tokens, output_tokens)
+        # Baseline = Lightning cost
+        lightning_input = (input_tokens / 1_000_000) * 2.5
+        lightning_output = (output_tokens / 1_000_000) * 12.5
+        baseline = round(lightning_input + lightning_output, 6)
+        savings = baseline - total
+        savings_pct = round((savings / baseline * 100) if baseline > 0 else 0, 1)
+        return {
+            "total_cost_usd": total,
+            "baseline_cost_usd": baseline,
+            "savings_usd": round(savings, 6),
+            "savings_pct": savings_pct,
+            "role": role,
+        }
+    except Exception:
+        return estimate_task_cost(task_description, input_tokens, output_tokens, root)
+
+
 def main():
     if len(sys.argv) < 2:
         print("Usage: auto_model_router.py <task_description> [--estimate-cost]", file=sys.stderr)

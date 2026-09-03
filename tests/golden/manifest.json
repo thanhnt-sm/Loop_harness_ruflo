@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "tasks": {
+    "test-save-1": {
+      "task_id": "test-save-1",
+      "repo": "test",
+      "issue": "#1",
+      "pr": "#1",
+      "difficulty": "easy",
+      "tags": [
+        "test"
+      ],
+      "content_hash": "hash123",
+      "created_at": "2026-01-01",
+      "source": "merged_pr"
+    },
+    "list-1": {
+      "task_id": "list-1",
+      "repo": "r",
+      "issue": "#1",
+      "pr": "#1",
+      "difficulty": "easy",
+      "tags": [
+        "easy",
+        "python"
+      ],
+      "content_hash": "h1",
+      "created_at": "2026-01-01",
+      "source": "merged_pr"
+    },
+    "list-2": {
+      "task_id": "list-2",
+      "repo": "r",
+      "issue": "#2",
+      "pr": "#2",
+      "difficulty": "hard",
+      "tags": [
+        "hard",
+        "typescript"
+      ],
+      "content_hash": "h2",
+      "created_at": "2026-01-01",
+      "source": "merged_pr"
+    }
+  },
+  "updated_at": "2026-08-28T10:29:23.321232+00:00",
+  "total_tasks": 3
+}

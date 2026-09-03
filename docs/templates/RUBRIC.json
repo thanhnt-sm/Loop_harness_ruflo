@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Rubric",
+  "type": "object",
+  "properties": {
+    "rubric_id": { "type": "string", "pattern": "^RB-[0-9]{3,}$" },
+    "linked_fr": { "type": "string", "pattern": "^FR-[0-9]{3,}$" },
+    "linked_nfr": { "type": "string", "pattern": "^NFR-[0-9]{3,}$" },
+    "type": { "enum": ["binary", "score"] },
+    "binary": {
+      "type": "object",
+      "properties": {
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "assertion": { "type": "string", "description": "Python expression hoặc JSON path" },
+              "evidence": { "enum": ["screenshot", "log", "json", "http"] }
+            },
+            "required": ["name", "assertion", "evidence"]
+          }
+        },
+        "pass_criteria": { "enum": ["ALL", "AT_LEAST_80_PCT"] }
+      }
+    },
+    "score": {
+      "type": "object",
+      "properties": {
+        "metric": { "type": "string" },
+        "scoring": { "type": "object", "additionalProperties": { "type": "string" } },
+        "threshold": { "type": "integer", "minimum": 0, "maximum": 3 },
+        "evidence": { "type": "string" }
+      }
+    }
+  },
+  "required": ["rubric_id", "type"]
+}

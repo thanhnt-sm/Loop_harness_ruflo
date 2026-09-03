@@ -1,0 +1,15 @@
+modelRoleStorage: project
+enabledModels:
+  - commandcode/minimax/minimax-m2.7-free
+  - commandcode/minimax/minimax-m3-free
+  - commandcode/poolside/laguna-s-2.1-free
+modelRoles:
+  default: commandcode/minimax/minimax-m3-free
+  plan: commandcode/minimax/minimax-m3-free
+  slow: commandcode/minimax/minimax-m3-free
+  task: commandcode/minimax/minimax-m3-free
+  advisor: commandcode/minimax/minimax-m3-free
+  designer: commandcode/minimax/minimax-m3-free
+  smol: commandcode/minimax/minimax-m2.7-free
+  tiny: commandcode/minimax/minimax-m2.7-free
+  commit: commandcode/minimax/minimax-m2.7-free

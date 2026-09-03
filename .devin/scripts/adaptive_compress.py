@@ -8,9 +8,17 @@ Mục đích: nén lịch sử hội thoại (history) theo độ phức tạp c
     gộp nhiều turn liên tiếp cùng role thành 1 turn tóm tắt, giữ turn gần nhất
     của mỗi role nguyên vẹn để không mất ngữ cảnh gần.
 
+Extended with P1-04: Adaptive WM + Prefix-Cache Compaction
+- Auto WM budget from context window (8K→~6K, 200K→~159K)
+- Prefix-cache aware compaction (static system prompt + pinned memory)
+- Pressure-based compaction (compact_at_context_fraction=0.5, retain=0.15)
+- Background memory accumulation, foreground cache stable
+
 Hàm chính:
   compress(history, query, mode) -> list[Turn]
   prefix_stable_hash(before, after) -> bool
+  get_wm_budget_for_model(model) -> int
+  compact_by_pressure(history, current_usage, budget) -> list[Turn]
 
 prefix_stable_hash: kiểm tra hash tiền tố (prefix) của history trước và sau nén
 có ổn định không — tức phần đầu không bị thay đổi. Dùng cho việc cache/invalidation:
@@ -22,6 +30,7 @@ from __future__ import annotations
 
 import hashlib
 import sys
+from dataclasses import dataclass
 from typing import Literal
 
 from data_models import Turn
@@ -34,6 +43,27 @@ _SCRIPT_DIR = __import__("pathlib").Path(__file__).resolve().parent
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
+# ============================================================================
+# P1-04: Adaptive WM Configuration
+# ============================================================================
+
+# Context window sizes per model (tokens)
+MODEL_CONTEXT_WINDOWS = {
+    "default": 8192,
+    "glm-5.2": 200000,
+    "kimi-k2.7": 128000,
+    "lightning": 200000,
+    "small": 8192,
+}
+
+# Auto WM budget: 80% of (window - reserved)
+WM_BUDGET_FRACTION = 0.8
+RESERVED_TOKENS_HEADROOM_PCT = 0.20  # 20% headroom for system prompt/memory/tools
+
+# Compaction pressure thresholds
+COMPACT_AT_CONTEXT_FRACTION = 0.5   # trigger at 50% usage
+RETAIN_CONTEXT_FRACTION = 0.15      # retain 15% newest after compact
+
 # Ngưỡng số từ trong query để coi là "phức tạp".
 _COMPLEX_QUERY_WORD_THRESHOLD = 8
 # Các từ khóa báo hiệu query phức tạp (đánh giá/lý luận/so sánh).
@@ -43,8 +73,77 @@ _COMPLEX_KEYWORDS = {
     "trade-off", "tradeoff", "evaluate",
 }
 
-CompressMode = Literal["auto", "minimal", "deep"]
+CompressMode = Literal["auto", "minimal", "deep", "pressure"]
 
+
+@dataclass
+class AdaptiveWM:
+    """Auto Working Memory budget from context window.
+
+    Adapts automatically when model is swapped:
+    - 8K model → ~6K WM (80% of 8K - 20% headroom)
+    - 200K model → ~128K WM (80% of 200K - 20% headroom)
+    """
+    model: str = "default"
+    window_size: int = 8192
+    reserved_tokens: int = 0  # system prompt + pinned memory + tool schemas
+
+    def __post_init__(self):
+        self.window_size = MODEL_CONTEXT_WINDOWS.get(self.model, 8192)
+
+    @property
+    def reserved_budget(self) -> int:
+        """Reserved tokens for system prompt, pinned memory, tool schemas (20% headroom)."""
+        return int(self.window_size * RESERVED_TOKENS_HEADROOM_PCT)
+
+    @property
+    def wm_budget(self) -> int:
+        """WM budget = 80% of (window - reserved_budget)."""
+        available = max(0, self.window_size - self.reserved_budget)
+        return int(available * WM_BUDGET_FRACTION)
+
+    @property
+    def total_budget(self) -> int:
+        """Total context budget (WM + reserved)."""
+        return self.wm_budget + self.reserved_budget
+
+    @property
+    def usage_pct(self) -> float:
+        """Current usage as percentage of window."""
+        if self.window_size == 0:
+            return 0.0
+        return (self.wm_budget + self.reserved_tokens) / self.window_size * 100
+
+    def set_model(self, model: str) -> None:
+        """Switch model and recalculate budget."""
+        self.model = model
+        self.window_size = MODEL_CONTEXT_WINDOWS.get(model, 8192)
+
+    def set_reserved(self, tokens: int) -> None:
+        """Set reserved tokens (system prompt + pinned memory + tool schemas)."""
+        self.reserved_tokens = min(tokens, int(self.window_size * RESERVED_TOKENS_HEADROOM_PCT))
+
+    def should_compact(self, current_usage: int) -> bool:
+        """Check if compaction should trigger based on pressure (not turn count)."""
+        threshold = int(self.window_size * COMPACT_AT_CONTEXT_FRACTION)
+        return current_usage >= threshold
+
+
+def get_wm_budget_for_model(model: str) -> int:
+    """Get auto WM budget for a model.
+
+    Returns:
+        WM budget in tokens (adapts: 8K→~6K, 200K→~128K)
+    """
+    window = MODEL_CONTEXT_WINDOWS.get(model, 8192)
+    reserved = int(window * RESERVED_TOKENS_HEADROOM_PCT)
+    available = max(0, window - reserved)
+    return int(available * WM_BUDGET_FRACTION)
+
+
+# ============================================================================
+# Original Adaptive Compression Logic
+# ============================================================================
 
 def _word_count(text: str) -> int:
     """Đếm số từ trong text (tách theo khoảng trắng)."""
@@ -149,17 +248,69 @@ def _deep_compress(history: list[Turn]) -> list[Turn]:
     return result
 
 
+# ============================================================================
+# P1-04: Pressure-Based Compaction
+# ============================================================================
+
+def compact_by_pressure(
+    history: list[Turn],
+    current_usage: int,
+    wm: AdaptiveWM,
+    retain_fraction: float = RETAIN_CONTEXT_FRACTION,
+) -> list[Turn]:
+    """P1-04: Compact history by context-size pressure, not turn count.
+
+    Triggers at COMPACT_AT_CONTEXT_FRACTION (50%),
+    retains RETAIN_CONTEXT_FRACTION (15%) newest verbatim.
+
+    Args:
+        history: list of Turn objects
+        current_usage: current token usage
+        wm: AdaptiveWM instance with budget info
+        retain_fraction: fraction of newest turns to retain verbatim (default 15%)
+
+    Returns:
+        Compacted list of Turn objects
+    """
+    if not wm.should_compact(current_usage):
+        return history  # No pressure, return as-is
+
+    if not history:
+        return []
+
+    # Calculate how many turns to retain
+    total_turns = len(history)
+    retain_count = max(1, int(total_turns * retain_fraction))
+
+    # Keep newest 'retain_count' turns verbatim
+    # Compress older turns using deep compression
+    older_turns = history[:-retain_count] if retain_count < total_turns else []
+    newest_turns = history[-retain_count:] if retain_count > 0 else []
+
+    if not older_turns:
+        return newest_turns
+
+    # Deep compress older turns
+    compressed_older = _deep_compress(older_turns)
+
+    return compressed_older + newest_turns
+
+
 def compress(
     history: list[Turn],
     query: str,
     mode: CompressMode = "auto",
+    wm: AdaptiveWM | None = None,
+    current_usage: int | None = None,
 ) -> list[Turn]:
-    """T3.2: Nén history theo độ phức tạp của query.
+    """T3.2 + P1-04: Nén history theo độ phức tạp query HOẶC context pressure.
 
     Nhận vào:
         history — list[Turn] lịch sử hội thoại.
         query   — câu truy vấn hiện tại.
-        mode    - "auto" (mặc định: tự chọn theo query), "minimal", "deep".
+        mode    - "auto" (mặc định: tự chọn theo query), "minimal", "deep", "pressure".
+        wm      - AdaptiveWM instance (required for "pressure" mode).
+        current_usage - Current token usage (required for "pressure" mode).
 
     Trả về:
         list[Turn] đã nén. Không thay đổi history đầu vào.
@@ -176,6 +327,10 @@ def compress(
         return _minimal_compress(work)
     if mode == "deep":
         return _deep_compress(work)
+    if mode == "pressure":
+        if wm is None or current_usage is None:
+            raise ValueError("wm and current_usage required for pressure mode")
+        return compact_by_pressure(work, current_usage, wm)
     # mode == "auto": chọn theo độ phức tạp query.
     if _is_complex_query(query):
         return _deep_compress(work)
@@ -239,6 +394,8 @@ def _cli() -> int:
     """CLI stub: đọc history JSON từ stdin, in ra list[Turn] đã nén.
 
     Pentest fix: xử lý stdin rỗng/sai JSON (trả 1 thay vì crash).
+
+    Extended with P1-04: supports pressure mode with wm model and current_usage.
     """
     import json
 
@@ -248,10 +405,20 @@ def _cli() -> int:
     except json.JSONDecodeError as e:
         print(f"[adaptive_compress] lỗi parse JSON stdin: {e}", file=sys.stderr)
         return 1
+
     history = [Turn.model_validate(t) for t in payload.get("history", [])]
     query = payload.get("query", "")
     mode = payload.get("mode", "auto")
-    out = compress(history, query, mode=mode)
+
+    # P1-04: Support pressure mode
+    wm = None
+    current_usage = None
+    if mode == "pressure":
+        model = payload.get("model", "default")
+        wm = AdaptiveWM(model=model)
+        current_usage = payload.get("current_usage", 0)
+
+    out = compress(history, query, mode=mode, wm=wm, current_usage=current_usage)
     sys.stdout.write("[" + ",".join(t.model_dump_json(by_alias=True) for t in out) + "]")
     return 0
 

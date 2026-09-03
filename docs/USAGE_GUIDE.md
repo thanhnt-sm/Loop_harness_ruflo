@@ -409,3 +409,25 @@ GoalSpec → Loop iteration → State write → Stop check → (not met) → Nex
 - `REPOS.md` — tất cả GitHub repos tham khảo
 - `HLK/docs/REDTEAM_REPORT.md` — red team report
 - `HLK/docs/UPGRADE_PLAN.md` — upgrade plan
+
+
+---
+
+## 11. Verify-First Workflow (HLK canonical)
+
+> **Canonical docs**: [`HLK/docs/verify-first-deployment.md`](../HLK/docs/verify-first-deployment.md)
+> **Canonical implementation**: [`HLK/chain/`](../HLK/chain/)
+> **Canonical skill**: [`HLK/skills/verify-first/SKILL.md`](../HLK/skills/verify-first/SKILL.md)
+
+Theo user directive: **HLK là source of truth** cho verify-first chain.
+
+```bash
+# Cross-platform CLI
+py HLK/chain/verify_first_cli.py <BRD.md> --out-dir ./out
+
+# Node wrapper (audit log + HLK loader)
+node HLK/chain/hlk_wrappers/verify-first-wrapper.mjs <BRD.md>
+```
+
+Xem `HLK/docs/verify-first-deployment.md` cho architecture, provider integration matrix, sync mechanism, security, tests.
+

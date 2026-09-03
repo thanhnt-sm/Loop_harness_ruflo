@@ -206,7 +206,46 @@ function harvestLearnings(step, state) {
 
 // ---------- Bước 6: Vòng lặp chính ----------
 
+/**
+ * Auto-sync HLK/chain/ → mirrors mỗi iteration (Plan 8 phase 1).
+ * Best-effort: nếu fail, log warning + tiếp tục loop (không block).
+ */
+function autoSyncMirrors() {
+  return new Promise((resolvePromise) => {
+    if (DRY_RUN || STATUS || RESET) {
+      log('⏭ Bỏ qua auto-sync (dry-run / status / reset mode)');
+      resolvePromise();
+      return;
+    }
+    log('🔄 Auto-sync HLK → mirrors...');
+    const isWindows = process.platform === 'win32';
+    const pyCmd = isWindows ? 'py' : 'python3';
+    const child = spawn(
+      pyCmd, ['HLK/scripts/sync_to_mirrors.py', '--target', 'all'],
+      { cwd: ROOT, stdio: 'pipe', shell: isWindows }
+    );
+    let stdout_buf = '';
+    let stderr_buf = '';
+    child.stdout.on('data', (d) => { stdout_buf += d.toString(); });
+    child.stderr.on('data', (d) => { stderr_buf += d.toString(); });
+    child.on('exit', (code) => {
+      if (code === 0) {
+        const lines = stdout_buf.split('\n').filter(l => l.includes('created/updated')).length;
+        log(`✅ Auto-sync done: ${lines} file(s) updated`);
+      } else {
+        log(`⚠ Auto-sync fail (code=${code}, stderr=${stderr_buf.slice(0, 200)})`);
+      }
+      resolvePromise();
+    });
+    child.on('error', (err) => {
+      log(`⚠ Auto-sync spawn error: ${err.message}`);
+      resolvePromise();
+    });
+  });
+}
+
 async function main() {
+  await autoSyncMirrors();
   const state = loadState();
   const waves = computeWaves(config.steps);
 

@@ -480,3 +480,63 @@ HLK/** merge=ours
 | 10 | GitHub repo private + AI training opt-out | ☐ |
 
 Hoàn thành checklist này trước khi chạy production.
+
+## 11. LSP cost profile & best practice
+
+> Tham chiếu: `docs/reports/LSP_ALWAYS_ON_2026-08-28.md` (full red-team analysis).
+
+### 11.1 Pin always-on
+
+LSP được pin ở 2 layer repo-controlled (lowest → highest precedence):
+
+1. **`opencode.json`** — top-level `lsp` block với per-server config:
+   ```json
+   "lsp": {
+     "pyright": {
+       "command": ["py", "-m", "pyright", "--stdio"],
+       "extensions": [".py", ".pyi"],
+       "disabled": false
+     }
+   }
+   ```
+   > Lưu ý: opencode schema dùng `lsp: true` (boolean) hoặc object map — KHÔNG có key `lsp.enabled` hay `lsp.diagnostics.onChange`.
+
+2. **`.commandcode/settings.json`** — 9 read-only allow + 4 write-deny:
+   - Allow: `status`, `capabilities`, `diagnostics`, `symbols`, `references`, `definition`, `hover`, `type_definition`, `implementation`
+   - Deny: `rename`, `rename_file`, `code_actions`, `reload`
+
+### 11.2 Cost & latency
+
+| Hoạt động | Token cost (ước tính) | Latency |
+|-----------|------------------------|---------|
+| `diagnostics file=<path>` | 200-800 tokens | 200-800ms (warm) |
+| `diagnostics file=*` (workspace) | 500-2000 tokens | 5-10s cold, 1-3s warm |
+| First call per session | n/a | 5-10s (pyright indexing) |
+
+**Quy tắc tiết kiệm token:**
+- Gọi `diagnostics` trên **file cụ thể**, không gọi workspace trừ khi cần full repo scan.
+- Không auto-pull diagnostics sau mỗi Read; chỉ khi investigate type error.
+- Warm up pyright 1 lần ở SessionStart hook (1 call `file=*`) để tránh cold-start 5-10s giữa loop.
+
+### 11.3 Action surface — read-only
+
+LSP write actions bị **deny ở action level** (không phải path-scoped) vì LSP-driven file writes bypass pre-tool hook net. Khi cần edit, dùng Edit/Write tool — chúng đi qua governance đầy đủ.
+
+### 11.4 Per-persona budget
+
+| Persona | Được gọi LSP? | Ghi chú |
+|---------|---------------|---------|
+| `commander` | Không | orchestrator, không cần type info |
+| `scout` (read-only) | **Không** | dùng `read` + `grep` cho symbol discovery |
+| `verifier` | **Có** | gọi `Lsp(*:diagnostics)` trên file vừa edit để verify type |
+| `code-reviewer` | **Có** | gọi `Lsp(*:references)` + `Lsp(*:definition)` cho cross-file check |
+| `executor` (lightning/glm/kimi) | Có, theo yêu cầu task | mỗi executor chỉ 1 LSP call per turn |
+
+**Concurrency cap**: chỉ **1 LSP-using subagent** tại một thời điểm. Nếu 8 scouts chạy song song, đảm bảo 7 trong số đó KHÔNG gọi LSP (dùng `read`/`grep` thay thế). Pyright resident ~300MB × 8 = 2.4GB trên 16GB host — sẽ OOM.
+
+### 11.5 Trust boundary
+
+Pyright output là **read-only evidence**, không phải source of truth. Mọi edit dựa trên LSP PHẢI:
+1. Theo sau bằng `read` vùng thay đổi (xác nhận edit landed đúng symbol).
+2. Đối chiếu với comment/docstring trước khi fix "unresolvable import" (thường là intentional, không phải bug).
+3. Commit qua pre-commit gate (junk scanner + redaction hook) như mọi edit khác.

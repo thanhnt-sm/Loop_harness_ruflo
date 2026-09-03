@@ -87,3 +87,21 @@ Yêu cầu: Node.js 18+ và `npx claude-flow` (cho `mode=command`).
 - `HLK/logs/loop-state.json` — checkpoint state
 - `HLK/reports/learnings.md` — sổ tích lũy tri thức
 - `HLK/reports/0X_*.md` — báo cáo từng bước
+
+
+## Nightly skill_bench (Phase 7 wire)
+
+Tu dong chay `skill_bench.py` moi dem de benchmark pass-rate cua tat ca skills.
+
+```bash
+# Wire vao cron (Linux/macOS) hoac Task Scheduler (Windows)
+# Moi ngay 2:00 AM
+0 2 * * * cd /path/to/repo && py .devin/scripts/skill_bench.py .devin/skills docs/reports/skill_bench_$(date +%Y-%m-%d).md --schedule-cron
+```
+
+Behavior:
+- `--schedule-cron` flag: skip neu da chay trong ngay (dua tren `.devin/state/skill_bench_last_run`)
+- State file chua date hom nay -> exit 0, khong chay lai
+- State file la date hom qua hoac khong ton tai -> chay + update state
+
+Output: `docs/reports/skill_bench_<date>.md` voi pass-rate, avg confidence, scenarios count cho moi skill.

@@ -22,39 +22,39 @@ Mỗi ticket xử lý theo quy trình 5 bước (không skip):
 
 ## PHASE 1 — HIGH (cạnh tranh trực tiếp)
 
-### TICKET P1-01: Model tiering + per-call budget  `[R3+M1+M4]`
-- **File Path**: `.devin/scripts/router_config.py` (mới), `.devin/hooks/post_tool_cost.py` (mới), `tools/cost_tracker.py` (mới)
+### TICKET P1-01: Model tiering + per-call budget  `[R3+M1+M4]` ✅ DONE
+- **File Path**: `.devin/scripts/router_config.py` (mới), `.devin/scripts/cost_tracker.py` (extend), `.devin/scripts/auto_model_router.py` (extend), `.devin/hooks/post_tool_config.py` (extend), `tests/test_model_tiering.py` (mới)
 - **Function**: split classifier/router → cheap model; planner/synthesizer → premium; per-call-site budget attribution + alert
 - **Acceptance**: (a) router chọn cheap model cho classify/route calls, (b) budget bucketed theo slot, (c) alert khi vượt budget
 - **REQ ID**: REQ-P1-01
 
-### TICKET P1-02: Structured-error MCP layer + circuit breaker  `[P1]`
-- **File Path**: `.opencode/mcp/servers.json` (audit), `.devin/hooks/post_tool_mcp_guard.py` (mới)
+### TICKET P1-02: Structured-error MCP layer + circuit breaker  `[P1]` ✅ DONE
+- **File Path**: `.devin/mcp_config.json` (audit), `.devin/hooks/post_tool_mcp_guard.py` (mới), `tests/test_mcp_guard.py` (mới)
 - **Function**: wrap MCP tool calls; enforce `{ok,error,detail}` + completeness field; client-side circuit breaker (trip khi fail > threshold)
 - **Acceptance**: (a) mọi MCP tool trả structured result, (b) circuit breaker trip + fallback khi upstream timeout, (c) no silent `null`
 - **REQ ID**: REQ-P1-02 | **URGENT (security)**
 
-### TICKET P1-03: Loop + context guards  `[P2+P3]`
-- **File Path**: `.devin/hooks/post_tool_bounded.py` (extend), `.devin/scripts/context_budget.py` (mới)
+### TICKET P1-03: Loop + context guards  `[P2+P3]` ✅ DONE
+- **File Path**: `.devin/hooks/post_tool_bounded.py` (extend), `.devin/scripts/context_budget.py` (mới), `.devin/hooks/post_tool_config.py` (extend), `.devin/hooks/post_tool_engine.py` (integrate), `tests/test_loop_context_guards.py` (mới)
 - **Function**: step limit (max 15 tool calls), token budget, repetition detection (same tool+params>2x→terminate); progressive tool discovery (3-4 tools/task); external WM; 80% context monitor
 - **Acceptance**: (a) runaway loop bị kill, (b) chỉ load 3-4 tools/task (giảm token), (c) alert tại 80% context
 - **REQ ID**: REQ-P1-03
 
-### TICKET P1-04: Adaptive WM + prefix-cache compaction  `[W3+W4]`
-- **File Path**: `.devin/hooks/context_compaction.py` (extend), `.devin/hooks/adaptive_compress.py` (extend)
-- **Function**: auto WM budget từ context window (8K→~6K, 200K→~159K); static system prompt + pinned memory; compact theo context-size pressure
+### TICKET P1-04: Adaptive WM + prefix-cache compaction  `[W3+W4]` ✅ DONE
+- **File Path**: `.devin/hooks/context_compaction.py` (extend), `.devin/scripts/adaptive_compress.py` (extend), `.devin/hooks/post_tool_config.py` (extend), `.devin/hooks/__init__.py` (mới), `.devin/scripts/__init__.py` (mới), `tests/test_adaptive_wm_compaction.py` (mới)
+- **Function**: auto WM budget từ context window (8K→~6K, 200K→~128K); static system prompt + pinned memory; compact theo context-size pressure
 - **Acceptance**: (a) WM auto-adaptive khi swap model, (b) prefix-cache stable (warm hits), (c) compact trigger theo budget không turn count
 - **REQ ID**: REQ-P1-04
 
-### TICKET P1-05: Durable step boundaries + resume  `[L1+L2]`
-- **File Path**: `.devin/hooks/ahd_session.py` (extend), `.devin/scripts/state_store/` (extend)
-- **Function**: checkpoint state sau mỗi phase; resume từ checkpoint (không redo paid LLM calls)
-- **Acceptance**: (a) process crash → resume phase cuối, (b) LLM calls không re-execute, (c) idempotency keys
+### TICKET P1-05: Durable step boundaries + resume  `[L1+L2]` ✅ DONE
+- **File Path**: `.devin/hooks/ahd_session.py` (extend), `.devin/hooks/ahd_session_durable.py` (mới), `.devin/hooks/post_tool_engine.py` (integrate), `.devin/hooks/post_tool_config.py` (extend), `tests/test_durable_execution.py` (mới)
+- **Function**: checkpoint state sau mỗi phase; resume từ checkpoint (không redo paid LLM calls); LLM call deduplication; tool receipts with idempotency keys; saga for irreversible actions
+- **Acceptance**: (a) process crash → resume phase cuối, (b) LLM calls không re-execute, (c) idempotency keys, (d) tool receipts emitted, (e) saga human-gate for irreversible
 - **REQ ID**: REQ-P1-05
 
-### TICKET P1-06: Private golden set + trajectory eval  `[V1+V3]`
-- **File Path**: `tests/golden/` (mới), `tests/test_trajectory_eval.py` (mới), `tools/eval_harness.py` (mới)
-- **Function**: mine merged PRs → versioned golden set; trajectory strict match (so path agent)
+### TICKET P1-06: Private golden set + trajectory eval  `[V1+V3]` ✅ DONE
+- **File Path**: `tools/golden_set_miner.py` (mới), `tools/trajectory_eval.py` (mới), `tools/eval_harness.py` (mới), `tests/test_golden_set.py` (mới), `tests/test_trajectory_eval.py` (mới), `tests/test_eval_harness.py` (mới)
+- **Function**: mine merged PRs → versioned golden set; trajectory strict match + LLM-as-judge (so path agent)
 - **Acceptance**: (a) golden set ≥50 tasks versioned, (b) trajectory eval bắt path divergence, (c) run mọi PR
 - **REQ ID**: REQ-P1-06
 
@@ -89,19 +89,19 @@ Mỗi ticket xử lý theo quy trình 5 bước (không skip):
 | P3-05 | P6+P7+P8 | eval-less guard, schema drift, tool description quality |
 
 ---
-
+ 
 ## Verification plan
-
+ 
 - Mỗi ticket: unit/integration test trong `tests/` + `python tools/check_governance.py` (0 errors) trước commit.
 - Phase 1 xong: chạy SWE-bench Pro + private golden set để chứng minh cạnh tranh.
 - Governance: 2 approval gates (plan + SDD) cho M/L/XL tickets.
-
+ 
 ## Risks
-
+ 
 - **P1-02 MCP security** + **A1 Governance Decay** (từ TECH_OVERVIEW) là 2 urgent nhất — làm đầu tiên.
 - AHD đã có 49 hooks → nhiều ticket = enhance, không rebuild.
 - Model tiering (P1-01) cần provider config (LiteLLM-style) — verify `npx claude-flow` availability.
-
+ 
 ---
-
-*Plan DRAFT | 2026-08-27 | 7 Phase-1 tickets + 7 Phase-2 + 5 Phase-3 | Confidence: High*
+ 
+*Plan DRAFT | 2026-08-27 | 7 Phase-1 tickets (5 DONE) + 7 Phase-2 + 5 Phase-3 | Confidence: High*

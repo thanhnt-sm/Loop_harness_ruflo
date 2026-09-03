@@ -21,10 +21,25 @@
       "timeout": 30000
     }
   },
+  "lsp": {
+    "pyright": {
+      "command": ["py", "-m", "pyright", "--stdio"],
+      "extensions": [".py", ".pyi"],
+      "disabled": false
+    }
+  },
   "references": {
     "canon": {
       "path": ".devin/canon",
       "description": "Bộ protocol cốt lõi của harness (CORE_CANON, BOOT_PROTOCOL, REDLINES, MEMORY_PROTOCOL, LOOP_PROTOCOL, VERIFICATION_PROTOCOL, CAVEMAN_PROTOCOL, HARNESS_ENGINEERING...). Dùng để tuân theo canon khi chạy harness."
+    },
+    "hlk": {
+      "path": "HLK",
+      "description": "HARNESS & LOGIC KNOWLEDGE LAYER — SOURCE OF TRUTH for verify-first chain. Mọi implementation verify-first (BRD/Scenario/Rubric/Test/Auto-PR) đặt tại HLK/chain/. Mọi provider (opencode, cmdc, Claude) phải tham chiếu HLK thông qua skills/verify-first/. KHÔNG tạo implementation mới ngoài HLK."
+    },
+    "verify-first": {
+      "path": "HLK/skills/verify-first/SKILL.md",
+      "description": "Verify-First chain canonical skill. Use when: user provides BRD.md and wants scenarios/rubrics/tests/gate-verdict generated. CLI: py HLK/chain/verify_first_cli.py <BRD.md>."
     },
     "agents-state": {
       "path": ".agents",

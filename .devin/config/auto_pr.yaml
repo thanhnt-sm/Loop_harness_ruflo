@@ -1,0 +1,68 @@
+# Auto-PR configuration (Phase 4)
+# Spec: docs/plans/harness-upgrade-verify-first/IMPLEMENTATION_PLAN.md section 10.2
+
+auto_pr:
+  enabled: true  # master switch
+
+  # Blast-radius limit (BẮT BUỘC tuân thủ REDLINES #2)
+  rate_limit:
+    max_per_day_per_prefix: 1   # max 1 PR/ngày/branch prefix
+    prefixes:
+      - "verify-first/"
+      - "harness-upgrade/"
+      - "auto:rubric/"
+    daily_reset_hour: 0  # UTC hour để reset counter
+
+  # 4 gate checks (bắt buộc tất cả PASS mới merge)
+  gates:
+    coverage_matrix: true       # 100% FR có test + test pass
+    adversarial_consensus: true # 0 BLOCKING issue
+    llm_judge_rubric: true      # tất cả rubric pass threshold
+    fable_judge: true           # agent không tự báo "done" sai
+
+  # Required CI checks (GitHub Actions status checks)
+  ci_checks:
+    required:
+      - "ci/build"
+      - "ci/lint"
+      - "ci/test"
+
+  # Blocked paths — KHÔNG BAO GIỜ auto-merge nếu PR chạm
+  blocked_paths:
+    - "HLK/"
+    - ".env"
+    - ".env.*"
+    - "security policies/"
+    - ".devin/canon/"
+    - "opencode.json"
+    - ".devin/hooks/"
+
+  # PR title prefix allowlist (an toàn)
+  allowed_title_prefixes:
+    - "verify-first:"
+    - "harness-upgrade:"
+    - "auto:rubric:"
+
+  # Audit
+  audit:
+    enabled: true
+    path: .devin/state/auto_pr_audit.jsonl
+    include_brd_id: true
+    include_scenario_count: true
+    include_rubric_score: true
+
+  # Kill switch — tạo file này để disable auto-merge
+  kill_switch:
+    enabled_path: .devin/state/auto_pr_disabled
+    behavior_when_active: "open_draft_only"  # chỉ mở draft PR, không auto-merge
+
+  # Daily digest (8h sáng gửi qua aide-memory)
+  digest:
+    enabled: true
+    hour: 8
+    channel: aide-memory
+    include:
+      - pr_count_24h
+      - pr_list
+      - kill_switch_status
+      - rubric_score_avg

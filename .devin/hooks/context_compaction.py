@@ -4,14 +4,48 @@
 Triggered by post_tool_use when context_oversized flag is set.
 Integrates with Caveman protocol (4 compression levels).
 Stores compacted state, offloads full payload to filesystem.
+
+Extended with P1-04: Adaptive WM + Prefix-Cache Compaction
+- Auto WM budget from context window (adapts on model swap)
+- Prefix-cache aware: static system prompt + pinned memory
+- Pressure-based compaction (not turn count)
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import sys
+import threading
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Literal
+
+# P1-04: Import config constants
+try:
+    from post_tool_config import (
+        MODEL_CONTEXT_WINDOWS,
+        WM_BUDGET_FRACTION,
+        RESERVED_TOKENS_HEADROOM_PCT,
+        COMPACT_AT_CONTEXT_FRACTION,
+        RETAIN_CONTEXT_FRACTION,
+        PREFIX_CACHE_ITEMS,
+    )
+except ImportError:
+    # Fallback defaults
+    MODEL_CONTEXT_WINDOWS = {
+        "default": 8192,
+        "glm-5.2": 200000,
+        "kimi-k2.7": 128000,
+        "lightning": 200000,
+        "small": 8192,
+    }
+    WM_BUDGET_FRACTION = 0.8
+    RESERVED_TOKENS_HEADROOM_PCT = 0.20
+    COMPACT_AT_CONTEXT_FRACTION = 0.5
+    RETAIN_CONTEXT_FRACTION = 0.15
+    PREFIX_CACHE_ITEMS = ["system_prompt", "pinned_memory", "tool_schemas"]
 
 # Compression levels
 COMPRESSION_LEVELS = {
@@ -154,6 +188,193 @@ def _compress_text(text: str, level: str = "full") -> tuple[str, dict]:
         "preserved_count": len(preserved),
         "level": level,
     }
+
+
+# ============================================================================
+# P1-04: Adaptive WM + Prefix-Cache Compaction
+# ============================================================================
+
+@dataclass
+class AdaptiveWM:
+    """Auto Working Memory budget from context window.
+
+    Adapts automatically when model is swapped:
+    - 8K model → ~6K WM (80% of 8K - 20% headroom)
+    - 200K model → ~128K WM (80% of 200K - 20% headroom)
+    """
+    model: str = "default"
+    window_size: int = 8192
+    reserved_tokens: int = 0  # system prompt + pinned memory + tool schemas (user-set, capped at headroom)
+
+    def __post_init__(self):
+        self.window_size = MODEL_CONTEXT_WINDOWS.get(self.model, 8192)
+
+    @property
+    def reserved_budget(self) -> int:
+        """Reserved tokens for system prompt, pinned memory, tool schemas (20% headroom cap)."""
+        return int(self.window_size * RESERVED_TOKENS_HEADROOM_PCT)
+
+    @property
+    def wm_budget(self) -> int:
+        """WM budget = 80% of (window - reserved_budget)."""
+        available = max(0, self.window_size - self.reserved_budget)
+        return int(available * WM_BUDGET_FRACTION)
+
+    @property
+    def total_budget(self) -> int:
+        """Total context budget (WM + reserved_budget)."""
+        return self.wm_budget + self.reserved_budget
+
+    @property
+    def usage_pct(self) -> float:
+        """Current usage as percentage of window."""
+        if self.window_size == 0:
+            return 0.0
+        return (self.wm_budget + self.reserved_tokens) / self.window_size * 100
+
+    def set_model(self, model: str) -> None:
+        """Switch model and recalculate budget."""
+        self.model = model
+        self.window_size = MODEL_CONTEXT_WINDOWS.get(model, 8192)
+
+    def set_reserved(self, tokens: int) -> None:
+        """Set reserved tokens (system prompt + pinned memory + tool schemas)."""
+        self.reserved_tokens = min(tokens, int(self.window_size * RESERVED_TOKENS_HEADROOM_PCT))
+
+    def should_compact(self, current_usage: int) -> bool:
+        """Check if compaction should trigger based on pressure (not turn count)."""
+        threshold = int(self.window_size * COMPACT_AT_CONTEXT_FRACTION)
+        return current_usage >= threshold
+
+
+class PrefixCache:
+    """Prefix-cache aware compaction — keeps pinned items byte-identical.
+
+    Ensures warm cache hits by preserving:
+    - system_prompt: static identity + tools
+    - pinned_memory: critical facts
+    - tool_schemas: tool definitions
+    """
+    def __init__(self):
+        self._pinned: dict[str, str] = {}
+        self._lock = threading.Lock()
+
+    def pin(self, key: str, value: str) -> None:
+        """Pin a prefix item (must remain byte-identical)."""
+        if key in PREFIX_CACHE_ITEMS:
+            with self._lock:
+                self._pinned[key] = value
+
+    def get(self, key: str) -> str | None:
+        with self._lock:
+            return self._pinned.get(key)
+
+    def get_all_pinned(self) -> dict[str, str]:
+        with self._lock:
+            return self._pinned.copy()
+
+    def prefix_hash(self) -> str:
+        """Compute hash of all pinned items for cache validation."""
+        with self._lock:
+            content = "".join(f"{k}:{v}" for k, v in sorted(self._pinned.items()))
+            return hashlib.sha256(content.encode()).hexdigest()[:16]
+
+    def is_stable(self, previous_hash: str) -> bool:
+        """Check if prefix cache is stable (unchanged)."""
+        return self.prefix_hash() == previous_hash
+
+    def clear(self) -> None:
+        with self._lock:
+            self._pinned.clear()
+
+
+class PressureCompactor:
+    """Compacts by context-size pressure, not turn count.
+
+    Triggers at COMPACT_AT_CONTEXT_FRACTION (50%),
+    retains RETAIN_CONTEXT_FRACTION (15%) newest verbatim.
+    """
+    def __init__(self, wm: AdaptiveWM, prefix_cache: PrefixCache):
+        self.wm = wm
+        self.prefix_cache = prefix_cache
+        self._previous_prefix_hash: str | None = None
+
+    def compact_if_needed(self, content: str, level: str = "full") -> tuple[str, dict] | None:
+        """Compact if pressure threshold exceeded."""
+        current_usage = _estimate_tokens(content)
+
+        if not self.wm.should_compact(current_usage):
+            return None
+
+        # Verify prefix cache stability before compaction
+        if self._previous_prefix_hash:
+            if not self.prefix_cache.is_stable(self._previous_prefix_hash):
+                print(f"[context_compaction] WARNING: Prefix cache changed before compaction", file=sys.stderr)
+
+        # Compact with verbatim preservation
+        compressed, stats = _compress_text(content, level)
+
+        # Update prefix hash after compaction
+        self._previous_prefix_hash = self.prefix_cache.prefix_hash()
+
+        stats["trigger"] = "pressure"
+        stats["wm_budget"] = self.wm.wm_budget
+        stats["pressure_threshold"] = int(self.wm.window_size * COMPACT_AT_CONTEXT_FRACTION)
+        return compressed, stats
+
+    def retain_newest_fraction(self, content: str, fraction: float = RETAIN_CONTEXT_FRACTION) -> str:
+        """Retain only the newest fraction of content verbatim."""
+        # Split into lines/segments, keep newest fraction
+        lines = content.splitlines()
+        keep = max(1, int(len(lines) * fraction))
+        if keep >= len(lines):
+            return content
+        return "\n".join(lines[-keep:])
+
+
+# Global instances per session
+_ADAPTIVE_WM: dict[str, AdaptiveWM] = {}
+_PREFIX_CACHES: dict[str, PrefixCache] = {}
+_PRESSURE_COMPACTORS: dict[str, PressureCompactor] = {}
+_GLOBAL_LOCK = threading.Lock()
+
+
+def get_adaptive_wm(session_id: str) -> AdaptiveWM:
+    with _GLOBAL_LOCK:
+        if session_id not in _ADAPTIVE_WM:
+            _ADAPTIVE_WM[session_id] = AdaptiveWM()
+        return _ADAPTIVE_WM[session_id]
+
+
+def get_prefix_cache(session_id: str) -> PrefixCache:
+    with _GLOBAL_LOCK:
+        if session_id not in _PREFIX_CACHES:
+            _PREFIX_CACHES[session_id] = PrefixCache()
+        return _PREFIX_CACHES[session_id]
+
+
+def get_pressure_compactor(session_id: str) -> PressureCompactor:
+    with _GLOBAL_LOCK:
+        if session_id not in _PRESSURE_COMPACTORS:
+            # Create components without calling the getter functions to avoid lock recursion
+            if session_id not in _ADAPTIVE_WM:
+                _ADAPTIVE_WM[session_id] = AdaptiveWM()
+            wm = _ADAPTIVE_WM[session_id]
+            
+            if session_id not in _PREFIX_CACHES:
+                _PREFIX_CACHES[session_id] = PrefixCache()
+            pc = _PREFIX_CACHES[session_id]
+            
+            _PRESSURE_COMPACTORS[session_id] = PressureCompactor(wm, pc)
+        return _PRESSURE_COMPACTORS[session_id]
+
+
+def reset_session_compaction(session_id: str) -> None:
+    """Reset all compaction state for a session."""
+    with _GLOBAL_LOCK:
+        _ADAPTIVE_WM.pop(session_id, None)
+        _PREFIX_CACHES.pop(session_id, None)
+        _PRESSURE_COMPACTORS.pop(session_id, None)
 
 
 def _get_session_root(root: Path, session_id: str) -> Path:

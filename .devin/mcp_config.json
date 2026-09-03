@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "aide-memory": {
-      "command": "npx",
-      "args": ["aide-memory-mcp", "."]
+      "command": "node",
+      "args": ["C:\\Users\\thant\\AppData\\Local\\npm-cache\\_npx\\2d4e0713f9bf7e6c\\node_modules\\aide-memory\\dist\\memory\\cli.js", "."]
     }
   }
 }

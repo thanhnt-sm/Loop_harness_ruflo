@@ -1,0 +1,18 @@
+{
+  "task_id": "list-2",
+  "repo": "r",
+  "issue": "#2",
+  "pr": "#2",
+  "base_sha": "a",
+  "head_sha": "b",
+  "description": "Hard task",
+  "golden_diff": "diff",
+  "content_hash": "h2",
+  "created_at": "2026-01-01",
+  "difficulty": "hard",
+  "tags": [
+    "hard",
+    "typescript"
+  ],
+  "source": "merged_pr"
+}

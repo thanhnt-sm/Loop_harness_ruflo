@@ -191,6 +191,68 @@ def set_cost_cap(root: Path, session_id: str, cap: float) -> None:
     }, root)
 
 
+# ---- P1-01: per-role budget tracking (stubs cho test_model_tiering) ----
+
+def track_tool_cost_by_role(root: Path, session_id: str, role: str, response_size: int) -> dict:
+    """Track cost bucket theo role (wrapper cho track_tool_cost)."""
+    # Reuse estimator theo role neu co router_config
+    try:
+        from router_config import estimate_cost_for_role, get_session_budgets
+
+        cost = estimate_cost_for_role(role, 500, response_size // 4)
+        budgets = get_session_budgets(session_id)
+        bucket = budgets.get(role)
+        if bucket:
+            bucket.add_spend(cost)
+        return track_tool_cost(root, session_id, f"role:{role}", response_size)
+    except Exception:
+        return track_tool_cost(root, session_id, role, response_size)
+
+
+def check_role_budget(session_id: str, role: str) -> tuple[bool, str]:
+    """Check budget bucket cua role co alert khong."""
+    try:
+        from router_config import get_session_budgets
+
+        budgets = get_session_budgets(session_id)
+        bucket = budgets.get(role)
+        if bucket and bucket.is_alert:
+            return True, f"Role {role} budget alert {bucket.usage_pct:.1f}%"
+        return False, ""
+    except Exception as e:
+        return False, str(e)
+
+
+def get_role_budget_status(session_id: str, role: str) -> dict:
+    try:
+        from router_config import get_session_budgets
+
+        budgets = get_session_budgets(session_id)
+        bucket = budgets.get(role)
+        if not bucket:
+            return {"role": role, "found": False}
+        return {
+            "role": role,
+            "limit": bucket.limit_usd,
+            "spent": bucket.spent_usd,
+            "usage_pct": bucket.usage_pct,
+            "is_alert": bucket.is_alert,
+            "is_exceeded": bucket.is_exceeded,
+        }
+    except Exception as e:
+        return {"role": role, "error": str(e)}
+
+
+def get_total_role_spend(session_id: str) -> float:
+    try:
+        from router_config import get_session_budgets
+
+        budgets = get_session_budgets(session_id)
+        return round(sum(b.spent_usd for b in budgets.values()), 6)
+    except Exception:
+        return 0.0
+
+
 if __name__ == "__main__":
     # CLI: check cost for a session
     import argparse
