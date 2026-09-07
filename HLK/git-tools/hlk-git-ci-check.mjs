@@ -129,7 +129,7 @@ function checkGithubWorkflows() {
     return { errors, warnings, checked: false };
   }
 
-  const yamlModule = awaitImportYaml();
+  const yamlModule = await awaitImportYaml();
   for (const f of ymlFiles) {
     const fpath = path.join(workflowsDir, f);
     const content = fs.readFileSync(fpath, 'utf8');
