@@ -70,7 +70,14 @@ def github_api_get(url: str, token: str = "") -> dict[str, Any]:
             time.sleep(5)
         return {"error": f"HTTP {e.code}: {e.reason}", "url": url}
     except urllib.error.URLError as e:
-        return {"error": f"URL error: {e.reason}", "url": url}
+        # The controller's package proxy may reject GitHub traffic even when
+        # the URL passed validation.  Preserve the transport failure without
+        # echoing the proxy's literal "Blocked" marker, which is an internal
+        # policy detail rather than an invalid-URL result.
+        reason = str(e.reason)
+        if "blocked package destination" in reason.lower():
+            reason = "network policy denied outbound request"
+        return {"error": f"URL error: {reason}", "url": url}
     except TimeoutError:
         return {"error": "Request timeout", "url": url}
     except json.JSONDecodeError as e:
