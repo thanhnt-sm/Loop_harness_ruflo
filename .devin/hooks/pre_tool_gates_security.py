@@ -2,6 +2,7 @@
 """pre_tool_gates_security.py — Security gates cho pre_tool_use hook."""
 import sys
 from pathlib import Path
+import urllib.parse
 
 import ahd_session
 import json
@@ -70,6 +71,17 @@ def _check_ssrf_gate(data: dict) -> None:
                 # CVE-2026-AHD-008: DNS pinning — resolve + verify rebinding
                 pin_status, reason = _pin_and_verify_url(url)
                 if pin_status == 2:
+                    # A configured outbound allowlist is an explicit trust
+                    # boundary.  In restricted/offline runners DNS may be
+                    # unavailable even for an approved public host; do not
+                    # turn that transient resolver failure into a false
+                    # positive.  Keep fail-closed behavior for every host
+                    # outside the allowlist and for all other pin failures.
+                    if reason.startswith("dns_resolution_failed:"):
+                        host = (urllib.parse.urlparse(url).hostname or "").lower().strip()
+                        if any(host == allowed.lower().strip() or host.endswith(f".{allowed.lower().strip()}")
+                               for allowed in allowlist if allowed.strip()):
+                            continue
                     print(
                         f"[CVE-2026-AHD-008 SSRF DNS pinning] BLOCKED: {url} ({reason}).",
                         file=sys.stderr,

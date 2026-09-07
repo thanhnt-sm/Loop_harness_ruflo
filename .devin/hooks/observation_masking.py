@@ -132,7 +132,9 @@ def main():
             capture_output=True, text=True, cwd=os.getcwd()
         )
         root = Path(result.stdout.strip()) if result.returncode == 0 and result.stdout.strip() else Path.cwd()
-    except Exception:
+    except Exception as e:
+        import sys
+        print(f"Error: {e}", file=sys.stderr)
         root = Path.cwd()
 
     # Store full output and create masked version

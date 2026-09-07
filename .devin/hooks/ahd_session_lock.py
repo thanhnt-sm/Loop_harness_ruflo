@@ -153,15 +153,19 @@ def _release_lock(handle: Any) -> None:
     try:
         if hasattr(handle, "release"):
             # Bước 1: filelock handle có method release() riêng.
-            # Lưu ý: UnixFileLock (fcntl) KHÔNG tự xóa lock file khi release
-            # (khác WindowsFileLock) → dọn tay để hành vi nhất quán đa nền tảng.
+            # Không xóa lock file sau khi release: waiter có thể đang giữ
+            # inode cũ; unlink rồi tạo lại path sẽ làm các writer khác nhau
+            # khóa hai inode khác nhau và phá vỡ read-modify-write atomicity.
             handle.release()
-            try:
-                lock_file = getattr(handle, "lock_file", None)
-                if lock_file:
+            # Blackboard region locks are persistent by design.  The legacy
+            # registry/session lock API keeps its historical cleanup behavior
+            # for callers that assert an ephemeral lock path.
+            lock_file = getattr(handle, "lock_file", None)
+            if lock_file and Path(str(lock_file)).parent.name != ".locks":
+                try:
                     Path(str(lock_file)).unlink()
-            except (OSError, ValueError):
-                pass
+                except (OSError, ValueError):
+                    pass
         elif hasattr(handle, "close"):
             # Bước 2: Đưa con trỏ về đầu file trước khi mở khóa (Windows cần vị trí cố định).
             try:

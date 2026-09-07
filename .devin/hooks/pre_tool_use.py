@@ -112,6 +112,8 @@ from pre_tool_cli import main, HOOK_TIMEOUT_SECONDS
 if __name__ == "__main__":
     try:
         main()
-    except Exception:
+    except Exception as e:
+        import sys
+        print(f"Error: {e}", file=sys.stderr)
         # Fail-closed: block on unexpected error
         sys.exit(2)

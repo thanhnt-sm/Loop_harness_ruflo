@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "last_check": "2026-08-22T02:18:55.633413+00:00",
+  "last_check": "2026-09-07T14:06:58.472375+00:00",
   "sources": [
     {
       "id": "ahd-main-engine",
@@ -11,7 +11,7 @@
       "upstream_commit": "7045406",
       "current_commit_full": "704540651f31dadf5888728f33245dd30dc611b8",
       "upstream_commit_full": "704540651f31dadf5888728f33245dd30dc611b8",
-      "status": "up-to-date",
+      "status": "api-error",
       "priority": "P1",
       "merge_strategy": "surgical-cherry-pick",
       "protected_files": [
@@ -34,7 +34,8 @@
         "HLK/"
       ],
       "notes": "Local deploy commit c327869 not in upstream; AHD update must be surgical only.",
-      "last_checked": "2026-08-22T02:18:37.349704+00:00"
+      "last_checked": "2026-08-22T02:18:37.349704+00:00",
+      "api_error": "URL error: network policy denied outbound request"
     },
     {
       "id": "nuwa-skill",
@@ -45,7 +46,7 @@
       "upstream_commit": "27642f5",
       "current_commit_full": "27642f5bfed2dc1bbf8ee59a2c1ee602a626bbd7",
       "upstream_commit_full": "27642f5bfed2dc1bbf8ee59a2c1ee602a626bbd7",
-      "status": "up-to-date",
+      "status": "api-error",
       "priority": "P0",
       "merge_strategy": "direct-copy-vendored",
       "vendored_path": ".devin/skills/nuwa-skill/",
@@ -54,7 +55,8 @@
         ".devin/skills/nuwa-skill/"
       ],
       "notes": "Updated to 27642f5 on 2026-08-09. Core files only, 3 examples kept.",
-      "last_checked": "2026-08-22T02:18:40.040881+00:00"
+      "last_checked": "2026-08-22T02:18:40.040881+00:00",
+      "api_error": "URL error: network policy denied outbound request"
     },
     {
       "id": "caveman",
@@ -65,14 +67,15 @@
       "upstream_commit": "2f49f0e",
       "current_commit_full": "2f49f0e1a352aa810e70056b7930aeb0b3d219b4",
       "upstream_commit_full": "2f49f0e1a352aa810e70056b7930aeb0b3d219b4",
-      "status": "up-to-date",
+      "status": "api-error",
       "priority": "P3",
       "merge_strategy": "manual-canon-update",
       "impact_zone": [
         ".devin/canon/CAVEMAN_PROTOCOL.md"
       ],
       "notes": "Reviewed 2026-08-22: 3 commits (4a96dc6, 3c28a20, 2f49f0e) chỉ README/logo changes, không có concept mới. CAVEMAN_PROTOCOL.md không cần update.",
-      "last_checked": "2026-08-22T02:18:42.280942+00:00"
+      "last_checked": "2026-08-22T02:18:42.280942+00:00",
+      "api_error": "URL error: network policy denied outbound request"
     },
     {
       "id": "agency-agents",
@@ -83,7 +86,7 @@
       "upstream_commit": "ebe9c99",
       "current_commit_full": "",
       "upstream_commit_full": "ebe9c99acb5c96f9468de368d8bead775387d1a7",
-      "status": "manual-review",
+      "status": "api-error",
       "priority": "P3",
       "merge_strategy": "manual-canon-update",
       "impact_zone": [
@@ -91,7 +94,8 @@
         ".devin/agents/PERSONA_TEMPLATE.md"
       ],
       "notes": "Concepts distilled into COMMANDER.md / PERSONA_TEMPLATE.md.",
-      "last_checked": "2026-08-22T02:18:45.128518+00:00"
+      "last_checked": "2026-08-22T02:18:45.128518+00:00",
+      "api_error": "URL error: network policy denied outbound request"
     },
     {
       "id": "superpowers",
@@ -102,14 +106,15 @@
       "upstream_commit": "b36e082",
       "current_commit_full": "",
       "upstream_commit_full": "b36e0829c6d0140e93cfef2ca599b1b07d4a7797",
-      "status": "manual-review",
+      "status": "api-error",
       "priority": "P3",
       "merge_strategy": "manual-canon-update",
       "impact_zone": [
         ".devin/canon/COMMANDER.md"
       ],
       "notes": "Concepts distilled into COMMANDER.md / systematic_debugging.md / tdd.md.",
-      "last_checked": "2026-08-22T02:18:48.769022+00:00"
+      "last_checked": "2026-08-22T02:18:48.769022+00:00",
+      "api_error": "URL error: network policy denied outbound request"
     },
     {
       "id": "loop-engineering",
@@ -120,14 +125,15 @@
       "upstream_commit": "804a4e9",
       "current_commit_full": "804a4e9246b8915dd0f3d9582f04f0c192d16b4a",
       "upstream_commit_full": "804a4e9246b8915dd0f3d9582f04f0c192d16b4a",
-      "status": "up-to-date",
+      "status": "api-error",
       "priority": "P3",
       "merge_strategy": "manual-canon-update",
       "impact_zone": [
         ".devin/canon/LOOP_PROTOCOL.md"
       ],
       "notes": "Reviewed 2026-08-22: 2 commits (890999e, 804a4e9) là automated chores (star-history SVG + daily triage STATE.md), không có concept mới. LOOP_PROTOCOL.md không cần update.",
-      "last_checked": "2026-08-22T02:18:52.577073+00:00"
+      "last_checked": "2026-08-22T02:18:52.577073+00:00",
+      "api_error": "URL error: network policy denied outbound request"
     },
     {
       "id": "fable-method",
@@ -138,14 +144,15 @@
       "upstream_commit": "88b5cf3",
       "current_commit_full": "",
       "upstream_commit_full": "88b5cf36b10ee3679e08ee0f0181b9774d481508",
-      "status": "manual-review",
+      "status": "api-error",
       "priority": "P3",
       "merge_strategy": "manual-canon-update",
       "impact_zone": [
         ".devin/canon/fable-judge.md"
       ],
       "notes": "Concepts distilled into fable-judge.md.",
-      "last_checked": "2026-08-22T02:18:55.633379+00:00"
+      "last_checked": "2026-08-22T02:18:55.633379+00:00",
+      "api_error": "URL error: network policy denied outbound request"
     }
   ]
 }

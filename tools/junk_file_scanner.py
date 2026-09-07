@@ -129,7 +129,23 @@ def untracked_files() -> list[str]:
             # Mở rộng thư mục untracked
             full = ROOT / path
             if full.is_dir():
+                # Provider/controller state is often exposed as a symlink
+                # (for example .devin/session_state -> /workspace/state).
+                # Do not traverse outside the repository and report host OS
+                # metadata from the symlink target as repository junk.
+                if full.is_symlink():
+                    continue
+                if full.name in {'.venv', 'venv', 'node_modules', '__pycache__',
+                                 '.pytest_cache', '.cache', 'htmlcov'}:
+                    continue
                 for dirpath, _dirs, files in os.walk(full):
+                    # These trees are disposable runtime/dependency caches;
+                    # their contents are neither source nor publishable
+                    # artifacts and may contain host metadata on macOS.
+                    _dirs[:] = [d for d in _dirs if d not in {
+                        '.venv', 'venv', 'node_modules', '__pycache__',
+                        '.pytest_cache', '.cache', 'htmlcov',
+                    }]
                     for f in files:
                         rel = Path(dirpath).relative_to(ROOT) / f
                         result.append(str(rel).replace("\\", "/"))

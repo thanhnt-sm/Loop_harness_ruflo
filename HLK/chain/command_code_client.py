@@ -259,7 +259,7 @@ def chat(prompt: str, model: Optional[str] = None) -> CCResponse:
     """
     # Redact secrets trước khi gửi (P1 từ adversarial review)
     try:
-        from secret_scanner import redact as redact_secrets
+        from HLK.chain.secret_scanner import redact as redact_secrets
         redacted_prompt = redact_secrets(prompt)
     except ImportError:
         redacted_prompt = prompt

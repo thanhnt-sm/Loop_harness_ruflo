@@ -35,7 +35,9 @@ def _read_file_safe(path: Path) -> str:
     """Safely read file content."""
     try:
         return path.read_text(encoding="utf-8", errors="replace")
-    except Exception:
+    except Exception as e:
+        import sys
+        print(f"Error: {e}", file=sys.stderr)
         return ""
 
 
@@ -84,8 +86,8 @@ def _load_previous_hashes(root: Path, session_id: str) -> dict:
             data = json.loads(metrics_path.read_text(encoding="utf-8"))
             # Return only the prefix_hashes dict, not the wrapper
             return data.get("prefix_hashes", {})
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"Error loading prefix hashes: {e}", file=sys.stderr)
     return {}
 
 
@@ -203,7 +205,9 @@ def main():
             capture_output=True, text=True, cwd=os.getcwd()
         )
         root = Path(result.stdout.strip()) if result.returncode == 0 and result.stdout.strip() else Path.cwd()
-    except Exception:
+    except Exception as e:
+        import sys
+        print(f"Error: {e}", file=sys.stderr)
         root = Path.cwd()
 
     # Get current prefix hashes

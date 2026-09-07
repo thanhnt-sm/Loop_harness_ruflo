@@ -82,9 +82,6 @@ def _run_main() -> None:
     tool_input = data.get("tool_input", {})
     _check_risk_contract(tool_name, tool_input)
 
-    # Gate 1.6: T2.9 — SSRF guard
-    _check_ssrf_gate(data)
-
     # Gate 1.7: T2.10 — Encoding bypass guard
     _check_encoding_bypass_gate(data)
 
@@ -95,10 +92,13 @@ def _run_main() -> None:
     # tool_name + tool_input already extracted above (Gate 1.5)
 
     if tool_name not in ("Bash", "bash", "Shell", "Execute", "exec", "terminal"):
+        # URL-bearing non-shell tools still receive the SSRF check.
+        _check_ssrf_gate(data)
         sys.exit(0)
 
     command = tool_input.get("command", "")
     if not command:
+        _check_ssrf_gate(data)
         sys.exit(0)
 
     # Normalize before pattern matching (U02: fix regex bypass via shell encoding)
@@ -115,6 +115,11 @@ def _run_main() -> None:
             print(f"Command: {command[:200]}", file=sys.stderr)
             print(f"Pattern: {pattern.pattern}", file=sys.stderr)
             sys.exit(2)
+
+    # Run SSRF after command-danger checks so a compound attack such as
+    # curl|bash reports the actionable command violation first.  The URL is
+    # still checked before any tool call is allowed to proceed.
+    _check_ssrf_gate(data)
 
     # Gate 2.1: T4.9 — Reflection gate (pre-action reflection, multi-level)
     # Chạy sau dangerous-pattern gate để giữ thông báo quen thuộc cho các lệnh

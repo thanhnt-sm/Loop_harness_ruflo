@@ -1,8 +1,8 @@
 ---
 context_fill_pct: 0
 caveman_level: full
-active_sessions: ["s-20260823-refactor-pre-tool", "x", "s-20260819-bien-harness-upgrade-loop"]
-active_session: s-20260823-refactor-pre-tool
+active_sessions: ["s-20260907-update-repos", "31612c4020aa", "5abe14234c82"]
+active_session: s-20260907-update-repos
 ---
 
 # Loop State Registry
@@ -10,9 +10,9 @@ active_session: s-20260823-refactor-pre-tool
 ## Active sessions
 | session_id | goal | status | tags | owned_files | last_heartbeat |
 |---|---|---|---|---|---|
-| s-20260823-refactor-pre-tool |  | suspected_crashed |  |  | 2026-08-24T12:06:49+00:00 |
-| x |  | in_progress |  |  | 2026-08-24T12:02:34+00:00 |
-| s-20260819-bien-harness-upgrade-loop |  | suspected_crashed |  |  | 2026-08-22T21:54:36+00:00 |
+| s-20260907-update-repos | update_from_repos | suspected_crashed |  |  | 2026-09-07T14:40:09+00:00 |
+| 31612c4020aa |  | in_progress |  |  | 2026-09-07T14:37:16+00:00 |
+| 5abe14234c82 |  | in_progress |  |  | 2026-09-07T14:37:01+00:00 |
 
 ## Recent sessions (last 3)
 | session_id | goal | status | tags |

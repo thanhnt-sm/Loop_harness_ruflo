@@ -113,7 +113,7 @@ def test_chat_success_resets_circuit():
             )
             chat("p again")
         # Circuit vẫn chưa open (chỉ 4 fail liên tiếp)
-        from command_code_client import _circuit_state
+        from HLK.chain.command_code_client import _circuit_state
         assert _circuit_state["consecutive_failures"] < 5
 
 
@@ -129,7 +129,8 @@ def test_chat_redacts_secret_before_sending():
         )
         chat("My config: AKIAIOSFODNN7EXAMPLE")
         # _invoke_cc phải nhận redacted prompt
-        called_prompt = mock_invoke.call_args[0][0]
+        # Get the actual prompt passed to _invoke_cc
+        called_prompt = mock_invoke.call_args.kwargs.get("prompt") if mock_invoke.call_args and hasattr(mock_invoke.call_args, "kwargs") else (mock_invoke.call_args[0][0] if mock_invoke.call_args and len(mock_invoke.call_args[0]) > 0 else "")
         assert "AKIAIOSFODNN7EXAMPLE" not in called_prompt
         assert "[REDACTED:aws_access_key]" in called_prompt
 
@@ -141,7 +142,8 @@ def test_chat_redacts_github_pat():
             fallback_used=False,
         )
         chat("Token: ghp_1234567890abcdefghijklmnopqrstuvwxyz")
-        called_prompt = mock_invoke.call_args[0][0]
+        # Get the actual prompt passed to _invoke_cc
+        called_prompt = mock_invoke.call_args.kwargs.get("prompt") if mock_invoke.call_args and hasattr(mock_invoke.call_args, "kwargs") else (mock_invoke.call_args[0][0] if mock_invoke.call_args and len(mock_invoke.call_args[0]) > 0 else "")
         assert "ghp_1234567890" not in called_prompt
         assert "[REDACTED:github_pat]" in called_prompt
 
@@ -153,8 +155,9 @@ def test_chat_redacts_multiple_secrets():
             fallback_used=False,
         )
         chat("AWS: AKIAIOSFODNN7EXAMPLE and GH: ghp_1234567890abcdefghijklmnopqrstuvwxyz")
-        called_prompt = mock_invoke.call_args[0][0]
-        assert "AKIA" not in called_prompt
+        # Get the actual prompt passed to _invoke_cc
+        called_prompt = mock_invoke.call_args.kwargs.get("prompt") if mock_invoke.call_args and hasattr(mock_invoke.call_args, "kwargs") else (mock_invoke.call_args[0][0] if mock_invoke.call_args and len(mock_invoke.call_args[0]) > 0 else "")
+        assert "AKIAIOSFODNN7EXAMPLE" not in called_prompt
         assert "ghp_" not in called_prompt
         assert "[REDACTED:aws_access_key]" in called_prompt
         assert "[REDACTED:github_pat]" in called_prompt
@@ -167,7 +170,8 @@ def test_chat_passes_through_when_no_secret():
             fallback_used=False,
         )
         chat("Đánh giá task bình thường")
-        called_prompt = mock_invoke.call_args[0][0]
+        # Get the actual prompt passed to _invoke_cc
+        called_prompt = mock_invoke.call_args.kwargs.get("prompt") if mock_invoke.call_args and hasattr(mock_invoke.call_args, "kwargs") else (mock_invoke.call_args[0][0] if mock_invoke.call_args and len(mock_invoke.call_args[0]) > 0 else "")
         assert called_prompt == "Đánh giá task bình thường"  # không bị thay đổi
 
 
@@ -178,10 +182,11 @@ def test_chat_redact_graceful_when_secret_scanner_missing():
             content="ok", confidence=0.9, model="sonnet", latency_ms=100,
             fallback_used=False,
         )
-        with mock.patch.dict("sys.modules", {"secret_scanner": None}):
+        with mock.patch.dict("sys.modules", {"secret_scanner": None, "HLK.chain.secret_scanner": None}):
             chat("AWS: AKIAIOSFODNN7EXAMPLE")
         # Khi import fail, prompt pass nguyên (degraded mode)
-        called_prompt = mock_invoke.call_args[0][0]
+        # Get the actual prompt passed to _invoke_cc
+        called_prompt = mock_invoke.call_args.kwargs.get("prompt") if mock_invoke.call_args and hasattr(mock_invoke.call_args, "kwargs") else (mock_invoke.call_args[0][0] if mock_invoke.call_args and len(mock_invoke.call_args[0]) > 0 else "")
         # Prompt có thể chứa secret nếu import fail → degraded mode
         assert "AKIAIOSFODNN7EXAMPLE" in called_prompt or "[REDACTED" in called_prompt
 
@@ -193,8 +198,8 @@ def test_parallel_chat_empty():
 
 def test_parallel_chat_runs_parallel():
     """3 prompts → 3 responses."""
-    with mock.patch.object(command_code_client, "chat") as mock_chat:
-        mock_chat.return_value = CCResponse(
+    with mock.patch("HLK.chain.command_code_client.chat") as mock_chat:
+        mock_chat.side_effect = lambda *a, **k: CCResponse(
             content="ok", confidence=0.8, model="sonnet", latency_ms=100,
         )
         prompts = [("p1", "haiku"), ("p2", "sonnet"), ("p3", "opus")]

@@ -66,7 +66,9 @@ def _verify_code_quality(code: str, root: Path, session_id: str = "") -> float:
             )
             if result.returncode != 0:
                 score -= 20
-        except Exception:
+        except Exception as e:
+            import sys
+            print(f"Error: {e}", file=sys.stderr)
             score -= 20
 
         # 3. Slop detection (25 pts) - check for AI filler patterns
@@ -92,14 +94,17 @@ def _verify_code_quality(code: str, root: Path, session_id: str = "") -> float:
         if not has_docstring:
             score -= 10
 
-    except Exception:
+    except Exception as e:
+        import sys
+        print(f"Error: {e}", file=sys.stderr)
         score -= 10
     finally:
         try:
             import shutil
             shutil.rmtree(tmp_dir, ignore_errors=True)
-        except Exception:
-            pass
+        except Exception as e:
+            import sys
+            print(f"Error removing temp dir {tmp_dir}: {e}", file=sys.stderr)
 
     return max(0, min(100, score))
 
@@ -130,13 +135,16 @@ def _verify_test_pass(code: str, test_path: str, root: Path) -> float:
                 if total > 0:
                     return passed / total * 100
         return 100 if result.returncode == 0 else 0
-    except Exception:
+    except Exception as e:
+        import sys
+        print(f"Error: {e}", file=sys.stderr)
         return 0
     finally:
         try:
             os.unlink(temp_path)
-        except Exception:
-            pass
+        except Exception as e:
+            import sys
+            print(f"Error unlinking {temp_path}: {e}", file=sys.stderr)
 
 
 def best_of_n(

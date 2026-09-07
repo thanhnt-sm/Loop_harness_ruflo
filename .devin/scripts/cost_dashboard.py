@@ -26,7 +26,9 @@ def _repo_root() -> Path:
             capture_output=True, text=True, cwd=os.getcwd()
         )
         return Path(result.stdout.strip()) if result.returncode == 0 and result.stdout.strip() else Path.cwd()
-    except Exception:
+    except Exception as e:
+        import sys
+        print(f"Error: {e}", file=sys.stderr)
         return Path.cwd()
 
 
@@ -40,8 +42,9 @@ def _load_session_state(root: Path) -> dict:
     for file in session_dir.glob("*.json"):
         try:
             sessions[file.stem] = json.loads(file.read_text(encoding="utf-8"))
-        except Exception:
-            pass
+        except Exception as e:
+            import sys
+            print(f"Error reading session file {file.stem}: {e}", file=sys.stderr)
     return sessions
 
 
@@ -50,7 +53,9 @@ def _load_cost_ledger(root: Path) -> list[dict]:
     try:
         import cost_ledger
         return cost_ledger.read_ledger(root)
-    except Exception:
+    except Exception as e:
+        import sys
+        print(f"Error: {e}", file=sys.stderr)
         return []
 
 
@@ -71,8 +76,9 @@ def _load_cache_metrics(root: Path) -> list[dict]:
                     line = line.strip()
                     if line:
                         metrics.append(json.loads(line))
-            except Exception:
-                pass
+            except Exception as e:
+                import sys
+                print(f"Error parsing log {log_path}: {e}", file=sys.stderr)
     return metrics
 
 
