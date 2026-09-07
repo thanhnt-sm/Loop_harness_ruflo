@@ -111,7 +111,7 @@ function checkGithooks() {
 // Check 2: .github/workflows YAML
 // ---------------------------------------------------------------------------
 
-function checkGithubWorkflows() {
+async function checkGithubWorkflows() {
   const errors = [];
   const warnings = [];
 
@@ -129,7 +129,7 @@ function checkGithubWorkflows() {
     return { errors, warnings, checked: false };
   }
 
-  const yamlModule = await awaitImportYaml();
+  const yamlModule = await loadYamlModule();
   for (const f of ymlFiles) {
     const fpath = path.join(workflowsDir, f);
     const content = fs.readFileSync(fpath, 'utf8');
@@ -165,7 +165,7 @@ function checkGithubWorkflows() {
   return { errors, warnings, checked: true };
 }
 
-async function awaitImportYaml() {
+async function loadYamlModule() {
   try {
     const mod = await import('yaml');
     return mod;

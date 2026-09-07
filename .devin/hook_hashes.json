@@ -1,7 +1,7 @@
 {
   "_description": "U41: Hook integrity verification baseline",
   "hooks": {
-    ".devin/hooks/__init__.py": "2e08d1f6000aef541797d008c05ac36f4dbebfb36cbac5615788e6fcc5b300a7",
+    ".devin/hooks/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     ".devin/hooks/ahd_session.py": "12fbd7e074de76081b47db83d0225b1273202bfb5da3a58c240011c49efc1671",
     ".devin/hooks/ahd_session_circuit.py": "1bfea0aa45d4e4a34b705337f5e0b9f8a468673852c37e34bd93af5de119186a",
     ".devin/hooks/ahd_session_durable.py": "59363fd3fb7a1e95813b988823bce007b200845340e4993e40b1746bd2345d97",
