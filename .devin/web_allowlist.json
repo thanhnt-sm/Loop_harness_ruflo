@@ -1,0 +1,11 @@
+{
+  "domains": [
+    "github.com",
+    "docs.github.com",
+    "hermes-agent.nousresearch.com",
+    "docs.python.org",
+    "pypi.org",
+    "npmjs.com",
+    "nodejs.org"
+  ]
+}

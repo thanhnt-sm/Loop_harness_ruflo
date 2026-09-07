@@ -1,0 +1,16 @@
+{
+  "toolsets": [
+    "web",
+    "browser",
+    "vision",
+    "skills",
+    "delegation",
+    "cronjob",
+    "code_execution",
+    "image_gen",
+    "tts",
+    "session_search",
+    "todo",
+    "clarify"
+  ]
+}
