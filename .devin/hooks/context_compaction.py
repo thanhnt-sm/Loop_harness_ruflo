@@ -468,8 +468,9 @@ def _clear_context_flag(root: Path, session_id: str) -> None:
     if flag_path.exists():
         try:
             flag_path.write_text(json.dumps({"context_oversized": False, "cleared_at": datetime.now(timezone.utc).isoformat()}, ensure_ascii=False), encoding="utf-8")
-        except Exception:
-            pass
+        except Exception as e:
+            import sys
+            print(f"Error clearing context flag: {e}", file=sys.stderr)
 
 
 def main():
@@ -488,7 +489,9 @@ def main():
             capture_output=True, text=True, cwd=os.getcwd()
         )
         root = Path(result.stdout.strip()) if result.returncode == 0 and result.stdout.strip() else Path.cwd()
-    except Exception:
+    except Exception as e:
+        import sys
+        print(f"Error: {e}", file=sys.stderr)
         root = Path.cwd()
 
     print(f"[context_compaction] Compacting session {session_id} at level {level}", file=sys.stderr)

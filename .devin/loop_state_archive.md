@@ -536,3 +536,7 @@
 <!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-24T12:06:47+00:00 session_id=test status=crashed cleanup_failed=False
 
 <!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-08-24T12:06:50+00:00 session_id=s-20260823-refactor-pre-tool status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-09-07T14:40:09+00:00 session_id=test status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-09-07T14:40:10+00:00 session_id=s-20260907-update-repos status=crashed cleanup_failed=False

@@ -477,8 +477,10 @@ def check_idempotent(root: Path, session_id: str, tool: str, args: dict) -> Opti
                 receipt = json.loads(line)
                 if receipt.get("idempotency_key") == idempotency_key:
                     return receipt.get("result")
-        except Exception:
-            pass
+        except Exception as e:
+            # Re-raise or log? The issue says "Add logging or re-raise". Let's print to stderr and log.
+            import sys
+            print(f"Error parsing receipt log: {e}", file=sys.stderr)
 
     return None
 

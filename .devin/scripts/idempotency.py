@@ -111,8 +111,9 @@ def _acquire_redis_lock(lock: Path) -> Any:
             def release(self):
                 try:
                     self._client.delete(self._name)
-                except Exception:
-                    pass
+                except Exception as e:
+                    import sys
+                    print(f"Error releasing redis lock: {e}", file=sys.stderr)
 
         return _RedisLockHandle(r, lock_name)
     except ImportError:

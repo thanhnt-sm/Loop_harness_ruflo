@@ -39,7 +39,9 @@ def get_config_root(root: Path) -> Path:
     # Get the real repo root for comparison
     try:
         real_repo_root = get_repo_root()
-    except Exception:
+    except Exception as e:
+        import sys
+        print(f"Error: {e}", file=sys.stderr)
         real_repo_root = None
 
     # Xác định config root dựa trên marker thư mục trong `root`,
