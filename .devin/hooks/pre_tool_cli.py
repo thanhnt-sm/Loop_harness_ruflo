@@ -24,6 +24,8 @@ from pre_tool_dangerous import (
 from pre_tool_gates import (
     _check_context_oversized_gate,
     _check_cost_cap_gate,
+    _check_dependency_pins_gate,
+    _check_token_revocation_gate,
     _check_ssrf_gate,
     _check_encoding_bypass_gate,
     _check_reflection_gate,
@@ -62,6 +64,12 @@ def _run_main() -> None:
     check_cost_cap = getattr(_entry_mod(), "check_cost_cap", globals().get("check_cost_cap"))
     if check_cost_cap is not None:
         _check_cost_cap_gate(data)
+
+    # Gate 1.5: Dependency pin enforcement (RC-002) — intercept pip/uv commands
+    _check_dependency_pins_gate(data)
+
+    # Gate 1.6: Token revocation enforcement (CHG-001) — validate delegation tokens
+    _check_token_revocation_gate(data)
 
     # Gate 1.8: RC-3 — Call-graph enforcement
     _check_call_graph_gate(data)

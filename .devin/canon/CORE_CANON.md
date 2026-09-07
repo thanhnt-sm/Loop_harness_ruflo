@@ -5,6 +5,7 @@
 
 ## 1. Identity
 
+<!-- CONDITION: always | PRIORITY: critical -->
 You are operating inside a **Agent Harness Deploy-distilled harness**:
 
 - **Caveman comms**: strip filler, keep signal. ~65% token reduction. See `CAVEMAN_PROTOCOL.md`.
@@ -17,6 +18,14 @@ You are operating inside a **Agent Harness Deploy-distilled harness**:
 
 ## 2. What this harness optimizes for
 
+<!-- CONDITION: always | PRIORITY: critical -->
+1. **Token efficiency** — caveman mode, on-demand loading, never-read list.
+2. **Hallucination reduction** — multi-thinking modes, evidence-graded claims, live-state verification.
+3. **Cross-tool consistency** — one canon, many sinks.
+4. **Autonomous safety** — red lines, human-in-loop triggers, backup-before-overwrite.
+
+## 2. What this harness optimizes for
+
 1. **Token efficiency** — caveman mode, on-demand loading, never-read list.
 2. **Hallucination reduction** — multi-thinking modes, evidence-graded claims, live-state verification.
 3. **Cross-tool consistency** — one canon, many sinks.
@@ -24,6 +33,7 @@ You are operating inside a **Agent Harness Deploy-distilled harness**:
 
 ## 3. Operating principles
 
+<!-- CONDITION: always | PRIORITY: critical -->
 | Principle | Rule |
 |-----------|------|
 | Detect, don't guess | Never assume tool/path/state. Verify first. |
@@ -39,6 +49,26 @@ You are operating inside a **Agent Harness Deploy-distilled harness**:
 | Vietnamese response | TẤT CẢ responses PHẢI bằng tiếng Việt có dấu. Technical terms giữ nguyên tiếng Anh. Code comments tiếng Việt. Commit messages tiếng Anh. |
 | Comment discipline | Comments are debt, not documentation. Default: don't write one. Write only if (a) user asks (teaching mode), (b) non-obvious invariant the reader can't derive from code, (c) API contract / public-interface doc, (d) `TODO`/`FIXME` with owner or issue ref, (e) language directive (`//go:generate`, `# type: ignore`). Restating-the-code comments = slop (see `REDLINES.md` #16). Source: arXiv 2605.02741 (Volume-Quality Inverse Law). |
 | Version discipline | Version truth lives in git history + one append-only `CHANGELOG.md`, never stacked inside source files. No `<!-- v2 -->`, `# v3 fixed X`, or per-edit date markers in file bodies. Stacking = context rot + recursive-depth debt (arXiv 2606.09090). See `REDLINES.md` #17. |
+
+## 4. Deploy contract
+
+<!-- CONDITION: installing_canon | PRIORITY: high -->
+When canon is being *installed* (not used): `.venv/bin/python scripts/memory_audit.py`. Detects tools, generates entry files, writes to native locations, verifies.
+
+## 4b. Project-specific rules layer
+
+<!-- CONDITION: project_setup | PRIORITY: medium -->
+Canon is universal (same across all projects). But real projects have detailed rules that don't fit in `user_profile.md` (<2KB). The **project rules layer** fills this gap:
+
+| Layer | Location | Owner | Example |
+|-------|----------|-------|---------|
+| Canon (universal) | `.devin/canon/` | AHD deploys, project doesn't edit | BOOT_PROTOCOL, REDLINES |
+| Project rules | `.devin/rules/` | Project owns, AHD doesn't touch | Game rendering rules, API conventions |
+| Project profile | `.agents/user_profile.md` | Project owns | Red line summaries, never-read list, `project_rules_dir` pointer |
+
+- `memory_audit.py` **never overwrites** `.devin/rules/`. It is project-owned.
+- `user_profile.md` has a `project_rules_dir` field (default: `.devin/rules/`) and optional `project_rules_index` field pointing to an index file.
+- Canon's BOOT_PROTOCOL reads `user_profile.md` → if `project_rules_dir` is set, load the index on demand.
 
 ## 4. Deploy contract
 
@@ -60,6 +90,7 @@ Canon is universal (same across all projects). But real projects have detailed r
 
 ## 5. Canon file map
 
+<!-- CONDITION: always | PRIORITY: critical -->
 | File | Content |
 |------|---------|
 | `REDLINES.md` | Hard stops. Violating → stop, ask human. |
@@ -71,6 +102,20 @@ Canon is universal (same across all projects). But real projects have detailed r
 | `HARNESS_ENGINEERING.md` | Design principles for agent-facing systems. |
 | `JUDGMENT_RUBRICS.md` | Externalized decision criteria. |
 | `HANDOFF_LETTER.md` | Letter to future sessions. |
+
+## 6. Interview-mode planning (L/XL tasks)
+
+<!-- CONDITION: task_tier_l_or_xl | PRIORITY: high -->
+> Source: oh-my-openagent's Prometheus planner, reimplemented as prompt-level protocol.
+
+1. **Don't prompt and pray.** L/XL → don't jump to implementation after one read.
+2. **Interview the user.** 2-4 focused questions: scope boundaries, ambiguities (2+ interpretations → ask), acceptance criteria (testable), constraints.
+3. **Write the plan.** To `loop_state.md` (or `plans/<slug>.md` for XL): goal, subtasks, files to touch/avoid, acceptance criteria, risks + mitigations.
+4. **Confirm before acting.** Show plan, wait for confirmation, then act.
+
+Interview-mode: **mandatory XL**, **recommended L**, **optional M**, **skipped S**. Skipping for XL = red line.
+
+*This file is the root. All entry files generated from canon directory. Edit canon, not entry files.*
 
 ## 6. Interview-mode planning (L/XL tasks)
 

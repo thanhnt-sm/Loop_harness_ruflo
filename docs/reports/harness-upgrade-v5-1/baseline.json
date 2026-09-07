@@ -1,0 +1,38 @@
+{
+  "iteration": "1",
+  "timestamp": "2026-09-04T00:00:00Z",
+  "boot_payload_tokens": 7476,
+  "boot_payload_chars": 29904,
+  "canon_on_demand_tokens": 29292,
+  "canon_on_demand_chars": 117168,
+  "grand_total_tokens": 37260,
+  "grand_total_chars": 147072,
+  "hook_integrity": {
+    "total_hooks": 51,
+    "verified": 51,
+    "violations": 0
+  },
+  "hook_order": {
+    "hooks": ["pre_tool_use", "compress_terminal_output", "observation_masking", "post_tool_use", "drift_detect", "self_heal", "otel_instrument", "schema_gate", "coverage_enforce", "session_end"],
+    "verified": true
+  },
+  "tool_registry": {
+    "total_tools": 7,
+    "tools": []
+  },
+  "skill_registry": {
+    "total_skills": 26,
+    "progressive_load": true,
+    "boot_metadata_kb": 2
+  },
+  "canon_loading": {
+    "boot_files": 4,
+    "ondemand_files": 12,
+    "conditional_sections": 12
+  },
+  "pre_existing_issues": [
+    "pytest conftest.py null bytes",
+    "HLK integrity not verified",
+    "No sandbox for active red-team"
+  ]
+}

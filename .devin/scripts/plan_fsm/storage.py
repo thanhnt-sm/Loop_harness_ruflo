@@ -156,6 +156,9 @@ def create_initial_state(task_description: str, root: Path) -> dict:
         "quality_report_path": None,
         "plan_approved": False,
         "approval_status": None,
+        # CHG-007: Task-scoped permissions — task declares required tools
+        "required_tools": [],
+        "approved_tools": [],
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "history": [],

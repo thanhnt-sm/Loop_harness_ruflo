@@ -255,25 +255,48 @@ def _cli() -> int:
 
     if args.report:
         root = Path(".").resolve()
+        # BOOT_PROTOCOL.md: Only these load at BOOT (always-on)
+        # All other canon = ON-DEMAND ONLY
         targets = [
             root / "AGENTS.md",
             root / ".devin" / "canon" / "CORE_CANON.md",
             root / ".devin" / "canon" / "REDLINES.md",
-            root / ".devin" / "canon" / "VERIFICATION_PROTOCOL.md",
-            root / ".devin" / "canon" / "HARNESS_ENGINEERING.md",
-            root / ".devin" / "canon" / "MEMORY_PROTOCOL.md",
-            root / ".devin" / "canon" / "LOOP_PROTOCOL.md",
             root / ".devin" / "canon" / "BOOT_PROTOCOL.md",
-            root / ".devin" / "canon" / "CAVEMAN_PROTOCOL.md",
         ]
         import os
         total_chars = 0
+        print("  ALWAYS-ON (BOOT):")
         for t in targets:
             if t.exists():
                 chars = t.stat().st_size
                 total_chars += chars
-                print(f"  {t.relative_to(root)}: {chars} chars (~{chars//4} tokens)")
-        print(f"  TOTAL: {total_chars} chars (~{total_chars//4} tokens)")
+                print(f"    {t.relative_to(root)}: {chars} chars (~{chars//4} tokens)")
+        print(f"  BOOT TOTAL: {total_chars} chars (~{total_chars//4} tokens)")
+        
+        # On-demand canon (not counted in boot payload)
+        ondemand = [
+            root / ".devin" / "canon" / "VERIFICATION_PROTOCOL.md",
+            root / ".devin" / "canon" / "HARNESS_ENGINEERING.md",
+            root / ".devin" / "canon" / "MEMORY_PROTOCOL.md",
+            root / ".devin" / "canon" / "LOOP_PROTOCOL.md",
+            root / ".devin" / "canon" / "CAVEMAN_PROTOCOL.md",
+            root / ".devin" / "canon" / "DAEMON_PROTOCOL.md",
+            root / ".devin" / "canon" / "HANDOFF_LETTER.md",
+            root / ".devin" / "canon" / "JUDGMENT_RUBRICS.md",
+            root / ".devin" / "canon" / "LOOP_GOAL_BASED.md",
+            root / ".devin" / "canon" / "LOOP_PROACTIVE.md",
+            root / ".devin" / "canon" / "LOOP_TIME_BASED.md",
+            root / ".devin" / "canon" / "LOOP_TURN_BASED.md",
+        ]
+        ondemand_chars = 0
+        print("  ON-DEMAND (lazy-load):")
+        for t in ondemand:
+            if t.exists():
+                chars = t.stat().st_size
+                ondemand_chars += chars
+                print(f"    {t.relative_to(root)}: {chars} chars (~{chars//4} tokens)")
+        print(f"  ON-DEMAND TOTAL: {ondemand_chars} chars (~{ondemand_chars//4} tokens)")
+        print(f"  GRAND TOTAL: {total_chars + ondemand_chars} chars (~{(total_chars + ondemand_chars)//4} tokens)")
         return 0
 
     if not args.substrate:

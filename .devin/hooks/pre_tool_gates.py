@@ -67,6 +67,21 @@ from pre_tool_gates_security import (
 from pre_tool_workspace import _check_workspace_layout_gate, _WRITE_TOOLS
 
 
+def _check_token_revocation_gate(data: dict) -> None:
+    """Gate: Check token revocation for high-risk tool calls (CHG-001).
+    
+    Validates delegation token against local token registry.
+    Checks revocation list and REVOCATION_BOUND per V5 protocol.
+    """
+    try:
+        from token_registry import check_revocation_gate
+        check_revocation_gate(data)
+    except ImportError:
+        pass  # token_registry not available
+    except Exception as e:
+        _gate_error("token_revocation", e)
+
+
 def _check_context_oversized_gate(data: dict) -> None:
     """Gate 1: context-oversized graduated enforcement.
 
@@ -138,6 +153,61 @@ def _check_context_oversized_gate(data: dict) -> None:
         raise
     except Exception as e:  # noqa: BLE001
         _gate_error("context_oversized", e)
+
+
+def _check_dependency_pins_gate(data: dict) -> None:
+    """Gate: Intercept pip/uv commands that could install unpinned dependencies.
+    
+    Runs check_deps.py logic to validate filelock <3.13, pydantic-core coupling,
+    and SBOM consistency before allowing dependency modifications.
+    """
+    tool_name = data.get("tool_name", "")
+    if tool_name != "bash":
+        return
+    
+    command = data.get("tool_input", {}).get("command", "")
+    if not command:
+        return
+    
+    # Check for pip/uv install/add/upgrade commands
+    dep_commands = [
+        "pip install", "pip add", "pip upgrade",
+        "uv add", "uv install", "uv sync", "uv pip install",
+        "uv pip sync", "uv lock"
+    ]
+    
+    is_dep_command = any(cmd in command.lower() for cmd in dep_commands)
+    if not is_dep_command:
+        return
+    
+    # Run check_deps.py
+    try:
+        import subprocess
+        root = ahd_session.get_repo_root()
+        result = subprocess.run(
+            [sys.executable, "tools/check_deps.py"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        if result.returncode != 0:
+            print(
+                f"[Agent Harness Deploy] BLOCKED: Dependency pin check failed.\n"
+                f"Command: {command}\n"
+                f"filelock must be <3.13; pydantic-core must match pydantic; SBOM must match lock.\n"
+                f"Details:\n{result.stderr}",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+    except subprocess.TimeoutExpired:
+        print(
+            "[Agent Harness Deploy] BLOCKED: Dependency pin check timed out (30s).",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+    except Exception as e:  # noqa: BLE001
+        _gate_error("dependency_pins", e)
 
 
 def _check_cost_cap_gate(data: dict) -> None:

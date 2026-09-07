@@ -16,9 +16,9 @@
 
 ## 2. Vendored Skills (anti-link-rot copies trong workspace)
 
-| Repo | Vai trò | License | Vendored tại |
-|------|---------|---------|--------------|
-| [alchaincyf/nuwa-skill](https://github.com/alchaincyf/nuwa-skill) | **Nuwa** — cognitive-diversity skill distillation factory. Distill mental models của public figures (Munger, Feynman, Taleb, v.v.) thành runnable perspective skills. | MIT | `.devin/skills/nuwa-skill/` (commit `27642f5`, 2026-07-27) |
+| Repo | Vai trò | License | Vendored tại | Provenance |
+|------|---------|---------|--------------|------------|
+| [alchaincyf/nuwa-skill](https://github.com/alchaincyf/nuwa-skill) | **Nuwa** — cognitive-diversity skill distillation factory. Distill mental models của public figures (Munger, Feynman, Taleb, v.v.) thành runnable perspective skills. | MIT | `.devin/skills/nuwa-skill/` (commit `27642f5`, 2026-07-27) | cosign_signature: `pending` | sbom_hash: `pending` | commit_hash: `27642f5` |
 
 ---
 

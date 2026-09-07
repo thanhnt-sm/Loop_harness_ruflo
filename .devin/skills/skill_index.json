@@ -1,7 +1,25 @@
 {
   "_description": "Skill Index for Progressive Loading (U-H7). Load this at boot (~2KB). Full skill bodies loaded on-demand when skill invoked.",
-  "_version": "1.0.0",
-  "_generated": "2026-08-16",
+  "_version": "1.1.0",
+  "_generated": "2026-09-04",
+"trigger_schema": {
+    "pattern": "^[\\w\\.][\\w\\. \\-_/]*$",
+    "description": "Triggers: word char or dot start, then word chars, dot, space, hyphen, underscore, slash",
+    "max_length": 64
+  },
+  "namespaces": {
+    "core": {
+      "path": ".devin/skills/core/",
+      "description": "Core trusted skills - pre-validated triggers",
+      "trusted": true
+    },
+    "dynamic": {
+      "path": ".devin/skills/dynamic/",
+      "description": "Dynamic/Nuwa-generated skills - require review",
+      "trusted": false,
+      "requires_review": true
+    }
+  },
   "skills": {
     "adversarial-consensus": {
       "path": ".devin/skills/adversarial-consensus/SKILL.md",
@@ -9,7 +27,8 @@
       "executor": "active-model",
       "description": "6+ persona adversarial review (Saboteur, New Hire, Security Auditor, Architect, Code Reviewer, Git Workflow Master)",
       "size_kb": 11,
-      "priority": "high"
+      "priority": "high",
+      "namespace": "core"
     },
     "aide-memory": {
       "path": ".devin/skills/aide-memory/SKILL.md",
@@ -17,7 +36,8 @@
       "executor": "active-model",
       "description": "Persistent cross-session memory (recall/remember/search)",
       "size_kb": 7.5,
-      "priority": "high"
+      "priority": "high",
+      "namespace": "core"
     },
     "assets": {
       "path": ".devin/skills/assets/SKILL.md",
@@ -25,7 +45,8 @@
       "executor": "internal",
       "description": "Internal asset store for slop patterns and vault templates",
       "size_kb": 0.5,
-      "priority": "low"
+      "priority": "low",
+      "namespace": "core"
     },
     "auditor": {
       "path": ".devin/skills/auditor.md",
@@ -33,7 +54,8 @@
       "executor": "auditor",
       "description": "Adversarial code review - find security holes, false assumptions, failure modes",
       "size_kb": 2.5,
-      "priority": "high"
+      "priority": "high",
+      "namespace": "core"
     },
     "claim-grader": {
       "path": ".devin/skills/claim-grader.md",
@@ -41,7 +63,8 @@
       "executor": "active-model",
       "description": "Grade claims as [fact], [inference], or [unverified]. Prevent hallucinated assertions.",
       "size_kb": 2,
-      "priority": "medium"
+      "priority": "medium",
+      "namespace": "core"
     },
     "comment_checker": {
       "path": ".devin/skills/comment_checker.md",
@@ -49,7 +72,8 @@
       "executor": "active-model",
       "description": "Detect AI-slop comments - filler, over-explanation, restating the obvious, hedge words",
       "size_kb": 2,
-      "priority": "medium"
+      "priority": "medium",
+      "namespace": "core"
     },
     "context-compactor": {
       "path": ".devin/skills/context-compactor.md",
@@ -57,7 +81,8 @@
       "executor": "active-model",
       "description": "Compress context when oversized. Caveman protocol - 65% reduction, 4 compression levels",
       "size_kb": 2,
-      "priority": "high"
+      "priority": "high",
+      "namespace": "core"
     },
     "customize-opencode": {
       "path": "built-in",
@@ -65,7 +90,8 @@
       "executor": "built-in",
       "description": "Configure opencode itself - agents, subagents, skills, plugins, MCP servers, permissions",
       "size_kb": 0,
-      "priority": "low"
+      "priority": "low",
+      "namespace": "core"
     },
     "fable-judge": {
       "path": ".devin/skills/fable-judge.md",
@@ -73,7 +99,8 @@
       "executor": "active-model",
       "description": "Adversarial verification of finished work. Re-runs claimed verifications, diffs what actually changed",
       "size_kb": 2,
-      "priority": "high"
+      "priority": "high",
+      "namespace": "core"
     },
     "full-power": {
       "path": ".devin/skills/full-power/SKILL.md",
@@ -81,7 +108,8 @@
       "executor": "lightning",
       "description": "Full Power Mode - 3-Phase (Plan→Approve→Execute) with max parallel, adversarial review, QC gates",
       "size_kb": 20,
-      "priority": "high"
+      "priority": "high",
+      "namespace": "core"
     },
     "gap-scan": {
       "path": ".devin/skills/gap-scan.md",
@@ -89,7 +117,8 @@
       "executor": "active-model",
       "description": "Scan for gaps between current state and goal. Find missing pieces, untested paths, incomplete coverage",
       "size_kb": 2.5,
-      "priority": "medium"
+      "priority": "medium",
+      "namespace": "core"
     },
     "glm": {
       "path": ".devin/skills/glm/SKILL.md",
@@ -97,7 +126,8 @@
       "executor": "glm-executor",
       "description": "GLM-5.2 executor - free tier (200K context), lean planner/reviewer",
       "size_kb": 13.5,
-      "priority": "medium"
+      "priority": "medium",
+      "namespace": "core"
     },
     "graph-verify": {
       "path": ".devin/skills/graph-verify.md",
@@ -105,7 +135,8 @@
       "executor": "active-model",
       "description": "Verify knowledge graph integrity - check node connections, detect orphan nodes, validate edges",
       "size_kb": 2,
-      "priority": "low"
+      "priority": "low",
+      "namespace": "core"
     },
     "harness-sensor": {
       "path": ".devin/skills/harness-sensor.md",
@@ -113,7 +144,8 @@
       "executor": "active-model",
       "description": "Runs structural, build, and syntax checks deterministically on code changes",
       "size_kb": 3,
-      "priority": "high"
+      "priority": "high",
+      "namespace": "core"
     },
     "harness-upgrade": {
       "path": ".devin/skills/harness-upgrade/SKILL.md",
@@ -121,7 +153,8 @@
       "executor": "active-model",
       "description": "Self-review + upgrade workspace to best harness for weak models + small context",
       "size_kb": 7.5,
-      "priority": "high"
+      "priority": "high",
+      "namespace": "core"
     },
     "hlk-git-tools": {
       "path": ".devin/skills/hlk-git-tools/SKILL.md",
@@ -129,7 +162,8 @@
       "executor": "active-model",
       "description": "Safe git tools - doctor check, commit blocks secrets, push no force, safe-sync",
       "size_kb": 2.3,
-      "priority": "medium"
+      "priority": "medium",
+      "namespace": "core"
     },
     "hlk-integrity-check": {
       "path": ".devin/skills/hlk-integrity-check/SKILL.md",
@@ -137,7 +171,8 @@
       "executor": "active-model",
       "description": "Verify HLK layer integrity after merge/pull. Detect lost hooks, MCP wrapper, .gitignore rules",
       "size_kb": 2.3,
-      "priority": "medium"
+      "priority": "medium",
+      "namespace": "core"
     },
     "hlk-loop": {
       "path": ".devin/skills/hlk-loop/SKILL.md",
@@ -145,7 +180,8 @@
       "executor": "active-model",
       "description": "HLK Loop Runner — pipeline tự học, wave song song, thu hoạch learnings. status/dry-run/reset.",
       "size_kb": 2.0,
-      "priority": "medium"
+      "priority": "medium",
+      "namespace": "core"
     },
     "init_deep": {
       "path": ".devin/skills/init_deep.md",
@@ -153,7 +189,8 @@
       "executor": "active-model",
       "description": "Deep initialization for large repos - scan structure, build index, identify conventions, create registry",
       "size_kb": 2.5,
-      "priority": "low"
+      "priority": "low",
+      "namespace": "core"
     },
     "kimi": {
       "path": ".devin/skills/kimi/SKILL.md",
@@ -161,7 +198,8 @@
       "executor": "kimi-executor",
       "description": "Kimi K2.7 executor - free tier until July 5 2026, lean planner/reviewer",
       "size_kb": 5.5,
-      "priority": "medium"
+      "priority": "medium",
+      "namespace": "core"
     },
     "lightning": {
       "path": ".devin/skills/lightning/SKILL.md",
@@ -169,7 +207,8 @@
       "executor": "lightning-executor",
       "description": "SWE-1.7 Lightning executor - high speed (1000 tok/s) for concrete implementation",
       "size_kb": 13.5,
-      "priority": "medium"
+      "priority": "medium",
+      "namespace": "core"
     },
     "loop-memory": {
       "path": ".devin/skills/loop-memory.md",
@@ -177,7 +216,8 @@
       "executor": "active-model",
       "description": "Sync loop state across sessions - regenerate registry, archive completed loops, restore in-progress",
       "size_kb": 2.5,
-      "priority": "medium"
+      "priority": "medium",
+      "namespace": "core"
     },
     "memory-audit": {
       "path": ".devin/skills/memory-audit.md",
@@ -185,7 +225,8 @@
       "executor": "active-model",
       "description": "Audit memory quality - check for stale entries, duplicates, contradictions, low-confidence memories",
       "size_kb": 2.5,
-      "priority": "low"
+      "priority": "low",
+      "namespace": "core"
     },
     "nuwa-skill": {
       "path": ".devin/skills/nuwa-skill/SKILL.md",
@@ -193,7 +234,8 @@
       "executor": "active-model",
       "description": "Cognitive skill distillation - input name/topic/vague need, output runnable perspective skill",
       "size_kb": 37,
-      "priority": "high"
+      "priority": "high",
+      "namespace": "core"
     },
     "plan": {
       "path": ".devin/skills/plan/SKILL.md",
@@ -201,7 +243,8 @@
       "executor": "active-model",
       "description": "Plan Phase - auto orchestrate via plan_orchestrator.py (Brainstorm→SDD→Approval→Plan→QC→Plan Approval)",
       "size_kb": 19.5,
-      "priority": "high"
+      "priority": "high",
+      "namespace": "core"
     },
     "slop-detector": {
       "path": ".devin/skills/slop-detector.md",
@@ -209,7 +252,8 @@
       "executor": "active-model",
       "description": "Detect AI-generated filler, generic abstractions, meaningless identifiers in prose/docs/code",
       "size_kb": 2.5,
-      "priority": "medium"
+      "priority": "medium",
+      "namespace": "core"
     },
     "systematic_debugging": {
       "path": ".devin/skills/systematic_debugging.md",
@@ -217,7 +261,8 @@
       "executor": "active-model",
       "description": "Systematic debugging methodology - reproduce, isolate, hypothesize, test, fix, verify",
       "size_kb": 2.5,
-      "priority": "medium"
+      "priority": "medium",
+      "namespace": "core"
     },
     "tdd": {
       "path": ".devin/skills/tdd.md",
@@ -225,7 +270,8 @@
       "executor": "active-model",
       "description": "Test-Driven Development - write failing test first, implement to pass, refactor",
       "size_kb": 2.5,
-      "priority": "medium"
+      "priority": "medium",
+      "namespace": "core"
     },
     "update_from_repos": {
       "path": ".devin/skills/update_from_repos/SKILL.md",
@@ -233,7 +279,8 @@
       "executor": "active-model",
       "description": "Safe workspace update from REPOS.md - detect upstream, assess risk, cherry-pick, protect HLK/local",
       "size_kb": 21.5,
-      "priority": "medium"
+      "priority": "medium",
+      "namespace": "core"
     },
     "user-preference": {
       "path": ".devin/skills/user-preference.md",
@@ -241,7 +288,8 @@
       "executor": "active-model",
       "description": "Learn and apply user preferences - coding style, communication style, tool preferences, workflow habits",
       "size_kb": 2.5,
-      "priority": "low"
+      "priority": "low",
+      "namespace": "core"
     },
     "using-skills": {
       "path": ".devin/skills/using-skills.md",

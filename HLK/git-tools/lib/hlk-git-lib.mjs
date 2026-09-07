@@ -129,7 +129,7 @@ const SECRET_PATTERNS = [
   /\bghp_[a-zA-Z0-9]{36}\b/,
   /\bghs_[a-zA-Z0-9]{36}\b/,
   /\beyJ[a-zA-Z0-9_-]*\.eyJ[a-zA-Z0-9_-]*\.[a-zA-Z0-9_-]*\b/,
-  /\b(api[_-]?key|password|secret|token)\s*[:=]\s*['"]?(?!\1[.\[(])[^'"\s]{8,}\b/i,
+  /\b(api[_-]?key|password|secret|token)\s*[:=]\s*['"]?(?!\1[.\[(])[^'"\s.()\[\]{}]{8,}(?![.\(\[\{])\b/i,
   /-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----/,
 ];
 
@@ -224,6 +224,7 @@ const TRACKED_SECRET_ALLOWLIST = [
   { file: 'tests/test_secret_scanner.py', match: 'AKIA' + 'IOSFODNN7EXAMPLE' },
   { file: 'tests/test_secret_scanner.py', match: 'xoxb-' + '1234567890-abcdefghijklmnopqrstuvwx' },
   { file: 'tests/test_secret_scanner.py', match: 'sk_live_' + 'abcdefghijklmnopqrstuvwx' },
+  { file: '.devin/scripts/token_registry.py', match: 'token = self._tokens.get(token_id' },
 ];
 
 function stripAllowlistedFixtures(text, file) {

@@ -1,0 +1,22 @@
+{
+  "WORKSPACE_PATH": "D:/100.Software/Github/Loop_harness_new/Loop_harness_ruflo",
+  "AUTHORIZED_TARGETS_AND_PATHS": [".devin/", "AGENTS.md", "CLAUDE.md", "docs/", "tools/", "tests/"],
+  "EXCLUDED_TARGETS": ["HLK/", ".env", ".git/", "node_modules/", "__pycache__/"],
+  "ENVIRONMENT": "NO_PRODUCTION_ACCESS",
+  "CHANGE_MODE": "AUDIT_ONLY",
+  "ONLINE_RESEARCH": "ENABLED",
+  "MAX_WALL_TIME": 1800,
+  "MAX_TEST_COST": 0,
+  "MAX_CONCURRENCY": 2,
+  "APPROVER": "NONE",
+  "ITERATION_ID": "1",
+  "PREVIOUS_ITERATION_ID": "NONE",
+  "CURRENT_DATE_TIMEZONE": "2026-09-04T00:00:00+00:00",
+  "ARTIFACT_ROOT": "docs/reports/harness-upgrade-v5-1",
+  "LOG_PATH": "docs/reports/harness-upgrade-log.md",
+  "BASELINE_COMMANDS": ["hook_integrity.py --verify", "context_projection.py --report", "pytest -q"],
+  "AUTHORIZED_TOOLS": ["read", "grep", "glob", "bash", "webfetch", "websearch"],
+  "AUTHORIZED_NETWORK_DESTINATIONS": [],
+  "MODEL_RUNTIME_ALLOWLIST": ["glm-executor", "kimi-executor", "lightning-executor"],
+  "MAX_SOURCE_AGE_DAYS": 180
+}

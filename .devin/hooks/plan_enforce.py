@@ -331,6 +331,27 @@ def main():
     # Kiểm tra: task hiện tại có approved plan không?
     plan_state = _get_plan_state_for_task(root, task_slug, _fingerprint(task_desc), task_desc)
     if plan_state.get("status") == "approved":
+        # CHG-007: Task-scoped permissions — validate tool against task's required_tools
+        if tool_name and tool_name.lower() not in {"write", "edit", "notebook_edit"}:
+            # Non-write tools (read, grep, etc.) allowed if plan approved
+            pass
+        else:
+            # For write tools, check if tool is in task's required_tools
+            required_tools = set(plan_state.get("required_tools", []))
+            approved_tools = set(plan_state.get("approved_tools", []))
+            allowed_tools = required_tools | approved_tools
+            
+            if required_tools and tool_name not in allowed_tools:
+                block_reason = (
+                    f"PLAN ENFORCEMENT: Task-scoped permission violation. "
+                    f"Tool '{tool_name}' not in task's required_tools/approved_tools: "
+                    f"{sorted(allowed_tools)}. "
+                    f"Task requires explicit tool declaration in plan. "
+                    f"Update plan with required_tools or request approval for this tool."
+                )
+                print(json.dumps({"allow": False, "reason": block_reason, "enforcement": "task_scoped_permissions"}))
+                sys.exit(1)
+        
         print(json.dumps({"allow": True, "reason": f"plan approved: {plan_state.get('plan_file', 'unknown')}"}))
         sys.exit(0)
 

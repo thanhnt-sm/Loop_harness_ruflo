@@ -1,6 +1,6 @@
 # Harness Engineering — Design Principles (Caveman Compressed)
 
-> Architectural guidelines for codebases/specs optimally harnessable by AI agents. Not runtime red lines — they make harnesses cheaper, more effective, more maintainable.
+> Architectural guidelines for codebases/specs optimally harnessable by AI agents.
 > Sources: OpenAI, Anthropic, Mitchell Hashimoto, 温煜鈞, 李宏毅, deusyu/harness-engineering.
 
 ---
@@ -60,6 +60,7 @@ Not "better prompt" problems.
 **Nicholas Carlini's C compiler**: each model tier needed *redesigned* harness — but redesign *removed* compensation layers new model no longer needed, while *adding* infrastructure layers new autonomy demanded. Not "more/less harness" — **shift left from compensation to infrastructure**.
 
 ### Rule (Bifurcated Depreciation)
+
 - **Classify every component: infrastructure or compensation.** Infrastructure appreciates; compensation depreciates. Mixing = over-invest in dying, under-invest in growing.
 - **On model upgrade, audit compensation for absorption.** If model does X natively → compensation for X obsolete → remove (REDLINES §"Harness evolution" assumption expiry). Keeping = overhead + context rot.
 - **Infrastructure needs *more* precision, not less.** Stronger model = higher variety = Ashby's law demands more regulator variety. Gap between harnessed/unharnessed *widens* with model strength.
@@ -119,6 +120,7 @@ For production agent repos:
 3. **Make app agent-operable** — git worktree isolation (parallel tasks, no state collision); local observability (LogQL/PromQL in temp env); protocol-based access (DevTools, HTTP health, screenshots). Makes "service starts <800ms" **verifiable by agent itself**.
 
 ### Rule
+
 - Prefer boring tech for agent-facing surfaces. Cutting-edge on agent path = more hallucination, wrong assumptions.
 - If upstream opaque, consider reimplementing subset. Opaque deps = agent traps.
 - Make app startable from git worktree. Enables parallel agent tasks with isolation.
@@ -135,6 +137,7 @@ For production agent repos:
 - **Multi-language cross-validation** — implement SPEC in Elixir/TypeScript/Go/Rust/Java/Python. Divergent interpretations reveal spec ambiguity. Turns "spec clear?" into repeatable experiment.
 
 ### Rule
+
 - Distribute harness → ship SPEC.md + WORKFLOW.md, not code. Code = reference impl; spec = product.
 - SPEC defines problem; impl details = local agent decisions.
 - WORKFLOW.md captures implicit team process. "Everyone knows it" → must write.
@@ -164,11 +167,13 @@ For production agent repos:
 | Spaghetti control flow | Agent can't reason "what if I change X" |
 
 ### Ambient Affordances
+
 > "Environment has structural properties — readability, navigability, processability — determining harnessability." (Ned Letcher)
 
 Not constraints you add — codebase properties making constraints easier/harder. Improve by refactoring toward these.
 
 ### Rule
+
 - Assess harnessability before building harness. Low = high cost. Consider refactoring first.
 - Strong types > weak for agent-facing code. Type checker = free, fast, deterministic sensor.
 - Clear module boundaries enable arch constraints. Without them, linter rules impossible.
@@ -184,6 +189,7 @@ Not constraints you add — codebase properties making constraints easier/harder
 **Law**: System variety > Regulator variety → unregulated outputs escape. System variety ≤ Regulator variety → harness feasible. LLM generates almost anything (high variety); checking every output impossible. **Selecting topology (arch, layering, allowed patterns) reduces variety to manageable range.** Constraints reduce **error space**, not useful output — agent freer within bounds because harness verifies within bounds.
 
 ### Rule
+
 - Harness must cover agent's output variety. If agent produces X and harness can't check X → unregulated escape. Add check or constrain agent from X.
 - Reducing solution space = valid harness strategy. Arch rules, layer deps, allowed patterns cut variety to checkable range.
 - "Stricter constraints = more autonomy" = cybernetically grounded. Agent more autonomous within bounds because harness verifies within bounds.
@@ -209,6 +215,7 @@ Every concept extracted into AHD canon must follow 6 sections.
 | "When user stuck on decision, lists pros but can't conclude; or asks 'how to succeed at X'" | "When user needs to think" ← too vague, over-activates |
 
 ### Rule (RIA++)
+
 - Every canon concept needs all 6 RIA++ sections. R, I, E mandatory. A1, A2, B mandatory for new; existing may backfill.
 - **A2 (trigger) most critical.** Perfect content + vague trigger = never activated = useless. Spend most time on A2.
 - **B (boundary) prevents over-activation.** Without B, concept = hammer. Always write anti-scenarios.
@@ -220,9 +227,10 @@ Every concept extracted into AHD canon must follow 6 sections.
 
 ## Rule Placement & Attention Management (Lost in the Middle)
 
-> LLMs pay less attention to middle of long docs. Security rules at line 300 of 600 = effectively unwritten. **Where rule lives matters as much as what it says.**
+> LLMs pay less attention to middle of long docs (Liu et al. 2024). Security rules at line 300 of 600 = effectively unwritten. **Where rule lives matters as much as what it says.**
 
 ### Principle
+
 ```
 [High attention] ... [Low attention] ... [High attention]
    ^start                              ^end
@@ -237,12 +245,14 @@ Every concept extracted into AHD canon must follow 6 sections.
 | Security constraint adherence | 60% | 95% |
 
 ### Enforcement
+
 1. **Critical rules at top of entry file.** First 30 lines = "Read First" block.
 2. **Entry files = routers, not encyclopedias.** <80 lines. Long content → separate files.
 3. **Security rules in own file** (SECURITY.md/REDLINES.md), referenced from top.
 4. **Audit rule placement.** If violated frequently → check: buried? Move up.
 
 ### Rule
+
 - First 30 lines of entry file = "golden position." Only critical, non-negotiable rules there.
 - No security rule below line 80 of any file agent reads at BOOT. Move to dedicated security file + reference from top.
 - Entry file structure: Read First → Routing → Hard Constraints → Workflow. Security in Read First, not Hard Constraints (past golden position).

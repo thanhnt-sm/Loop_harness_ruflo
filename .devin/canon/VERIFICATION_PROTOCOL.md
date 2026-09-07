@@ -1,11 +1,6 @@
 # Verification Protocol — Maker ≠ Checker (Caveman Compressed)
 
-> Producer never verifies. Models self-grade leniently. Fresh observer catches what author misses. OpenAI/Anthropic/Cloudflare/Stripe converge on separation.
-
----
-
-## Why
-Models self-grade leniently (arXiv 2306.05685). Author invested → skewed incentives. Fresh observer with same criteria catches blind spots. Not theory — top production lever.
+> Producer never verifies. Models self-grade leniently (arXiv 2306.05685). Fresh observer catches blind spots.
 
 ---
 
@@ -28,11 +23,13 @@ Models self-grade leniently (arXiv 2306.05685). Author invested → skewed incen
 ---
 
 ## Fresh-Context Verification (L/XL)
+
 Give verifier: file paths, AC, minimal context (<2KB). No history/reasoning. Cold read.
 
 ---
 
 ## Report Contract
+
 ```
 ## Verdict [PASS|FAIL|PARTIAL|NEEDS_ESCALATION]
 ## Evidence-graded
@@ -56,6 +53,7 @@ Give verifier: file paths, AC, minimal context (<2KB). No history/reasoning. Col
 ---
 
 ## PARTIAL Verdict (U33)
+
 **Criteria**: ≥50% AC met, remaining blocked by external dep, value delivered.
 
 | Use PARTIAL | Use FAIL |
@@ -68,6 +66,7 @@ Give verifier: file paths, AC, minimal context (<2KB). No history/reasoning. Col
 ---
 
 ## Circuit Breakers (stop & ask human)
+
 - Verification fails same way 2 rounds
 - Destructive side effect imminent (delete/force-push/bulk)
 - AC ambiguous (2+ interpretations)
@@ -77,11 +76,13 @@ Give verifier: file paths, AC, minimal context (<2KB). No history/reasoning. Col
 ---
 
 ## Self-Verification ONLY for
+
 S-tier: <5 lines, 1 file, no verification chain (e.g., update date in `loop_state.md`). Else → external verify.
 
 ---
 
 ## SHA Discipline (Stale Evidence Trap)
+
 **Rule**: Review/verification status only valid for exact version run. After any write → re-verify. Never carry verdict across versions.
 
 ---
@@ -94,17 +95,20 @@ S-tier: <5 lines, 1 file, no verification chain (e.g., update date in `loop_stat
 | **Weak ⚠️** | Probabilistic agent judgment / cross-report | Fresh-context read-back, LLM-as-judge, multi-agent debate, report consistency, public benchmark | Yes — bias, familiarity, blind spots |
 
 ### Why LLM-as-judge is Weak
+
 - arXiv 2306.05685: Models score own writing higher; humans can't detect
 - arXiv 2404.13076: Bias = familiarity (prefers "reads like me"); cross-family same tier doesn't fix
 - **Network of weak anchors = louder echo chamber, not strong anchor.** Need ≥1 link to reality no agent can alter.
 
 ### Frozen Nodes (Holdout Principle)
+
 - Test data agent never sees (holdout exam, frozen AC written before start)
 - Real-world outcomes (deploy synced? customer paid? CI passed?)
 - Human judgment ("right thing to build?")
 - **Frozen node agent can read = no longer frozen** (will overfit). Enforce at OS/permission, not prompt.
 
 ### Rules
+
 - Classify each method as strong/weak before relying. "Fresh-context verified" = weak. "verify.py passed" = strong.
 - Prefer ≥1 strong anchor when available. If both feasible → use both. If only fresh-context → deploy passes per REDLINES #9, add "Uncertain" note.
 - Weak anchors additive, not substitutive. Two weak ≠ one strong.
@@ -114,6 +118,7 @@ S-tier: <5 lines, 1 file, no verification chain (e.g., update date in `loop_stat
 ---
 
 ## Multi-Agent Debate (High-Risk)
+
 For security/architecture/irreversible:
 1. Dispatch 2 independent verifiers (diff context, ideally diff model family)
 2. Collect both verdicts
@@ -147,6 +152,7 @@ If neither available → CANNOT mark complete. Mark `NEEDS_ESCALATION`, ask huma
 ---
 
 ## No Gold-Plating
+
 Scope fence = task boundary; no-gold-plating = change boundary (diff minimal).
 
 | Rule | Check |
@@ -159,6 +165,7 @@ Scope fence = task boundary; no-gold-plating = change boundary (diff minimal).
 | Adjacent work | Note only, don't do |
 
 ### Pre-Diff Self-Check
+
 1. Could reviewer trace every hunk to request? No → cut
 2. Added function/param/branch "just in case"? Yes → cut
 3. New error path reachable? State cannot occur → cut
@@ -172,6 +179,7 @@ Scope fence = task boundary; no-gold-plating = change boundary (diff minimal).
 ---
 
 ## Bottleneck Shift
+
 Before AI: bottleneck = writing code. After AI: bottleneck = defining + verifying correct.
 
 | Before | After |
@@ -227,6 +235,7 @@ Code surviving expected lifetime → reclassify.
 ---
 
 ## Start Small > Null
+
 ```
 No test → 0% coverage → unlimited risk
 Partial → N% coverage → risk bounded
@@ -269,6 +278,7 @@ Jump 0%→N% > N%→100%. **Start with what you can define.**
 - Reasoning w/o comp → slow, expensive, can't scale
 
 **AHD Mapping**:
+
 | Component | Q |
 |-----------|---|
 | AGENTS.md/CLAUDE.md/REDLINES.md/BOOT_PROTOCOL.md | Q2 |
@@ -331,6 +341,7 @@ Every candidate concept must pass 3 independent checks before canon admission.
 | **V3 Exclusivity** | Non-obvious to competent practitioner? | "Ashby's Law applied to harness" — most don't connect | "Test your code" — everyone knows |
 
 **Application**:
+
 | Phase | Checks |
 |-------|--------|
 | Source analysis | ≥2 times in source? (V1) |
@@ -338,6 +349,7 @@ Every candidate concept must pass 3 independent checks before canon admission.
 | Canon admission | Non-obvious to competent AI engineer? (V3) |
 
 **Failure modes**:
+
 | Failure | Defense |
 |---------|---------|
 | V1 cheating (same example rephrased) | Require: diff chapters + objects + conclusions |
@@ -377,6 +389,7 @@ Decoy: "My harness getting too complex after model upgrade"
 **Blind testing**: Prefer independent sub-agent (fresh context) — give concept+desc+prompt, not expected answer. Fallback: self-test (lower confidence).
 
 **Thresholds**:
+
 | Pass rate | Action |
 |-----------|--------|
 | 100% | Accept |
@@ -421,6 +434,7 @@ Traditional linters assume idioms/intent/real imports/honesty. AI violates all: 
 | 🏗️ **Structure** | Structural Issues | Bare except, star imports, anti-patterns — structurally wrong |
 
 ### Slop Score = `/goal` Convergence Metric
+
 ```
 /goal loop: "reduce slop score to <50"
   - Check: sloppylint --ci --max-score 50
@@ -482,6 +496,7 @@ Models leave named lines verbatim in report when condition holds. Missing owed l
 ---
 
 ## In This Harness
+
 - `.devin/canon/VERIFICATION_PROTOCOL.md` — rule shipped to every tool
 - `.devin/agents/workers/VERIFIER.md` — Verifier worker (fresh context, checklist)
 - `.devin/agents/workers/AUDITOR.md` — Auditor worker (fresh context, adversarial)
@@ -492,6 +507,7 @@ Models leave named lines verbatim in report when condition holds. Missing owed l
 ---
 
 ## The Honest Limit
+
 Verification confirms: file exists, build passes, criteria met, marker present. **Cannot confirm**: design good, taste right, best choice among valid options. Escalate to human. Not failure — honest clause.
 
 ---
@@ -501,6 +517,7 @@ Verification confirms: file exists, build passes, criteria met, marker present. 
 **Problem**: Nuwa cognitive verification expensive. Without ROI, can't justify cost or know when to reduce.
 
 **Metrics in session_state**:
+
 ```json
 {
   "nuwa_metrics": {
@@ -518,6 +535,7 @@ Verification confirms: file exists, build passes, criteria met, marker present. 
 - Minimum 20 runs before meaningful
 
 **Usage**:
+
 ```bash
 # Record Nuwa run
 .venv/bin/python .devin/scripts/nuwa_roi.py --session <sid> --record-nuwa --bugs 3 --tokens 5000

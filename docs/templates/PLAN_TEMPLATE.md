@@ -14,6 +14,7 @@
 | **Risk Tier** | `[FILL IN: P0 / P1 / P2 / P3]` |
 | **Quality Score** | `[FILL IN: 0.0–10.0]` |
 | **SDD Reference** | `[FILL IN: đường dẫn file SDD hoặc SDD-ID]` |
+| **Required Tools** | `[FILL IN: danh sách tool cần thiết, ví dụ: write, edit, bash, read, grep, glob, task, skill]` |
 
 ---
 

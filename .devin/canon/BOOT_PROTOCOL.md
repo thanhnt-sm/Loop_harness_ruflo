@@ -19,6 +19,8 @@
 ---
 
 ## Tier S — Quick Start (1-8)
+
+<!-- CONDITION: tier_s | PRIORITY: critical -->
 1. Read `.devin/AGENTS.md` (~3KB)
 2. Ensure `.devin/loop_state.md` exists
 3. Read registry (<3KB)
@@ -31,6 +33,8 @@
 ---
 
 ## Tier M — Standard (1-12)
+
+<!-- CONDITION: tier_m_or_l_or_xl | PRIORITY: high -->
 1-8 same as Tier S. Then:
 9. **Pre-task audit** — `pre_task_audit.py --root <root> --session <sid>`. Stale >30min → `suspected_crashed`. Overlap → ask human.
 10. **GoalSpec** — write to `loop_state/<sid>.md` + `session_state/<sid>.json`:
@@ -41,6 +45,8 @@
 ---
 
 ## Tier L/XL — Full (1-17)
+
+<!-- CONDITION: tier_l_or_xl | PRIORITY: high -->
 1-12 same as Tier M. Then:
 13. Deep-memory check (if `~/.deep-memory/.venv` exists)
 14. Large-repo init (if >50 source files → `init_deep` skill)
@@ -53,6 +59,8 @@
 ---
 
 ## Rules (All Tiers)
+
+<!-- CONDITION: always | PRIORITY: critical -->
 - Do NOT read all canon at BOOT. Load on demand.
 - Do NOT start work without GoalSpec for L/XL.
 - Do NOT read every session_state/loop_state at BOOT. Registry first, then one file.
@@ -62,6 +70,8 @@
 ---
 
 ## U40: Minimal Mode (Graceful Degradation)
+
+<!-- CONDITION: degraded_mode | PRIORITY: critical -->
 If MCP unreachable, hook error, config parse error, or state dir missing → minimal safe config (pre_tool_use, post_tool_use, stop, ahd_session only).
 
 Keeps: pre_tool_use, post_tool_use, stop, ahd_session.

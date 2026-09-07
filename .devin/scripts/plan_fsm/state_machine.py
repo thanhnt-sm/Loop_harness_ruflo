@@ -583,6 +583,30 @@ def _handle_plan_approval(state: dict, results: dict, root: Path) -> dict:
         state["approval_status"] = "approved"
         state["state"] = C.STATE_WRITE_STATE
         append_history(state, "plan_approval", "Plan approved")
+        
+        # CHG-007: Extract required_tools from plan file and add to state
+        plan_path = state.get("plan_path", "")
+        if plan_path:
+            try:
+                import re
+                plan_file = root / plan_path
+                if plan_file.exists():
+                    plan_content = plan_file.read_text(encoding="utf-8")
+                    # Extract Required Tools from metadata table
+                    match = re.search(r"\|\s*\*\*Required Tools\*\*\s*\|\s*\[FILL IN:\s*([^\]]+)\]", plan_content)
+                    if match:
+                        tools_str = match.group(1).strip()
+                        # Parse comma-separated tools
+                        required_tools = [t.strip() for t in tools_str.split(",") if t.strip()]
+                        if required_tools:
+                            state["required_tools"] = required_tools
+                            # Also set as approved_tools initially (can be extended later)
+                            state["approved_tools"] = required_tools.copy()
+                            append_history(state, "plan_approval", f"Required tools extracted: {required_tools}")
+            except Exception as e:
+                print(f"[plan_fsm] Warning: Failed to extract required_tools: {e}", file=sys.stderr)
+        
+        append_history(state, "plan_approval", "Plan approved")
     elif decision == "rejected":
         state["approval_status"] = "rejected"
         state["rejection_reason"] = results.get("reason", "")

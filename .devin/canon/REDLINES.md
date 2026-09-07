@@ -6,6 +6,8 @@
 ---
 
 ## Top 5 (Always Loaded at BOOT)
+
+<!-- CONDITION: always | PRIORITY: critical -->
 1. **No overwrite without backup.** `.bak` existing config before write. No exceptions.
 2. **No destructive ops without confirmation.** `rm -rf`, force-push, drop table, bulk-delete → stop, wait human.
 3. **No secrets in logs/state.** Never write keys/tokens/passwords to session_state, journal, tool logs.
@@ -15,6 +17,8 @@
 ---
 
 ## Additional (Load `docs/REDLINES_full.md` for Detail)
+
+<!-- CONDITION: detailed_audit | PRIORITY: medium -->
 6. No configs for undetected tools — detection sacred.
 7. No canon drift — entry files generated from canon, don't edit directly.
 8. No hardcoded paths — use registry + env expansion.
@@ -34,6 +38,8 @@
 ---
 
 ## Enforcement Layers
+
+<!-- CONDITION: detailed_audit | PRIORITY: medium -->
 | Layer | Bypassable? |
 |-------|-------------|
 | Prompt | Yes — can ignore |
@@ -46,6 +52,8 @@
 ---
 
 ## L0-L4 Permission Taxonomy
+
+<!-- CONDITION: permission_design | PRIORITY: high -->
 | Tier | Approval? | Example |
 |------|-----------|---------|
 | L0 | No | grep, ls, read public file |
@@ -59,4 +67,6 @@ Unclassified = L4 (deny by default).
 ---
 
 ## Risk Formula: Permission × Automation × Trust
+
+<!-- CONDITION: risk_assessment | PRIORITY: high -->
 Cut one factor → incident probability drops 10x. Cut Permission (OS level) if only one.

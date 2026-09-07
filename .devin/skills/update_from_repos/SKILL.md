@@ -144,12 +144,23 @@ Với mỗi repo behind, trả lời:
 - Clone upstream tạm.
 - Diff local vs upstream: `.venv/bin/python .devin/scripts/show_diff.py --source-id nuwa-skill`.
 - Chạy dry-run trước: `.venv/bin/python .devin/scripts/merge_updates.py --source-id <id> --dry-run`.
+- **Supply Chain Gate (CHG-005):** Before vendoring, verify cosign signature + generate SBOM:
+  ```bash
+  # Verify cosign signature on upstream release/tag
+  cosign verify --certificate-oidc-issuer=https://token.actions.githubusercontent.com \
+    --certificate-identity-regexp=https://github.com/<owner>/<repo> \
+    ghcr.io/<owner>/<repo>:<tag>
+  # Generate SBOM with syft
+  syft ghcr.io/<owner>/<repo>:<tag> -o spdx-json > sbom-<repo>.spdx.json
+  # Record provenance in REPOS.md
+  ```
 - Liệt kê **tất cả file đã tồn tại ở target** mà upstream cũng có. Phân loại:
   - **core file** (`SKILL.md`, `README*.md`, `COMMUNITY.md`, `CONTRIBUTING.md`, `LICENSE`, `references/`, `scripts/`): copy nếu upstream mới hơn.
   - **local customization** (`ATTRIBUTION.md`, ví dụ cũ, file user đã sửa): **không tự động overwrite** — diff + báo user từng file.
 - **Không copy** `promo/`, large images, examples ngoài 3 examples đã có (trừ khi user yêu cầu).
 - **Không xóa** file ở target chỉ vì upstream không còn.
 - Cập nhật `ATTRIBUTION.md` bằng cách *append* thông tin upstream mới, không xóa phần local.
+- **Record provenance in REPOS.md**: add `cosign_signature`, `sbom_hash`, `commit_hash` fields for the vendored skill.
 - Update `REPOS.md`.
 - Commit: `chore: update <repo-id> to <sha>`.
 - Chạy `verify-workspace.ps1` + `hlk-verify-integrity.js` + `tools/import_smoke_test.py` (nếu skill có `.py`).

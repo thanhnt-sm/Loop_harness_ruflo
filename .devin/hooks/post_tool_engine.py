@@ -361,4 +361,131 @@ def main():
     except Exception as e:
         print(f"[post_tool_use] unexpected exception: {e}", file=sys.stderr)
 
+    # CHG-004: Memory Write Gate (RC-004) — validate knowledge_distill writes
+    try:
+        _memory_write_gate(data, session_id, root)
+    except Exception as e:
+        print(f"[post_tool_use] CHG-004 memory write gate error: {e}", file=sys.stderr)
+
+    # CHG-006: Drift Detection Hook (RC-006) — run drift_detect + alert routing
+    try:
+        _drift_detection_gate(data, session_id, root)
+    except Exception as e:
+        print(f"[post_tool_use] CHG-006 drift detection gate error: {e}", file=sys.stderr)
+
     sys.exit(0)
+
+
+def _memory_write_gate(data: dict, session_id: str, root: Path) -> None:
+    """CHG-004: Memory Write Gate (RC-004).
+    
+    Detects writes to .agents/knowledge_distill.md and runs validation:
+    1. memory_audit.py validates trigger+action+counter
+    2. claim-grader grades evidence quality
+    """
+    tool_name = data.get("tool_name", "")
+    tool_input = data.get("tool_input", {})
+    tool_response = data.get("tool_response", {})
+    
+    # Only check file write tools
+    if tool_name not in ("write", "Write", "edit", "Edit"):
+        return
+    
+    file_path = tool_input.get("path", "") or tool_input.get("file_path", "")
+    if not file_path:
+        return
+    
+    # Check if writing to knowledge_distill.md
+    if "knowledge_distill.md" not in file_path and "knowledge_distill" not in file_path:
+        return
+    
+    # Run memory_audit.py validation
+    try:
+        import subprocess
+        result = subprocess.run(
+            [sys.executable, "tools/memory_audit.py", "--session", session_id],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        if result.returncode != 0:
+            print(
+                f"[CHG-004 MEMORY GATE] Validation failed for knowledge_distill write:\n"
+                f"{result.stderr}",
+                file=sys.stderr,
+            )
+    except subprocess.TimeoutExpired:
+        print("[CHG-004 MEMORY GATE] Validation timed out (30s)", file=sys.stderr)
+    except Exception as e:
+        print(f"[CHG-004 MEMORY GATE] Validation error: {e}", file=sys.stderr)
+    
+    # Run claim-grader for evidence grading (best-effort)
+    try:
+        import subprocess
+        result = subprocess.run(
+            [sys.executable, "-m", "claim_grader", "--file", file_path],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        if result.returncode != 0:
+            print(f"[CHG-004 CLAIM GRADER] Evidence grading failed:\n{result.stderr}", file=sys.stderr)
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass  # claim-grader not available or timeout
+    except Exception as e:
+        print(f"[CHG-004 CLAIM GRADER] Error: {e}", file=sys.stderr)
+
+
+def _drift_detection_gate(data: dict, session_id: str, root: Path) -> None:
+    """CHG-006: Drift Detection Hook (RC-006).
+    
+    Runs drift_detect.py on model outputs and writes alerts to context_flags.
+    """
+    tool_name = data.get("tool_name", "")
+    tool_response = data.get("tool_response", {})
+    
+    # Only run on model outputs (not all tools)
+    if tool_name not in ("write", "Write", "edit", "Edit", "bash", "Bash", "Shell", "Execute", "exec"):
+        return
+    
+    try:
+        import subprocess
+        result = subprocess.run(
+            [sys.executable, ".devin/scripts/drift_detect.py", "--session", session_id],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        
+        if result.returncode != 0 and result.stderr:
+            # Drift detected - write to context_flags
+            try:
+                import ahd_session
+                flags = ahd_session.read_context_flags(session_id, root)
+                drift_alerts = flags.get("drift_alerts", [])
+                drift_alerts.append({
+                    "ts": ahd_session.now_utc(),
+                    "tool": tool_name,
+                    "message": result.stderr[:500],
+                })
+                # Keep last 10 alerts
+                if len(drift_alerts) > 10:
+                    drift_alerts = drift_alerts[-10:]
+                ahd_session.write_context_flags(
+                    session_id,
+                    {"drift_alerts": drift_alerts},
+                    root,
+                )
+                print(
+                    f"[CHG-006 DRIFT GATE] Drift alert written to context_flags: {result.stderr[:200]}",
+                    file=sys.stderr,
+                )
+            except Exception as e:
+                print(f"[CHG-006 DRIFT GATE] Failed to write context_flags: {e}", file=sys.stderr)
+    except subprocess.TimeoutExpired:
+        print("[CHG-006 DRIFT GATE] Detection timed out (30s)", file=sys.stderr)
+    except Exception as e:
+        print(f"[CHG-006 DRIFT GATE] Error: {e}", file=sys.stderr)
