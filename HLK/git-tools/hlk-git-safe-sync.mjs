@@ -44,6 +44,7 @@ let NO_PUSH = args.includes('--no-push');
 let NO_PULL = args.includes('--no-pull');
 let NO_ADD = args.includes('--no-add');
 let NO_MERGE_MAIN = args.includes('--no-merge-main');
+let NO_CI = args.includes('--no-ci');
 let REMOTE = 'origin';
 let BRANCH = null;
 let MAIN_BRANCH = 'main';
@@ -186,6 +187,20 @@ async function main() {
   }
   log('success', 'Commit OK.');
 
+  // Bước 3b: CI Check — kiểm tra .githooks + .github + CI equivalents trước push
+  if (NO_CI) {
+    log('info', 'Bỏ qua CI check (--no-ci).');
+  } else {
+    log('info', 'Chạy hlk-git-ci-check.mjs...');
+    const ciStatus = runScript('hlk-git-ci-check.mjs', []);
+    if (ciStatus !== 0) {
+      log('error', 'CI check thất bại. Push bị dừng để tránh GitHub Actions lỗi.');
+      log('warn', 'Dùng --no-ci để bỏ qua bước này.');
+      process.exit(1);
+    }
+    log('success', 'CI check OK.');
+  }
+
   // Bước 4: Push — đẩy lên remote
   if (NO_PUSH) {
     log('info', 'Bỏ qua push (--no-push).');
@@ -220,7 +235,7 @@ async function main() {
   }
 
   log('info', '');
-  log('success', 'Safe sync hoàn thành: doctor → pull → commit → push → merge-main.');
+  log('success', 'Safe sync hoàn thành: doctor → pull → commit → ci-check → push → merge-main.');
 }
 
 main();
