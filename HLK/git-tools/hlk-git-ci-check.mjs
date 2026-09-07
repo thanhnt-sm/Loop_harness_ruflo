@@ -318,14 +318,23 @@ async function main() {
     const preCommitPath = path.join(CWD, '.githooks', 'pre-commit');
     if (fs.existsSync(preCommitPath)) {
       log('info', '  Chạy .githooks/pre-commit trực tiếp...');
-      // Thử chạy bằng bash (git-bash trên Windows, bash/zsh trên *nix)
-      const shell = process.platform === 'win32' ? 'bash' : 'bash';
-      const r = runCmd(shell, [preCommitPath], CWD, true);
-      if (r.status !== 0) {
-        errors.push('pre-commit hook chạy thất bại');
-        hasErrors = true;
+      // Thử tìm shell có sẵn: bash (Linux/macOS, Git-Bash Windows), sau đó sh
+      let shell = null;
+      for (const candidate of ['bash', 'sh']) {
+        const probe = runCmd(candidate, ['--version']);
+        if (probe.status === 0) { shell = candidate; break; }
+      }
+      if (!shell) {
+        log('warn', '  [SKIP] Không tìm thấy bash/sh — bỏ qua chạy pre-commit trực tiếp');
+        log('info', '  (Git sẽ tự chạy pre-commit qua core.hooksPath khi commit)');
       } else {
-        log('success', '  ✅ pre-commit hook PASSED');
+        const r = runCmd(shell, [preCommitPath], CWD, true);
+        if (r.status !== 0) {
+          log('error', '  ❌ pre-commit hook chạy thất bại');
+          hasErrors = true;
+        } else {
+          log('success', '  ✅ pre-commit hook PASSED');
+        }
       }
     }
   }
