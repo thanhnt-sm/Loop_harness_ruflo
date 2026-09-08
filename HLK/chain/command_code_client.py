@@ -92,7 +92,7 @@ def _validate_cc_cli_path(path: str) -> tuple[bool, str]:
     # Allow "/foo/command-code" or "\\foo\\command-code" or "C:\\foo\\command-code"
     # Basename phải là "command-code"
     import os.path as _op
-    basename = _op.basename(path)
+    basename = path.replace("\\", "/").split("/")[-1]
     if basename != "command-code":
         return False, f"basename phải là 'command-code', got: {basename!r}"
     # Path phải có dấu phân cách (để tránh "command-codeX")
