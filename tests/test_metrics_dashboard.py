@@ -7,7 +7,8 @@ from pathlib import Path
 
 import pytest
 
-ROOT = Path("D:/100.Software/Github/Loop_harness_new/Loop_harness_ruflo")
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "HLK"))
 sys.path.insert(0, str(ROOT / "HLK" / "scripts"))
 import metrics_dashboard  # noqa: E402
 

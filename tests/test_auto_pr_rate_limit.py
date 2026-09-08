@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-ROOT = Path("D:/100.Software/Github/Loop_harness_new/Loop_harness_ruflo")
+ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "HLK"))
 from chain import auto_pr_runner as chain  # noqa: E402
 
