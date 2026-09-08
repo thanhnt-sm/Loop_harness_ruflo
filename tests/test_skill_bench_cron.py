@@ -14,7 +14,7 @@ if str(SCRIPT_DIR) not in sys.path:
 
 import skill_bench  # noqa: E402
 
-ROOT = Path("D:/100.Software/Github/Loop_harness_new/Loop_harness_ruflo")
+ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = ROOT / ".devin" / "scripts" / "skill_bench.py"
 
 
@@ -24,7 +24,7 @@ def test_cron_mode_skips_when_already_ran_today(tmp_path):
     state_file.write_text(datetime.utcnow().strftime("%Y-%m-%d"), encoding="utf-8")
     out_dir = tmp_path / "out"
     r = subprocess.run(
-        ["py", str(SCRIPT), str(ROOT / ".devin/skills"), str(out_dir / "report.md"),
+        [sys.executable, str(SCRIPT), str(ROOT / ".devin/skills"), str(out_dir / "report.md"),
          "--schedule-cron", "--state-file", str(state_file)],
         capture_output=True, text=True, cwd=str(ROOT), timeout=30,
     )
@@ -39,7 +39,7 @@ def test_cron_mode_runs_when_no_state(tmp_path):
     state_file = tmp_path / "state"  # không tạo
     out_dir = tmp_path / "out"
     r = subprocess.run(
-        ["py", str(SCRIPT), str(ROOT / ".devin/skills"), str(out_dir / "report.md"),
+        [sys.executable, str(SCRIPT), str(ROOT / ".devin/skills"), str(out_dir / "report.md"),
          "--schedule-cron", "--state-file", str(state_file)],
         capture_output=True, text=True, cwd=str(ROOT), timeout=60,
     )
@@ -58,7 +58,7 @@ def test_cron_mode_runs_when_state_yesterday(tmp_path):
     state_file.write_text(yesterday, encoding="utf-8")
     out_dir = tmp_path / "out"
     r = subprocess.run(
-        ["py", str(SCRIPT), str(ROOT / ".devin/skills"), str(out_dir / "report.md"),
+        [sys.executable, str(SCRIPT), str(ROOT / ".devin/skills"), str(out_dir / "report.md"),
          "--schedule-cron", "--state-file", str(state_file)],
         capture_output=True, text=True, cwd=str(ROOT), timeout=60,
     )

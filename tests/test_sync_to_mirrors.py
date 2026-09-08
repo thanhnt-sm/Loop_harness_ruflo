@@ -7,14 +7,14 @@ from pathlib import Path
 
 import pytest
 
-ROOT = Path("D:/100.Software/Github/Loop_harness_new/Loop_harness_ruflo")
+ROOT = Path(__file__).resolve().parent.parent
 SYNC_SCRIPT = ROOT / "HLK" / "scripts" / "sync_to_mirrors.py"
 
 
 def test_sync_script_runs():
     """sync_to_mirrors.py --dry-run chạy thành công."""
     r = subprocess.run(
-        ["py", str(SYNC_SCRIPT), "--dry-run", "--target", "all"],
+        ["python3", str(SYNC_SCRIPT), "--dry-run", "--target", "all"],
         capture_output=True, cwd=str(ROOT), timeout=30,
     )
     assert r.returncode == 0
