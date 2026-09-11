@@ -9,6 +9,10 @@ from pathlib import Path
 
 import pytest
 
+import sys
+from pathlib import Path
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "tools"))
 from golden_set_miner import (
     GoldenTask,
     mine_merged_prs,

@@ -100,10 +100,10 @@ def run_chain(
     _print(f"  OK: {len(tests)} test file(s)", verbose)
 
     # Step 5: Run pytest
-    _print("\n[5/6] Run pytest...", verbose)
+    _print("\\n[5/6] Run pytest...", verbose)
     result = subprocess.run(
-        ["py", "-m", "pytest", str(out_dir), "-o", "addopts=", "-p", "no:cacheprovider", "--no-cov", "-q"],
-        capture_output=True, text=True, cwd=str(HLK_DIR.parent),
+        [sys.executable, "-m", "pytest", str(out_dir), "-o", "addopts=", "-p", "no:cacheprovider", "--no-cov", "-q"],
+        capture_output=True, text=True, cwd=str(Path(__file__).resolve().parent.parent.parent),
     )
     pytest_pass = result.returncode == 0
     _print(f"  Exit code: {result.returncode}", verbose)

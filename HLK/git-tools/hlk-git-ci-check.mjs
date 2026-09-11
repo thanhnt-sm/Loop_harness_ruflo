@@ -51,13 +51,15 @@ function runCmd(cmd, cmdArgs, cwd = CWD, inherit = false) {
 }
 
 function findPython() {
-  try {
-    const r = runCmd('python', ['--version']);
-    if (r.status === 0) return 'python';
-  } catch { /* */ }
+  // Thử python3 trước (macOS/Linux)
   try {
     const r = runCmd('python3', ['--version']);
     if (r.status === 0) return 'python3';
+  } catch { /* */ }
+  // Fallback: python (Windows)
+  try {
+    const r = runCmd('python', ['--version']);
+    if (r.status === 0) return 'python';
   } catch { /* */ }
   return null;
 }

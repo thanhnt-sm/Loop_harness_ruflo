@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-ROOT = Path("D:/100.Software/Github/Loop_harness_new/Loop_harness_ruflo")
+ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = ROOT / "HLK" / "scripts" / "gen_lazy_init.py"
 
 
@@ -18,7 +18,7 @@ def test_script_exists():
 def test_generate_produces_content():
     """Chạy script và verify output có đủ modules + symbols."""
     r = subprocess.run(
-        ["py", str(SCRIPT), "--check"],
+        ["python3", str(SCRIPT), "--check"],
         capture_output=True, cwd=str(ROOT), timeout=30,
     )
     stdout = r.stdout.decode("utf-8", errors="replace")
@@ -39,13 +39,13 @@ def test_idempotent(tmp_path):
     tmp_script = tmp_path / "gen_lazy_init.py"
     shutil.copy(SCRIPT, tmp_script)
     subprocess.run(
-        ["py", str(tmp_script), "--repo", str(tmp_path)],
+        ["python3", str(tmp_script), "--repo", str(tmp_path)],
         capture_output=True, timeout=30,
     )
     init_path = tmp_chain / "__init__.py"
     content1 = init_path.read_text(encoding="utf-8")
     subprocess.run(
-        ["py", str(tmp_script), "--repo", str(tmp_path)],
+        ["python3", str(tmp_script), "--repo", str(tmp_path)],
         capture_output=True, timeout=30,
     )
     content2 = init_path.read_text(encoding="utf-8")
@@ -65,7 +65,7 @@ def test_check_mode_no_write(tmp_path):
     tmp_script = tmp_path / "gen_lazy_init.py"
     shutil.copy(SCRIPT, tmp_script)
     subprocess.run(
-        ["py", str(tmp_script), "--repo", str(tmp_path), "--check"],
+        ["python3", str(tmp_script), "--repo", str(tmp_path), "--check"],
         capture_output=True, timeout=30,
     )
     # File KHÔNG bị thay đổi
@@ -85,7 +85,7 @@ def test_module_count(tmp_path):
     tmp_script = tmp_path / "gen_lazy_init.py"
     shutil.copy(SCRIPT, tmp_script)
     r = subprocess.run(
-        ["py", str(tmp_script), "--repo", str(tmp_path)],
+        ["python3", str(tmp_script), "--repo", str(tmp_path)],
         capture_output=True, timeout=30,
     )
     assert r.returncode == 0

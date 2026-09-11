@@ -48,7 +48,8 @@ def _is_cross_family(producer: str, verifier: str) -> bool:
     return _get_family(producer) != _get_family(verifier)
 
 
-def main():
+def main() -> None:
+    """Main entrypoint for cross family verify hook."""
     try:
         data = json.load(sys.stdin)
     except (json.JSONDecodeError, OSError):

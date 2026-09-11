@@ -50,26 +50,16 @@ def _create_subagent_context(
     }
 
 
-def _run_subagent(
-    subagent_context: Dict[str, Any],
-    executor: str = "glm-executor",
-    timeout: int = 120
-) -> Dict[str, Any]:
-    """Run sub-agent in isolated process.
-    
-    In practice, this would spawn a fresh model context.
-    Here we simulate by running a focused task with limited context.
-    """
-    subagent_id = subagent_context["subagent_id"]
-    task_brief = subagent_context["task_brief"]
-    allowed_tools = subagent_context["allowed_tools"]
-    
-    # Build prompt for sub-agent
-    system_prompt = f"""You are a sub-agent with ID {subagent_id}.
+def _build_subagent_prompt(subagent_context: Dict[str, Any]) -> str:
+    """Build the system prompt for the sub-agent."""
+    subagent_id = subagent_context.get("subagent_id", "")
+    task_brief = subagent_context.get("task_brief", "")
+    allowed_tools = subagent_context.get("allowed_tools", [])
+    return f"""You are a sub-agent with ID {subagent_id}.
 Task: {task_brief}
 
 Constraints:
-- Context budget: {subagent_context['context_budget']} tokens
+- Context budget: {subagent_context.get('context_budget', 0)} tokens
 - Allowed tools: {', '.join(allowed_tools)}
 - Return ONLY a concise summary + key findings
 - Do NOT include full file contents unless critical
@@ -81,9 +71,10 @@ FINDINGS: <bullet points>
 FILES_READ: <list of paths>
 TOKENS_USED: <estimate>
 """
-    
-    # Simulate sub-agent execution via focused subprocess
-    # In real implementation, this would call the model API with isolated context
+
+
+def _probe_executor(task_brief: str, fallback_executor: str) -> str:
+    """Run a probe to select the best executor for the task."""
     scripts_dir = str(Path(__file__).resolve().parent)
     brief_json = json.dumps(task_brief[:200])
     probe = (
@@ -93,14 +84,34 @@ TOKENS_USED: <estimate>
         "    from auto_model_router import select_executor; "
         f"    print(select_executor({brief_json})['executor']); "
         "except Exception as e: "
-        f"    print({executor!r})"
+        f"    print({fallback_executor!r})"
     )
     result = subprocess.run(
         [sys.executable, "-c", probe],
         capture_output=True, text=True, timeout=10
     )
+    return result.stdout.strip() if result.returncode == 0 else fallback_executor
 
-    selected_executor = result.stdout.strip() if result.returncode == 0 else executor
+
+def _run_subagent(
+    subagent_context: Dict[str, Any],
+    executor: str = "glm-executor",
+    timeout: int = 120
+) -> Dict[str, Any]:
+    """Run sub-agent in isolated process.
+    
+    In practice, this would spawn a fresh model context.
+    Here we simulate by running a focused task with limited context.
+    """
+    subagent_id = subagent_context.get("subagent_id", "")
+    task_brief = subagent_context.get("task_brief", "")
+    
+    # Build prompt for sub-agent
+    system_prompt = _build_subagent_prompt(subagent_context)
+    
+    # Simulate sub-agent execution via focused subprocess
+    # In real implementation, this would call the model API with isolated context
+    selected_executor = _probe_executor(task_brief, executor)
     
     # Return simulated result (in real implementation, this would be model output)
     return {
@@ -137,6 +148,19 @@ def _compress_subagent_output(result: Dict[str, Any], max_tokens: int = 1000) ->
     return compressed
 
 
+def _build_fallback_result(subagent_id: str, task_brief: str, error_str: str) -> Dict[str, Any]:
+    """Build a fallback result dictionary when sub-agent execution fails."""
+    return {
+        "subagent_id": subagent_id,
+        "status": "failed",
+        "error": error_str,
+        "summary": f"Failed: {task_brief[:100]}",
+        "findings": [],
+        "files_read": [],
+        "tokens_used": 0,
+    }
+
+
 def run_subagent(
     task_brief: str,
     parent_session_id: str = "",
@@ -171,7 +195,6 @@ def run_subagent(
     
     subagent_id = f"sub-{uuid.uuid4().hex[:8]}"
     
-    # Create sub-agent context
     context = _create_subagent_context(
         parent_session_id=parent_session_id,
         subagent_id=subagent_id,
@@ -181,24 +204,12 @@ def run_subagent(
     )
     
     try:
-        # Run sub-agent
         result = _run_subagent(context, executor=executor)
-        
         if compress_output:
             result["compressed_output"] = _compress_subagent_output(result)
-        
         return result
-        
     except Exception as e:
-        return {
-            "subagent_id": subagent_id,
-            "status": "failed",
-            "error": str(e),
-            "summary": f"Failed: {task_brief[:100]}",
-            "findings": [],
-            "files_read": [],
-            "tokens_used": 0,
-        }
+        return _build_fallback_result(subagent_id, task_brief, str(e))
 
 
 def run_parallel_subagents(

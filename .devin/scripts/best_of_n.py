@@ -67,8 +67,8 @@ def _verify_code_quality(code: str, root: Path, session_id: str = "") -> float:
             if result.returncode != 0:
                 score -= 20
         except Exception as e:
-            import sys
-            print(f"Error: {e}", file=sys.stderr)
+            import sys as sys_err
+            print(f"Error: {e}", file=sys_err.stderr)
             score -= 20
 
         # 3. Slop detection (25 pts) - check for AI filler patterns
@@ -80,10 +80,13 @@ def _verify_code_quality(code: str, root: Path, session_id: str = "") -> float:
             r"\b(in order to|please note|additionally|importantly|essentially)\b",
         ]
         import re
+        has_slop = False
         for pattern in slop_patterns:
             if re.search(pattern, code, re.IGNORECASE):
-                score -= 5
+                has_slop = True
                 break
+        if has_slop:
+            score -= 5
 
         # 4. Has proper structure (25 pts) - functions, classes, docstrings
         has_func = bool(re.search(r"^\s*def\s+\w+", code, re.MULTILINE))
@@ -95,16 +98,16 @@ def _verify_code_quality(code: str, root: Path, session_id: str = "") -> float:
             score -= 10
 
     except Exception as e:
-        import sys
-        print(f"Error: {e}", file=sys.stderr)
+        import sys as sys_err
+        print(f"Error: {e}", file=sys_err.stderr)
         score -= 10
     finally:
         try:
             import shutil
             shutil.rmtree(tmp_dir, ignore_errors=True)
         except Exception as e:
-            import sys
-            print(f"Error removing temp dir {tmp_dir}: {e}", file=sys.stderr)
+            import sys as sys_err
+            print(f"Error removing temp dir {tmp_dir}: {e}", file=sys_err.stderr)
 
     return max(0, min(100, score))
 
@@ -136,15 +139,15 @@ def _verify_test_pass(code: str, test_path: str, root: Path) -> float:
                     return passed / total * 100
         return 100 if result.returncode == 0 else 0
     except Exception as e:
-        import sys
-        print(f"Error: {e}", file=sys.stderr)
+        import sys as sys_err
+        print(f"Error: {e}", file=sys_err.stderr)
         return 0
     finally:
         try:
             os.unlink(temp_path)
         except Exception as e:
-            import sys
-            print(f"Error unlinking {temp_path}: {e}", file=sys.stderr)
+            import sys as sys_err
+            print(f"Error unlinking {temp_path}: {e}", file=sys_err.stderr)
 
 
 def best_of_n(

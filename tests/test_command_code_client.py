@@ -8,7 +8,7 @@ from unittest import mock
 
 import pytest
 
-SCRIPT_DIR = Path(__file__).resolve().parent.parent / ".devin" / "scripts"
+SCRIPT_DIR = Path(__file__).resolve().parent.parent / "HLK" / "chain"
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
@@ -130,7 +130,7 @@ def test_chat_redacts_secret_before_sending():
         chat("My config: AKIAIOSFODNN7EXAMPLE")
         # _invoke_cc phải nhận redacted prompt
         # Get the actual prompt passed to _invoke_cc
-        called_prompt = mock_invoke.call_args.kwargs.get("prompt") if mock_invoke.call_args and hasattr(mock_invoke.call_args, "kwargs") else (mock_invoke.call_args[0][0] if mock_invoke.call_args and len(mock_invoke.call_args[0]) > 0 else "")
+        called_prompt = mock_invoke.call_args.kwargs.get("prompt") if mock_invoke.call_args and hasattr(mock_invoke.call_args, "kwargs") and mock_invoke.call_args.kwargs else mock_invoke.call_args[0][0] if mock_invoke.call_args and mock_invoke.call_args[0] else ""
         assert "AKIAIOSFODNN7EXAMPLE" not in called_prompt
         assert "[REDACTED:aws_access_key]" in called_prompt
 
@@ -143,7 +143,7 @@ def test_chat_redacts_github_pat():
         )
         chat("Token: ghp_1234567890abcdefghijklmnopqrstuvwxyz")
         # Get the actual prompt passed to _invoke_cc
-        called_prompt = mock_invoke.call_args.kwargs.get("prompt") if mock_invoke.call_args and hasattr(mock_invoke.call_args, "kwargs") else (mock_invoke.call_args[0][0] if mock_invoke.call_args and len(mock_invoke.call_args[0]) > 0 else "")
+        called_prompt = mock_invoke.call_args.kwargs.get("prompt") if mock_invoke.call_args and hasattr(mock_invoke.call_args, "kwargs") and mock_invoke.call_args.kwargs else mock_invoke.call_args[0][0] if mock_invoke.call_args and mock_invoke.call_args[0] else ""
         assert "ghp_1234567890" not in called_prompt
         assert "[REDACTED:github_pat]" in called_prompt
 
@@ -156,7 +156,7 @@ def test_chat_redacts_multiple_secrets():
         )
         chat("AWS: AKIAIOSFODNN7EXAMPLE and GH: ghp_1234567890abcdefghijklmnopqrstuvwxyz")
         # Get the actual prompt passed to _invoke_cc
-        called_prompt = mock_invoke.call_args.kwargs.get("prompt") if mock_invoke.call_args and hasattr(mock_invoke.call_args, "kwargs") else (mock_invoke.call_args[0][0] if mock_invoke.call_args and len(mock_invoke.call_args[0]) > 0 else "")
+        called_prompt = mock_invoke.call_args.kwargs.get("prompt") if mock_invoke.call_args and hasattr(mock_invoke.call_args, "kwargs") and mock_invoke.call_args.kwargs else mock_invoke.call_args[0][0] if mock_invoke.call_args and mock_invoke.call_args[0] else ""
         assert "AKIAIOSFODNN7EXAMPLE" not in called_prompt
         assert "ghp_" not in called_prompt
         assert "[REDACTED:aws_access_key]" in called_prompt
@@ -171,7 +171,7 @@ def test_chat_passes_through_when_no_secret():
         )
         chat("Đánh giá task bình thường")
         # Get the actual prompt passed to _invoke_cc
-        called_prompt = mock_invoke.call_args.kwargs.get("prompt") if mock_invoke.call_args and hasattr(mock_invoke.call_args, "kwargs") else (mock_invoke.call_args[0][0] if mock_invoke.call_args and len(mock_invoke.call_args[0]) > 0 else "")
+        called_prompt = mock_invoke.call_args.kwargs.get("prompt") if mock_invoke.call_args and hasattr(mock_invoke.call_args, "kwargs") and mock_invoke.call_args.kwargs else mock_invoke.call_args[0][0] if mock_invoke.call_args and mock_invoke.call_args[0] else ""
         assert called_prompt == "Đánh giá task bình thường"  # không bị thay đổi
 
 
@@ -186,7 +186,7 @@ def test_chat_redact_graceful_when_secret_scanner_missing():
             chat("AWS: AKIAIOSFODNN7EXAMPLE")
         # Khi import fail, prompt pass nguyên (degraded mode)
         # Get the actual prompt passed to _invoke_cc
-        called_prompt = mock_invoke.call_args.kwargs.get("prompt") if mock_invoke.call_args and hasattr(mock_invoke.call_args, "kwargs") else (mock_invoke.call_args[0][0] if mock_invoke.call_args and len(mock_invoke.call_args[0]) > 0 else "")
+        called_prompt = mock_invoke.call_args.kwargs.get("prompt") if mock_invoke.call_args and hasattr(mock_invoke.call_args, "kwargs") and mock_invoke.call_args.kwargs else mock_invoke.call_args[0][0] if mock_invoke.call_args and mock_invoke.call_args[0] else ""
         # Prompt có thể chứa secret nếu import fail → degraded mode
         assert "AKIAIOSFODNN7EXAMPLE" in called_prompt or "[REDACTED" in called_prompt
 
@@ -198,7 +198,7 @@ def test_parallel_chat_empty():
 
 def test_parallel_chat_runs_parallel():
     """3 prompts → 3 responses."""
-    with mock.patch("HLK.chain.command_code_client.chat") as mock_chat:
+    with mock.patch.object(command_code_client, "chat") as mock_chat:
         mock_chat.side_effect = lambda *a, **k: CCResponse(
             content="ok", confidence=0.8, model="sonnet", latency_ms=100,
         )

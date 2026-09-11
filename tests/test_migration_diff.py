@@ -7,14 +7,14 @@ from pathlib import Path
 
 import pytest
 
-ROOT = Path("D:/100.Software/Github/Loop_harness_new/Loop_harness_ruflo")
+ROOT = Path(__file__).resolve().parent.parent
 DIFF_SCRIPT = ROOT / "HLK" / "scripts" / "diff_compare.py"
 
 
 def test_diff_script_runs():
     """diff_compare.py chạy thành công, output có sections."""
     r = subprocess.run(
-        ["py", str(DIFF_SCRIPT)],
+        ["python3", str(DIFF_SCRIPT)],
         capture_output=True, cwd=str(ROOT), timeout=30,
     )
     assert r.returncode == 0
@@ -29,7 +29,7 @@ def test_diff_script_output_to_file(tmp_path):
     """diff_compare.py --output ghi file thành công."""
     out = tmp_path / "diff.md"
     r = subprocess.run(
-        ["py", str(DIFF_SCRIPT), "--output", str(out)],
+        ["python3", str(DIFF_SCRIPT), "--output", str(out)],
         capture_output=True, cwd=str(ROOT), timeout=30,
     )
     assert r.returncode == 0

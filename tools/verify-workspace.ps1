@@ -163,7 +163,7 @@ Check-File 'REPOS.md' 'REPOS.md reference list'
 
 # --- 9. Import smoke test ---
 Write-Host "`n[9/9] Runtime import smoke test" -ForegroundColor Yellow
-$smoke = & python "$root/tools/import_smoke_test.py" 2>&1
+$smoke = & "$root/.venv/bin/python" "$root/tools/import_smoke_test.py" 2>&1
 $smokeExit = $LASTEXITCODE
 if ($smoke -is [array]) { $smoke = $smoke -join "`n" }
 if ($smokeExit -eq 0) {

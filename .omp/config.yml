@@ -22,7 +22,7 @@ enabledModels:
   - google-antigravity/gemini-3.1-flash-image
   - devin/swe-1-6-slow
 modelRoles:
-  default: null
+  default: commandcode/meituan/LongCat-2.0:free
   plan: commandcode/poolside/laguna-s-2.1-free
   slow: commandcode/z-ai/glm-5.3-flash
   task: commandcode/poolside/laguna-s-2.1-free
