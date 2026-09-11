@@ -218,12 +218,17 @@ def _fallback_response(prompt: str, model: str, latency_ms: int, error: str) -> 
 
 
 def _invoke_cc(prompt: str, model: str, cfg: CCConfig) -> CCResponse:
-    """Gọi CC subprocess 1 lần, không retry."""
+    """Gọi CC subprocess 1 lần, không retry. Hỗ trợ process group cleanup khi timeout."""
     start = time.time()
     cmd = [cfg.cc_cli_path, "chat", "--model", model, "--prompt", prompt]
     try:
+        # P2: sử dụng kwargs để pass start_new_session giúp clean timeout 
+        kwargs = {}
+        if sys.platform != "win32":
+            kwargs["start_new_session"] = True
+            
         proc = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=cfg.timeout_seconds,
+            cmd, capture_output=True, text=True, timeout=cfg.timeout_seconds, **kwargs
         )
         latency = int((time.time() - start) * 1000)
         if proc.returncode != 0:
@@ -237,7 +242,13 @@ def _invoke_cc(prompt: str, model: str, cfg: CCConfig) -> CCResponse:
             content = proc.stdout[:5000]
             conf = 0.7
         return CCResponse(content=content, confidence=conf, model=model, latency_ms=latency)
-    except subprocess.TimeoutExpired:
+    except subprocess.TimeoutExpired as e:
+        if sys.platform != "win32" and getattr(e, "process", None):
+            try:
+                import signal
+                os.killpg(os.getpgid(e.process.pid), signal.SIGTERM)
+            except Exception:
+                pass
         latency = int((time.time() - start) * 1000)
         return _fallback_response(prompt, model, latency, f"timeout after {cfg.timeout_seconds}s")
     except FileNotFoundError:

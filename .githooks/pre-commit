@@ -6,20 +6,29 @@ set -e
 
 # --- Helper: tìm python executable (cross-platform Windows + macOS) ---
 find_python() {
-    # 1. .venv (cross-platform: Scripts/ trên Windows, bin/ trên macOS/Linux)
+    # 1. System python3 (ưu tiên — tránh .venv symlink broken trên macOS)
+    if command -v python3 >/dev/null 2>&1; then
+        if python3 -c "import sys; sys.exit(0)" 2>/dev/null; then
+            echo "python3"
+            return
+        fi
+    fi
+    # 2. .venv (cross-platform: Scripts/ trên Windows, bin/ trên macOS/Linux)
     if [ -f ".venv/Scripts/python.exe" ]; then
         echo ".venv/Scripts/python.exe"
+        return
     elif [ -f ".venv/bin/python" ]; then
-        echo ".venv/bin/python"
-    # 2. System python3 (macOS/Linux)
-    elif command -v python3 >/dev/null 2>&1; then
-        echo "python3"
-    # 3. System python (Windows)
-    elif command -v python >/dev/null 2>&1; then
-        echo "python"
-    else
-        echo ""
+        if .venv/bin/python -c "import sys; sys.exit(0)" 2>/dev/null; then
+            echo ".venv/bin/python"
+            return
+        fi
     fi
+    # 3. System python (Windows)
+    if command -v python >/dev/null 2>&1; then
+        echo "python"
+        return
+    fi
+    echo ""
 }
 
 PYTHON=$(find_python)

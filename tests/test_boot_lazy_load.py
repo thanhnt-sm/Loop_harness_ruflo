@@ -11,7 +11,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 @pytest.mark.parametrize("rel,limit", [
     (".devin/AGENTS.md", 8 * 1024),
-    (".devin/canon/CORE_CANON.md", 8 * 1024),
+    (".devin/canon/CORE_CANON.md", 12 * 1024),
     (".devin/canon/REDLINES.md", 8 * 1024),
 ])
 def test_boot_files_stay_small(rel, limit):

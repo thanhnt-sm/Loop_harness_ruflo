@@ -1,8 +1,8 @@
 ---
 context_fill_pct: 0
 caveman_level: full
-active_sessions: ["s-20260907-update-repos", "31612c4020aa", "5abe14234c82"]
-active_session: s-20260907-update-repos
+active_sessions: ["d4e05a1a-0225-4b3a-9432-5465b99aa476", "492d3d5ab87f", "x"]
+active_session: d4e05a1a-0225-4b3a-9432-5465b99aa476
 ---
 
 # Loop State Registry
@@ -10,9 +10,9 @@ active_session: s-20260907-update-repos
 ## Active sessions
 | session_id | goal | status | tags | owned_files | last_heartbeat |
 |---|---|---|---|---|---|
-| s-20260907-update-repos | update_from_repos | suspected_crashed |  |  | 2026-09-07T14:40:09+00:00 |
-| 31612c4020aa |  | in_progress |  |  | 2026-09-07T14:37:16+00:00 |
-| 5abe14234c82 |  | in_progress |  |  | 2026-09-07T14:37:01+00:00 |
+| d4e05a1a-0225-4b3a-9432-5465b99aa476 |  | in_progress |  |  | 2026-09-08T18:02:25+00:00 |
+| 492d3d5ab87f |  | in_progress |  |  | 2026-09-08T18:01:30+00:00 |
+| x |  | in_progress |  |  | 2026-09-08T18:00:06+00:00 |
 
 ## Recent sessions (last 3)
 | session_id | goal | status | tags |
