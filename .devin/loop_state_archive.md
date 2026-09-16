@@ -572,3 +572,7 @@
 <!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-09-16T13:32:10+00:00 session_id=test status=crashed cleanup_failed=False
 
 <!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-09-16T13:32:11+00:00 session_id=a8aab577-27df-47f5-aa97-4196e34e243f status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-09-16T23:18:07+00:00 session_id=test status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-09-16T23:18:08+00:00 session_id=c95a66fc-9710-4aac-8914-bc6396f1bd97 status=crashed cleanup_failed=False
