@@ -288,6 +288,10 @@ docs/plans/*/
 !docs/plans/ahd-build-strategy-implementation/
 !docs/plans/ahd-build-strategy-implementation/**
 !docs/plans/opencode-full-integration/
+!docs/plans/loop-harness-only-20260912/
+!docs/plans/loop-harness-only-20260912/**
+!docs/plans/harness-audit-20260912/
+!docs/plans/harness-audit-20260912/**
 !docs/plans/opencode-full-integration/**
 docs/plans/*.md
 docs/*

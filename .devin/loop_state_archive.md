@@ -560,3 +560,19 @@
 <!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-09-08T18:02:25+00:00 session_id=test status=crashed cleanup_failed=False
 
 <!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-09-08T18:02:25+00:00 session_id=0a5bc7fc-34bf-452c-9eac-dcbb8d17e843 status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-09-16T00:41:03+00:00 session_id=test status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-09-16T00:41:03+00:00 session_id=ec6af431-bbb0-4a53-8b33-6ab161f1c9b9 status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-09-16T00:44:30+00:00 session_id=test status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-09-16T00:44:31+00:00 session_id=668d1c5a-dd63-42e0-b3ab-c55728adb35c status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-09-16T13:32:10+00:00 session_id=test status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-09-16T13:32:11+00:00 session_id=a8aab577-27df-47f5-aa97-4196e34e243f status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-09-16T23:18:07+00:00 session_id=test status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-09-16T23:18:08+00:00 session_id=c95a66fc-9710-4aac-8914-bc6396f1bd97 status=crashed cleanup_failed=False

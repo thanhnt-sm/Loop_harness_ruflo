@@ -1,5 +1,5 @@
 # Cost Tracking Dashboard — Harness Optimization Savings
-**Generated**: 2026-09-08T18:02:59.023447+00:00
+**Generated**: 2026-09-16T13:32:47.073478+00:00
 **Repo**: workspace
 
 ## Executive Summary
@@ -70,10 +70,10 @@
 
 ### Cost Ledger Summary
 
-- **Total Entries**: 522
-- **Unique Sessions**: 94
-- **Total Tracked Cost**: $0.811680
-- **Cumulative Cost**: $3.602520
+- **Total Entries**: 549
+- **Unique Sessions**: 101
+- **Total Tracked Cost**: $0.853620
+- **Cumulative Cost**: $3.766140
 
 ## Recommendations
 
