@@ -1,6 +1,10 @@
 """DEPRECATED: moved to HLK/chain/auto_pr_runner — canonical source.
 This file is a thin re-export shim for backward compat (explicit imports, no wildcard). Edit HLK/chain/auto_pr_runner.py instead."""
 from HLK.chain.auto_pr_runner import (
+    check_coverage_matrix,
+    _validate_audit_path,
+    _audit_log_path,
+    _human_confirm,
     AUDIT_LOG_PATH, DEFAULT_CONFIG_PATH, GateCheck, GateResult, GateVerdict,
     KILL_SWITCH_PATH, LIVE_COUNTER_PATH, MAX_LIVE_PER_DAY,
     check_adversarial_consensus, check_fable_judge, check_live_daily_limit,
