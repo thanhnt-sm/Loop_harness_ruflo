@@ -22,7 +22,7 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
 
 ROOT = Path(__file__).resolve().parent.parent
 
-CODE_DIRS = (".devin/scripts", ".devin/hooks", "tests")
+CODE_DIRS = (".devin/scripts", ".devin/hooks", "tests", "HLK/chain")
 JUNK_NAME = re.compile(
     r"(^\.DS_Store$|^Thumbs\.db$|^untitled|^scratch|"
     r".*~$|.*\.(bak|tmp|orig|swp|swo|temp)$|.*\.log$)"
