@@ -2,18 +2,12 @@
 from __future__ import annotations
 
 import os
-import sys
-from pathlib import Path
 from unittest import mock
 
 import pytest
 
-SCRIPT_DIR = Path(__file__).resolve().parent.parent / "HLK" / "chain"
-if str(SCRIPT_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPT_DIR))
-
-import command_code_client  # noqa: E402
-from command_code_client import (  # noqa: E402
+from HLK.chain import command_code_client
+from HLK.chain.command_code_client import (
     CCResponse,
     chat,
     parallel_chat,

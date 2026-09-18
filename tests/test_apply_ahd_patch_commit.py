@@ -31,7 +31,7 @@ def test_commit_changes_default_does_not_commit(tmp_git_repo: Path):
         assert ok is True
 
         result = subprocess.run(["git", "log", "-1", "--pretty=%s"], cwd=tmp_git_repo, capture_output=True, text=True)
-        assert result.stdout.strip() == "init"  # no new commit
+        assert result.stdout.strip() == "Initial"  # no new commit
 
         # auto_commit=True should create commit
         ok = apply_ahd_patch.commit_changes("abc1234", "test", auto_commit=True)

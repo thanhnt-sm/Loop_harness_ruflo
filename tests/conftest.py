@@ -19,7 +19,7 @@ def tmp_git_repo(tmp_path):
     import subprocess
     repo = tmp_path / "repo"
     repo.mkdir()
-    subprocess.run(["git", "init"], cwd=repo, capture_output=True)
+    subprocess.run(["git", "init", "-b", "main"], cwd=repo, capture_output=True)
     subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=repo, capture_output=True)
     subprocess.run(["git", "config", "user.name", "Test"], cwd=repo, capture_output=True)
     (repo / "README.md").write_text("# Test")

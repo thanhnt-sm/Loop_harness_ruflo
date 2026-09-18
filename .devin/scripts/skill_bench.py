@@ -9,3 +9,8 @@ if str(ROOT) not in sys.path:
 
 from HLK.chain.skill_bench import (BenchResult, DEFAULT_PARALLEL, DEFAULT_SCENARIOS_PER_SKILL,
     _generate_scenarios_from_skill, bench_skills, render_bench_report, _parse_skill_frontmatter)  # noqa: F401
+
+
+if __name__ == "__main__":
+    import runpy
+    runpy.run_path(str(ROOT / "HLK" / "chain" / "skill_bench.py"), run_name="__main__")

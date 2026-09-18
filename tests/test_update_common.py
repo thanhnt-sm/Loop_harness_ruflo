@@ -15,6 +15,12 @@ for sub in (".devin/scripts", ".devin/hooks"):
 import update_common  # noqa: E402
 
 
+@pytest.fixture
+def tmp_repo_root(tmp_git_repo, monkeypatch):
+    monkeypatch.setattr(update_common, "REPO_ROOT", tmp_git_repo)
+    return tmp_git_repo
+
+
 # --- is_protected ---
 
 def test_is_protected_exact():
@@ -169,34 +175,34 @@ def test_file_hash_missing_and_consistent(tmp_path):
 
 # --- git state guards ---
 
-def test_get_current_branch(tmp_git_repo):
+def test_get_current_branch(tmp_repo_root):
     assert update_common.get_current_branch() == "main"
 
 
-def test_is_dirty_workspace_clean(tmp_git_repo):
+def test_is_dirty_workspace_clean(tmp_repo_root):
     assert update_common.is_dirty_workspace() is False
 
 
-def test_is_dirty_workspace_dirty(tmp_git_repo):
-    (tmp_git_repo / "dirty.txt").write_text("x", encoding="utf-8")
+def test_is_dirty_workspace_dirty(tmp_repo_root):
+    (tmp_repo_root / "dirty.txt").write_text("x", encoding="utf-8")
     assert update_common.is_dirty_workspace() is True
 
 
-def test_guard_main_branch_blocks_without_force(tmp_git_repo):
+def test_guard_main_branch_blocks_without_force(tmp_repo_root):
     assert update_common.guard_main_branch(force=False) is False
 
 
-def test_guard_main_branch_ok_with_force(tmp_git_repo):
+def test_guard_main_branch_ok_with_force(tmp_repo_root):
     assert update_common.guard_main_branch(force=True) is True
 
 
-def test_guard_clean_workspace_dirty_blocks(tmp_git_repo):
-    (tmp_git_repo / "dirty.txt").write_text("x", encoding="utf-8")
+def test_guard_clean_workspace_dirty_blocks(tmp_repo_root):
+    (tmp_repo_root / "dirty.txt").write_text("x", encoding="utf-8")
     assert update_common.guard_clean_workspace(force=False) is False
     assert update_common.guard_clean_workspace(force=True) is True
 
 
-def test_guard_clean_workspace_clean_ok(tmp_git_repo):
+def test_guard_clean_workspace_clean_ok(tmp_repo_root):
     assert update_common.guard_clean_workspace(force=False) is True
 
 
