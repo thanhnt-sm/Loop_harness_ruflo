@@ -12,7 +12,7 @@
   "ITERATION_ID": "1",
   "PREVIOUS_ITERATION_ID": "NONE",
   "CURRENT_DATE_TIMEZONE": "2026-09-04T00:00:00+00:00",
-  "ARTIFACT_ROOT": "docs/reports/harness-upgrade-v5-1",
+  "ARTIFACT_ROOT": "docs/reports/harness-upgrade-v5-2",
   "LOG_PATH": "docs/reports/harness-upgrade-log.md",
   "BASELINE_COMMANDS": ["hook_integrity.py --verify", "context_projection.py --report", "pytest -q"],
   "AUTHORIZED_TOOLS": ["read", "grep", "glob", "bash", "webfetch", "websearch"],

@@ -276,6 +276,7 @@ ruflo/
 
 # Allow selected docs/ content; block transient docs dirs by default.
 !docs/plans/
+!docs/plans/*/IMPLEMENTATION_PLAN.md
 docs/plans/*/
 !docs/plans/source-audit-fix/
 !docs/plans/source-audit-fix/**
