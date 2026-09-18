@@ -473,6 +473,7 @@ def _clear_context_flag(root: Path, session_id: str) -> None:
 
 
 def main():
+    import sys
     if len(sys.argv) < 2:
         print("Usage: context_compaction_hook.py <session_id> [level]", file=sys.stderr)
         sys.exit(1)
@@ -515,4 +516,5 @@ def main():
 
 if __name__ == "__main__":
     import os
+    import sys
     main()

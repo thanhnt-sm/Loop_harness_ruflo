@@ -1,0 +1,36 @@
+# LLM-as-Judge configuration
+# Spec: docs/plans/harness-upgrade-verify-first/IMPLEMENTATION_PLAN.md section 10.3
+
+llm_judge:
+  # null = dùng model hiện tại của session; "haiku"/"sonnet"/"opus" để override
+  default: null
+  unit_rubric: null      # judge cho từng BinaryRubric/ScoreRubric
+  final_gate: null        # judge cuối cùng trước auto-merge (recommend "opus")
+
+  redteam:
+    # Auto-spawn expert sub-agent khi confidence primary judge thấp
+    auto_spawn: true
+    personas_per_round: 3
+    pool:
+      - persona-saboteur
+      - persona-security-auditor
+      - persona-architect
+      - persona-code-reviewer
+      - persona-new-hire
+    trigger: low_confidence  # low_confidence | always | never
+    confidence_threshold: 0.7
+    parallel: true
+    # Aggregate: 3/3 agree → override; 2/3 → escalate human; 0-1 → block
+    agreement_policy:
+      unanimous_override: true
+      majority_escalate: true
+      no_consensus_block: true
+
+  cross_model_requirement: true  # judge phải khác model với builder
+
+  # Audit: mọi judge call ghi log để debug
+  audit:
+    enabled: true
+    path: .devin/state/llm_judge_audit.jsonl
+    include_prompt: true
+    include_verdict: true

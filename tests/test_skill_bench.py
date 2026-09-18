@@ -1,16 +1,11 @@
 """Tests cho skill_bench.py — benchmark mọi skill theo thời gian."""
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import pytest
 
-SCRIPT_DIR = Path(__file__).resolve().parent.parent / "HLK" / "chain"
-if str(SCRIPT_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPT_DIR))
-
-from skill_bench import (  # noqa: E402
+from HLK.chain.skill_bench import (
     BenchResult,
     _generate_scenarios_from_skill,
     _parse_skill_frontmatter,
@@ -117,7 +112,7 @@ def test_bench_one_skill_helper(tmp_path):
     (tmp_path / "SKILL1.md").parent.mkdir(exist_ok=True)
     skill1 = tmp_path / "SKILL1.md"
     skill1.write_text(SAMPLE_SKILL, encoding="utf-8")
-    from skill_bench import _bench_one_skill
+    from HLK.chain.skill_bench import _bench_one_skill
     r = _bench_one_skill(skill1, scenarios_per_skill=3)
     assert r.skill_name == "SKILL1"
     assert r.scenarios_run == 3

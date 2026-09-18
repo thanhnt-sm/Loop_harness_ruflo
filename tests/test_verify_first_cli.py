@@ -9,7 +9,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 CLI = ROOT / "scripts" / "verify_first_cli.py"
-SAMPLE_BRD = ROOT / "tmp/test_brd.md"
+SAMPLE_BRD = ROOT / "tests" / "fixtures" / "brd_sample.md"
 
 
 def test_cli_help():

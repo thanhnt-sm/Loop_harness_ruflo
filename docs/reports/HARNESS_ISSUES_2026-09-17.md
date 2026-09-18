@@ -1,4 +1,4 @@
-# Harness Issue Report — 2026-09-17 06:18
+# Harness Issue Report — 2026-09-17 16:41
 
 ## Tóm tắt
 
@@ -15,7 +15,7 @@
 | # | Category | File | Line | Description | Fix |
 |---|----------|------|------|-------------|-----|
 | 1 | QUAL-001: File Too Long | `.devin/hooks/ahd_session_durable.py` | 662 | File has 662 lines (> 500 limit) | Split into smaller modules |
-| 2 | QUAL-001: File Too Long | `.devin/hooks/context_compaction.py` | 518 | File has 518 lines (> 500 limit) | Split into smaller modules |
+| 2 | QUAL-001: File Too Long | `.devin/hooks/context_compaction.py` | 520 | File has 520 lines (> 500 limit) | Split into smaller modules |
 
 ## LOW (195 issues)
 

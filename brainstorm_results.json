@@ -1,1 +1,35 @@
-{"brainstorm_findings": ["User wants to view harness-upgrade skill content. Passed 'loop-harness-riflo:harness-upgrade' which failed. Real path is .devin/skills/harness-upgrade/SKILL.md."]}
+{
+  "action": "brainstorm",
+  "brainstorm_results": [
+    {
+      "id": "BRAINSTORM-FASTEST",
+      "angle": "Fastest to implement",
+      "question": "What is the fastest way to implement 'Harness upgrade bounded audit'? Minimal viable, fewest steps."
+    },
+    {
+      "id": "BRAINSTORM-SAFEST",
+      "angle": "Safest / most secure",
+      "question": "What is the safest way to implement 'Harness upgrade bounded audit'? Defense in depth, fail-safe defaults."
+    },
+    {
+      "id": "BRAINSTORM-SIMPLEST",
+      "angle": "Simplest to understand",
+      "question": "What is the simplest way to implement 'Harness upgrade bounded audit'? Minimal cognitive load, easy to explain."
+    },
+    {
+      "id": "BRAINSTORM-SCALE",
+      "angle": "Most scalable",
+      "question": "What is the most scalable way to implement 'Harness upgrade bounded audit'? Handles 10x growth, horizontal scale."
+    },
+    {
+      "id": "BRAINSTORM-CHEAPEST",
+      "angle": "Cheapest to run",
+      "question": "What is the cheapest way to implement 'Harness upgrade bounded audit'? Minimal resources, cost optimization."
+    },
+    {
+      "id": "BRAINSTORM-ROBUST",
+      "angle": "Most robust against black swans",
+      "question": "What is the most robust way to implement 'Harness upgrade bounded audit'? Survives unexpected failures, tail risks."
+    }
+  ]
+}

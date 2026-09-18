@@ -195,6 +195,11 @@
             "type": "command",
             "command": "bash /Users/thannt/.npm/_npx/2d4e0713f9bf7e6c/node_modules/aide-memory/scripts/hooks/pre-edit-recall.sh",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python .devin/hooks/plan_enforce.py",
+            "timeout": 10
           }
         ]
       },
@@ -204,6 +209,11 @@
           {
             "type": "command",
             "command": "bash /Users/thannt/.npm/_npx/2d4e0713f9bf7e6c/node_modules/aide-memory/scripts/hooks/pre-edit-recall.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python .devin/hooks/plan_enforce.py",
             "timeout": 10
           }
         ]

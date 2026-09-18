@@ -1,8 +1,8 @@
 ---
 context_fill_pct: 0
 caveman_level: full
-active_sessions: ["05e91971-90ff-4323-b14a-a8bb9fe21eca", "23080025afda", "x"]
-active_session: 05e91971-90ff-4323-b14a-a8bb9fe21eca
+active_sessions: ["9c7634a2-1845-48e9-be7f-c7d41e0040da", "x", "23080025afda"]
+active_session: 9c7634a2-1845-48e9-be7f-c7d41e0040da
 ---
 
 # Loop State Registry
@@ -10,9 +10,9 @@ active_session: 05e91971-90ff-4323-b14a-a8bb9fe21eca
 ## Active sessions
 | session_id | goal | status | tags | owned_files | last_heartbeat |
 |---|---|---|---|---|---|
-| 05e91971-90ff-4323-b14a-a8bb9fe21eca |  | in_progress |  |  | 2026-09-16T23:18:08+00:00 |
+| 9c7634a2-1845-48e9-be7f-c7d41e0040da |  | in_progress |  |  | 2026-09-17T16:40:35+00:00 |
+| x |  | in_progress |  |  | 2026-09-17T16:37:56+00:00 |
 | 23080025afda |  | suspected_crashed |  |  | 2026-09-16T13:33:19+00:00 |
-| x |  | suspected_crashed |  |  | 2026-09-16T13:33:08+00:00 |
 
 ## Recent sessions (last 3)
 | session_id | goal | status | tags |
