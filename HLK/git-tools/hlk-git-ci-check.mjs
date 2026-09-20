@@ -78,14 +78,12 @@ function checkGithooks() {
     return { errors, warnings, checked: false };
   }
 
-  // Kiểm tra hook files
+  // Kiểm tra hook files (chấp nhận file thường + symlink → HLK/hooks)
   const expectedHooks = ['pre-commit', 'post-merge'];
-  const actualHooks = fs.readdirSync(hooksDir, { withFileTypes: true })
-    .filter(e => e.isFile())
-    .map(e => e.name);
 
   for (const h of expectedHooks) {
-    if (!actualHooks.includes(h)) {
+    const hpath = path.join(hooksDir, h);
+    if (!fs.existsSync(hpath)) {
       errors.push(`Hook ${h} trong .githooks/ không tìm thấy`);
     } else {
       log('info', `  ✅ .githooks/${h} tồn tại`);
@@ -221,10 +219,14 @@ function checkGovernance(py) {
 
   log('info', `  Chạy: ${py} ${f}`);
   const r = runCmd(py, [f]);
-  if (r.status !== 0) {
-    errors.push(`Governance check thất bại: ${r.stdout.trim().slice(0, 200)}`);
+  // check_governance.py: 0 = sạch, 1 = lỗi, 2 = warning (không block push)
+  if (r.status === 0) {
+    log('success', `  ✅ ${r.stdout.trim().split('\n').slice(-1)[0] || 'Governance OK'}`);
+  } else if (r.status === 2) {
+    warnings.push(`Governance warnings (không block): ${r.stdout.trim().slice(0, 200)}`);
+    log('warn', `  ⚠️  Governance có warnings (cho phép push): ${r.stdout.trim().split('\n').slice(0, 5).join(' | ').slice(0, 200)}`);
   } else {
-    log('success', `  ✅ ${r.stdout.trim() || 'Governance OK'}`);
+    errors.push(`Governance check thất bại: ${r.stdout.trim().slice(0, 200)}`);
   }
 
   return errors;
