@@ -33,7 +33,7 @@
     ".devin/hooks/pre_tool_common.py": "3266a3b719644d0f24b817240a0a146a5b7bdcab31a9350b9af665433b6d9a1b",
     ".devin/hooks/pre_tool_dangerous.py": "2545b09e2f57a2153a58fec4e19511ee2c25e016f26be12fbde206659d18845b",
     ".devin/hooks/pre_tool_encoding.py": "7dc74ca9b5fd2513e3e7f46568f777ff93a6e324b1a729453ddc1582da7a2f74",
-    ".devin/hooks/pre_tool_gates.py": "bcc8b6641383324647dc98f6e64e6d46a1bc85ecfc7fd2aa887323804e42a34d",
+    ".devin/hooks/pre_tool_gates.py": "b2b1293912e10317c77680ee136d49ef266080789d9417bc80e4dacda1ef4504",
     ".devin/hooks/pre_tool_gates_security.py": "6214ac4778669a833f98f2581940f2e28ca67b5fc20ce5095782d5d6e6ca0d2e",
     ".devin/hooks/pre_tool_sandbox.py": "2695445b016f9f7d835957285f38b4f505e7efc23c4e45496983452203b94c23",
     ".devin/hooks/pre_tool_secrets.py": "f516346e54a8edf1b0950f1db089f0e47f3c569ee9ce7b11c517fd04c6dd0fb3",
