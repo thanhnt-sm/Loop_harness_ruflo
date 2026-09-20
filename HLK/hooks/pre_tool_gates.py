@@ -40,7 +40,7 @@ except (ImportError, ModuleNotFoundError, SyntaxError, ValueError):
     ALLOWED_ROOT_PATTERNS = ()  # type: ignore[assignment]
 
 try:
-    from reflection_gate import check_reflection as _check_reflection
+    import sys; from pathlib import Path; sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / ".devin" / "scripts")); from reflection_gate import check_reflection as _check_reflection
 except (ImportError, ModuleNotFoundError, SyntaxError, ValueError):
     _check_reflection = None  # type: ignore[assignment]
 
