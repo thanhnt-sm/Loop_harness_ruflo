@@ -1,4 +1,2 @@
-"""DEPRECATED: moved to HLK/chain/agent_browser_runner — canonical source.
-This file is a thin re-export shim for backward compat (explicit imports, no wildcard). Edit HLK/chain/agent_browser_runner.py instead."""
-from HLK.chain.agent_browser_runner import (BrowserStepResult, DEFAULT_CC_BIN, DEFAULT_TIMEOUT,
-    _is_cc_available, capture_screenshot, run_browser_step)  # noqa: F401
+# Generated compatibility shim. Canonical source: HLK.chain.agent_browser_runner
+from HLK.chain.agent_browser_runner import *  # noqa: F401,F403

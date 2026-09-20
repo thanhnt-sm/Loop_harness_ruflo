@@ -1,3 +1,5 @@
+<!-- POINTER: canonical source HLK/skills/README.md -->
+
 # HLK Skills Templates
 
 > Thư mục chứa skills templates — khi `hlk-install.mjs` chạy, các skills
@@ -37,3 +39,4 @@ Khi chạy `hlk-install.mjs` (hoặc `hlk-upstream-pull.mjs`):
 1. Tạo thư mục `HLK/skills/<ten-skill>/SKILL.md`
 2. SKILL.md phải có YAML frontmatter (`name`, `description`, `keywords`)
 3. Chạy lại `hlk-install.mjs` để copy sang workspace
+

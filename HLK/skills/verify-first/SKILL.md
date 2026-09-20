@@ -1,3 +1,5 @@
+<!-- POINTER: canonical source HLK/skills/verify-first/SKILL.md -->
+
 ---
 name: verify-first
 description: Verify-First chain — BRD → Scenario → Rubric → Test → Gate. Dùng khi user cung cấp BRD.md và muốn generate scenarios/rubrics/tests + gate verdict tự động. Canonical source tại HLK/skills/verify-first/SKILL.md.
@@ -147,3 +149,4 @@ HLK/chain/ (canonical implementation)
 - `docs/plans/verify-first-residual/` — Phase 2-3 plan
 - `docs/plans/fix-p0-and-deferred/` — P0 fix plan
 - `docs/plans/hardening-and-scale/` — P1 hardening plan
+

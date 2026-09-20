@@ -1,3 +1,5 @@
+<!-- POINTER: canonical source HLK/skills/hlk-upstream-pull/SKILL.md -->
+
 ---
 name: hlk-upstream-pull
 description: Pull source code mới nhất từ upstream ruflo (https://github.com/ruvnet/ruflo) vào workspace và tự động cài lại HLK layer. Dùng khi cần update Ruflo từ git upstream, đồng bộ code mới, hoặc test phản ứng của HLK khi upstream thay đổi.
@@ -141,3 +143,4 @@ git checkout -- .claude/settings.json .gitignore .gitattributes
 - npm script: `npm run upstream-pull` (trong `HLK/package.json`)
 - Self-test: `hlk-status --self-test` kiểm tra script tồn tại
 - Pack: `hlk-pack` kiểm tra script tồn tại trước khi đóng gói
+
