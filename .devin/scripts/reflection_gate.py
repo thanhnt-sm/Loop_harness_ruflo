@@ -24,6 +24,11 @@ _SCRIPT_DIR = Path(__file__).resolve().parent
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
+# Cũng thêm thư mục gốc /workspace để cho phép module resolution linh hoạt
+_WORKSPACE = Path(__file__).resolve().parent.parent.parent
+if str(_WORKSPACE) not in sys.path:
+    sys.path.insert(0, str(_WORKSPACE))
+
 from urllib.parse import urlparse
 
 from data_models import Action, ReflectVerdict  # noqa: E402
