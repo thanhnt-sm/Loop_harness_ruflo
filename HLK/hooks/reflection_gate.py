@@ -15,6 +15,8 @@ import sys
 from pathlib import Path
 
 _SCRIPT_FILE = str(Path(__file__).resolve().parent.parent / "scripts" / "reflection_gate.py")
+if not Path(_SCRIPT_FILE).exists():
+    _SCRIPT_FILE = str(Path(__file__).resolve().parent.parent.parent / ".devin" / "scripts" / "reflection_gate.py")
 
 # Load canonical scripts implementation directly (avoid circular import)
 _spec = importlib.util.spec_from_file_location("_reflection_gate_canonical", _SCRIPT_FILE)
