@@ -676,3 +676,15 @@
 <!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-09-20T05:33:30+00:00 session_id=test status=crashed cleanup_failed=False
 
 <!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-09-20T05:33:31+00:00 session_id=9f5aedc6-bd37-4051-8583-65b57ca1e70b status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-09-20T10:45:41+00:00 session_id=test status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-09-20T10:45:42+00:00 session_id=s-20260920-harness-upgrade-run2 status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-09-20T10:52:05+00:00 session_id=test status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-09-20T10:52:06+00:00 session_id=s-20260920-harness-upgrade-run2 status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-09-20T10:57:25+00:00 session_id=test status=crashed cleanup_failed=False
+
+<!-- Agent Harness Deploy-stop-hook --> session_end ts=2026-09-20T10:57:26+00:00 session_id=s-20260920-harness-upgrade-run2 status=crashed cleanup_failed=False

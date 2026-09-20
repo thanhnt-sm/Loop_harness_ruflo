@@ -1,0 +1,142 @@
+#!/bin/bash
+# Pre-commit hook — cross-platform (Windows git-bash + macOS/Linux bash)
+# Chặn: API key leaks, junk files, provider runtime state, governance violations
+
+set -e
+
+# --- Helper: tìm python executable (cross-platform Windows + macOS) ---
+find_python() {
+    # 1. System python3 (ưu tiên — tránh .venv symlink broken trên macOS)
+    if command -v python3 >/dev/null 2>&1; then
+        if python3 -c "import sys; sys.exit(0)" 2>/dev/null; then
+            echo "python3"
+            return
+        fi
+    fi
+    # 2. .venv (cross-platform: Scripts/ trên Windows, bin/ trên macOS/Linux)
+    if [ -f ".venv/Scripts/python.exe" ]; then
+        echo ".venv/Scripts/python.exe"
+        return
+    elif [ -f ".venv/bin/python" ]; then
+        if .venv/bin/python -c "import sys; sys.exit(0)" 2>/dev/null; then
+            echo ".venv/bin/python"
+            return
+        fi
+    fi
+    # 3. System python (Windows)
+    if command -v python >/dev/null 2>&1; then
+        echo "python"
+        return
+    fi
+    echo ""
+}
+
+PYTHON=$(find_python)
+
+# --- Gate 1: API key redaction check ---
+echo "=== Pre-commit Gate 1: API key redaction ==="
+
+if [ -f "dist-cjs/src/hooks/redaction-hook.js" ]; then
+    node dist-cjs/src/hooks/redaction-hook.js
+    exit_code=$?
+    if [ $exit_code -ne 0 ]; then
+        echo ""
+        echo "BLOCKED - Sensitive data detected in staged files!"
+        echo "Remove API keys and secrets before committing."
+        echo ""
+        exit 1
+    fi
+    echo "  [PASS] No API keys detected"
+else
+    echo "  [SKIP] Redaction hook not found (run 'npm run build' to enable)"
+fi
+
+# --- Gate 2: Junk file scanner (staged area) ---
+echo ""
+echo "=== Pre-commit Gate 2: Junk file scanner ==="
+
+if [ -z "$PYTHON" ]; then
+    echo "  [SKIP] Python not found - junk scanner skipped"
+else
+    $PYTHON tools/junk_file_scanner.py --staged
+    exit_code=$?
+    if [ $exit_code -ne 0 ]; then
+        echo ""
+        echo "BLOCKED - Junk files detected in staged area!"
+        echo "Remove junk files or add to .gitignore before committing."
+        echo "Run: python3 tools/junk_file_scanner.py --fix"
+        echo ""
+        exit 1
+    fi
+    echo "  [PASS] No junk files in staged area"
+fi
+
+# --- Gate 3: .gitignore audit ---
+echo ""
+echo "=== Pre-commit Gate 3: .gitignore audit ==="
+
+if [ -z "$PYTHON" ]; then
+    echo "  [SKIP] Python not found - gitignore audit skipped"
+else
+    $PYTHON tools/gitignore_audit.py --strict
+    exit_code=$?
+    if [ $exit_code -ne 0 ]; then
+        echo ""
+        echo "BLOCKED - .gitignore missing required rules!"
+        echo "Add missing rules to .gitignore before committing."
+        echo "Run: python3 tools/gitignore_audit.py"
+        echo ""
+        exit 1
+    fi
+    echo "  [PASS] .gitignore coverage OK"
+fi
+
+# --- Gate 4: Workspace governance (layout) ---
+echo ""
+echo "=== Pre-commit Gate 4: Workspace governance ==="
+
+if [ -z "$PYTHON" ]; then
+    echo "  [SKIP] Python not found - governance check skipped"
+else
+    $PYTHON tools/check_governance.py --layout-only
+    exit_code=$?
+    if [ $exit_code -ne 0 ]; then
+        echo ""
+        echo "BLOCKED - Workspace governance check failed!"
+        echo "Place files in correct directories (no root markdown/junk)."
+        echo "Run: python3 tools/check_governance.py"
+        echo ""
+        exit 1
+    fi
+    echo "  [PASS] Governance layout OK"
+fi
+
+# --- Gate 5: Dependency lock consistency (chỉ khi đụng file dependency) ---
+echo ""
+echo "=== Pre-commit Gate 5: Dependency lock consistency ==="
+
+if [ -z "$PYTHON" ]; then
+    echo "  [SKIP] Python not found - dependency check skipped"
+else
+    # Chỉ kiểm khi requirements-lock.txt / pyproject.toml / sbom được stage.
+    if git diff --cached --name-only | grep -Eq '^(requirements-lock\.txt|pyproject\.toml|sbom/)'; then
+        $PYTHON tools/check_deps.py
+        exit_code=$?
+        if [ $exit_code -ne 0 ]; then
+            echo ""
+            echo "BLOCKED - Dependency lock inconsistency detected!"
+            echo "filelock must be <3.13; pydantic-core must match pydantic; SBOM must match lock."
+            echo "Run: python3 tools/check_deps.py"
+            echo ""
+            exit 1
+        fi
+        echo "  [PASS] Dependency lock consistent"
+    else
+        echo "  [SKIP] No dependency files staged"
+    fi
+fi
+
+# --- All gates passed ---
+echo ""
+echo "=== All pre-commit gates PASSED ==="
+exit 0

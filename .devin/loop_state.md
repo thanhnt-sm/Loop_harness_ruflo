@@ -1,8 +1,8 @@
 ---
 context_fill_pct: 0
 caveman_level: full
-active_sessions: ["9156fc77-13e0-4b13-8a42-3f34e5cf7d4d", "x"]
-active_session: 9156fc77-13e0-4b13-8a42-3f34e5cf7d4d
+active_sessions: ["s-20260920-harness-upgrade-run2", "f7dc9e541545", "72b827b0fe74"]
+active_session: s-20260920-harness-upgrade-run2
 ---
 
 # Loop State Registry
@@ -10,8 +10,9 @@ active_session: 9156fc77-13e0-4b13-8a42-3f34e5cf7d4d
 ## Active sessions
 | session_id | goal | status | tags | owned_files | last_heartbeat |
 |---|---|---|---|---|---|
-| 9156fc77-13e0-4b13-8a42-3f34e5cf7d4d |  | in_progress |  |  | 2026-09-20T05:33:30+00:00 |
-| x |  | suspected_crashed |  |  | 2026-09-20T00:28:28+00:00 |
+| s-20260920-harness-upgrade-run2 |  | suspected_crashed |  |  | 2026-09-20T10:57:26+00:00 |
+| f7dc9e541545 |  | in_progress |  |  | 2026-09-20T10:57:03+00:00 |
+| 72b827b0fe74 |  | in_progress |  |  | 2026-09-20T10:53:39+00:00 |
 
 ## Recent sessions (last 3)
 | session_id | goal | status | tags |

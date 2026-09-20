@@ -1,7 +1,1 @@
-@echo off
-setlocal
-if "%~3"=="" (
-    echo.
-) else (
-    echo %~3
-)
+../../HLK/hooks/post_tool_use.cmd

@@ -1,1 +1,1 @@
-{"action": "write_plan_state", "success": true}
+{"action": "brainstorm_complete", "results": {"findings": "1. Fastest: bash loop. 2. Safest: A/B partitioning. 3. Simplest: Bash while true. 4. Scale: Message Queue. 5. Cheapest: Bash + cron. 6. Robust: WAL, atomic symlinks."}}
