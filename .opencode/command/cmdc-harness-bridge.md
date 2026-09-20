@@ -4,6 +4,8 @@
 
 <!-- POINTER: canonical source HLK/skills/cmdc-harness-bridge/SKILL.md -->
 
+<!-- POINTER: canonical source HLK/skills/cmdc-harness-bridge/SKILL.md -->
+
 ---
 name: cmdc-harness-bridge
 description: Bridge skill that points command-code to the existing .devin + .opencode + HLK harness in this workspace. Use when you need to find which skill, agent, or hook to invoke for an AHD / Devin / opencode / HLK workflow. This skill is a thin index — the real playbooks live in .devin/skills/, .opencode/skills/, and HLK/ itself.
@@ -149,6 +151,7 @@ practices 2026:
   rule cá nhân không commit.
 - `additionalDirectories: ["HLK"]` → tường minh audit, không rely on workspace
   default.
+
 
 
 

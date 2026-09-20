@@ -4,6 +4,8 @@
 
 <!-- POINTER: canonical source HLK/skills/hlk-git-tools/SKILL.md -->
 
+<!-- POINTER: canonical source HLK/skills/hlk-git-tools/SKILL.md -->
+
 ---
 name: hlk-git-tools
 description: Bộ git tools an toàn cho workspace Ruflo — doctor kiểm tra repo, commit chặn secrets, push không force, safe-sync một lệnh. Dùng khi cần commit/push an toàn, kiểm tra sức khỏe repo, hoặc sync đầy đủ doctor→commit→push.
@@ -75,6 +77,7 @@ node HLK/git-tools/hlk-git-safe-sync.mjs -m "feat: update HLK" --yes
 - Các script **không force push** — sẽ báo lỗi nếu truyền `-f`/`--force`
 - Không tự động xóa file nhạy cảm đã track trong history
 - Các thao tác nguy hiểm cần xác nhận (trừ khi `--yes`)
+
 
 
 
